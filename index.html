@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ConstruSoft | Plataforma Técnica de Presupuestos y APUs</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script>
+    (function() {
+      const savedTheme = localStorage.getItem('contrusoft_theme');
+      if (savedTheme === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+</head>
+<body>
+
+  <div class="auth-container">
+
+    <!-- Identidad de Marca (Logo terracota con templo/columnas como en la imagen) -->
+    <header class="brand-identity">
+      <div class="brand-icon-box">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 21h18"></path>
+          <path d="M5 21V7l7-4 7 4v14"></path>
+          <path d="M9 10v8"></path>
+          <path d="M15 10v8"></path>
+        </svg>
+      </div>
+      <span class="brand-title">CONSTRUSOFT</span>
+    </header>
+
+    <!-- Tarjeta Principal de Autenticación -->
+    <main class="auth-box">
+
+      <!-- Selector de Pestañas: Ingreso / Registro -->
+      <nav class="tab-switcher" aria-label="Navegación de acceso">
+        <button type="button" class="tab-btn active" id="tab-login-btn">Iniciar Sesión</button>
+        <button type="button" class="tab-btn" id="tab-register-btn">Registrar Empresa</button>
+      </nav>
+
+      <!-- ==================================================================
+           VISTA 1: INICIAR SESIÓN (LOGIN)
+           ================================================================== -->
+      <div id="login-view">
+        <div class="auth-header-text">
+          <h2>Bienvenido</h2>
+          <p>Ingrese a su espacio de trabajo técnico</p>
+        </div>
+
+        <div id="login-alert" class="alert-box alert-danger" style="display: none;"></div>
+
+        <form id="login-form" novalidate>
+          <div class="form-group">
+            <label for="login-email" class="form-label">Correo Electrónico</label>
+            <input type="email" id="login-email" class="form-input" placeholder="ingeniero@empresa.com" required autocomplete="email">
+          </div>
+
+          <div class="form-group">
+            <label for="login-password" class="form-label">Contraseña</label>
+            <input type="password" id="login-password" class="form-input" placeholder="••••••••" required autocomplete="current-password">
+          </div>
+
+          <div class="form-meta">
+            <label class="checkbox-wrap">
+              <input type="checkbox" id="remember-me" checked>
+              <span>Recordar cuenta</span>
+            </label>
+            <a href="#" id="link-forgot-password" class="link-terracota">¿Olvidaste tu contraseña?</a>
+          </div>
+
+          <button type="submit" class="btn-terracota" id="btn-login-submit">
+            Ingresar al Sistema
+          </button>
+        </form>
+
+        <!-- Fin formulario login -->
+      </div>
+
+      <!-- ==================================================================
+           VISTA 2: REGISTRO DE EMPRESA (3.1 - 3 PASOS ENCADENADOS)
+           ================================================================== -->
+      <div id="register-view" style="display: none;">
+        <div class="auth-header-text">
+          <h2>Nueva Empresa</h2>
+          <p>Active su período de prueba gratuita en 3 pasos</p>
+        </div>
+
+        <!-- Indicador de Pasos -->
+        <div class="step-bar">
+          <div class="step-node active" data-step="1">
+            <div class="step-dot">1</div>
+            <span class="step-node-text">Cuenta</span>
+          </div>
+          <div class="step-node" data-step="2">
+            <div class="step-dot">2</div>
+            <span class="step-node-text">Empresa</span>
+          </div>
+          <div class="step-node" data-step="3">
+            <div class="step-dot">3</div>
+            <span class="step-node-text">Plan</span>
+          </div>
+        </div>
+
+        <div id="register-alert" class="alert-box alert-danger" style="display: none;"></div>
+
+        <!-- PASO 1: Datos de la Cuenta -->
+        <div class="step-pane active" data-step-content="1">
+          <div class="form-group">
+            <label for="reg-nombre" class="form-label">Nombre Completo</label>
+            <input type="text" id="reg-nombre" class="form-input" placeholder="Ej. Ing. Carlos Mendoza">
+          </div>
+
+          <div class="form-group">
+            <label for="reg-email" class="form-label">Correo Electrónico</label>
+            <input type="email" id="reg-email" class="form-input" placeholder="director@constructora.com">
+          </div>
+
+          <div class="form-group">
+            <label for="reg-pass" class="form-label">Contraseña (Mínimo 8 caracteres)</label>
+            <input type="password" id="reg-pass" class="form-input" placeholder="••••••••">
+          </div>
+
+          <button type="button" class="btn-terracota" id="btn-step1-next">
+            Siguiente: Datos de la Empresa &rarr;
+          </button>
+        </div>
+
+        <!-- PASO 2: Datos de la Empresa -->
+        <div class="step-pane" data-step-content="2">
+          <div class="form-group">
+            <label for="reg-razon-social" class="form-label">Razón Social</label>
+            <input type="text" id="reg-razon-social" class="form-input" placeholder="Ej. Constructora Andina S.A.S.">
+          </div>
+
+          <div class="form-group">
+            <label for="reg-nit" class="form-label">NIT / Identificación Tributaria <span style="color:var(--terracota);">*</span></label>
+            <input type="text" id="reg-nit" class="form-input" placeholder="Ej. 901.458.789-3 o 901458789-3" maxlength="15">
+            <p style="font-size:0.72rem; color:var(--text-muted); margin-top:0.35rem;">
+              Estructura requerida: 8 a 10 dígitos con guion y dígito de verificación (ej. 901.458.789-3 o 901458789-3).
+            </p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Logotipo de la Empresa (PNG o JPG)</label>
+            <input type="file" id="reg-logo-input" accept="image/png, image/jpeg" style="display: none;">
+            
+            <div style="border:1px dashed var(--border-subtle); border-radius:var(--radius-sm); padding:1rem; text-align:center; background:var(--bg-input); cursor:pointer;" id="logo-upload-trigger">
+              <span style="font-size:0.8rem; color:var(--text-secondary); display:block;">Haga clic para subir logotipo</span>
+              <span style="font-size:0.7rem; color:var(--text-muted);">Formato PNG o JPG</span>
+            </div>
+
+            <div id="logo-preview-box" style="display:none; align-items:center; justify-content:space-between; margin-top:0.5rem; background:var(--bg-input); padding:0.5rem 0.75rem; border-radius:var(--radius-sm);">
+              <div style="display:flex; align-items:center; gap:0.5rem;">
+                <img id="logo-thumb" src="" alt="Logo" style="width:30px; height:30px; object-fit:cover; border-radius:4px;">
+                <span id="logo-filename" style="font-size:0.75rem; color:var(--text-primary);"></span>
+              </div>
+              <button type="button" id="btn-remove-logo" class="link-terracota" style="background:none; border:none; cursor:pointer; font-size:0.75rem;">Quitar</button>
+            </div>
+          </div>
+
+          <div style="display:flex; gap:0.6rem; margin-top:1.25rem;">
+            <button type="button" class="btn-outline" id="btn-step2-back" style="flex:0.4;">Atrás</button>
+            <button type="button" class="btn-terracota" id="btn-step2-next" style="flex:1;">
+              Siguiente: Seleccionar Plan &rarr;
+            </button>
+          </div>
+        </div>
+
+        <!-- PASO 3: Selección de Plan Obligatorio -->
+        <div class="step-pane" data-step-content="3">
+          
+          <div class="units-info-box">
+            <strong style="color:var(--terracota);">Precarga de 12 Unidades Estándar:</strong>
+            Al registrarse se crean automáticamente las 12 unidades (m, m², m³, kg, ton, gl, un, hr, mes, pza, sac, jor) necesarias para la creación de insumos y recursos.
+          </div>
+
+          <!-- Plan Personal -->
+          <div class="plan-option" data-plan="Personal" id="plan-card-personal">
+            <div class="plan-option-head">
+              <span class="plan-option-title">Plan Personal</span>
+              <span class="plan-option-price">$120.000 <small style="font-size:0.7rem; color:var(--text-muted);">/mes</small></span>
+            </div>
+            <p style="font-size:0.76rem; color:var(--text-secondary); margin:0;">
+              1 Ingeniero independiente • Hasta 5 proyectos activos • Catálogo base de APUs
+            </p>
+          </div>
+
+          <!-- Plan Empresarial -->
+          <div class="plan-option" data-plan="Empresarial" id="plan-card-empresarial">
+            <div class="plan-option-head">
+              <span class="plan-option-title">
+                Plan Empresarial
+                <span style="font-size:0.65rem; background:var(--terracota-subtle); color:var(--terracota); padding:0.15rem 0.35rem; border-radius:3px; margin-left:0.4rem;">RECOMENDADO</span>
+              </span>
+              <span class="plan-option-price">$380.000 <small style="font-size:0.7rem; color:var(--text-muted);">/mes</small></span>
+            </div>
+            <p style="font-size:0.76rem; color:var(--text-secondary); margin:0;">
+              Constructoras • Usuarios y proyectos ilimitados • Explosión de insumos en masa
+            </p>
+          </div>
+
+          <div style="display:flex; gap:0.6rem; margin-top:1.25rem;">
+            <button type="button" class="btn-outline" id="btn-step3-back" style="flex:0.4;">Atrás</button>
+            <button type="button" class="btn-terracota" id="btn-finish-registration" style="flex:1;">
+              Completar Registro
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================================================================
+           VISTA 3: RECUPERAR CONTRASEÑA (3.3 - HALLAZGO 22)
+           ================================================================== -->
+      <div id="forgot-view" style="display: none;">
+        <div class="auth-header-text">
+          <h2>Recuperación</h2>
+          <p>Restablezca el acceso a su cuenta</p>
+        </div>
+
+        <div id="forgot-alert" class="alert-box" style="display: none;"></div>
+
+        <form id="forgot-form">
+          <div class="form-group">
+            <label for="forgot-email" class="form-label">Correo Registrado</label>
+            <input type="email" id="forgot-email" class="form-input" placeholder="su-correo@empresa.com" required>
+          </div>
+
+          <button type="submit" class="btn-terracota" style="margin-bottom: 1rem;">
+            Enviar Enlace de Recuperación
+          </button>
+
+          <!-- Simulación del enlace para prueba -->
+          <div id="simulated-token-box" style="display:none; background:var(--bg-main); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); padding:0.85rem; margin-bottom:1rem;">
+            <span style="font-size:0.74rem; color:var(--terracota); display:block; font-weight:600; margin-bottom:0.25rem;">
+              Enlace de Restablecimiento Simulado (Vence en 30 min)
+            </span>
+            <a href="#" id="simulated-reset-link" class="link-terracota" style="font-size:0.75rem;">
+              Abrir formulario para definir nueva clave &rarr;
+            </a>
+          </div>
+
+          <div style="text-align: center;">
+            <a href="#" id="link-back-login" class="link-terracota" style="font-size: 0.8rem;">
+              &larr; Volver al Inicio de Sesión
+            </a>
+          </div>
+        </form>
+      </div>
+
+      <!-- ==================================================================
+           VISTA 4: DEFINIR NUEVA CONTRASEÑA (RESET TOKEN)
+           ================================================================== -->
+      <div id="reset-pass-view" style="display: none;">
+        <div class="auth-header-text">
+          <h2>Nueva Contraseña</h2>
+          <p>Defina su nueva clave (mínimo 8 caracteres)</p>
+        </div>
+
+        <div id="reset-alert" class="alert-box alert-danger" style="display: none;"></div>
+
+        <form id="reset-form">
+          <div class="form-group">
+            <label for="reset-new-pass" class="form-label">Nueva Contraseña</label>
+            <input type="password" id="reset-new-pass" class="form-input" placeholder="Mínimo 8 caracteres" required>
+          </div>
+
+          <div class="form-group">
+            <label for="reset-confirm-pass" class="form-label">Confirmar Contraseña</label>
+            <input type="password" id="reset-confirm-pass" class="form-input" placeholder="Repita la contraseña" required>
+          </div>
+
+          <button type="submit" class="btn-terracota" style="margin-bottom: 1rem;">
+            Guardar y Acceder
+          </button>
+
+          <div style="text-align: center;">
+            <a href="#" id="link-back-login-reset" class="link-terracota" style="font-size: 0.8rem;">
+              Cancelar y volver
+            </a>
+          </div>
+        </form>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Modal Cambio de Contraseña Temporal en Primer Ingreso -->
+  <div id="change-temp-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(4px); align-items: center; justify-content: center; padding: 1rem; z-index: 100;">
+    <div class="auth-box" style="max-width: 420px;">
+      <div class="auth-header-text">
+        <h2 style="color:var(--terracota);">Primer Ingreso</h2>
+        <p>Debe actualizar su contraseña temporal para continuar</p>
+      </div>
+
+      <div id="temp-alert" class="alert-box alert-danger" style="display: none;"></div>
+
+      <form id="temp-password-form">
+        <div class="form-group">
+          <label for="temp-new-pass" class="form-label">Nueva Contraseña</label>
+          <input type="password" id="temp-new-pass" class="form-input" placeholder="Mínimo 8 caracteres" required>
+        </div>
+
+        <div class="form-group">
+          <label for="temp-confirm-pass" class="form-label">Confirmar Contraseña</label>
+          <input type="password" id="temp-confirm-pass" class="form-input" placeholder="Repita la contraseña" required>
+        </div>
+
+        <button type="submit" class="btn-terracota" style="margin-top: 1rem;">
+          Actualizar e Ingresar
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/storage.js"></script>
+  <script src="js/auth.js"></script>
+</body>
+</html>

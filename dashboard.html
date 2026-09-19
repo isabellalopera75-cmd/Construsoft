@@ -1,0 +1,2078 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ConstruSoft | Panel Principal</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script>
+    (function() {
+      const savedTheme = localStorage.getItem('contrusoft_theme');
+      if (savedTheme === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+</head>
+<body>
+
+  <div class="dashboard-layout">
+    
+    <!-- ====================================================================
+         SIDEBAR: MENÚ PRINCIPAL DEL SISTEMA
+         ==================================================================== -->
+    <aside class="sidebar">
+      
+      <!-- Logo de Marca -->
+      <div class="sidebar-brand">
+        <div class="brand-icon-box" style="width: 32px; height: 32px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 21h18"></path>
+            <path d="M5 21V7l7-4 7 4v14"></path>
+            <path d="M9 10v8"></path>
+            <path d="M15 10v8"></path>
+          </svg>
+        </div>
+        <span class="brand-title" style="font-size: 1.15rem;">CONSTRUSOFT</span>
+      </div>
+
+      <!-- Badge de días de prueba -->
+      <div class="sidebar-trial-pill" id="trial-pill-box">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+        <span id="trial-days-text">15 días restantes de prueba</span>
+      </div>
+
+      <!-- Menú Dinámico Según Rol -->
+      <ul class="sidebar-menu" id="main-sidebar-menu">
+        
+        <!-- Inicio -->
+        <li class="menu-item" data-module="inicio" data-roles="Administrador,Residente de Obra,Ingeniero de Costos,Lector">
+          <button type="button" class="menu-item-btn" data-target="inicio">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+              <polyline points="9 22 9 12 15 12 15 22"></polyline>
+            </svg>
+            <span>Inicio</span>
+          </button>
+        </li>
+
+        <!-- Recursos (Módulo 5) -->
+        <li class="menu-item" data-module="recursos" data-roles="Administrador,Residente de Obra,Ingeniero de Costos">
+          <button type="button" class="menu-item-btn" data-target="recursos">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+              <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+            </svg>
+            <span>Recursos</span>
+          </button>
+        </li>
+
+        <!-- APU (Módulo 6) -->
+        <li class="menu-item" data-module="apu" data-roles="Administrador,Residente de Obra,Ingeniero de Costos">
+          <button type="button" class="menu-item-btn active" data-target="apu">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="4" y="2" width="16" height="20" rx="2"></rect>
+              <line x1="8" y1="6" x2="16" y2="6"></line>
+              <line x1="16" y1="14" x2="16" y2="18"></line>
+              <path d="M16 10h.01"></path>
+              <path d="M12 10h.01"></path>
+              <path d="M8 10h.01"></path>
+              <path d="M12 14h.01"></path>
+              <path d="M8 14h.01"></path>
+              <path d="M12 18h.01"></path>
+              <path d="M8 18h.01"></path>
+            </svg>
+            <span>APU (Análisis Unitario)</span>
+          </button>
+        </li>
+
+        <!-- Presupuestos -->
+        <li class="menu-item" data-module="presupuestos" data-roles="Administrador,Residente de Obra,Ingeniero de Costos,Lector">
+          <button type="button" class="menu-item-btn" data-target="presupuestos">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+            </svg>
+            <span>Presupuestos</span>
+          </button>
+        </li>
+
+        <!-- Configuración -->
+        <li class="menu-item" data-module="configuracion" data-roles="Administrador">
+          <button type="button" class="menu-item-btn" data-target="configuracion">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+            <span>Configuración</span>
+          </button>
+        </li>
+
+      </ul>
+
+      <!-- Usuario y Cerrar Sesión en pie de barra lateral -->
+      <div class="sidebar-footer">
+        <div class="user-snippet">
+          <span class="user-snippet-name" id="sidebar-user-name">Usuario</span>
+          <span class="user-snippet-role" id="sidebar-user-role">Rol</span>
+        </div>
+        <button type="button" id="btn-logout" class="btn-outline" style="padding: 0.35rem 0.65rem; font-size: 0.75rem;">
+          Salir
+        </button>
+      </div>
+
+    </aside>
+
+    <!-- ====================================================================
+         CONTENIDO PRINCIPAL
+         ==================================================================== -->
+    <main class="main-stage">
+      
+      <!-- Barra Superior Universal con Breadcrumb y Alternador de Tema Claro / Oscuro -->
+      <header class="top-nav-bar">
+        <div class="top-nav-left">
+          <div class="nav-crumb-badge">
+            <span class="pulse-dot"></span>
+            <span id="topbar-company-name">Cargando empresa...</span>
+          </div>
+        </div>
+        <div class="top-nav-right">
+          <button type="button" id="theme-toggle-btn" class="theme-toggle-btn" title="Alternar entre modo oscuro y claro">
+            <div class="theme-toggle-slider">
+              <svg class="theme-icon moon-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+              </svg>
+              <svg class="theme-icon sun-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="5"></circle>
+                <line x1="12" y1="1" x2="12" y2="3"></line>
+                <line x1="12" y1="21" x2="12" y2="23"></line>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                <line x1="1" y1="12" x2="3" y2="12"></line>
+                <line x1="21" y1="12" x2="23" y2="12"></line>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+              </svg>
+            </div>
+            <span id="theme-toggle-label">Modo Oscuro</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- ================================================================
+           SECCIÓN: MÓDULO DE APU (6.1 - 6.5)
+           ================================================================ -->
+      <div id="view-module-apu">
+        
+        <div class="module-header" style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:1.5rem;">
+          <div>
+            <h1 class="module-title">Análisis de Precios Unitarios (APU)</h1>
+            <p class="module-desc">Inventario de análisis de precios unitarios y recetas de costo directo</p>
+          </div>
+
+          <!-- Botón Volver y Botón Crear Nuevo APU (6.1) -->
+          <div style="display:flex; gap:0.65rem;">
+            <button type="button" id="btn-apu-back" class="btn-outline" style="padding:0.65rem 1.1rem; font-size:0.84rem;">
+              &larr; Volver
+            </button>
+            <button type="button" id="btn-create-apu-main" class="btn-terracota" style="width:auto; padding:0.65rem 1.25rem;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              <span>Crear Nuevo APU</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 6.1 Barra de Búsqueda y Filtro de Unidad -->
+        <div class="resources-topbar">
+          <div class="search-input-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="global-apu-search" class="search-field" placeholder="Buscar APU en tiempo real por nombre o código (ej. Concreto, APU-001)...">
+          </div>
+
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <label style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Unidad:</label>
+            <select id="filter-apu-unit" class="filter-input" style="width: 170px;">
+              <option value="">Todas las unidades</option>
+            </select>
+          </div>
+
+          <span id="apus-count-indicator" style="font-size:0.8rem; color:var(--text-muted); font-weight:600;">
+            Cargando inventario de APUs...
+          </span>
+        </div>
+
+        <!-- 6.1 Tabla Central con Inventario Completo de APU -->
+        <div class="resources-table-wrap">
+          <table class="resources-table">
+            <thead>
+              <tr>
+                <th style="width: 110px;">Código</th>
+                <th>Nombre de la Actividad</th>
+                <th style="width: 90px;">Unidad</th>
+                <th style="width: 130px;">Composición</th>
+                <th style="width: 170px;">Costo Directo Unitario</th>
+                <th style="width: 100px;">Estado</th>
+                <th style="width: 110px; text-align:right;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="apus-table-body">
+              <!-- Rellenado dinámico desde apu.js -->
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+
+      <!-- ================================================================
+           SECCIÓN: MÓDULO DE RECURSOS (Módulo 5)
+           ================================================================ -->
+      <div id="view-module-recursos" style="display: none;">
+        
+        <div class="module-header" style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:1.5rem;">
+          <div>
+            <h1 class="module-title">Recursos</h1>
+            <p class="module-desc">Catálogo maestro de materiales, equipos, personal y actividades a todo costo</p>
+          </div>
+
+          <div style="display:flex; gap:0.5rem;">
+            <button type="button" id="btn-create-resource-quick" class="btn-outline" style="font-size:0.82rem; padding:0.6rem 0.9rem; display:none;">
+              + Agregar
+            </button>
+            <button type="button" id="btn-create-resource-main" class="btn-terracota" style="width:auto; padding:0.65rem 1.25rem;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              <span>Crear Nuevo Recurso</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="resources-topbar">
+          <div class="search-input-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="global-resource-search" class="search-field" placeholder="Buscar por código, nombre o tipo en todos los recursos (rompe el filtro de pestañas)...">
+          </div>
+          <span id="filtered-count-indicator" style="font-size:0.8rem; color:var(--text-muted); font-weight:600;">
+            Cargando recursos...
+          </span>
+        </div>
+
+        <nav class="resource-tabs">
+          <button type="button" class="resource-tab-btn" data-tab="Materiales">
+            <span>Materiales</span>
+            <span class="tab-count">0</span>
+          </button>
+          <button type="button" class="resource-tab-btn" data-tab="Equipos">
+            <span>Equipos</span>
+            <span class="tab-count">0</span>
+          </button>
+          <button type="button" class="resource-tab-btn" data-tab="Personal">
+            <span>Personal</span>
+            <span class="tab-count">0</span>
+          </button>
+          <button type="button" class="resource-tab-btn" data-tab="Actividades">
+            <span>Actividades (Todo Costo)</span>
+            <span class="tab-count">0</span>
+          </button>
+          <button type="button" class="resource-tab-btn active" data-tab="Todos">
+            <span>Todos los Recursos</span>
+            <span class="tab-count">0</span>
+          </button>
+        </nav>
+
+        <div class="filters-row">
+          <div style="display:flex; align-items:center; gap:0.4rem;">
+            <label style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Código:</label>
+            <input type="text" id="filter-code" class="filter-input" placeholder="Ej. MAT-001" style="width:110px;">
+          </div>
+          <div style="display:flex; align-items:center; gap:0.4rem;">
+            <label style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Nombre:</label>
+            <input type="text" id="filter-name" class="filter-input" placeholder="Filtrar nombre..." style="width:150px;">
+          </div>
+          <div style="display:flex; align-items:center; gap:0.4rem;">
+            <label style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Unidad:</label>
+            <select id="filter-unit" class="filter-input" style="width:160px;">
+              <option value="">Todas las unidades</option>
+            </select>
+          </div>
+          <div style="display:flex; align-items:center; gap:0.4rem;">
+            <label style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Precio:</label>
+            <input type="number" id="filter-min-price" class="filter-input" placeholder="Min" style="width:90px;">
+            <span style="color:var(--text-muted);">-</span>
+            <input type="number" id="filter-max-price" class="filter-input" placeholder="Max" style="width:90px;">
+          </div>
+        </div>
+
+        <div class="resources-table-wrap">
+          <table class="resources-table">
+            <thead>
+              <tr>
+                <th style="width: 120px;">Código</th>
+                <th>Nombre del Recurso</th>
+                <th style="width: 90px;">Unidad</th>
+                <th style="width: 140px;">Costo Base</th>
+                <th style="width: 80px;">IVA</th>
+                <th style="width: 150px;">Costo Total</th>
+                <th style="width: 90px; text-align:right;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="resources-table-body">
+              <!-- Rellenado dinámico desde recursos.js -->
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+
+      <!-- ================================================================
+           SECCIÓN: MÓDULO DE PRESUPUESTOS (Módulos 7 y 8)
+           ================================================================ -->
+      <div id="view-module-presupuestos" style="display: none;">
+        
+        <!-- 7. VISTA MAESTRA DE PRESUPUESTOS -->
+        <div id="presupuestos-master-view">
+          
+          <div class="module-header" style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:1.5rem;">
+            <div>
+              <h1 class="module-title">Presupuestos de Obra</h1>
+              <p class="module-desc">Lista completa de proyectos, costos directos, indirectos, AIU y mesa de trabajo</p>
+            </div>
+
+            <div style="display:flex; gap:0.65rem;">
+              <button type="button" id="btn-presupuestos-back-main" class="btn-outline" style="padding:0.65rem 1.1rem; font-size:0.84rem;">
+                &larr; Volver
+              </button>
+              <button type="button" id="btn-create-presupuesto-main" class="btn-terracota" style="width:auto; padding:0.65rem 1.25rem;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>Crear Nuevo Presupuesto</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Barra de Búsqueda y Filtro de Estado -->
+          <div class="resources-topbar">
+            <div class="search-input-box">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" id="search-presupuestos-input" class="search-field" placeholder="Buscar presupuesto por nombre o código (ej. PRE-2026-001)...">
+            </div>
+
+            <div style="display:flex; align-items:center; gap:0.5rem;">
+              <label style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Estado:</label>
+              <select id="filter-presupuestos-status" class="filter-input" style="width: 160px;">
+                <option value="">Todos los estados</option>
+                <option value="Abierto">Abierto</option>
+                <option value="Activo">Activo</option>
+                <option value="Cerrado">Cerrado</option>
+              </select>
+            </div>
+
+            <span id="presupuestos-count-indicator" style="font-size:0.8rem; color:var(--text-muted); font-weight:600;">
+              Cargando presupuestos...
+            </span>
+          </div>
+
+          <!-- Tabla Maestra de Presupuestos (7. Módulo Presupuestos) -->
+          <div class="resources-table-wrap">
+            <table class="resources-table">
+              <thead>
+                <tr>
+                  <th style="width: 120px;">Código Único</th>
+                  <th>Nombre del Proyecto</th>
+                  <th style="width: 140px;">Ubicación</th>
+                  <th style="width: 70px;">Moneda</th>
+                  <th style="width: 130px;">Fecha Elaboración</th>
+                  <th style="width: 130px;">Última Modificación</th>
+                  <th style="width: 100px;">Estado</th>
+                  <th style="width: 160px; text-align:right;">Valor Total</th>
+                  <th style="width: 110px; text-align:right;">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="presupuestos-table-body">
+                <!-- Inyectado dinámicamente desde presupuestos.js -->
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+
+        <!-- 8. MESA DE TRABAJO (LIENZO ÚNICO SIN RECARGAS) -->
+        <div id="presupuestos-workspace-view" style="display: none;">
+          
+          <!-- 8.1 Encabezado Estático -->
+          <div class="ws-static-header">
+            <div class="ws-header-top">
+              <div class="ws-header-left">
+                <button type="button" id="btn-ws-back-master" class="btn-outline" style="padding:0.45rem 0.85rem; font-size:0.8rem;">
+                  &larr; Volver a la Lista
+                </button>
+                <span class="ws-code-pill" id="ws-head-code">PRE-XXXX</span>
+                <h2 class="ws-project-title" id="ws-head-name">Nombre del Proyecto</h2>
+              </div>
+
+              <!-- Control de Estado de la Obra -->
+              <div style="display:flex; align-items:center; gap:0.75rem;">
+                <span id="ws-head-status-badge" class="status-badge status-badge-abierto">Abierto</span>
+                <div id="ws-status-control-box">
+                  <!-- Inyectado dinámicamente según permisos y estado -->
+                </div>
+              </div>
+            </div>
+
+            <div class="ws-header-meta">
+              <div class="ws-meta-item">
+                <span class="ws-meta-label">Ubicación:</span>
+                <span class="ws-meta-val" id="ws-head-ubicacion">—</span>
+              </div>
+              <div class="ws-meta-item">
+                <span class="ws-meta-label">Moneda:</span>
+                <span class="ws-meta-val" id="ws-head-moneda">COP</span>
+              </div>
+              <div class="ws-meta-item">
+                <span class="ws-meta-label">Última modificación:</span>
+                <span class="ws-meta-val" id="ws-head-updated" style="font-family:var(--font-mono); font-size:0.8rem;">—</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 8.2 Barra Superior del Lienzo WBS -->
+          <div class="ws-toolbar">
+            <div style="display:flex; align-items:center; gap:0.75rem;">
+              <button type="button" id="btn-ws-add-root-chapter" class="btn-terracota" style="width:auto; padding:0.65rem 1.25rem;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>+ Agregar Capítulo</span>
+              </button>
+              <span style="font-size:0.8rem; color:var(--text-muted);">
+                Estructura WBS jerárquica con anidación profunda sin límite.
+              </span>
+            </div>
+
+            <div style="font-size:0.82rem; color:var(--text-secondary);">
+              Base AIU: <strong style="color:var(--terracota-light);" id="ws-quick-direct-cost">$ 0</strong>
+            </div>
+          </div>
+
+          <!-- Contenedor del Árbol Jerárquico de Capítulos -->
+          <div id="ws-chapters-tree-container">
+            <!-- Capítulos inyectados dinámicamente -->
+          </div>
+
+          <!-- 8.6 Resumen Financiero y Pie de Proyecto -->
+          <div id="ws-financial-pie-container">
+            <!-- Pie financiero inyectado dinámicamente -->
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- ================================================================
+           SECCIÓN: MÓDULO 12 CONFIGURACIÓN (12.1 - 12.7)
+           ================================================================ -->
+      <div id="view-module-configuracion" style="display: none;">
+        
+        <!-- Encabezado con Botón Volver en la parte superior izquierda -->
+        <div class="module-header" style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:1.25rem;">
+          <div style="display:flex; align-items:center; gap:1rem;">
+            <button type="button" id="btn-config-back-main" class="btn-outline" style="padding:0.6rem 1.1rem; font-size:0.84rem; display:flex; align-items:center; gap:0.4rem;">
+              &larr; <span>Volver</span>
+            </button>
+            <div>
+              <h1 class="module-title">Configuración del Sistema</h1>
+              <p class="module-desc">Cuenta, datos de empresa, suscripción, usuarios, preferencias y parametrización</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Barra Horizontal de Pestañas (12.1 a 12.7) -->
+        <div class="cfg-tabs-nav-bar">
+          <button type="button" class="cfg-tab-btn active" data-cfg-tab="cuenta">12.1 Mi Cuenta</button>
+          <button type="button" class="cfg-tab-btn" data-cfg-tab="empresa">12.2 Datos de Empresa</button>
+          <button type="button" class="cfg-tab-btn" data-cfg-tab="suscripcion">12.3 Suscripción</button>
+          <button type="button" class="cfg-tab-btn" data-cfg-tab="usuarios">12.4 Usuarios</button>
+          <button type="button" class="cfg-tab-btn" data-cfg-tab="preferencias">12.5 Preferencias</button>
+          <button type="button" class="cfg-tab-btn" data-cfg-tab="parametrizacion">12.6 Parametrización</button>
+          <button type="button" class="cfg-tab-btn" data-cfg-tab="notificaciones">12.7 Notificaciones</button>
+        </div>
+
+        <!-- Contenedor de Paneles de Pestañas -->
+        <div class="cfg-tab-content-wrap">
+          
+          <!-- 12.1 Mi Cuenta -->
+          <div id="cfg-panel-cuenta" class="cfg-tab-panel">
+            <div class="cfg-card" style="max-width: 600px;">
+              <div class="cfg-card-header">
+                <h3 class="cfg-card-title">Información de la Cuenta</h3>
+                <p class="cfg-card-subtitle">Datos de acceso del usuario actualmente en sesión</p>
+              </div>
+
+              <div class="cfg-info-grid">
+                <div class="cfg-info-row">
+                  <span class="cfg-info-label">Nombre del Usuario</span>
+                  <span class="cfg-info-value" id="cfg-user-name-display">—</span>
+                </div>
+                <div class="cfg-info-row">
+                  <span class="cfg-info-label">Correo Electrónico</span>
+                  <span class="cfg-info-value" id="cfg-user-email-display">—</span>
+                </div>
+                <div class="cfg-info-row">
+                  <span class="cfg-info-label">Rol en el Sistema</span>
+                  <span class="cfg-info-value" id="cfg-user-role-display">—</span>
+                </div>
+              </div>
+
+              <div style="margin-top: 1.75rem; border-top: 1px solid var(--border-subtle); padding-top: 1.25rem; display:flex; justify-content:flex-end;">
+                <button type="button" id="cfg-btn-change-pwd" class="btn-terracota" style="width:auto; padding:0.65rem 1.4rem;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                  Cambiar Contraseña
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 12.2 Datos de Empresa -->
+          <div id="cfg-panel-empresa" class="cfg-tab-panel" style="display: none;">
+            <div class="cfg-card" style="max-width: 700px;">
+              <div class="cfg-card-header">
+                <h3 class="cfg-card-title">Datos Generales de la Empresa</h3>
+                <p class="cfg-card-subtitle">El logotipo y el NIT se imprimen automáticamente en el encabezado de todos los PDF y exportaciones</p>
+              </div>
+
+              <form id="cfg-empresa-form">
+                <div class="form-group" style="margin-bottom: 1.25rem;">
+                  <label class="form-label">Razón Social *</label>
+                  <input type="text" id="cfg-empresa-razon" class="form-input" placeholder="Ej. Constructora Andina S.A.S." required>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 1.25rem;">
+                  <label class="form-label">NIT (Número de Identificación Tributaria) *</label>
+                  <input type="text" id="cfg-empresa-nit" class="form-input" placeholder="Ej. 901.458.789-3" required>
+                  <small style="font-size:0.72rem; color:var(--text-muted); margin-top:0.25rem; display:block;">
+                    Formato estándar: 9 dígitos + guion + dígito de verificación
+                  </small>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
+                  <div class="form-group">
+                    <label class="form-label">Dirección Principal</label>
+                    <input type="text" id="cfg-empresa-direccion" class="form-input" placeholder="Ej. Cra. 43A # 1Sur-29, Oficina 804">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Teléfono de Contacto</label>
+                    <input type="text" id="cfg-empresa-telefono" class="form-input" placeholder="Ej. +57 (604) 448-9120">
+                  </div>
+                </div>
+
+                <!-- Carga de Logotipo -->
+                <div class="form-group" style="margin-bottom: 1.75rem;">
+                  <label class="form-label">Logotipo de la Empresa (PNG o JPG)</label>
+                  <div class="cfg-logo-upload-box">
+                    <div id="cfg-logo-placeholder" class="cfg-logo-placeholder">
+                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="color:var(--text-muted); margin-bottom:0.4rem;">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                        <polyline points="21 15 16 10 5 21"></polyline>
+                      </svg>
+                      <span style="font-size:0.78rem; color:var(--text-secondary);">Haga clic para seleccionar archivo PNG o JPG (máx. 2MB)</span>
+                    </div>
+                    <img id="cfg-logo-preview-img" src="" alt="Vista previa logo" style="display:none; max-height:80px; max-width:220px; object-fit:contain; border-radius:4px;">
+                    <input type="file" id="cfg-logo-file-input" accept="image/png, image/jpeg, image/jpg" style="position:absolute; inset:0; opacity:0; cursor:pointer;">
+                  </div>
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.5rem;">
+                    <small style="font-size:0.72rem; color:var(--text-muted);">
+                      Se imprimirá en el encabezado oficial de todos los informes y memorias de cálculo.
+                    </small>
+                    <button type="button" id="cfg-btn-remove-logo" class="link-danger" style="display:none; background:none; border:none; font-size:0.75rem; cursor:pointer;">
+                      Eliminar Logotipo
+                    </button>
+                  </div>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; border-top:1px solid var(--border-subtle); padding-top:1.25rem;">
+                  <button type="submit" class="btn-terracota" style="width:auto; padding:0.7rem 1.6rem;">
+                    Guardar Datos de Empresa
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- 12.3 Suscripción -->
+          <div id="cfg-panel-suscripcion" class="cfg-tab-panel" style="display: none;">
+            
+            <!-- Tarjetas de Estado de Suscripción -->
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:1rem; margin-bottom:1.5rem;">
+              <div class="cfg-stat-card">
+                <span class="cfg-stat-label">Plan Activo</span>
+                <span class="cfg-stat-val" id="cfg-sub-plan" style="color:#fff;">Cargando...</span>
+              </div>
+              <div class="cfg-stat-card">
+                <span class="cfg-stat-label">Estado de Suscripción</span>
+                <div style="margin-top:0.35rem;">
+                  <span id="cfg-sub-status-badge" class="status-pill status-open">Activa</span>
+                </div>
+              </div>
+              <div class="cfg-stat-card">
+                <span class="cfg-stat-label">Fecha de Vencimiento</span>
+                <span class="cfg-stat-val" id="cfg-sub-expiry" style="font-family:var(--font-mono); font-size:1.1rem; color:var(--text-primary);">—</span>
+              </div>
+              <div class="cfg-stat-card">
+                <span class="cfg-stat-label">Días Restantes</span>
+                <span class="cfg-stat-val" id="cfg-sub-days" style="font-family:var(--font-mono); font-size:1.15rem; color:var(--terracota);">—</span>
+              </div>
+            </div>
+
+            <!-- Aviso Período de Prueba e Instrucciones de Pago Manual -->
+            <div id="cfg-sub-trial-notice" class="cfg-trial-banner" style="display:none; margin-bottom:1.5rem;">
+              <div style="display:flex; gap:0.9rem; align-items:flex-start;">
+                <div style="width:38px; height:38px; border-radius:50%; background:rgba(217,107,67,0.15); display:flex; align-items:center; justify-content:center; color:var(--terracota); flex-shrink:0;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                  </svg>
+                </div>
+                <div style="flex:1;">
+                  <h4 style="font-size:0.95rem; font-weight:700; color:#fff; margin:0 0 0.3rem 0;">Información de Pago y Renovación</h4>
+                  <p id="cfg-trial-remaining-text" style="font-size:0.83rem; color:var(--text-secondary); line-height:1.45; margin-bottom:0.75rem;"></p>
+                  
+                  <div class="cfg-payment-channels-box">
+                    <div style="font-weight:700; color:var(--terracota); font-size:0.8rem; margin-bottom:0.4rem; text-transform:uppercase; letter-spacing:0.5px;">
+                      Canales Autorizados de Transferencia / PSE:
+                    </div>
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:0.75rem; font-size:0.78rem;">
+                      <div class="channel-pill">
+                        <strong>Bancolombia Cuenta Corriente</strong>
+                        <span>No. 102-458921-30</span>
+                        <span>NIT: 901.882.110-4 (ConstruSoft S.A.S.)</span>
+                      </div>
+                      <div class="channel-pill">
+                        <strong>Davivienda / PSE / Nequi</strong>
+                        <span>Convenio Empresarial No. 4412</span>
+                        <span>Línea de Pago: pagos@contrusoft.internal</span>
+                      </div>
+                    </div>
+                    <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.6rem; margin-bottom:0;">
+                      * En el MVP el pago se efectúa directamente por transferencia o PSE fuera del sistema. Tras realizar el pago, envíe el soporte a <strong>pagos@contrusoft.internal</strong> o a su asesor. El superadministrador registra el pago y la fecha de vencimiento se extenderá automáticamente en esta pantalla.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tabla de Historial de Facturación -->
+            <div class="cfg-card">
+              <div class="cfg-card-header" style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                  <h3 class="cfg-card-title">Historial de Facturación y Comprobantes</h3>
+                  <p class="cfg-card-subtitle">Registro de movimientos y pagos verificados por la plataforma</p>
+                </div>
+              </div>
+
+              <div class="resources-table-wrap" style="margin-top:1rem;">
+                <table class="resources-table">
+                  <thead>
+                    <tr>
+                      <th style="width:110px;">Fecha</th>
+                      <th>Concepto</th>
+                      <th style="width:140px;">Monto</th>
+                      <th style="width:170px;">Método de Pago</th>
+                      <th style="width:110px;">Estado</th>
+                      <th style="width:160px; text-align:right;">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="cfg-billing-tbody">
+                    <!-- Filas inyectadas dinámicamente -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- 12.4 Usuarios -->
+          <div id="cfg-panel-usuarios" class="cfg-tab-panel" style="display: none;">
+            
+            <!-- Vista para Plan Personal -->
+            <div id="cfg-users-personal-mode" style="display:none;">
+              <div class="cfg-card" style="max-width: 720px;">
+                <div class="cfg-card-header">
+                  <h3 class="cfg-card-title">Asistente Técnico del Ingeniero</h3>
+                  <p class="cfg-card-subtitle">
+                    El Plan Personal incluye al Administrador y le permite crear a su único asistente con contraseña temporal y permisos granulares por módulo y acción.
+                  </p>
+                </div>
+
+                <!-- Estado sin asistente -->
+                <div id="cfg-personal-no-assistant" class="module-placeholder-box" style="padding:2.5rem; text-align:center;">
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="color:var(--text-muted); margin-bottom:0.75rem;">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="8.5" cy="7" r="4"></circle>
+                    <line x1="20" y1="8" x2="20" y2="14"></line>
+                    <line x1="23" y1="11" x2="17" y2="11"></line>
+                  </svg>
+                  <h4 style="font-size:1.05rem; font-weight:700; color:#fff; margin-bottom:0.35rem;">Aún no ha creado a su asistente</h4>
+                  <p style="font-size:0.83rem; color:var(--text-secondary); max-width:440px; margin:0 auto 1.25rem auto;">
+                    Dé de alta a su asistente técnico para colaborar en presupuestos y recursos con los permisos específicos que usted determine.
+                  </p>
+                  <button type="button" class="btn-terracota" style="width:auto; padding:0.65rem 1.4rem;" onclick="openCreateUserModal(true)">
+                    + Crear Asistente Técnico
+                  </button>
+                </div>
+
+                <!-- Tarjeta con asistente existente -->
+                <div id="cfg-personal-assistant-card" style="display:none;">
+                  <div class="assistant-summary-box">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                      <div>
+                        <div style="display:flex; align-items:center; gap:0.6rem;">
+                          <h4 id="cfg-asst-name" style="font-size:1.1rem; font-weight:700; color:#fff; margin:0;">Nombre</h4>
+                          <span id="cfg-asst-status-badge" class="status-pill status-open">Activo</span>
+                        </div>
+                        <div id="cfg-asst-email" style="font-size:0.82rem; color:var(--text-muted); margin-top:0.2rem;">correo@asistente.com</div>
+                      </div>
+                      <button type="button" id="cfg-btn-toggle-asst" class="btn-outline text-danger" style="padding:0.4rem 0.85rem; font-size:0.78rem;">
+                        Revocar Acceso
+                      </button>
+                    </div>
+
+                    <div style="margin-top:1.25rem;">
+                      <span style="font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); letter-spacing:0.5px; display:block; margin-bottom:0.6rem;">
+                        Permisos Granulares Asignados:
+                      </span>
+                      <div id="cfg-asst-perms-container">
+                        <!-- Checkboxes de solo lectura con los permisos actuales -->
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Vista para Plan Empresarial -->
+            <div id="cfg-users-empresarial-mode" style="display:none;">
+              
+              <div class="cfg-card" style="margin-bottom:1.5rem;">
+                <div class="cfg-card-header" style="display:flex; justify-content:space-between; align-items:center;">
+                  <div>
+                    <h3 class="cfg-card-title">Equipo de Trabajo y Usuarios</h3>
+                    <p class="cfg-card-subtitle">Cree usuarios directamente asignándoles un rol con contraseña temporal</p>
+                  </div>
+                  <button type="button" class="btn-terracota" style="width:auto; padding:0.6rem 1.25rem;" onclick="openCreateUserModal(false)">
+                    + Crear Nuevo Usuario
+                  </button>
+                </div>
+
+                <div class="resources-table-wrap" style="margin-top:1rem;">
+                  <table class="resources-table">
+                    <thead>
+                      <tr>
+                        <th>Nombre y Correo</th>
+                        <th style="width:170px;">Rol Asignado</th>
+                        <th style="width:130px;">Estado</th>
+                        <th style="width:140px; text-align:right;">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody id="cfg-users-tbody">
+                      <!-- Usuarios inyectados dinámicamente -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Roles Personalizados -->
+              <div class="cfg-card">
+                <div class="cfg-card-header" style="display:flex; justify-content:space-between; align-items:center;">
+                  <div>
+                    <h3 class="cfg-card-title">Roles y Permisos de la Empresa</h3>
+                    <p class="cfg-card-subtitle">Cree roles con permisos granulares por módulo y acción</p>
+                  </div>
+                  <button type="button" class="btn-outline" style="padding:0.55rem 1.15rem; font-size:0.8rem;" onclick="openCreateRoleModal()">
+                    + Crear Rol Personalizado
+                  </button>
+                </div>
+
+                <div id="cfg-roles-cards-container" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:1rem; margin-top:1rem;">
+                  <!-- Roles inyectados dinámicamente -->
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+          <!-- 12.5 Preferencias del Sistema -->
+          <div id="cfg-panel-preferencias" class="cfg-tab-panel" style="display: none;">
+            <div class="cfg-card" style="max-width: 680px;">
+              <div class="cfg-card-header">
+                <h3 class="cfg-card-title">Formato Numérico y Moneda Base</h3>
+                <p class="cfg-card-subtitle">Configure la representación de valores monetarios en pantalla y exportaciones</p>
+              </div>
+
+              <form id="cfg-pref-form">
+                
+                <!-- Moneda Base -->
+                <div class="form-group" style="margin-bottom: 1.25rem;">
+                  <label class="form-label">Moneda Base de la Empresa</label>
+                  <select id="cfg-pref-moneda" class="form-input">
+                    <option value="COP">COP — Peso Colombiano ($)</option>
+                    <option value="USD">USD — Dólar Estadounidense ($)</option>
+                    <option value="EUR">EUR — Euro (€)</option>
+                    <option value="MXN">MXN — Peso Mexicano ($)</option>
+                    <option value="PEN">PEN — Sol Peruano (S/.)</option>
+                  </select>
+                  <div id="cfg-moneda-lock-notice" class="perm-locked-notice" style="display:none; margin-top:0.4rem;"></div>
+                </div>
+
+                <!-- Separadores -->
+                <div class="form-group" style="margin-bottom: 1.25rem;">
+                  <label class="form-label">Separador de Miles y Separador Decimal</label>
+                  <select id="cfg-pref-separadores" class="form-input">
+                    <option value="punto_coma">Punto para miles y coma para decimales (ej. 1.234.567,89)</option>
+                    <option value="coma_punto">Coma para miles y punto para decimales (ej. 1,234,567.89)</option>
+                  </select>
+                </div>
+
+                <!-- Decimales -->
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                  <label class="form-label">Número de Decimales a Mostrar</label>
+                  <select id="cfg-pref-decimales" class="form-input">
+                    <option value="0">0 decimales (ej. $ 1.234.568)</option>
+                    <option value="1">1 decimal (ej. $ 1.234.567,9)</option>
+                    <option value="2">2 decimales (ej. $ 1.234.567,89)</option>
+                  </select>
+                  <small style="font-size:0.72rem; color:var(--text-muted); margin-top:0.25rem; display:block;">
+                    Aplica de manera consistente tanto en pantalla como en reportes y exportación en PDF.
+                  </small>
+                </div>
+
+                <!-- Vista previa en vivo -->
+                <div class="cfg-preview-box-wrap" style="margin-bottom:1.5rem;">
+                  <span style="font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); letter-spacing:0.5px;">
+                    Vista Previa del Formato Resultante:
+                  </span>
+                  <div id="cfg-pref-live-preview" class="cfg-preview-display">
+                    COP $ 14.258.900,75
+                  </div>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; border-top:1px solid var(--border-subtle); padding-top:1.25rem;">
+                  <button type="submit" class="btn-terracota" style="width:auto; padding:0.7rem 1.6rem;">
+                    Guardar Preferencias
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- 12.6 Parametrización -->
+          <div id="cfg-panel-parametrizacion" class="cfg-tab-panel" style="display: none;">
+            
+            <!-- AIU Estándar -->
+            <div class="cfg-card" style="margin-bottom: 1.5rem;">
+              <div class="cfg-card-header">
+                <h3 class="cfg-card-title">AIU Estándar de la Empresa</h3>
+                <p class="cfg-card-subtitle">Porcentajes estándar que se precargarán automáticamente en cada presupuesto nuevo</p>
+              </div>
+
+              <form id="cfg-aiu-form">
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:1rem; margin-bottom:1.25rem;">
+                  <div class="form-group">
+                    <label class="form-label">% Administración *</label>
+                    <input type="number" id="cfg-aiu-admin" class="form-input" min="0" max="100" step="0.01" placeholder="Ej. 10" required>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">% Imprevistos *</label>
+                    <input type="number" id="cfg-aiu-imprevistos" class="form-input" min="0" max="100" step="0.01" placeholder="Ej. 3" required>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">% Utilidad *</label>
+                    <input type="number" id="cfg-aiu-utilidad" class="form-input" min="0" max="100" step="0.01" placeholder="Ej. 5" required>
+                  </div>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end;">
+                  <button type="submit" class="btn-terracota" style="width:auto; padding:0.6rem 1.3rem;">
+                    Guardar AIU Estándar
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Unidades de Medida Maestras -->
+            <div class="cfg-card">
+              <div class="cfg-card-header" style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                  <h3 class="cfg-card-title">Lista Maestra de Unidades de Medida</h3>
+                  <p class="cfg-card-subtitle">
+                    Unidades oficiales de la empresa. Bloquea la entrada de datos basura por parte de otros usuarios.
+                  </p>
+                </div>
+                <button type="button" class="btn-terracota" style="width:auto; padding:0.6rem 1.25rem;" onclick="openCreateUnitModal()">
+                  + Crear Nueva Unidad
+                </button>
+              </div>
+
+              <div class="resources-table-wrap" style="margin-top:1rem;">
+                <table class="resources-table">
+                  <thead>
+                    <tr>
+                      <th style="width:100px;">Símbolo</th>
+                      <th>Descripción</th>
+                      <th style="width:140px;">Estado</th>
+                      <th style="width:160px; text-align:right;">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="cfg-units-tbody">
+                    <!-- Unidades inyectadas dinámicamente -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- 12.7 Notificaciones -->
+          <div id="cfg-panel-notificaciones" class="cfg-tab-panel" style="display: none;">
+            <div class="cfg-card" style="max-width: 650px;">
+              <div class="cfg-card-header">
+                <h3 class="cfg-card-title">Avisos y Alertas por Correo</h3>
+                <p class="cfg-card-subtitle">Configure las notificaciones automáticas enviadas al correo del administrador</p>
+              </div>
+
+              <form id="cfg-notif-form">
+                <div style="display:flex; flex-direction:column; gap:1.25rem; margin-bottom:1.75rem;">
+                  
+                  <label class="cfg-checkbox-row">
+                    <input type="checkbox" id="cfg-notif-prueba" class="custom-checkbox">
+                    <div>
+                      <strong style="color:#fff; display:block; font-size:0.88rem;">Fin del período de prueba</strong>
+                      <span style="color:var(--text-secondary); font-size:0.78rem;">
+                        Enviar aviso por correo con dos (2) días de anticipación antes de la fecha límite de prueba gratuita.
+                      </span>
+                    </div>
+                  </label>
+
+                  <label class="cfg-checkbox-row">
+                    <input type="checkbox" id="cfg-notif-sub" class="custom-checkbox">
+                    <div>
+                      <strong style="color:#fff; display:block; font-size:0.88rem;">Vencimiento de la suscripción</strong>
+                      <span style="color:var(--text-secondary); font-size:0.78rem;">
+                        Enviar recordatorio de renovación con cinco (5) días de anticipación para evitar suspensión del servicio.
+                      </span>
+                    </div>
+                  </label>
+
+                  <label class="cfg-checkbox-row">
+                    <input type="checkbox" id="cfg-notif-estado" class="custom-checkbox">
+                    <div>
+                      <strong style="color:#fff; display:block; font-size:0.88rem;">Cambios de estado del proyecto (RF-CFG-21)</strong>
+                      <span style="color:var(--text-secondary); font-size:0.78rem;">
+                        Notificar por correo cada vez que un presupuesto sea pasado a estado Activo o Cerrado en la plataforma.
+                      </span>
+                    </div>
+                  </label>
+
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; border-top:1px solid var(--border-subtle); padding-top:1.25rem;">
+                  <button type="submit" class="btn-terracota" style="width:auto; padding:0.7rem 1.6rem;">
+                    Guardar Notificaciones
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- ================================================================
+           SECCIÓN GENÉRICA PARA OTROS MÓDULOS (Inicio, etc.)
+           ================================================================ -->
+      <div id="view-module-generic" style="display: none;">
+        <div class="module-header">
+          <h1 class="module-title" id="module-title-display">Inicio</h1>
+          <p class="module-desc" id="module-desc-display">Panel general de obras y proyectos</p>
+        </div>
+
+        <div class="module-placeholder-box" id="module-body-display">
+          <p>Contenido del módulo</p>
+        </div>
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- ======================================================================
+       6.2 & 6.3 POPOUT MODAL: CREAR / CONSULTAR / EDITAR APU
+       ====================================================================== -->
+  <div id="apu-popout-modal" class="popout-backdrop" style="display: none;">
+    <div class="popout-card" style="max-width: 850px;">
+      
+      <div class="popout-header">
+        <div>
+          <h2 class="popout-title" id="apu-modal-title">Crear Nuevo APU</h2>
+          <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;" id="apu-modal-subtitle">
+            Defina la receta matemática de rendimientos e insumos por unidad de obra
+          </p>
+        </div>
+        <button type="button" onclick="closeApuModal()" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1.2rem;">✕</button>
+      </div>
+
+      <div id="modal-apu-alert" class="alert-box alert-danger" style="display: none;"></div>
+
+      <form id="apu-popout-form">
+        
+        <!-- Código (servidor) y Datos Base -->
+        <div style="display: grid; grid-template-columns: 140px 1fr 180px; gap: 1rem; margin-bottom: 1.25rem;">
+          <div>
+            <label class="form-label">Código</label>
+            <input type="text" id="modal-apu-code" class="form-input locked-field" readonly disabled value="APU-AUTO">
+          </div>
+
+          <div>
+            <label for="modal-apu-name" class="form-label">Nombre de la Actividad <span style="color:var(--terracota);">*</span></label>
+            <input type="text" id="modal-apu-name" class="form-input" placeholder="Ej. Concreto para zapatas y vigas 3000 PSI" required>
+          </div>
+
+          <div>
+            <label for="modal-apu-unit" class="form-label">Unidad de Medida <span style="color:var(--terracota);">*</span></label>
+            <select id="modal-apu-unit" class="form-input" required onchange="renderApuLinesTable()">
+              <!-- Opciones de unidades -->
+            </select>
+          </div>
+        </div>
+
+        <!-- 6.2 Composición: Búsqueda y vinculación de recursos + Crear al vuelo -->
+        <div id="apu-resource-picker-box" style="background:var(--bg-sidebar); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:1.1rem; margin-bottom:1.5rem;">
+          <label class="form-label" style="margin-bottom:0.6rem; color:var(--text-primary); font-weight:700;">
+            Composición del APU — Agregar Recursos a la Receta
+          </label>
+          
+          <div style="display: flex; gap: 0.65rem; align-items: center;">
+            <select id="apu-resource-picker" class="form-input" style="flex:1;">
+              <option value="">Buscar recurso por código o nombre...</option>
+            </select>
+
+            <button type="button" id="btn-add-resource-to-apu" class="btn-terracota" style="width:auto; padding:0.65rem 1.1rem; font-size:0.82rem;">
+              + Vincular Recurso
+            </button>
+
+            <!-- Acceso directo para crear recurso al vuelo si no existe (6.2) -->
+            <button type="button" id="btn-create-resource-on-the-fly" class="btn-outline" style="white-space:nowrap; padding:0.65rem 1rem; font-size:0.82rem;">
+              + Crear Nuevo Recurso
+            </button>
+          </div>
+
+          <!-- Guía explícita: Riesgo que la interfaz cubre (Cantidad vs Rendimiento) -->
+          <div style="background:rgba(217,107,67,0.06); border:1px solid rgba(217,107,67,0.2); border-radius:4px; padding:0.65rem 0.85rem; font-size:0.75rem; color:var(--text-secondary); margin-top:0.85rem; line-height:1.4;">
+            <strong style="color:var(--terracota);">Diferencia clave en cálculo:</strong>
+            <strong>Cantidad</strong> = Cuántas unidades del recurso intervienen a la vez (ej. 2 oficiales, 1 mezcladora).<br>
+            <strong>Rendimiento</strong> = Cuánto consume UNA unidad del recurso por cada unidad de obra (ej. 0.05 jornal/m³; 7 bultos/m³).
+            Ninguno admite cero (vienen en 1 por defecto).
+          </div>
+        </div>
+
+        <!-- Tabla dinámica de líneas de recursos -->
+        <div class="resources-table-wrap" style="margin-bottom: 1.5rem;">
+          <table class="resources-table" style="font-size:0.82rem;">
+            <thead>
+              <tr>
+                <th>Recurso Vinculado</th>
+                <th title="Cuántas unidades intervienen a la vez">Cantidad</th>
+                <th title="Cuánto consume una unidad del recurso por unidad de obra">Rendimiento</th>
+                <th title="Solo aplica en materiales">% Desp.</th>
+                <th>Subtotal</th>
+                <th style="width:40px;"></th>
+              </tr>
+            </thead>
+            <tbody id="apu-composition-tbody">
+              <!-- Rellenado dinámico desde apu.js -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Costo Directo Total Recalculado en Tiempo Real -->
+        <div style="background:var(--bg-sidebar); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:1rem 1.5rem; display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+          <div>
+            <span style="font-size:0.75rem; color:var(--text-muted); font-weight:700; text-transform:uppercase;">
+              Fórmula: Cantidad × Rendimiento × (1 + Desp%/100) × Precio Total
+            </span>
+            <div style="font-size:0.95rem; font-weight:700; color:var(--text-primary); margin-top:0.2rem;">
+              Costo Directo Unitario del APU
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <span id="apu-direct-cost-total" style="font-family:var(--font-mono); font-size:1.75rem; font-weight:800; color:var(--terracota);">
+              $0
+            </span>
+            <span id="apu-unit-display-badge" style="font-size:0.85rem; color:var(--text-muted); font-weight:600; margin-left:0.3rem;">
+              / m³
+            </span>
+          </div>
+        </div>
+
+        <!-- Acciones del Pop-out -->
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem; align-items:center;">
+          <button type="button" onclick="closeApuModal()" class="btn-outline" style="padding:0.7rem 1.2rem;">
+            Cerrar
+          </button>
+          
+          <!-- Botón transformar de Consulta a Edición (6.3) -->
+          <button type="button" id="btn-apu-switch-to-edit" onclick="switchToApuEditMode()" class="btn-terracota" style="display:none; width:auto; padding:0.7rem 1.5rem;">
+            Modificar este APU
+          </button>
+
+          <!-- Botón Guardar / Crear -->
+          <button type="submit" id="btn-apu-save-submit" class="btn-terracota" style="width: auto; padding: 0.7rem 1.5rem;">
+            Guardar APU
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       6.4 DIÁLOGO DE CONTROL DE CAMBIOS EN PRESUPUESTOS ABIERTOS (Regla D-22)
+       ====================================================================== -->
+  <div id="apu-budget-change-dialog" class="popout-backdrop" style="display: none;">
+    <div class="popout-card" style="max-width: 520px;">
+      <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1rem;">
+        <div style="width:38px; height:38px; border-radius:50%; background:rgba(217,107,67,0.15); display:flex; align-items:center; justify-content:center; color:var(--terracota);">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+        </div>
+        <h3 style="font-size:1.25rem; font-weight:700; color:#fff;">Control de Cambios en Presupuestos</h3>
+      </div>
+
+      <p id="apu-budget-change-desc" style="font-size:0.86rem; color:var(--text-secondary); line-height:1.5; margin-bottom:1rem;">
+        <!-- Rellenado dinámico con el mensaje oficial -->
+      </p>
+
+      <ul id="apu-budget-change-list" style="background:var(--bg-main); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); padding:0.85rem 1.25rem; font-size:0.8rem; color:var(--text-primary); margin-bottom:1.5rem; max-height:120px; overflow-y:auto;">
+        <!-- Lista de presupuestos abiertos -->
+      </ul>
+
+      <div style="display:flex; flex-direction:column; gap:0.6rem;">
+        <button type="button" class="btn-terracota" onclick="confirmApuBudgetChange(true)" style="width:100%; justify-content:center;">
+          Sí, actualizar valor en presupuestos abiertos
+        </button>
+        <button type="button" class="btn-outline" onclick="confirmApuBudgetChange(false)" style="width:100%; justify-content:center; color:#fff;">
+          No, solo para nuevos (conservar anteriores D-22)
+        </button>
+        <button type="button" class="link-terracota" onclick="closeApuBudgetImpactDialog()" style="background:none; border:none; font-size:0.8rem; margin-top:0.35rem; cursor:pointer; text-align:center;">
+          Cancelar edición
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       6.5 DIÁLOGO: BLOQUEO DE ELIMINACIÓN DE APU Y OPCIÓN DE INACTIVAR
+       ====================================================================== -->
+  <div id="apu-delete-blocked-dialog" class="popout-backdrop" style="display: none;">
+    <div class="popout-card" style="max-width: 500px;">
+      <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1rem;">
+        <div style="width:38px; height:38px; border-radius:50%; background:rgba(239,68,68,0.15); display:flex; align-items:center; justify-content:center; color:var(--status-danger);">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="15" y1="9" x2="9" y2="15"></line>
+            <line x1="9" y1="9" x2="15" y2="15"></line>
+          </svg>
+        </div>
+        <h3 style="font-size:1.25rem; font-weight:700; color:#fff;">APU Vinculado a Presupuestos</h3>
+      </div>
+
+      <p id="apu-delete-blocked-desc" style="font-size:0.86rem; color:var(--text-secondary); line-height:1.5; margin-bottom:1rem;">
+        <!-- Mensaje de bloqueo -->
+      </p>
+
+      <ul id="apu-delete-blocked-list" style="background:var(--bg-main); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); padding:0.85rem 1.25rem; font-size:0.8rem; color:var(--text-primary); margin-bottom:1.5rem; max-height:140px; overflow-y:auto;">
+        <!-- Presupuestos donde está usado -->
+      </ul>
+
+      <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:1.5rem; line-height:1.4;">
+        Por integridad contractual e histórica de los presupuestos, no se puede borrar de la base de datos. Puede <strong>marcarlo como Inactivo</strong> para que deje de ofrecerse al armar nuevos APU y proyectos.
+      </p>
+
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <button type="button" onclick="closeApuDeleteBlockedDialog()" class="btn-outline" style="padding:0.6rem 1.1rem;">
+          Cerrar
+        </button>
+        <button type="button" id="btn-apu-inactivate-option" class="btn-terracota" style="width:auto; padding:0.6rem 1.25rem; background:#4b5563;">
+          Marcar como Inactivo
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       5.2 & 5.3 POPOUT MODAL: CREAR / EDITAR RECURSO
+       ====================================================================== -->
+  <div id="resource-popout-modal" class="popout-backdrop" style="display: none;">
+    <div class="popout-card">
+      <div class="popout-header">
+        <div>
+          <h2 class="popout-title" id="popout-modal-title">Crear Nuevo Recurso</h2>
+          <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;">
+            Diligencie la información técnica del insumo o cuadrilla
+          </p>
+        </div>
+        <button type="button" onclick="closeResourcePopout()" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1.2rem;">✕</button>
+      </div>
+
+      <div id="modal-res-alert" class="alert-box alert-danger" style="display: none;"></div>
+
+      <form id="resource-popout-form">
+        <div class="form-group">
+          <label class="form-label">Código del Recurso (Generado por Servidor)</label>
+          <input type="text" id="modal-res-code" class="form-input locked-field" readonly disabled value="Asignado automáticamente">
+          <p style="font-size:0.72rem; color:var(--text-muted); margin-top:0.25rem;">
+            El código único es generado automáticamente por el sistema y no se puede modificar.
+          </p>
+        </div>
+
+        <div class="form-group">
+          <label for="modal-res-name" class="form-label">Nombre del Recurso <span style="color:var(--terracota);">*</span></label>
+          <input type="text" id="modal-res-name" class="form-input" placeholder="Ej. Cemento Portland Tipo 1 (50kg)" required>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
+          <div>
+            <label for="modal-res-type" class="form-label">Tipo de Recurso <span style="color:var(--terracota);">*</span></label>
+            <select id="modal-res-type" class="form-input" required>
+              <option value="Materiales">Materiales</option>
+              <option value="Equipos">Equipos</option>
+              <option value="Personal">Personal</option>
+              <option value="Actividades">Actividades (Todo Costo)</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="modal-res-unit" class="form-label">Unidad de Medida <span style="color:var(--terracota);">*</span></label>
+            <select id="modal-res-unit" class="form-input" required>
+              <!-- Rellenado con las unidades de la empresa -->
+            </select>
+          </div>
+        </div>
+
+        <div class="price-dual-container">
+          <div class="price-dual-header">
+            <span class="price-dual-title">Doble Vía de Precio</span>
+            <span class="via-indicator-badge" id="active-via-indicator">
+              Escriba en Costo Base (Vía A) o Costo Total (Vía B)
+            </span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1.2fr 0.8fr 1.2fr; gap: 0.85rem; align-items: flex-end;">
+            <div>
+              <label for="modal-res-price-base" class="form-label">Vía A — Costo Base</label>
+              <input type="number" id="modal-res-price-base" class="form-input" placeholder="$0" step="any">
+              <small style="color:var(--text-muted); font-size:0.68rem;">Sin impuesto</small>
+            </div>
+
+            <div>
+              <label for="modal-res-price-iva" class="form-label">% IVA (Opcional)</label>
+              <input type="number" id="modal-res-price-iva" class="form-input" placeholder="0%" min="0" max="100" step="any">
+              <small style="color:var(--text-muted); font-size:0.68rem;">Default: 0%</small>
+            </div>
+
+            <div>
+              <label for="modal-res-price-total" class="form-label">Vía B — Costo Total</label>
+              <input type="number" id="modal-res-price-total" class="form-input" placeholder="$0" step="any">
+              <small style="color:var(--text-muted); font-size:0.68rem;">Con impuesto inc.</small>
+            </div>
+          </div>
+
+          <p style="font-size:0.72rem; color:var(--text-muted); margin-top:0.75rem;">
+            * El sistema calcula y bloquea de inmediato la vía opuesta para garantizar coherencia en precios.
+          </p>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+          <button type="button" onclick="closeResourcePopout()" class="btn-outline" style="padding:0.7rem 1.2rem;">
+            Cancelar
+          </button>
+          <button type="submit" class="btn-terracota" style="width: auto; padding: 0.7rem 1.5rem;">
+            Guardar Recurso
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       5.3 MODAL: IMPACTO EN PRESUPUESTOS ABIERTOS (REGLA D-22)
+       ====================================================================== -->
+  <div id="apu-impact-dialog" class="popout-backdrop" style="display: none;">
+    <div class="popout-card" style="max-width: 480px;">
+      <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1rem;">
+        <div style="width:36px; height:36px; border-radius:50%; background:rgba(217,107,67,0.15); display:flex; align-items:center; justify-content:center; color:var(--terracota);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+        </div>
+        <h3 style="font-size:1.2rem; font-weight:700; color:#fff;">Recurso en Uso en APUs</h3>
+      </div>
+
+      <p id="apu-impact-message" style="font-size:0.86rem; color:var(--text-secondary); line-height:1.5; margin-bottom:1.5rem;"></p>
+
+      <div style="display:flex; flex-direction:column; gap:0.6rem;">
+        <button type="button" class="btn-terracota" onclick="confirmApuImpact(true)" style="width:100%; justify-content:center;">
+          Sí, actualizar presupuestos abiertos
+        </button>
+        <button type="button" class="btn-outline" onclick="confirmApuImpact(false)" style="width:100%; justify-content:center; color:#fff;">
+          No, solo para nuevos (conservar presupuestos)
+        </button>
+        <button type="button" class="link-terracota" onclick="closeApuImpactDialog()" style="background:none; border:none; font-size:0.8rem; margin-top:0.35rem; cursor:pointer;">
+          Cancelar edición
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       5.4 MODAL: BLOQUEO DE ELIMINACIÓN DE RECURSO
+       ====================================================================== -->
+  <div id="delete-blocked-dialog" class="popout-backdrop" style="display: none;">
+    <div class="popout-card" style="max-width: 480px;">
+      <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1rem;">
+        <div style="width:36px; height:36px; border-radius:50%; background:rgba(239,68,68,0.15); display:flex; align-items:center; justify-content:center; color:var(--status-danger);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="15" y1="9" x2="9" y2="15"></line>
+            <line x1="9" y1="9" x2="15" y2="15"></line>
+          </svg>
+        </div>
+        <h3 style="font-size:1.2rem; font-weight:700; color:#fff;">Eliminación Bloqueada</h3>
+      </div>
+
+      <p style="font-size:0.86rem; color:var(--text-secondary); line-height:1.5; margin-bottom:1rem;">
+        No es posible eliminar este recurso porque se encuentra vinculado a los siguientes <strong>Análisis de Precios Unitarios (APU)</strong>:
+      </p>
+
+      <ul id="delete-blocked-apus-list" style="background:var(--bg-main); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); padding:1rem 1.5rem; font-size:0.82rem; color:var(--text-primary); margin-bottom:1.5rem; max-height:160px; overflow-y:auto;"></ul>
+
+      <div style="display:flex; justify-content:flex-end;">
+        <button type="button" onclick="closeDeleteBlockedDialog()" class="btn-outline" style="padding:0.6rem 1.25rem;">
+          Entendido
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       7.1 MODAL: CREAR UN PRESUPUESTO
+       ====================================================================== -->
+  <div id="presupuesto-create-popout-modal" class="popout-backdrop" style="display: none;">
+    <div class="popout-card" style="max-width: 540px;">
+      
+      <div class="popout-header">
+        <div>
+          <h2 class="popout-title">Crear Nuevo Presupuesto</h2>
+          <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;">
+            Registre un nuevo proyecto para comenzar a estructurar la obra y sus costos
+          </p>
+        </div>
+        <button type="button" onclick="closeCreatePresupuestoModal()" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1.2rem;">✕</button>
+      </div>
+
+      <div id="modal-presupuesto-alert" class="alert-box alert-danger" style="display: none;"></div>
+
+      <form id="presupuesto-create-form">
+        <!-- Código del presupuesto -->
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label class="form-label" for="pres-new-codigo">Código del Presupuesto *</label>
+          <div style="position:relative;">
+            <input type="text" id="pres-new-codigo" class="form-input" placeholder="Ej. PRE-2026-001" style="font-family:var(--font-mono); text-transform:uppercase;" required>
+            <span id="pres-codigo-status" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); font-size:0.75rem; font-weight:600;"></span>
+          </div>
+          <span style="font-size:0.72rem; color:var(--text-muted); margin-top:0.25rem; display:block;">
+            Alfanumérico escrito por el usuario. Se valida que no se repita en la empresa.
+          </span>
+        </div>
+
+        <!-- Nombre del proyecto -->
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label class="form-label" for="pres-new-nombre">Nombre del Proyecto *</label>
+          <input type="text" id="pres-new-nombre" class="form-input" placeholder="Ej. Edificio Residencial Altavista - Torre 2" required>
+        </div>
+
+        <!-- Ubicación -->
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label class="form-label" for="pres-new-ubicacion">Ubicación *</label>
+          <input type="text" id="pres-new-ubicacion" class="form-input" placeholder="Ej. Medellín, Antioquia" required>
+        </div>
+
+        <!-- Moneda (Heredada de la empresa, no seleccionable) -->
+        <div class="form-group" style="margin-bottom: 1.75rem;">
+          <label class="form-label">Moneda</label>
+          <input type="text" id="pres-new-moneda" class="form-input locked-field" value="COP - Peso Colombiano" readonly>
+          <span style="font-size:0.72rem; color:var(--text-muted); margin-top:0.25rem; display:block;">
+            Se hereda automáticamente de la configuración de la empresa. Dato fijo.
+          </span>
+        </div>
+
+        <div class="popout-actions" style="margin-top:1.5rem; display:flex; justify-content:flex-end; gap:0.75rem;">
+          <button type="button" onclick="closeCreatePresupuestoModal()" class="btn-outline" style="padding:0.65rem 1.25rem;">
+            Cancelar
+          </button>
+          <button type="submit" id="btn-submit-presupuesto" class="btn-terracota" style="width:auto; padding:0.65rem 1.5rem;">
+            Iniciar Presupuesto
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       8.4 MODAL: CREAR CAPÍTULO DE PRIMER NIVEL (CLASIFICACIÓN OBLIGATORIA)
+       ====================================================================== -->
+  <div id="chapter-create-popout-modal" class="popout-backdrop" style="display: none;">
+    <div class="popout-card" style="max-width: 580px;">
+      
+      <div class="popout-header">
+        <div>
+          <h2 class="popout-title">Agregar Capítulo Principal</h2>
+          <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;">
+            Ingrese el título y defina obligatoriamente la naturaleza de los costos
+          </p>
+        </div>
+        <button type="button" onclick="closeCreateChapterModal()" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1.2rem;">✕</button>
+      </div>
+
+      <div id="modal-chapter-alert" class="alert-box alert-danger" style="display: none;"></div>
+
+      <form id="chapter-create-form">
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label class="form-label" for="chapter-new-titulo">Título del Capítulo *</label>
+          <input type="text" id="chapter-new-titulo" class="form-input" placeholder="Ej. Estructura y Concretos, o Preliminares" required>
+        </div>
+
+        <!-- Selección obligatoria de Directo vs Indirecto (8.4) -->
+        <div class="form-group" style="margin-bottom: 1.5rem;">
+          <label class="form-label">Clasificación de Costos * <span style="font-size:0.72rem; color:var(--terracota-light); font-weight:normal;">(Seleccione una opción requerida)</span></label>
+          
+          <div class="nature-selection-grid">
+            
+            <!-- Opción Directo -->
+            <div class="nature-card-option" id="opt-nature-directo" onclick="selectChapterNature('Directo')">
+              <h4>
+                <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:var(--terracota);"></span>
+                Costo Directo
+              </h4>
+              <p>
+                Obra física ejecutable: cimentación, estructura, mampostería, acabados. Suma al Costo Directo y es la base sobre la que se calcula el AIU.
+              </p>
+            </div>
+
+            <!-- Opción Indirecto -->
+            <div class="nature-card-option" id="opt-nature-indirecto" onclick="selectChapterNature('Indirecto')">
+              <h4>
+                <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#3b82f6;"></span>
+                Costo Indirecto
+              </h4>
+              <p>
+                Costos complementarios no físicos: topografía, dirección de obra, ensayos, pólizas. Suma al total pero NO entra en la base del AIU.
+              </p>
+            </div>
+
+          </div>
+          <input type="hidden" id="chapter-selected-nature" value="">
+        </div>
+
+        <div class="popout-actions" style="margin-top:1.5rem; display:flex; justify-content:flex-end; gap:0.75rem;">
+          <button type="button" onclick="closeCreateChapterModal()" class="btn-outline" style="padding:0.65rem 1.25rem;">
+            Cancelar
+          </button>
+          <button type="submit" class="btn-terracota" style="width:auto; padding:0.65rem 1.5rem;">
+            Crear Capítulo
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       8.2 MODAL: CREAR SUBCAPÍTULO (HEREDA NATURALEZA DEL PADRE)
+       ====================================================================== -->
+  <div id="subchapter-create-popout-modal" class="popout-backdrop" style="display: none;">
+    <div class="popout-card" style="max-width: 500px;">
+      
+      <div class="popout-header">
+        <div>
+          <h2 class="popout-title" id="subchapter-modal-title">Agregar Subcapítulo</h2>
+          <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;" id="subchapter-modal-subtitle">
+            Crea un nuevo subnivel inmediatamente inferior
+          </p>
+        </div>
+        <button type="button" onclick="closeCreateSubchapterModal()" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1.2rem;">✕</button>
+      </div>
+
+      <div id="modal-subchapter-alert" class="alert-box alert-danger" style="display: none;"></div>
+
+      <form id="subchapter-create-form">
+        <input type="hidden" id="subchapter-parent-id" value="">
+
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label class="form-label" for="subchapter-new-titulo">Título del Subnivel *</label>
+          <input type="text" id="subchapter-new-titulo" class="form-input" placeholder="Ej. Zapatas y Vigas de Amarre" required>
+        </div>
+
+        <div style="background:rgba(255,255,255,0.02); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); padding:0.75rem 1rem; margin-bottom:1.5rem; font-size:0.78rem; color:var(--text-secondary);">
+          ℹ Este subcapítulo heredará automáticamente la clasificación de su nivel raíz: <strong id="subchapter-inherited-nature" style="color:var(--text-primary);">—</strong>.
+        </div>
+
+        <div class="popout-actions" style="display:flex; justify-content:flex-end; gap:0.75rem;">
+          <button type="button" onclick="closeCreateSubchapterModal()" class="btn-outline" style="padding:0.65rem 1.25rem;">
+            Cancelar
+          </button>
+          <button type="submit" class="btn-terracota" style="width:auto; padding:0.65rem 1.5rem;">
+            Crear Subnivel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       8.2 MODAL: RENOMBRAR CAPÍTULO O SUBCAPÍTULO
+       ====================================================================== -->
+  <div id="chapter-rename-popout-modal" class="popout-backdrop" style="display: none;">
+    <div class="popout-card" style="max-width: 480px;">
+      
+      <div class="popout-header">
+        <div>
+          <h2 class="popout-title">Renombrar Nivel</h2>
+          <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;">
+            Modifique el nombre o título descriptivo del contenedor
+          </p>
+        </div>
+        <button type="button" onclick="closeRenameChapterModal()" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1.2rem;">✕</button>
+      </div>
+
+      <form id="chapter-rename-form">
+        <input type="hidden" id="rename-chapter-id" value="">
+        
+        <div class="form-group" style="margin-bottom: 1.5rem;">
+          <label class="form-label" for="rename-chapter-input">Título del Capítulo *</label>
+          <input type="text" id="rename-chapter-input" class="form-input" required>
+        </div>
+
+        <div class="popout-actions" style="display:flex; justify-content:flex-end; gap:0.75rem;">
+          <button type="button" onclick="closeRenameChapterModal()" class="btn-outline" style="padding:0.65rem 1.25rem;">
+            Cancelar
+          </button>
+          <button type="submit" class="btn-terracota" style="width:auto; padding:0.65rem 1.5rem;">
+            Guardar Título
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       8.6 MODAL: AVISO AL ACTIVAR CON AIU EN CERO
+       ====================================================================== -->
+  <div id="aiu-zero-warning-modal" class="popout-backdrop" style="display: none;">
+    <div class="popout-card" style="max-width: 500px;">
+      <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1rem;">
+        <div style="width:40px; height:40px; border-radius:50%; background:rgba(245,158,11,0.15); display:flex; align-items:center; justify-content:center; color:#f59e0b;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+        </div>
+        <h3 style="font-size:1.15rem; font-weight:700; color:#fff;">Aviso: AIU en Cero</h3>
+      </div>
+
+      <p style="font-size:0.86rem; color:var(--text-secondary); line-height:1.5; margin-bottom:1.25rem;">
+        Este presupuesto tiene los tres porcentajes de AIU en cero (<strong style="color:var(--text-primary);">Administración: 0%, Imprevistos: 0%, Utilidad: 0%</strong>).
+      </p>
+      <p style="font-size:0.84rem; color:var(--text-muted); line-height:1.5; margin-bottom:1.5rem;">
+        Al activar el proyecto se congelará la línea base sin sobrecostos de administración ni utilidad. Si la obra no se oferta a costo directo estricto, le recomendamos ajustar estos campos antes de continuar.
+      </p>
+
+      <div class="popout-actions" style="display:flex; justify-content:flex-end; gap:0.75rem;">
+        <button type="button" onclick="document.getElementById('aiu-zero-warning-modal').style.display='none'" class="btn-outline" style="padding:0.65rem 1.25rem;">
+          Volver y Ajustar
+        </button>
+        <button type="button" id="btn-confirm-activate-zero-aiu" class="btn-terracota" style="width:auto; padding:0.65rem 1.5rem;">
+          Activar de Todos Modos
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       12.1 MODAL: CAMBIAR CONTRASEÑA
+       ====================================================================== -->
+  <div id="modal-change-password" class="popout-backdrop" style="display: none;">
+    <div class="popout-card" style="max-width: 460px;">
+      <div class="popout-header">
+        <div>
+          <h2 class="popout-title">Cambiar Contraseña</h2>
+          <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;">
+            Ingrese su contraseña actual y defina su nueva clave de acceso
+          </p>
+        </div>
+        <button type="button" onclick="closeChangePasswordModal()" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1.2rem;">✕</button>
+      </div>
+
+      <div id="cfg-pwd-alert" class="alert-box alert-danger" style="display: none;"></div>
+
+      <form id="cfg-pwd-form">
+        <div class="form-group" style="margin-bottom: 1.2rem;">
+          <label class="form-label" for="cfg-pwd-current">Contraseña Actual *</label>
+          <input type="password" id="cfg-pwd-current" class="form-input" placeholder="••••••••" required autocomplete="current-password">
+          <small style="font-size:0.72rem; color:var(--text-muted); margin-top:0.25rem; display:block;">
+            Validada directamente por el servidor
+          </small>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.2rem;">
+          <label class="form-label" for="cfg-pwd-new">Nueva Contraseña *</label>
+          <input type="password" id="cfg-pwd-new" class="form-input" placeholder="Mínimo 6 caracteres" required minlength="6" autocomplete="new-password">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.5rem;">
+          <label class="form-label" for="cfg-pwd-confirm">Confirmar Nueva Contraseña *</label>
+          <input type="password" id="cfg-pwd-confirm" class="form-input" placeholder="Repita la nueva contraseña" required minlength="6" autocomplete="new-password">
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:0.75rem;">
+          <button type="button" onclick="closeChangePasswordModal()" class="btn-outline" style="padding:0.65rem 1.2rem;">
+            Cancelar
+          </button>
+          <button type="submit" class="btn-terracota" style="width:auto; padding:0.65rem 1.4rem;">
+            Actualizar Contraseña
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       12.4 MODAL: CREAR USUARIO / ASISTENTE
+       ====================================================================== -->
+  <div id="modal-config-user" class="popout-backdrop" style="display: none;">
+    <div class="popout-card" style="max-width: 620px;">
+      <div class="popout-header">
+        <div>
+          <h2 class="popout-title" id="cfg-user-modal-title">Crear Nuevo Usuario</h2>
+          <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;">
+            El administrador entrega la contraseña temporal. En el primer ingreso el sistema obliga a cambiarla.
+          </p>
+        </div>
+        <button type="button" onclick="closeCreateUserModal()" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1.2rem;">✕</button>
+      </div>
+
+      <div id="cfg-user-modal-alert" class="alert-box alert-danger" style="display: none;"></div>
+
+      <form id="cfg-user-form">
+        <div style="display:grid; grid-template-columns:1.2fr 1fr; gap:1rem; margin-bottom:1.15rem;">
+          <div class="form-group">
+            <label class="form-label">Nombre Completo *</label>
+            <input type="text" id="cfg-user-modal-name" class="form-input" placeholder="Ej. Ing. Mauricio Restrepo" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Rol Asignado *</label>
+            <select id="cfg-user-modal-role" class="form-input" required>
+              <!-- Dinámico según roles de la empresa -->
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.15rem;">
+          <label class="form-label">Correo Electrónico de Ingreso *</label>
+          <input type="email" id="cfg-user-modal-email" class="form-input" placeholder="ejemplo@constructora.com" required>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label class="form-label">Contraseña Temporal *</label>
+          <input type="text" id="cfg-user-modal-temp-pass" class="form-input" style="font-family:var(--font-mono); font-weight:700; letter-spacing:1px;" required>
+          <small style="font-size:0.72rem; color:var(--text-muted); margin-top:0.25rem; display:block;">
+            * No hay invitación por correo: entregue esta clave al colaborador para que inicie sesión.
+          </small>
+        </div>
+
+        <!-- Matriz de permisos granulares para Plan Personal -->
+        <div id="cfg-user-modal-perms" style="display:none; margin-bottom:1.5rem; border-top:1px solid var(--border-subtle); padding-top:1rem;">
+          <label class="form-label" style="margin-bottom:0.6rem;">Permisos Granulares por Módulo y Acción</label>
+          <div id="cfg-user-modal-perms-grid"></div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:0.75rem;">
+          <button type="button" onclick="closeCreateUserModal()" class="btn-outline" style="padding:0.65rem 1.2rem;">
+            Cancelar
+          </button>
+          <button type="submit" class="btn-terracota" style="width:auto; padding:0.65rem 1.4rem;">
+            Crear Usuario
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       12.4 MODAL: CREAR ROL PERSONALIZADO (PLAN EMPRESARIAL)
+       ====================================================================== -->
+  <div id="modal-config-role" class="popout-backdrop" style="display: none;">
+    <div class="popout-card" style="max-width: 620px;">
+      <div class="popout-header">
+        <div>
+          <h2 class="popout-title">Crear Rol Personalizado</h2>
+          <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;">
+            Defina un rol de trabajo con permisos granulares por módulo y acción
+          </p>
+        </div>
+        <button type="button" onclick="closeCreateRoleModal()" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1.2rem;">✕</button>
+      </div>
+
+      <div id="cfg-role-modal-alert" class="alert-box alert-danger" style="display: none;"></div>
+
+      <form id="cfg-role-form">
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label class="form-label">Nombre del Rol *</label>
+          <input type="text" id="cfg-role-modal-name" class="form-input" placeholder="Ej. Auxiliar de Licitaciones" required>
+        </div>
+
+        <div style="margin-bottom:1.5rem;">
+          <label class="form-label" style="margin-bottom:0.6rem;">Permisos del Rol</label>
+          <div id="cfg-role-modal-perms-grid"></div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:0.75rem;">
+          <button type="button" onclick="closeCreateRoleModal()" class="btn-outline" style="padding:0.65rem 1.2rem;">
+            Cancelar
+          </button>
+          <button type="submit" class="btn-terracota" style="width:auto; padding:0.65rem 1.4rem;">
+            Guardar Rol
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       12.6 MODAL: CREAR / EDITAR UNIDAD DE MEDIDA
+       ====================================================================== -->
+  <div id="modal-config-unit" class="popout-backdrop" style="display: none;">
+    <div class="popout-card" style="max-width: 480px;">
+      <div class="popout-header">
+        <div>
+          <h2 class="popout-title" id="cfg-unit-modal-title">Crear Nueva Unidad</h2>
+          <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;">
+            Unidad de medida oficial para Recursos y Análisis de Precios Unitarios (APU)
+          </p>
+        </div>
+        <button type="button" onclick="closeUnitModal()" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1.2rem;">✕</button>
+      </div>
+
+      <div id="cfg-unit-modal-alert" class="alert-box alert-danger" style="display: none;"></div>
+
+      <form id="cfg-unit-form">
+        <div class="form-group" style="margin-bottom: 1.2rem;">
+          <label class="form-label" for="cfg-unit-symbol">Símbolo de la Unidad *</label>
+          <input type="text" id="cfg-unit-symbol" class="form-input" placeholder="Ej. m², Kg, Und, Glb" required>
+          <small style="font-size:0.72rem; color:var(--text-muted); margin-top:0.25rem; display:block;">
+            La validación no distingue mayúsculas («Kg» y «kg» son el mismo símbolo).
+          </small>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.2rem;">
+          <label class="form-label" for="cfg-unit-name">Descripción Oficial *</label>
+          <input type="text" id="cfg-unit-name" class="form-input" placeholder="Ej. Metro cuadrado" required>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.5rem;">
+          <label class="form-label" for="cfg-unit-cat">Categoría (Opcional)</label>
+          <input type="text" id="cfg-unit-cat" class="form-input" placeholder="Ej. Superficie, Volumen, Peso, Conteo">
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:0.75rem;">
+          <button type="button" onclick="closeUnitModal()" class="btn-outline" style="padding:0.65rem 1.2rem;">
+            Cancelar
+          </button>
+          <button type="submit" class="btn-terracota" style="width:auto; padding:0.65rem 1.4rem;">
+            Guardar Unidad
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       12.6 MODAL: BLOQUEO DE ELIMINACIÓN DE UNIDAD DE MEDIDA
+       ====================================================================== -->
+  <div id="modal-unit-blocked" class="popout-backdrop" style="display: none;">
+    <div class="popout-card" style="max-width: 500px;">
+      <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1rem;">
+        <div style="width:38px; height:38px; border-radius:50%; background:rgba(239,68,68,0.15); display:flex; align-items:center; justify-content:center; color:var(--status-danger);">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="15" y1="9" x2="9" y2="15"></line>
+            <line x1="9" y1="9" x2="15" y2="15"></line>
+          </svg>
+        </div>
+        <div>
+          <h3 style="font-size:1.2rem; font-weight:700; color:#fff; margin:0;">Eliminación Bloqueada</h3>
+          <span id="cfg-blocked-unit-symbol" style="font-size:0.8rem; color:var(--terracota); font-weight:700;"></span>
+        </div>
+      </div>
+
+      <p style="font-size:0.86rem; color:var(--text-secondary); line-height:1.5; margin-bottom:1rem;">
+        No es posible eliminar esta unidad de medida porque está siendo utilizada actualmente en recursos o recetas de APU de la empresa:
+      </p>
+
+      <ul id="cfg-blocked-unit-list" style="background:var(--bg-main); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); padding:0.85rem 1.25rem; font-size:0.8rem; color:var(--text-primary); margin-bottom:1.5rem; max-height:140px; overflow-y:auto;">
+      </ul>
+
+      <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:1.5rem;">
+        Para eliminarla, primero cambie la unidad de medida en los recursos y APUs vinculados.
+      </p>
+
+      <div style="display:flex; justify-content:flex-end;">
+        <button type="button" onclick="closeUnitBlockedModal()" class="btn-outline" style="padding:0.6rem 1.25rem;">
+          Entendido
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       12.3 MODAL: VISTA / DESCARGA DE COMPROBANTE PDF
+       ====================================================================== -->
+  <div id="modal-billing-receipt" class="popout-backdrop" style="display: none;">
+    <div class="popout-card" style="max-width: 680px; max-height:92vh; display:flex; flex-direction:column;">
+      <div class="popout-header" style="margin-bottom:0.75rem;">
+        <h2 class="popout-title">Comprobante Oficial de Pago</h2>
+        <button type="button" onclick="closeReceiptModal()" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1.2rem;">✕</button>
+      </div>
+
+      <div id="cfg-receipt-content" style="flex:1; overflow-y:auto; margin-bottom:1rem;">
+        <!-- Contenido inyectado dinámicamente con hoja de recibo profesional -->
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border-subtle); padding-top:0.75rem;">
+        <button type="button" onclick="closeReceiptModal()" class="btn-outline" style="padding:0.6rem 1.2rem;">
+          Cerrar
+        </button>
+        <button type="button" class="btn-terracota" style="width:auto; padding:0.6rem 1.4rem;" onclick="printCurrentReceipt()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+          </svg>
+          Descargar / Imprimir PDF
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/storage.js"></script>
+  <script src="js/recursos.js"></script>
+  <script src="js/apu.js"></script>
+  <script src="js/presupuestos.js"></script>
+  <script src="js/configuracion.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      let user = null;
+      try {
+        const stored = localStorage.getItem('contrusoft_current_user');
+        if (stored) user = JSON.parse(stored);
+      } catch (e) {}
+
+      if (!user) {
+        window.location.href = 'index.html';
+        return;
+      }
+
+      const userRole = user.rol || 'Administrador';
+
+      document.getElementById('sidebar-user-name').textContent = user.nombre || 'Usuario';
+      document.getElementById('sidebar-user-role').textContent = userRole;
+
+      const companyName = (user.company && user.company.razonSocial) ? user.company.razonSocial : 'ConstruSoft';
+      const topbarCompany = document.getElementById('topbar-company-name');
+      if (topbarCompany) {
+        topbarCompany.textContent = companyName;
+      }
+
+      if (user.company && user.company.diasPruebaRestantes !== undefined) {
+        document.getElementById('trial-days-text').textContent = `${user.company.diasPruebaRestantes} días restantes de prueba`;
+      }
+
+      // Configuración del botón de tema (Claro / Oscuro)
+      const themeToggleBtn = document.getElementById('theme-toggle-btn');
+      const themeToggleLabel = document.getElementById('theme-toggle-label');
+
+      function syncThemeUI(theme) {
+        if (theme === 'light') {
+          document.documentElement.setAttribute('data-theme', 'light');
+          if (themeToggleLabel) themeToggleLabel.textContent = 'Modo Claro';
+        } else {
+          document.documentElement.removeAttribute('data-theme');
+          if (themeToggleLabel) themeToggleLabel.textContent = 'Modo Oscuro';
+        }
+      }
+
+      const initialTheme = localStorage.getItem('contrusoft_theme') || 'dark';
+      syncThemeUI(initialTheme);
+
+      if (themeToggleBtn) {
+        themeToggleBtn.addEventListener('click', () => {
+          const currentTheme = localStorage.getItem('contrusoft_theme') || 'dark';
+          const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+          localStorage.setItem('contrusoft_theme', nextTheme);
+          syncThemeUI(nextTheme);
+        });
+      }
+
+      const menuItems = document.querySelectorAll('.menu-item');
+      menuItems.forEach(item => {
+        const allowedRoles = (item.getAttribute('data-roles') || '').split(',').map(r => r.trim());
+        if (allowedRoles.includes(userRole)) {
+          item.style.display = 'block';
+        } else {
+          item.style.display = 'none';
+        }
+      });
+
+      const viewApu = document.getElementById('view-module-apu');
+      const viewRecursos = document.getElementById('view-module-recursos');
+      const viewPresupuestos = document.getElementById('view-module-presupuestos');
+      const viewConfiguracion = document.getElementById('view-module-configuracion');
+      const viewGeneric = document.getElementById('view-module-generic');
+      const genericTitle = document.getElementById('module-title-display');
+      const genericDesc = document.getElementById('module-desc-display');
+      const genericBody = document.getElementById('module-body-display');
+
+      const MODULE_DESTINATIONS = {
+        'inicio': {
+          title: 'Inicio',
+          desc: 'Panel general de obras y proyectos',
+          body: 'Bienvenido a ConstruSoft. Seleccione un módulo en el menú lateral para comenzar.'
+        },
+        'recursos': {
+          title: 'Recursos',
+          desc: 'Catálogo maestro de materiales, equipos, personal y actividades a todo costo'
+        },
+        'apu': {
+          title: 'APU',
+          desc: 'Inventario de análisis de precios unitarios'
+        },
+        'presupuestos': {
+          title: 'Presupuestos',
+          desc: 'Lista de proyectos y mesa de trabajo'
+        },
+        'configuracion': {
+          title: 'Configuración',
+          desc: 'Cuenta, empresa, suscripción, usuarios, preferencias y unidades'
+        }
+      };
+
+      function switchModule(target) {
+        document.querySelectorAll('.menu-item-btn').forEach(btn => {
+          if (btn.getAttribute('data-target') === target) btn.classList.add('active');
+          else btn.classList.remove('active');
+        });
+
+        // Ocultar todas las vistas
+        if (viewApu) viewApu.style.display = 'none';
+        if (viewRecursos) viewRecursos.style.display = 'none';
+        if (viewPresupuestos) viewPresupuestos.style.display = 'none';
+        if (viewConfiguracion) viewConfiguracion.style.display = 'none';
+        if (viewGeneric) viewGeneric.style.display = 'none';
+
+        if (target === 'apu') {
+          viewApu.style.display = 'block';
+          if (typeof initApuModule === 'function') initApuModule();
+        } else if (target === 'recursos') {
+          viewRecursos.style.display = 'block';
+          if (typeof initRecursosModule === 'function') initRecursosModule();
+        } else if (target === 'presupuestos') {
+          viewPresupuestos.style.display = 'block';
+          if (typeof initPresupuestosModule === 'function') initPresupuestosModule();
+        } else if (target === 'configuracion') {
+          if (viewConfiguracion) {
+            viewConfiguracion.style.display = 'block';
+            if (typeof initConfiguracionModule === 'function') initConfiguracionModule();
+          }
+        } else {
+          viewGeneric.style.display = 'block';
+          const dest = MODULE_DESTINATIONS[target];
+          if (dest) {
+            genericTitle.textContent = dest.title;
+            genericDesc.textContent = dest.desc;
+            genericBody.innerHTML = `<p>${dest.body || ''}</p>`;
+          }
+        }
+      }
+
+      window.switchModule = switchModule;
+
+      document.querySelectorAll('.menu-item-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const target = btn.getAttribute('data-target');
+          switchModule(target);
+        });
+      });
+
+      // Botón volver en presupuestos maestro
+      const btnPresBack = document.getElementById('btn-presupuestos-back-main');
+      if (btnPresBack) {
+        btnPresBack.addEventListener('click', () => {
+          switchModule('inicio');
+        });
+      }
+
+      // Abrir por defecto en presupuestos o apu
+      switchModule('presupuestos');
+
+      document.getElementById('btn-logout').addEventListener('click', () => {
+        localStorage.removeItem('contrusoft_current_user');
+        window.location.href = 'index.html';
+      });
+    });
+  </script>
+</body>
+</html>
