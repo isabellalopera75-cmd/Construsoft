@@ -35,9 +35,10 @@ async function loadCompanyConfiguration() {
     const res = await fetch(`/api/companies/${companyId}/config`);
     const data = await res.json();
     if (data.success) {
-      currentCompanyConfig = data.company;
-      // Actualizar datos en localStorage para sincronizar topbar
-      if (user.company) {
+      // El mock devuelve data.config (no data.company)
+      currentCompanyConfig = data.config || data.company || null;
+      // Sincronizar topbar y sesión
+      if (user.company && currentCompanyConfig) {
         user.company.razonSocial = currentCompanyConfig.razonSocial;
         user.company.nit = currentCompanyConfig.nit;
         user.company.plan = currentCompanyConfig.plan;
@@ -45,12 +46,14 @@ async function loadCompanyConfiguration() {
         user.company.diasPruebaRestantes = currentCompanyConfig.diasPruebaRestantes;
         localStorage.setItem('contrusoft_current_user', JSON.stringify(user));
       }
-      // Actualizar breadcrumb de la barra superior
       const topbar = document.getElementById('topbar-company-name');
-      if (topbar) topbar.textContent = currentCompanyConfig.razonSocial;
+      if (topbar && currentCompanyConfig) topbar.textContent = currentCompanyConfig.razonSocial;
     }
   } catch (err) {
     console.error('Error cargando configuración:', err);
+    // Fallback: leer datos directo del localStorage sin API
+    const user = JSON.parse(localStorage.getItem('contrusoft_current_user') || '{}');
+    if (user.company) currentCompanyConfig = user.company;
   }
 }
 
@@ -558,7 +561,8 @@ async function loadPersonalAssistantView() {
     const data = await res.json();
     if (data.success) {
       configUsersList = data.users || [];
-      const assistant = configUsersList.find(u => u.rol !== 'Administrador');
+      // El administrador es el dueño; el asistente es cualquier otro usuario
+      const assistant = configUsersList.find(u => u.email !== user.email && u.rol !== 'Administrador');
 
       const cardEmpty = document.getElementById('cfg-personal-no-assistant');
       const cardExists = document.getElementById('cfg-personal-assistant-card');
@@ -569,11 +573,12 @@ async function loadPersonalAssistantView() {
 
         document.getElementById('cfg-asst-name').textContent = assistant.nombre;
         document.getElementById('cfg-asst-email').textContent = assistant.email;
-        
+
+        const estadoLabel = !assistant.activo ? 'Revocado' : (assistant.requiereCambioClave ? 'Pendiente' : 'Activo');
         const badge = document.getElementById('cfg-asst-status-badge');
         if (badge) {
-          badge.textContent = assistant.estado;
-          badge.className = `status-pill ${assistant.estado === 'Activo' ? 'status-open' : assistant.estado === 'Pendiente' ? 'status-active' : 'status-closed'}`;
+          badge.textContent = estadoLabel;
+          badge.className = `status-pill ${estadoLabel === 'Activo' ? 'status-open' : estadoLabel === 'Pendiente' ? 'status-active' : 'status-closed'}`;
         }
 
         // Permisos
@@ -582,14 +587,14 @@ async function loadPersonalAssistantView() {
         // Botón revocar/reactivar
         const btnToggle = document.getElementById('cfg-btn-toggle-asst');
         if (btnToggle) {
-          if (assistant.estado === 'Revocado') {
+          if (!assistant.activo) {
             btnToggle.textContent = 'Reactivar Acceso';
             btnToggle.className = 'btn-outline';
-            btnToggle.onclick = () => toggleUserStatus(assistant.id, 'Activo');
+            btnToggle.onclick = () => toggleUserStatus(assistant.id, true);
           } else {
             btnToggle.textContent = 'Revocar Acceso';
             btnToggle.className = 'btn-outline text-danger';
-            btnToggle.onclick = () => toggleUserStatus(assistant.id, 'Revocado');
+            btnToggle.onclick = () => toggleUserStatus(assistant.id, false);
           }
         }
       } else {
@@ -634,17 +639,19 @@ function renderEmpresarialUsersTable(users) {
 
   tbody.innerHTML = users.map(u => {
     const isOwner = u.rol === 'Administrador' && u.email === (JSON.parse(localStorage.getItem('contrusoft_current_user') || '{}').email);
-    const statusClass = u.estado === 'Activo' ? 'status-open' : u.estado === 'Pendiente' ? 'status-active' : 'status-closed';
-    const statusTooltip = u.estado === 'Pendiente' 
-      ? 'Creado, aún no ha iniciado sesión por primera vez (contraseña temporal)'
-      : u.estado === 'Activo' ? 'Ya ingresó al menos una vez' : 'Acceso revocado por el administrador';
+    // Derivar estado visual desde campos booleanos del storage
+    const estadoLabel = !u.activo ? 'Revocado' : (u.requiereCambioClave ? 'Pendiente' : 'Activo');
+    const statusClass = estadoLabel === 'Activo' ? 'status-open' : estadoLabel === 'Pendiente' ? 'status-active' : 'status-closed';
+    const statusTooltip = estadoLabel === 'Pendiente'
+      ? 'Creado, aún no ha iniciado sesión por primera vez'
+      : estadoLabel === 'Activo' ? 'Acceso activo' : 'Acceso revocado por el administrador';
 
     let actionBtn = '';
     if (!isOwner) {
-      if (u.estado === 'Revocado') {
-        actionBtn = `<button type="button" class="btn-outline" style="padding:0.3rem 0.65rem; font-size:0.75rem;" onclick="toggleUserStatus('${u.id}', 'Activo')">Reactivar</button>`;
+      if (!u.activo) {
+        actionBtn = `<button type="button" class="btn-outline" style="padding:0.3rem 0.65rem; font-size:0.75rem;" onclick="toggleUserStatus('${u.id}', true)">Reactivar</button>`;
       } else {
-        actionBtn = `<button type="button" class="btn-outline text-danger" style="padding:0.3rem 0.65rem; font-size:0.75rem;" onclick="toggleUserStatus('${u.id}', 'Revocado')">Revocar Acceso</button>`;
+        actionBtn = `<button type="button" class="btn-outline text-danger" style="padding:0.3rem 0.65rem; font-size:0.75rem;" onclick="toggleUserStatus('${u.id}', false)">Revocar Acceso</button>`;
       }
     } else {
       actionBtn = `<span style="font-size:0.75rem; color:var(--text-muted);">Propietario</span>`;
@@ -659,7 +666,7 @@ function renderEmpresarialUsersTable(users) {
         <td><span class="user-role-badge">${u.rol}</span></td>
         <td>
           <span class="status-pill ${statusClass}" title="${statusTooltip}">
-            ${u.estado}
+            ${estadoLabel}
           </span>
         </td>
         <td style="text-align:right;">
@@ -703,9 +710,9 @@ function formatPermissionsSummary(perms) {
 }
 
 // Cambiar estado de usuario (Revocar / Activar)
-async function toggleUserStatus(userId, nuevoEstado) {
-  const confirmMsg = nuevoEstado === 'Revocado' 
-    ? '¿Está seguro de revocar el acceso a este usuario? Se conservará en el sistema para trazabilidad del historial.' 
+async function toggleUserStatus(userId, nuevoActivo) {
+  const confirmMsg = !nuevoActivo
+    ? '¿Está seguro de revocar el acceso a este usuario? Se conservará en el sistema para trazabilidad del historial.'
     : '¿Desea reactivar el acceso para este usuario?';
 
   if (!confirm(confirmMsg)) return;
@@ -714,11 +721,10 @@ async function toggleUserStatus(userId, nuevoEstado) {
     const res = await fetch(`/api/users/${userId}/status`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ estado: nuevoEstado })
+      body: JSON.stringify({ activo: nuevoActivo })
     });
     const data = await res.json();
     if (data.success) {
-      alert(data.message);
       renderTabUsuarios();
     } else {
       alert(data.message || 'Error al cambiar estado.');

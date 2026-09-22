@@ -14,7 +14,16 @@
     })();
   </script>
 </head>
-<body>
+<body style="
+  background-color: #060911;
+  background-image:
+    radial-gradient(circle at 10% 15%, rgba(99,102,241,0.06) 0%, transparent 45%),
+    radial-gradient(circle at 90% 85%, rgba(217,107,67,0.04) 0%, transparent 40%),
+    linear-gradient(rgba(255,255,255,0.016) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.016) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 28px 28px, 28px 28px;
+  background-attachment: fixed;
+">
 
   <div class="dashboard-layout">
     
@@ -110,6 +119,20 @@
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
             </svg>
             <span>Configuración</span>
+          </button>
+        </li>
+
+        <!-- Control de Obra -->
+        <li class="menu-item" data-module="control" data-roles="Administrador,Residente de Obra,Ingeniero de Costos,Lector">
+          <button type="button" class="menu-item-btn" data-target="control">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+            <span>Control de Obra</span>
           </button>
         </li>
 
@@ -432,6 +455,16 @@
 
               <!-- Control de Estado de la Obra -->
               <div style="display:flex; align-items:center; gap:0.75rem;">
+                <!-- TOGGLE OPCIÓN B: MODO EJECUCIÓN -->
+                <div id="ws-mode-toggle" style="background: rgba(0,0,0,0.1); padding: 3px; border-radius: 6px; display: none; gap: 2px; margin-right: 0.5rem;">
+                  <button type="button" id="btn-mode-planeacion" onclick="toggleWbsMode('planeacion')" style="background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-subtle); padding: 0.35rem 0.6rem; font-size: 0.75rem; border-radius: 4px; font-weight: 600; cursor: pointer;">
+                    Planeación
+                  </button>
+                  <button type="button" id="btn-mode-avances" onclick="toggleWbsMode('avances')" style="background: transparent; color: var(--text-muted); border: 1px solid transparent; padding: 0.35rem 0.6rem; font-size: 0.75rem; border-radius: 4px; font-weight: 600; cursor: pointer;">
+                    Avances
+                  </button>
+                </div>
+
                 <span id="ws-head-status-badge" class="status-badge status-badge-abierto">Abierto</span>
                 <div id="ws-status-control-box">
                   <!-- Inyectado dinámicamente según permisos y estado -->
@@ -718,9 +751,36 @@
 
           <!-- 12.4 Usuarios -->
           <div id="cfg-panel-usuarios" class="cfg-tab-panel" style="display: none;">
-            
+
             <!-- Vista para Plan Personal -->
             <div id="cfg-users-personal-mode" style="display:none;">
+
+              <!-- Banner informativo Plan Personal -->
+              <div style="display:flex; gap:1rem; align-items:flex-start; background:rgba(217,107,67,0.07); border:1px solid rgba(217,107,67,0.22); border-radius:var(--radius-lg); padding:1.1rem 1.25rem; margin-bottom:1.25rem; max-width:720px;">
+                <div style="width:36px; height:36px; border-radius:50%; background:rgba(217,107,67,0.15); display:flex; align-items:center; justify-content:center; color:var(--terracota); flex-shrink:0;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                  </svg>
+                </div>
+                <div style="flex:1;">
+                  <div style="font-size:0.88rem; font-weight:700; color:#fff; margin-bottom:0.2rem;">Plan Personal — 1 usuario máximo</div>
+                  <p style="font-size:0.78rem; color:var(--text-secondary); margin:0 0 0.75rem 0; line-height:1.45;">
+                    Su plan actual incluye solo al <strong>Administrador</strong> y un <strong>Asistente Técnico</strong>.
+                    Los roles personalizados, el control granular de equipo y los usuarios ilimitados están disponibles en el <strong>Plan Empresarial</strong>.
+                  </p>
+                  <div style="display:flex; gap:1rem; flex-wrap:wrap; font-size:0.75rem; color:rgba(148,163,184,0.6);">
+                    <span>✗ Usuarios ilimitados</span>
+                    <span>✗ Roles personalizados</span>
+                    <span>✗ Control granular por módulo</span>
+                  </div>
+                </div>
+                <button type="button" onclick="switchConfigTab('suscripcion')" class="btn-terracota" style="flex-shrink:0; width:auto; padding:0.5rem 1rem; font-size:0.78rem;">
+                  Ver planes &rarr;
+                </button>
+              </div>
+
               <div class="cfg-card" style="max-width: 720px;">
                 <div class="cfg-card-header">
                   <h3 class="cfg-card-title">Asistente Técnico del Ingeniero</h3>
@@ -1016,12 +1076,152 @@
       </div>
 
       <!-- ================================================================
-           SECCIÓN GENÉRICA PARA OTROS MÓDULOS (Inicio, etc.)
+           SECCIÓN INICIO (DASHBOARD METRICS & CHARTS)
+           ================================================================ -->
+      <div id="view-module-inicio" style="display: none;">
+        <div class="module-header" style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:1.5rem;">
+          <div>
+            <h1 class="module-title">Inicio</h1>
+            <p class="module-desc">Panel general de estadísticas, métricas y estado de obras</p>
+          </div>
+        </div>
+        
+        <div id="inicio-metrics-container">
+          <!-- 4 Tarjetas de Estadísticas -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+            <!-- Proyectos Activos -->
+            <div style="background: var(--bg-card); border: 1px solid rgba(16, 185, 129, 0.3); border-left: 4px solid #10b981; border-radius: var(--radius-md); padding: 1.5rem;">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                <div style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Proyectos Activos</div>
+                <div style="color: #10b981; background: rgba(16, 185, 129, 0.1); padding: 0.25rem; border-radius: 4px;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                </div>
+              </div>
+              <div style="font-size: 2.2rem; font-family: var(--font-mono); font-weight: 700; color: #10b981;">12</div>
+            </div>
+
+            <!-- Presupuestos Abiertos -->
+            <div style="background: var(--bg-card); border: 1px solid rgba(245, 158, 11, 0.3); border-left: 4px solid #f59e0b; border-radius: var(--radius-md); padding: 1.5rem;">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                <div style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Pptos. Abiertos</div>
+                <div style="color: #f59e0b; background: rgba(245, 158, 11, 0.1); padding: 0.25rem; border-radius: 4px;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                </div>
+              </div>
+              <div style="font-size: 2.2rem; font-family: var(--font-mono); font-weight: 700; color: #f59e0b;">5</div>
+            </div>
+
+            <!-- APUs en BD -->
+            <div style="background: var(--bg-card); border: 1px solid rgba(217, 107, 67, 0.3); border-left: 4px solid var(--terracota); border-radius: var(--radius-md); padding: 1.5rem;">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                <div style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Recetas APU</div>
+                <div style="color: var(--terracota); background: var(--terracota-subtle); padding: 0.25rem; border-radius: 4px;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="14" x2="23" y2="14"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="14" x2="4" y2="14"></line></svg>
+                </div>
+              </div>
+              <div style="font-size: 2.2rem; font-family: var(--font-mono); font-weight: 700; color: var(--terracota);">148</div>
+            </div>
+
+            <!-- Recursos Disponibles -->
+            <div style="background: var(--bg-card); border: 1px solid rgba(59, 130, 246, 0.3); border-left: 4px solid #3b82f6; border-radius: var(--radius-md); padding: 1.5rem;">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                <div style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Recursos Catálogo</div>
+                <div style="color: #3b82f6; background: rgba(59, 130, 246, 0.1); padding: 0.25rem; border-radius: 4px;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                </div>
+              </div>
+              <div style="font-size: 2.2rem; font-family: var(--font-mono); font-weight: 700; color: #3b82f6;">320</div>
+            </div>
+          </div>
+
+          <!-- Zona de Gráficas (Chart.js) -->
+          <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.5rem; margin-bottom: 2rem; display: grid; grid-template-columns: 2fr 1fr; gap: 2rem;">
+            
+            <!-- Gráfica de Líneas -->
+            <div>
+              <h3 style="font-size: 1.05rem; font-weight: 600; color: #fff; margin-bottom: 1.25rem; font-family: var(--font-serif);">Evolución de Costos Directos Acumulados (Últimos 6 meses)</h3>
+              <div style="position: relative; height: 260px; width: 100%;">
+                <canvas id="demoLineChart"></canvas>
+              </div>
+            </div>
+
+            <!-- Gráfica Doughnut -->
+            <div>
+              <h3 style="font-size: 1.05rem; font-weight: 600; color: #fff; margin-bottom: 1.25rem; font-family: var(--font-serif);">Distribución de APUs por Categoría</h3>
+              <div style="position: relative; height: 260px; width: 100%; display: flex; justify-content: center;">
+                <canvas id="demoDoughnutChart"></canvas>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Resumen del sistema -->
+          <div style="background: var(--bg-sidebar); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 2rem; display: flex; align-items: flex-start; gap: 1.5rem;">
+            <div style="width: 48px; height: 48px; background: rgba(217, 107, 67, 0.15); color: var(--terracota); border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+            </div>
+            <div>
+              <h3 style="font-size: 1.15rem; font-weight: 600; color: #fff; margin-bottom: 0.5rem; font-family: var(--font-serif);">Resumen de Actividad del Sistema</h3>
+              <p style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5; margin-bottom: 1rem;">
+                <strong>Tiempo en sesión:</strong> 2h 15m. <br>
+                <strong>Último guardado:</strong> Hace 5 minutos en el módulo de Presupuestos.<br>
+                <strong>Módulos visitados hoy:</strong> Recursos, APU, Presupuestos.
+              </p>
+              <button type="button" class="btn-terracota" onclick="switchModule('presupuestos')" style="width: auto; padding: 0.5rem 1rem; font-size: 0.85rem;">
+                Ir a Presupuestos
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================================================================
+           SECCIÓN CONTROL DE OBRA (OPCIÓN A: MÓDULO APARTE)
+           ================================================================ -->
+      <div id="view-module-control" style="display: none;">
+        <div class="module-header" style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:1.5rem;">
+          <div>
+            <h1 class="module-title">Control de Ejecución (Avance Físico)</h1>
+            <p class="module-desc">Selecciona un proyecto activo para registrar avances diarios o semanales por ítem.</p>
+          </div>
+        </div>
+
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.5rem; margin-bottom: 2rem;">
+          <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.5rem; display: block;">Proyecto a controlar:</label>
+          <select id="control-budget-select" class="form-input" style="max-width: 400px;" onchange="onControlBudgetSelectChange(event)">
+            <option value="">-- Selecciona un proyecto activo --</option>
+          </select>
+        </div>
+
+        <div class="resources-table-wrap">
+          <table class="resources-table">
+            <thead>
+              <tr>
+                <th>CÓDIGO</th>
+                <th>ACTIVIDAD</th>
+                <th>UNIDAD</th>
+                <th style="text-align: right;">CANT. PROYECTADA</th>
+                <th style="text-align: right;">CANT. EJECUTADA</th>
+                <th style="text-align: center;">% AVANCE</th>
+                <th style="text-align: center;">ACCIONES</th>
+              </tr>
+            </thead>
+            <tbody id="control-table-body">
+              <tr>
+                <td colspan="7" style="text-align:center; padding:2rem; color:var(--text-muted);">Por favor selecciona un proyecto arriba.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ================================================================
+           SECCIÓN GENÉRICA PARA OTROS MÓDULOS
            ================================================================ -->
       <div id="view-module-generic" style="display: none;">
         <div class="module-header">
-          <h1 class="module-title" id="module-title-display">Inicio</h1>
-          <p class="module-desc" id="module-desc-display">Panel general de obras y proyectos</p>
+          <h1 class="module-title" id="module-title-display">Módulo Genérico</h1>
+          <p class="module-desc" id="module-desc-display">Descripción del módulo</p>
         </div>
 
         <div class="module-placeholder-box" id="module-body-display">
@@ -1907,11 +2107,47 @@
     </div>
   </div>
 
+  <!-- Chart.js para gráficas demo -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Scripts -->
+  <!-- ======================================================================
+       MODAL DE REGISTRO DE AVANCE
+       ====================================================================== -->
+  <div id="avance-modal" class="modal-backdrop" style="display: none;">
+    <div class="modal-card" style="max-width: 450px;">
+      <h3 style="margin-top:0;">Registrar Avance Físico</h3>
+      <p style="color:var(--text-secondary); font-size:0.85rem; margin-bottom:1rem;" id="avance-item-desc">Ítem</p>
+      
+      <div class="form-group">
+        <label>Cantidad Ejecutada Hoy</label>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <input type="number" id="avance-qty-input" class="form-input" style="width: 100%;" min="0" step="any">
+          <span id="avance-unit-label" style="color:var(--text-muted); font-weight: 600;">m²</span>
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label>Observaciones (Opcional)</label>
+        <textarea id="avance-obs-input" class="form-input" rows="2" placeholder="Ej. Vaciado del eje A al C..."></textarea>
+      </div>
+      
+      <input type="hidden" id="avance-budget-id">
+      <input type="hidden" id="avance-chapter-id">
+      <input type="hidden" id="avance-item-id">
+      
+      <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top:1.5rem;">
+        <button type="button" class="btn-outline" onclick="closeAvanceModal()">Cancelar</button>
+        <button type="button" class="btn-terracota" onclick="saveAvance()">Guardar Avance</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/storage.js"></script>
+  <script src="js/api-mock.js"></script>
   <script src="js/recursos.js"></script>
   <script src="js/apu.js"></script>
   <script src="js/presupuestos.js"></script>
+  <script src="js/control.js"></script>
   <script src="js/configuracion.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
@@ -1981,6 +2217,8 @@
       const viewRecursos = document.getElementById('view-module-recursos');
       const viewPresupuestos = document.getElementById('view-module-presupuestos');
       const viewConfiguracion = document.getElementById('view-module-configuracion');
+      const viewInicio = document.getElementById('view-module-inicio');
+      const viewControl = document.getElementById('view-module-control');
       const viewGeneric = document.getElementById('view-module-generic');
       const genericTitle = document.getElementById('module-title-display');
       const genericDesc = document.getElementById('module-desc-display');
@@ -2021,9 +2259,17 @@
         if (viewRecursos) viewRecursos.style.display = 'none';
         if (viewPresupuestos) viewPresupuestos.style.display = 'none';
         if (viewConfiguracion) viewConfiguracion.style.display = 'none';
+        if (viewInicio) viewInicio.style.display = 'none';
+        if (viewControl) viewControl.style.display = 'none';
         if (viewGeneric) viewGeneric.style.display = 'none';
 
-        if (target === 'apu') {
+        if (target === 'inicio') {
+          if (viewInicio) viewInicio.style.display = 'block';
+          if (typeof initInicioModule === 'function') initInicioModule();
+        } else if (target === 'control') {
+          if (viewControl) viewControl.style.display = 'block';
+          if (typeof initControlModule === 'function') initControlModule();
+        } else if (target === 'apu') {
           viewApu.style.display = 'block';
           if (typeof initApuModule === 'function') initApuModule();
         } else if (target === 'recursos') {
@@ -2072,6 +2318,84 @@
         localStorage.removeItem('contrusoft_current_user');
         window.location.href = 'index.html';
       });
+
+      // =========================================================
+      // Inicializar gráficas demo con Chart.js
+      // =========================================================
+      Chart.defaults.color = '#9ca3af';
+      Chart.defaults.font.family = 'Inter, sans-serif';
+
+      const ctxLine = document.getElementById('demoLineChart');
+      if (ctxLine) {
+        new Chart(ctxLine, {
+          type: 'line',
+          data: {
+            labels: ['Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre'],
+            datasets: [{
+              label: 'Costos Ejecutados (Millones COP)',
+              data: [120, 190, 300, 450, 420, 580],
+              borderColor: '#d96b43',
+              backgroundColor: 'rgba(217, 107, 67, 0.15)',
+              borderWidth: 2,
+              tension: 0.4,
+              fill: true,
+              pointBackgroundColor: '#d96b43'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                grid: { color: 'rgba(255, 255, 255, 0.05)' }
+              },
+              x: {
+                grid: { display: false }
+              }
+            }
+          }
+        });
+      }
+
+      const ctxDoughnut = document.getElementById('demoDoughnutChart');
+      if (ctxDoughnut) {
+        new Chart(ctxDoughnut, {
+          type: 'doughnut',
+          data: {
+            labels: ['Estructuras', 'Cimentación', 'Acabados', 'Instalaciones'],
+            datasets: [{
+              data: [45, 25, 20, 10],
+              backgroundColor: [
+                '#d96b43', // Terracota
+                '#10b981', // Emerald
+                '#3b82f6', // Blue
+                '#f59e0b'  // Amber
+              ],
+              borderWidth: 0,
+              hoverOffset: 4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '75%',
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: {
+                  padding: 20,
+                  boxWidth: 12
+                }
+              }
+            }
+          }
+        });
+      }
+
     });
   </script>
 </body>

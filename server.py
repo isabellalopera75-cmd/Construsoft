@@ -595,24 +595,57 @@ def get_budget_detail_data(budget_id):
         ORDER BY bci.orden ASC, bci.id ASC
     """, (budget_id,))
     item_rows = cursor.fetchall()
+
+    # Cargar líneas de APU para los apu_id únicos
+    apu_ids = list(set([ir[2] for ir in item_rows if ir[2]]))
+    apu_lines_map = {}
+    if apu_ids:
+        placeholders = ','.join(['?'] * len(apu_ids))
+        cursor.execute(f"""
+            SELECT ar.apu_id, r.codigo, r.nombre, r.tipo, r.unidad, r.precio_total,
+                   ar.cantidad, ar.rendimiento, ar.desperdicio_porcentaje, ar.subtotal
+            FROM apu_resources ar
+            JOIN resources r ON ar.resource_id = r.id
+            WHERE ar.apu_id IN ({placeholders})
+        """, apu_ids)
+        for ar_row in cursor.fetchall():
+            apid = ar_row[0]
+            if apid not in apu_lines_map:
+                apu_lines_map[apid] = []
+            apu_lines_map[apid].append({
+                'codigo': ar_row[1],
+                'nombre': ar_row[2],
+                'tipo': ar_row[3],
+                'unidad': ar_row[4],
+                'precioTotal': ar_row[5],
+                'cantidad': ar_row[6],
+                'rendimiento': ar_row[7],
+                'desperdicio': ar_row[8],
+                'subtotal': ar_row[9]
+            })
+
     conn.close()
 
     items_by_chapter = {}
     for ir in item_rows:
         cid = ir[1]
+        apu_id_val = ir[2]
         if cid not in items_by_chapter:
             items_by_chapter[cid] = []
+        idx_in_chap = len(items_by_chapter[cid]) + 1
         items_by_chapter[cid].append({
             'id': ir[0],
             'chapterId': ir[1],
-            'apuId': ir[2],
+            'apuId': apu_id_val,
             'cantidad': ir[3],
             'precioUnitario': ir[4],
             'total': ir[5],
             'orden': ir[6],
-            'codigo': ir[7],
+            'codigo': f"ITM-{idx_in_chap:03d}",
+            'apuCodigo': ir[7],
             'nombre': ir[8],
-            'unidad': ir[9]
+            'unidad': ir[9],
+            'apuLines': apu_lines_map.get(apu_id_val, [])
         })
 
     chapter_map = {}

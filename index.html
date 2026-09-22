@@ -14,7 +14,15 @@
     })();
   </script>
 </head>
-<body>
+<body style="
+  background-color: #060911;
+  background-image:
+    radial-gradient(circle at 15% 20%, rgba(99,102,241,0.07) 0%, transparent 45%),
+    radial-gradient(circle at 85% 80%, rgba(217,107,67,0.05) 0%, transparent 40%),
+    linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 28px 28px, 28px 28px;
+">
 
   <div class="auth-container">
 
@@ -182,9 +190,29 @@
               <span class="plan-option-title">Plan Personal</span>
               <span class="plan-option-price">$120.000 <small style="font-size:0.7rem; color:var(--text-muted);">/mes</small></span>
             </div>
-            <p style="font-size:0.76rem; color:var(--text-secondary); margin:0;">
-              1 Ingeniero independiente • Hasta 5 proyectos activos • Catálogo base de APUs
+            <p style="font-size:0.75rem; color:var(--text-secondary); margin:0 0 0.75rem 0;">
+              Ideal para ingenieros independientes o consultores en solitario.
             </p>
+            <ul style="margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:0.35rem;">
+              <li style="font-size:0.74rem; color:var(--text-secondary); display:flex; gap:0.5rem;">
+                <span style="color:var(--terracota);">✓</span> <span><strong style="color:var(--text-primary);">1 usuario</strong> — solo el Administrador</span>
+              </li>
+              <li style="font-size:0.74rem; color:var(--text-secondary); display:flex; gap:0.5rem;">
+                <span style="color:var(--terracota);">✓</span> <span>Hasta <strong style="color:var(--text-primary);">5 proyectos</strong> activos simultáneos</span>
+              </li>
+              <li style="font-size:0.74rem; color:var(--text-secondary); display:flex; gap:0.5rem;">
+                <span style="color:var(--terracota);">✓</span> <span>Catálogo completo de <strong style="color:var(--text-primary);">Recursos y APUs</strong></span>
+              </li>
+              <li style="font-size:0.74rem; color:var(--text-secondary); display:flex; gap:0.5rem;">
+                <span style="color:var(--terracota);">✓</span> <span>Presupuestos con <strong style="color:var(--text-primary);">AIU y exportación PDF</strong></span>
+              </li>
+              <li style="font-size:0.74rem; color:rgba(148,163,184,0.5); display:flex; gap:0.5rem;">
+                <span>✗</span> <span>Sin usuarios adicionales ni roles personalizados</span>
+              </li>
+              <li style="font-size:0.74rem; color:rgba(148,163,184,0.5); display:flex; gap:0.5rem;">
+                <span>✗</span> <span>Sin explosión de insumos en masa</span>
+              </li>
+            </ul>
           </div>
 
           <!-- Plan Empresarial -->
@@ -192,13 +220,33 @@
             <div class="plan-option-head">
               <span class="plan-option-title">
                 Plan Empresarial
-                <span style="font-size:0.65rem; background:var(--terracota-subtle); color:var(--terracota); padding:0.15rem 0.35rem; border-radius:3px; margin-left:0.4rem;">RECOMENDADO</span>
+                <span style="font-size:0.63rem; background:var(--terracota-subtle); color:var(--terracota); padding:0.15rem 0.35rem; border-radius:3px; margin-left:0.4rem; font-weight:700;">RECOMENDADO</span>
               </span>
               <span class="plan-option-price">$380.000 <small style="font-size:0.7rem; color:var(--text-muted);">/mes</small></span>
             </div>
-            <p style="font-size:0.76rem; color:var(--text-secondary); margin:0;">
-              Constructoras • Usuarios y proyectos ilimitados • Explosión de insumos en masa
+            <p style="font-size:0.75rem; color:var(--text-secondary); margin:0 0 0.75rem 0;">
+              Para constructoras y equipos técnicos con múltiples colaboradores.
             </p>
+            <ul style="margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:0.35rem;">
+              <li style="font-size:0.74rem; color:var(--text-secondary); display:flex; gap:0.5rem;">
+                <span style="color:var(--terracota);">✓</span> <span><strong style="color:var(--text-primary);">Usuarios ilimitados</strong> con control de roles y permisos</span>
+              </li>
+              <li style="font-size:0.74rem; color:var(--text-secondary); display:flex; gap:0.5rem;">
+                <span style="color:var(--terracota);">✓</span> <span><strong style="color:var(--text-primary);">Proyectos ilimitados</strong> — sin restricción de cantidad</span>
+              </li>
+              <li style="font-size:0.74rem; color:var(--text-secondary); display:flex; gap:0.5rem;">
+                <span style="color:var(--terracota);">✓</span> <span>Catálogo completo de <strong style="color:var(--text-primary);">Recursos y APUs</strong></span>
+              </li>
+              <li style="font-size:0.74rem; color:var(--text-secondary); display:flex; gap:0.5rem;">
+                <span style="color:var(--terracota);">✓</span> <span>Presupuestos con <strong style="color:var(--text-primary);">AIU y exportación PDF</strong></span>
+              </li>
+              <li style="font-size:0.74rem; color:var(--text-secondary); display:flex; gap:0.5rem;">
+                <span style="color:var(--terracota);">✓</span> <span><strong style="color:var(--text-primary);">Roles personalizados</strong> con permisos granulares por módulo</span>
+              </li>
+              <li style="font-size:0.74rem; color:var(--text-secondary); display:flex; gap:0.5rem;">
+                <span style="color:var(--terracota);">✓</span> <span><strong style="color:var(--text-primary);">Explosión de insumos en masa</strong> desde Excel</span>
+              </li>
+            </ul>
           </div>
 
           <div style="display:flex; gap:0.6rem; margin-top:1.25rem;">

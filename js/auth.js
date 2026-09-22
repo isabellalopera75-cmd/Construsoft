@@ -88,31 +88,17 @@ document.addEventListener('DOMContentLoaded', () => {
     btnLoginSubmit.disabled = true;
     btnLoginSubmit.textContent = 'Verificando credenciales...';
 
-    try {
-      const response = await fetch('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
+    const result = loginUser(email, password);
 
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        showAlert(loginAlert, data.message || 'Credenciales inválidas.', 'danger');
-        btnLoginSubmit.disabled = false;
-        btnLoginSubmit.textContent = 'Ingresar al Sistema';
-        return;
-      }
-
-      // Guardar sesión en cliente y redirigir
-      localStorage.setItem('contrusoft_current_user', JSON.stringify(data.user));
-      window.location.href = 'dashboard.html';
-
-    } catch (err) {
-      showAlert(loginAlert, 'Error de conexión con el servidor local.', 'danger');
+    if (!result.success) {
+      showAlert(loginAlert, result.message || 'Credenciales inválidas.', 'danger');
       btnLoginSubmit.disabled = false;
       btnLoginSubmit.textContent = 'Ingresar al Sistema';
+      return;
     }
+
+    localStorage.setItem('contrusoft_current_user', JSON.stringify(result.user));
+    window.location.href = 'dashboard.html';
   });
 
   // --------------------------------------------------------------------------
@@ -280,37 +266,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     btnFinishReg.disabled = true;
-    btnFinishReg.textContent = 'Registrando empresa en base de datos...';
+    btnFinishReg.textContent = 'Registrando empresa...';
 
-    try {
-      const response = await fetch('/api/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(registrationData)
-      });
+    const result = registerNewTenant({
+      cuenta: registrationData.cuenta,
+      empresa: registrationData.empresa,
+      plan: registrationData.plan
+    });
 
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        showAlert(regAlert, data.message || 'Error al registrar la empresa.', 'danger');
-        btnFinishReg.disabled = false;
-        btnFinishReg.textContent = 'Completar Registro';
-        return;
-      }
-
-      // Guardar sesión y redirigir a dashboard
-      localStorage.setItem('contrusoft_current_user', JSON.stringify(data.user));
-      showAlert(regAlert, '¡Empresa registrada con éxito en SQLite! Redirigiendo...', 'success');
-
-      setTimeout(() => {
-        window.location.href = 'dashboard.html';
-      }, 1000);
-
-    } catch (err) {
-      showAlert(regAlert, 'Error de conexión al registrar en la base de datos.', 'danger');
+    if (!result.success) {
+      showAlert(regAlert, result.message || 'Error al registrar la empresa.', 'danger');
       btnFinishReg.disabled = false;
       btnFinishReg.textContent = 'Completar Registro';
+      return;
     }
+
+    localStorage.setItem('contrusoft_current_user', JSON.stringify(result.user));
+    showAlert(regAlert, '¡Empresa registrada con éxito! Redirigiendo...', 'success');
+
+    setTimeout(() => {
+      window.location.href = 'dashboard.html';
+    }, 1000);
   });
 
   // --------------------------------------------------------------------------

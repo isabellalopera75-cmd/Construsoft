@@ -3,298 +3,1785 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ConstruSoft | Master Console (Superadministrador)</title>
+  <title>ConstruSoft | Consola Maestra (SuperAdmin)</title>
+  <meta name="description" content="Consola de gestión global de tenants, licencias, pagos y métricas del sistema ConstruSoft.">
   <link rel="stylesheet" href="css/styles.css">
   <script>
     (function() {
-      const savedTheme = localStorage.getItem('contrusoft_theme');
-      if (savedTheme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+      // Superadmin siempre usa modo oscuro
+      document.documentElement.removeAttribute('data-theme');
     })();
   </script>
   <style>
-    /* Estilos específicos para la consola de Superadministrador */
-    .superadmin-body {
-      background: #060911;
-      background-image: 
-        radial-gradient(circle at 10% 10%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
-        radial-gradient(circle at 90% 90%, rgba(16, 185, 129, 0.05) 0%, transparent 40%),
-        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-      background-size: 100% 100%, 100% 100%, 30px 30px, 30px 30px;
+    /* ============================================================
+       SUPERADMIN CONSOLE — Design Tokens & Layout
+       ============================================================ */
+
+    :root {
+      --sa-indigo: #d96b43;
+      --sa-indigo-dim: rgba(217, 107, 67, 0.12);
+      --sa-indigo-border: rgba(217, 107, 67, 0.28);
+      --sa-indigo-glow: rgba(217, 107, 67, 0.35);
+      --sa-green: #10b981;
+      --sa-green-dim: rgba(16, 185, 129, 0.12);
+      --sa-amber: #f59e0b;
+      --sa-amber-dim: rgba(245, 158, 11, 0.12);
+      --sa-red: #ef4444;
+      --sa-red-dim: rgba(239, 68, 68, 0.12);
+      --sa-purple: #94a3b8;
+      --sa-purple-dim: rgba(148, 163, 184, 0.12);
+      --sa-blue: #f97316;
+      --sa-blue-dim: rgba(249, 115, 22, 0.12);
+      --sa-slate: #94a3b8;
+      --sa-slate-dim: rgba(148, 163, 184, 0.12);
     }
 
-    .superadmin-nav {
-      background: #090d18;
-      border-bottom: 1px solid rgba(99, 102, 241, 0.25);
-      padding: 1rem 2.5rem;
+    .sa-body {
+      background: #060911;
+      background-image:
+        radial-gradient(circle at 15% 20%, rgba(217, 107, 67, 0.05) 0%, transparent 45%),
+        radial-gradient(circle at 85% 80%, rgba(249, 115, 22, 0.04) 0%, transparent 40%),
+        linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 28px 28px, 28px 28px;
+      background-attachment: fixed;
+      min-height: 100vh;
+      color: var(--text-primary);
+      font-family: var(--font-body);
+    }
+
+    /* ── Topbar ── */
+    .sa-topbar {
+      background: rgba(9, 13, 24, 0.96);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 0 2rem;
+      height: 64px;
       display: flex;
       align-items: center;
       justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(8px);
     }
 
-    .superadmin-badge {
-      background: linear-gradient(135deg, #6366f1, #4f46e5);
+    .sa-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .sa-brand-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #d96b43, #b85430);
+      display: flex;
+      align-items: center;
+      justify-content: center;
       color: #fff;
-      font-size: 0.72rem;
+      box-shadow: 0 0 16px rgba(217, 107, 67, 0.35);
+    }
+
+    .sa-brand-text strong {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: #fff;
+      display: block;
+      line-height: 1.1;
+      letter-spacing: 0.5px;
+    }
+
+    .sa-badge {
+      display: inline-block;
+      background: rgba(217, 107, 67, 0.12);
+      color: #f97316;
+      border: 1px solid rgba(249, 115, 22, 0.35);
+      font-size: 0.65rem;
       font-weight: 700;
-      padding: 0.25rem 0.6rem;
-      border-radius: var(--radius-sm);
-      letter-spacing: 0.06em;
+      padding: 0.18rem 0.5rem;
+      border-radius: 4px;
+      letter-spacing: 0.07em;
       text-transform: uppercase;
     }
 
-    .superadmin-auth-card {
-      border: 1px solid rgba(99, 102, 241, 0.3);
-      box-shadow: 0 16px 40px rgba(99, 102, 241, 0.15);
+    .sa-topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
     }
 
-    .superadmin-btn-primary {
-      background: linear-gradient(135deg, #6366f1, #4f46e5);
-      box-shadow: 0 8px 24px rgba(99, 102, 241, 0.3);
-      color: #ffffff;
+    /* ── Main layout ── */
+    .sa-layout {
+      display: flex;
+      min-height: calc(100vh - 64px);
     }
 
-    .superadmin-btn-primary:hover {
-      box-shadow: 0 10px 30px rgba(99, 102, 241, 0.5);
+    /* ── Sidebar nav ── */
+    .sa-sidenav {
+      width: 220px;
+      flex-shrink: 0;
+      background: rgba(9, 13, 24, 0.75);
+      border-right: 1px solid var(--border-subtle);
+      padding: 1.5rem 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
     }
 
-    .tenant-card {
+    .sa-nav-section-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      color: var(--text-muted);
+      padding: 0.25rem 1.25rem 0.5rem;
+      margin-top: 0.75rem;
+    }
+
+    .sa-nav-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      width: 100%;
+      padding: 0.7rem 1.25rem;
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 0.84rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: left;
+      border-left: 3px solid transparent;
+      transition: all 0.15s ease;
+    }
+
+    .sa-nav-btn svg {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      opacity: 0.7;
+    }
+
+    .sa-nav-btn:hover {
+      color: #e2e8f0;
+      background: rgba(217, 107, 67, 0.06);
+    }
+
+    .sa-nav-btn.active {
+      color: #f97316;
+      background: var(--sa-indigo-dim);
+      border-left-color: #d96b43;
+      font-weight: 700;
+    }
+
+    .sa-nav-btn.active svg {
+      opacity: 1;
+    }
+
+    /* ── Content area ── */
+    .sa-content {
+      flex: 1;
+      padding: 2rem 2.5rem;
+      overflow-y: auto;
+      max-width: 1280px;
+    }
+
+    .sa-panel {
+      display: none;
+    }
+    .sa-panel.active {
+      display: block;
+    }
+
+    /* ── Section title ── */
+    .sa-section-title {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #fff;
+      margin: 0 0 0.35rem 0;
+    }
+
+    .sa-section-desc {
+      font-size: 0.83rem;
+      color: var(--text-secondary);
+      margin: 0 0 2rem 0;
+    }
+
+    /* ── KPI Cards ── */
+    .sa-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .sa-kpi-card {
       background: var(--bg-card);
       border: 1px solid var(--border-subtle);
       border-radius: var(--radius-lg);
-      padding: 1.25rem;
-      margin-bottom: 1rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      transition: var(--trans-fast);
+      padding: 1.25rem 1.4rem;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s ease;
     }
 
-    .tenant-card:hover {
-      border-color: rgba(99, 102, 241, 0.4);
+    .sa-kpi-card:hover {
+      border-color: var(--sa-indigo-border);
     }
 
-    .status-pill {
-      padding: 0.25rem 0.65rem;
-      border-radius: var(--radius-full);
-      font-size: 0.75rem;
-      font-weight: 700;
+    .sa-kpi-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    }
+
+    .sa-kpi-card.indigo::before { background: linear-gradient(90deg, #d96b43, #f97316); }
+    .sa-kpi-card.green::before  { background: linear-gradient(90deg, #10b981, #34d399); }
+    .sa-kpi-card.amber::before  { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+    .sa-kpi-card.red::before    { background: linear-gradient(90deg, #ef4444, #f87171); }
+    .sa-kpi-card.purple::before { background: linear-gradient(90deg, #64748b, #94a3b8); }
+    .sa-kpi-card.blue::before   { background: linear-gradient(90deg, #ea580c, #f97316); }
+    .sa-kpi-card.slate::before  { background: linear-gradient(90deg, #94a3b8, #cbd5e1); }
+
+    .sa-kpi-label {
+      font-size: 0.72rem;
+      font-weight: 600;
       text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 0.6rem;
+      display: block;
+    }
+
+    .sa-kpi-value {
+      font-size: 2rem;
+      font-weight: 800;
+      line-height: 1;
+      color: #fff;
+      display: block;
+      margin-bottom: 0.35rem;
+    }
+
+    .sa-kpi-value.money {
+      font-size: 1.35rem;
       font-family: var(--font-mono);
     }
-    .status-pill.trial { background: rgba(245, 158, 11, 0.15); color: var(--accent-amber); }
-    .status-pill.active { background: rgba(16, 185, 129, 0.15); color: var(--status-success); }
-    .status-pill.expired { background: rgba(239, 68, 68, 0.15); color: var(--status-danger); }
-    .status-pill.suspended { background: rgba(147, 51, 234, 0.15); color: #c084fc; }
 
-    .action-btn-sm {
+    .sa-kpi-sub {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    /* ── Distribution bars ── */
+    .sa-dist-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .sa-dist-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #e2e8f0;
+      margin: 0 0 1.25rem 0;
+    }
+
+    .sa-dist-row {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      margin-bottom: 0.85rem;
+    }
+
+    .sa-dist-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      width: 100px;
+      flex-shrink: 0;
+    }
+
+    .sa-dist-bar-wrap {
+      flex: 1;
+      height: 8px;
+      background: rgba(255,255,255,0.07);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .sa-dist-bar {
+      height: 100%;
+      border-radius: 99px;
+      transition: width 0.6s ease;
+    }
+
+    .sa-dist-count {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #fff;
+      width: 28px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    /* ── Status pill ── */
+    .sa-pill {
+      padding: 0.22rem 0.6rem;
+      border-radius: 99px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-family: var(--font-mono);
+      display: inline-block;
+    }
+
+    .sa-pill.trial     { background: var(--sa-amber-dim);  color: var(--sa-amber); }
+    .sa-pill.active    { background: var(--sa-green-dim);  color: var(--sa-green); }
+    .sa-pill.pending   { background: var(--sa-amber-dim);  color: var(--sa-amber); }
+    .sa-pill.expired   { background: var(--sa-red-dim);    color: var(--sa-red); }
+    .sa-pill.cancelled { background: var(--sa-slate-dim);  color: var(--sa-slate); }
+    .sa-pill.suspended { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+    .sa-pill.pagado    { background: var(--sa-green-dim);  color: var(--sa-green); }
+    .sa-pill.pendiente { background: var(--sa-amber-dim);  color: var(--sa-amber); }
+    .sa-pill.vencido   { background: var(--sa-red-dim);    color: var(--sa-red); }
+    .sa-pill.cancelado { background: var(--sa-slate-dim);  color: var(--sa-slate); }
+
+    /* ── Tenant table / Cards ── */
+    .sa-table-wrap {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .sa-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .sa-table thead th {
+      background: rgba(255,255,255,0.03);
+      padding: 0.7rem 1rem;
+      text-align: left;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .sa-table tbody tr {
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      transition: background 0.15s ease;
+    }
+
+    .sa-table tbody tr:last-child {
+      border-bottom: none;
+    }
+
+    .sa-table tbody tr:hover {
+      background: rgba(217, 107, 67, 0.05);
+    }
+
+    .sa-table tbody td {
+      padding: 0.85rem 1rem;
+      font-size: 0.82rem;
+      color: var(--text-primary);
+      vertical-align: middle;
+    }
+
+    /* ── Action buttons ── */
+    .sa-action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.76rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid rgba(217, 107, 67, 0.3);
+      transition: all 0.15s ease;
+      background: rgba(217, 107, 67, 0.08);
+      color: #f97316;
+    }
+
+    .sa-action-btn:hover {
+      border-color: var(--terracota);
+      background: var(--terracota);
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(217, 107, 67, 0.3);
+    }
+
+    .sa-action-btn.danger {
+      border-color: rgba(239, 68, 68, 0.35);
+      background: rgba(239, 68, 68, 0.08);
+      color: #f87171;
+    }
+
+    .sa-action-btn.danger:hover {
+      border-color: #ef4444;
+      color: #ffffff;
+      background: #dc2626;
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+    }
+
+    .sa-action-btn.success {
+      border-color: rgba(16, 185, 129, 0.35);
+      background: rgba(16, 185, 129, 0.08);
+      color: #34d399;
+    }
+
+    .sa-action-btn.success:hover {
+      border-color: #10b981;
+      color: #ffffff;
+      background: #059669;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+
+    /* ── Secondary & Outline buttons ── */
+    .btn-secondary {
       background: var(--bg-input);
       border: 1px solid var(--border-subtle);
       color: var(--text-primary);
-      padding: 0.35rem 0.65rem;
-      border-radius: var(--radius-sm);
-      font-size: 0.75rem;
+      font-family: var(--font-body);
+      font-size: 0.82rem;
       font-weight: 600;
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius-sm);
       cursor: pointer;
-      transition: var(--trans-fast);
+      transition: all 0.15s ease;
     }
-    .action-btn-sm:hover {
-      border-color: #6366f1;
-      color: #a5b4fc;
+
+    .btn-secondary:hover {
+      border-color: var(--terracota);
+      color: #f97316;
+      background: rgba(217, 107, 67, 0.08);
+    }
+
+    /* ── Filters bar ── */
+    .sa-filters {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .sa-filter-input {
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-size: 0.8rem;
+      padding: 0.45rem 0.75rem;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    .sa-filter-input:focus {
+      border-color: var(--terracota);
+      box-shadow: 0 0 0 3px rgba(217, 107, 67, 0.15);
+    }
+
+    .sa-search-box {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.45rem 0.75rem;
+      flex: 1;
+      min-width: 220px;
+      max-width: 340px;
+    }
+
+    .sa-search-box:focus-within {
+      border-color: var(--terracota);
+      box-shadow: 0 0 0 3px rgba(217, 107, 67, 0.15);
+    }
+
+    .sa-search-box input {
+      background: none;
+      border: none;
+      outline: none;
+      color: var(--text-primary);
+      font-size: 0.8rem;
+      width: 100%;
+    }
+
+    .sa-search-box svg {
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    /* ── Info chips ── */
+    .sa-plan-chip {
+      display: inline-block;
+      padding: 0.18rem 0.55rem;
+      border-radius: 4px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-family: var(--font-mono);
+    }
+
+    .sa-plan-chip.personal    { background: rgba(148,163,184,0.12); color: #cbd5e1; border: 1px solid rgba(148,163,184,0.25); }
+    .sa-plan-chip.empresarial { background: rgba(217,107,67,0.12); color: #f97316; border: 1px solid rgba(249,115,22,0.35); }
+
+    /* ── Modal ── */
+    .sa-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      z-index: 200;
+    }
+
+    .sa-modal-card {
+      background: #0d1220;
+      border: 1px solid var(--sa-indigo-border);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      max-width: 680px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(217,107,67,0.15);
+    }
+
+    .sa-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1.5rem;
+    }
+
+    .sa-modal-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #fff;
+      margin: 0 0 0.2rem 0;
+    }
+
+    .sa-modal-sub {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin: 0;
+    }
+
+    .sa-modal-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.25rem;
+      cursor: pointer;
+      padding: 0.25rem;
+      line-height: 1;
+      transition: color 0.15s;
+    }
+
+    .sa-modal-close:hover { color: #fff; }
+
+    /* ── Alert ── */
+    .sa-alert {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.3);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 1rem;
+      font-size: 0.82rem;
+      color: #fca5a5;
+      margin-bottom: 1.25rem;
+    }
+
+    /* ── Login card ── */
+    .sa-login-wrap {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    /* ── Payment receipt ── */
+    .sa-receipt {
+      background: var(--bg-main);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 1.5rem;
+      font-size: 0.82rem;
+    }
+
+    .sa-receipt-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .sa-receipt-row:last-child { border-bottom: none; }
+    .sa-receipt-row .label { color: var(--text-muted); }
+    .sa-receipt-row .value { color: #fff; font-weight: 600; }
+
+    /* ── Empty state ── */
+    .sa-empty {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--text-muted);
+      font-size: 0.84rem;
+    }
+
+    /* ── Sublist of users ── */
+    .sa-users-mini-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      margin-top: 0.75rem;
+    }
+
+    .sa-user-mini-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.55rem 0.75rem;
+      background: var(--bg-main);
+      border-radius: var(--radius-sm);
+      font-size: 0.78rem;
+    }
+
+    .sa-user-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--sa-indigo-dim);
+      border: 1px solid var(--sa-indigo-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #f97316;
+      flex-shrink: 0;
+    }
+
+    /* ── Danger zone ── */
+    .sa-danger-zone {
+      background: rgba(239,68,68,0.05);
+      border: 1px solid rgba(239,68,68,0.2);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      margin-top: 1.5rem;
+    }
+
+    .sa-danger-zone h4 {
+      color: #fca5a5;
+      font-size: 0.9rem;
+      font-weight: 700;
+      margin: 0 0 0.4rem 0;
+    }
+
+    .sa-danger-zone p {
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+      margin: 0 0 1rem 0;
+    }
+
+    /* ── Global reset section ── */
+    .sa-reset-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      max-width: 600px;
+    }
+
+    .sa-reset-card h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #fff;
+      margin: 0 0 0.4rem 0;
+    }
+
+    .sa-reset-card p {
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      margin: 0 0 1.25rem 0;
+    }
+
+    /* ── Totals row ── */
+    .sa-table-total-row td {
+      background: rgba(255,255,255,0.03);
+      font-weight: 700;
+      border-top: 1px solid var(--border-subtle);
+      color: #e2e8f0;
+    }
+
+    /* ── Tenant detail modal rows ── */
+    .sa-detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .sa-detail-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .sa-detail-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+    }
+
+    .sa-detail-value {
+      font-size: 0.88rem;
+      color: #e2e8f0;
+      font-weight: 500;
+    }
+
+    .sa-detail-value code {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: #93c5fd;
+    }
+
+    /* ── Responsive minimal ── */
+    @media (max-width: 768px) {
+      .sa-sidenav { display: none; }
+      .sa-content { padding: 1.25rem; }
+      .sa-kpi-grid { grid-template-columns: repeat(2, 1fr); }
     }
   </style>
 </head>
-<body class="superadmin-body">
+<body class="sa-body">
 
-  <!-- ====================================================================
-       VISTA 1: LOGIN EXCLUSIVO SUPERADMINISTRADOR (3.5)
-       ==================================================================== -->
-  <div id="superadmin-login-screen" style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem;">
-    <div class="auth-card superadmin-auth-card" style="max-width: 440px;">
-      
-      <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem;">
-        <div class="brand-logo-icon" style="background: linear-gradient(135deg, #6366f1, #4f46e5); color:#fff;">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-            <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
-            <path d="M2 17l10 5 10-5"></path>
-            <path d="M2 12l10 5 10-5"></path>
+  <!-- ================================================================
+       SCREEN 1: LOGIN SUPERADMIN
+       ================================================================ -->
+  <!-- ================================================================
+       SCREEN 1: LOGIN SUPERADMIN
+       ================================================================ -->
+  <div id="sa-screen-login" class="sa-login-wrap">
+    <div class="auth-box" style="max-width: 440px;">
+
+      <header class="brand-identity" style="margin-bottom:1.5rem;">
+        <div class="brand-icon-box">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 21h18"></path>
+            <path d="M5 21V7l7-4 7 4v14"></path>
+            <path d="M9 10v8"></path>
+            <path d="M15 10v8"></path>
           </svg>
         </div>
-        <div>
-          <span class="superadmin-badge">URL de Plataforma (3.5)</span>
-          <h2 style="font-size: 1.25rem; font-weight: 800; margin-top: 0.2rem;">ConstruSoft Root</h2>
-        </div>
+        <span class="brand-title">CONSTRUSOFT</span>
+        <span class="sa-badge" style="margin-left:0.5rem;">ROOT CONSOLE</span>
+      </header>
+
+      <div class="auth-header-text">
+        <h2 style="font-size:1.25rem;">Consola Maestra</h2>
+        <p>Acceso restringido para gestión global de tenants, licencias, pagos y métricas</p>
       </div>
 
-      <p class="auth-subtitle" style="margin-bottom: 1.5rem;">
-        Consola de administración global de inquilinos, licencias y suscripciones. Acceso restringido para personal de infraestructura.
-      </p>
+      <div id="sa-login-alert" class="alert-box alert-danger" style="display:none;"></div>
 
-      <div id="superadmin-alert" class="alert-box alert-danger" style="display: none;"></div>
-
-      <form id="superadmin-form">
-        <div class="form-group">
+      <form id="sa-login-form">
+        <div class="form-group" style="margin-bottom:1.1rem;">
           <label for="sa-email" class="form-label">Correo de Superadministrador</label>
-          <input type="email" id="sa-email" class="form-control no-icon" value="root@contrusoft.internal" required>
+          <input type="email" id="sa-email" class="form-input" value="root@contrusoft.internal" required autocomplete="off">
         </div>
 
-        <div class="form-group">
+        <div class="form-group" style="margin-bottom:1.5rem;">
           <label for="sa-pass" class="form-label">Credencial Maestra</label>
-          <input type="password" id="sa-pass" class="form-control no-icon" value="Master2026!" required>
+          <input type="password" id="sa-pass" class="form-input" value="Master2026!" required autocomplete="off">
         </div>
 
-        <button type="submit" class="btn-primary superadmin-btn-primary" style="margin-top: 1.5rem;">
+        <button type="submit" class="btn-terracota">
           Autenticar en Consola Maestra
         </button>
       </form>
 
-      <div style="margin-top: 1.5rem; text-align: center; border-top: 1px solid var(--border-subtle); padding-top: 1rem;">
-        <a href="index.html" class="link-amber" style="font-size: 0.8rem;">
-          &larr; Volver al Portal de Clientes / Inquilinos
+      <div style="margin-top:1.5rem; text-align:center; border-top:1px solid var(--border-subtle); padding-top:1rem;">
+        <a href="index.html" class="link-terracota" style="font-size:0.8rem;">
+          &larr; Volver al Portal de Clientes
         </a>
       </div>
     </div>
   </div>
 
-  <!-- ====================================================================
-       VISTA 2: CONSOLA DE GESTIÓN DE INQUILINOS Y LICENCIAS
-       ==================================================================== -->
-  <div id="superadmin-dashboard-screen" style="display: none; min-height: 100vh; flex-direction: column;">
-    <header class="superadmin-nav">
-      <div style="display:flex; align-items:center; gap:1rem;">
-        <div class="brand-logo-icon" style="background: linear-gradient(135deg, #6366f1, #4f46e5); color:#fff; width:34px; height:34px;">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-            <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
-            <path d="M2 17l10 5 10-5"></path>
-            <path d="M2 12l10 5 10-5"></path>
+  <!-- ================================================================
+       SCREEN 2: CONSOLA MAESTRA (post-login)
+       ================================================================ -->
+  <div id="sa-screen-dashboard" style="display:none; flex-direction:column; min-height:100vh;">
+
+    <!-- Topbar -->
+    <header class="sa-topbar">
+      <div class="sa-brand">
+        <div class="brand-icon-box" style="width:32px; height:32px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 21h18"></path>
+            <path d="M5 21V7l7-4 7 4v14"></path>
+            <path d="M9 10v8"></path>
+            <path d="M15 10v8"></path>
           </svg>
         </div>
-        <div>
-          <strong style="font-size: 1.05rem;">ConstruSoft Root Platform Console</strong>
-          <span class="superadmin-badge" style="margin-left: 0.5rem;">SuperAdmin Activo</span>
+        <div class="sa-brand-text">
+          <strong style="font-size:1.05rem; letter-spacing:0.5px;">CONSTRUSOFT</strong>
+          <span class="sa-badge" style="font-size:0.62rem; padding:0.1rem 0.4rem;">SUPERADMIN CONSOLE</span>
         </div>
       </div>
 
-      <div style="display:flex; align-items:center; gap:1rem;">
-        <a href="index.html" target="_blank" class="btn-secondary" style="font-size:0.8rem; padding:0.4rem 0.8rem;">
-          Abrir Portal Clientes ↗
+      <div class="sa-topbar-actions">
+        <a href="index.html" target="_blank" class="btn-outline" style="font-size:0.78rem; padding:0.4rem 0.85rem; display:inline-flex; align-items:center; gap:0.4rem;">
+          <span>Abrir Portal</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
         </a>
-        <button type="button" class="btn-secondary" id="btn-sa-logout" style="font-size:0.8rem; padding:0.4rem 0.8rem;">
+        <button type="button" id="btn-sa-logout" class="btn-outline danger" style="font-size:0.78rem; padding:0.4rem 0.85rem;">
           Cerrar Sesión Root
         </button>
       </div>
     </header>
 
-    <main class="dashboard-content" style="max-width: 1200px;">
-      <div style="margin-bottom: 2rem;">
-        <h2 style="font-size: 1.6rem; font-weight: 800;">Gestión Global de Empresas Inquilinas (Tenants)</h2>
-        <p style="color:var(--text-secondary); font-size:0.88rem;">
-          Cambie el estado de suscripción de cualquier cliente en tiempo real para verificar los comportamientos de acceso (Prueba 15d, Activa, Vencida y Suspendida D-25).
-        </p>
-      </div>
+    <!-- Layout: sidebar + content -->
+    <div class="sa-layout">
 
-      <!-- Lista dinámica de empresas -->
-      <div id="tenants-list-container">
-        <!-- Renderizado dinámico -->
-      </div>
-    </main>
+      <!-- Sidebar nav -->
+      <nav class="sa-sidenav">
+        <span class="sa-nav-section-label">Vista Global</span>
+        <button class="sa-nav-btn active" data-sa-panel="overview" id="sa-nav-overview">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          Métricas del Sistema
+        </button>
+
+        <span class="sa-nav-section-label">Gestión</span>
+        <button class="sa-nav-btn" data-sa-panel="tenants" id="sa-nav-tenants">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+          Tenants / Empresas
+        </button>
+
+        <button class="sa-nav-btn" data-sa-panel="payments" id="sa-nav-payments">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+            <line x1="1" y1="10" x2="23" y2="10"></line>
+          </svg>
+          Pagos e Ingresos
+        </button>
+
+        <span class="sa-nav-section-label">Sistema</span>
+        <button class="sa-nav-btn" data-sa-panel="system" id="sa-nav-system">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+          Configuración Global
+        </button>
+      </nav>
+
+      <!-- Content area -->
+      <main class="sa-content">
+
+        <!-- ========================================================
+             PANEL 1: MÉTRICAS DEL SISTEMA
+             ======================================================== -->
+        <section id="sa-panel-overview" class="sa-panel active">
+          <h1 class="sa-section-title">Métricas del Sistema</h1>
+          <p class="sa-section-desc">Vista en tiempo real del estado operativo de ConstruSoft</p>
+
+          <!-- KPI Grid -->
+          <div class="sa-kpi-grid" id="sa-kpi-grid">
+            <!-- Populated by JS -->
+          </div>
+
+          <!-- Distribution charts -->
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:2rem;">
+
+            <div class="sa-dist-card">
+              <h3 class="sa-dist-title">Distribución por Estado de Suscripción</h3>
+              <div id="sa-dist-status"><!-- Populated by JS --></div>
+            </div>
+
+            <div class="sa-dist-card">
+              <h3 class="sa-dist-title">Distribución por Plan</h3>
+              <div id="sa-dist-plan"><!-- Populated by JS --></div>
+            </div>
+
+          </div>
+
+          <!-- Revenue summary -->
+          <div class="sa-dist-card">
+            <h3 class="sa-dist-title">Resumen de Ingresos</h3>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:1rem;" id="sa-revenue-grid">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================================
+             PANEL 2: GESTIÓN DE TENANTS
+             ======================================================== -->
+        <section id="sa-panel-tenants" class="sa-panel">
+          <h1 class="sa-section-title">Tenants / Empresas</h1>
+          <p class="sa-section-desc">Gestión de acceso, suscripción y usuarios por empresa. Los cambios aplican inmediatamente.</p>
+
+          <!-- Filters -->
+          <div class="sa-filters">
+            <div class="sa-search-box">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" id="sa-tenant-search" placeholder="Buscar por nombre o NIT...">
+            </div>
+            <select class="sa-filter-input" id="sa-filter-status">
+              <option value="">Todos los estados</option>
+              <option value="trial">En Prueba</option>
+              <option value="active">Activa</option>
+              <option value="pending">Pendiente de pago</option>
+              <option value="expired">Vencida</option>
+              <option value="cancelled">Cancelada</option>
+              <option value="suspended">Suspendida</option>
+            </select>
+            <select class="sa-filter-input" id="sa-filter-plan">
+              <option value="">Todos los planes</option>
+              <option value="Personal">Personal</option>
+              <option value="Empresarial">Empresarial</option>
+            </select>
+            <span id="sa-tenant-count" style="font-size:0.78rem; color:var(--text-muted); margin-left:auto;"></span>
+          </div>
+
+          <div class="sa-table-wrap">
+            <table class="sa-table">
+              <thead>
+                <tr>
+                  <th>Empresa</th>
+                  <th>Plan</th>
+                  <th>Estado</th>
+                  <th>Vencimiento</th>
+                  <th>Usuarios</th>
+                  <th style="text-align:right;">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="sa-tenants-tbody">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ========================================================
+             PANEL 3: PAGOS E INGRESOS
+             ======================================================== -->
+        <section id="sa-panel-payments" class="sa-panel">
+          <h1 class="sa-section-title">Pagos e Ingresos</h1>
+          <p class="sa-section-desc">Historial de pagos simulados de todos los tenants. Registre cobros y emita comprobantes.</p>
+
+          <!-- Payment filters -->
+          <div class="sa-filters">
+            <div class="sa-search-box">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" id="sa-pay-search" placeholder="Buscar por empresa o período...">
+            </div>
+            <select class="sa-filter-input" id="sa-filter-pay-status">
+              <option value="">Todos los estados</option>
+              <option value="pagado">Pagado</option>
+              <option value="pendiente">Pendiente</option>
+              <option value="vencido">Vencido</option>
+              <option value="cancelado">Cancelado</option>
+            </select>
+            <span id="sa-pay-count" style="font-size:0.78rem; color:var(--text-muted); margin-left:auto;"></span>
+          </div>
+
+          <div class="sa-table-wrap">
+            <table class="sa-table">
+              <thead>
+                <tr>
+                  <th>Empresa</th>
+                  <th>Plan</th>
+                  <th>Período</th>
+                  <th>Monto</th>
+                  <th>Fecha Pago</th>
+                  <th>Vencimiento</th>
+                  <th>Estado</th>
+                  <th style="text-align:right;">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="sa-payments-tbody">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ========================================================
+             PANEL 4: CONFIGURACIÓN GLOBAL
+             ======================================================== -->
+        <section id="sa-panel-system" class="sa-panel">
+          <h1 class="sa-section-title">Configuración Global</h1>
+          <p class="sa-section-desc">Precios del sistema, datos de la plataforma y herramientas de mantenimiento.</p>
+
+          <!-- Precios por plan -->
+          <div class="sa-dist-card" style="max-width:600px; margin-bottom:1.5rem;">
+            <h3 class="sa-dist-title">Precios Actuales por Plan</h3>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+              <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); padding:1rem;">
+                <div style="font-size:0.7rem; font-weight:700; text-transform:uppercase; color:#94a3b8; margin-bottom:0.4rem;">Plan Personal</div>
+                <div style="font-size:1.6rem; font-weight:800; color:#fff; font-family:var(--font-mono);">$120.000</div>
+                <div style="font-size:0.72rem; color:var(--text-muted);">por mes · 1 usuario · 5 proyectos</div>
+              </div>
+              <div style="background:var(--sa-indigo-dim); border:1px solid var(--sa-indigo-border); border-radius:var(--radius-sm); padding:1rem;">
+                <div style="font-size:0.7rem; font-weight:700; text-transform:uppercase; color:#f97316; margin-bottom:0.4rem;">Plan Empresarial</div>
+                <div style="font-size:1.6rem; font-weight:800; color:#fff; font-family:var(--font-mono);">$380.000</div>
+                <div style="font-size:0.72rem; color:var(--text-muted);">por mes · usuarios ilimitados</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Datos de la plataforma -->
+          <div class="sa-dist-card" style="max-width:600px; margin-bottom:1.5rem;">
+            <h3 class="sa-dist-title">Datos de la Plataforma</h3>
+            <div style="display:grid; gap:0.6rem; font-size:0.83rem;">
+              <div class="sa-receipt-row">
+                <span class="label">Nombre del sistema</span>
+                <span class="value">ConstruSoft Platform</span>
+              </div>
+              <div class="sa-receipt-row">
+                <span class="label">NIT Propietario</span>
+                <span class="value" style="font-family:var(--font-mono);">901.882.110-4</span>
+              </div>
+              <div class="sa-receipt-row">
+                <span class="label">Cuenta Bancolombia</span>
+                <span class="value" style="font-family:var(--font-mono);">102-458921-30</span>
+              </div>
+              <div class="sa-receipt-row">
+                <span class="label">Correo de pagos</span>
+                <span class="value">pagos@contrusoft.internal</span>
+              </div>
+              <div class="sa-receipt-row">
+                <span class="label">Período de gracia</span>
+                <span class="value">5 días post-vencimiento</span>
+              </div>
+              <div class="sa-receipt-row">
+                <span class="label">Período de prueba gratis</span>
+                <span class="value">15 días</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Herramientas de mantenimiento -->
+          <div class="sa-reset-card">
+            <h3>Herramientas de Mantenimiento</h3>
+            <p>Restablece todos los datos del sistema al estado inicial de demostración. Úsalo para limpiar pruebas.</p>
+            <button type="button" id="btn-sa-reset-db" class="sa-action-btn danger" style="padding:0.6rem 1.25rem; font-size:0.84rem;">
+              ⚠ Restablecer Base de Datos de Demo
+            </button>
+          </div>
+        </section>
+
+      </main>
+    </div>
   </div>
 
-  <!-- Scripts -->
+  <!-- ================================================================
+       MODAL: DETALLE Y ACCIONES DE TENANT
+       ================================================================ -->
+  <div id="sa-modal-tenant" class="sa-modal-backdrop" style="display:none;">
+    <div class="sa-modal-card" style="max-width:720px;">
+      <div class="sa-modal-header">
+        <div>
+          <h2 class="sa-modal-title" id="sa-modal-tenant-title">Empresa</h2>
+          <p class="sa-modal-sub" id="sa-modal-tenant-sub"></p>
+        </div>
+        <button type="button" class="sa-modal-close" onclick="closeTenantModal()">✕</button>
+      </div>
+
+      <!-- Detalle de empresa -->
+      <div class="sa-detail-grid" id="sa-modal-tenant-detail"><!-- Populated --></div>
+
+      <!-- Usuarios asociados -->
+      <div style="margin-bottom:1.5rem;">
+        <h4 style="font-size:0.8rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); margin:0 0 0.6rem 0;">
+          Usuarios Asociados
+        </h4>
+        <div class="sa-users-mini-list" id="sa-modal-tenant-users"><!-- Populated --></div>
+      </div>
+
+      <!-- Cambio de estado -->
+      <div style="margin-bottom:1.25rem;">
+        <h4 style="font-size:0.8rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); margin:0 0 0.75rem 0;">
+          Cambiar Estado de Suscripción
+        </h4>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;" id="sa-modal-status-actions">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- Zona de cancelación -->
+      <div class="sa-danger-zone" id="sa-modal-cancel-zone">
+        <h4>⚠ Cancelar Suscripción</h4>
+        <p>La empresa perderá acceso inmediatamente y el estado quedará como <strong>Cancelada</strong>. Esta acción es irreversible desde la vista del cliente.</p>
+        <button type="button" class="sa-action-btn danger" id="btn-sa-cancel-sub" style="font-size:0.8rem; padding:0.45rem 1rem;">
+          Cancelar Suscripción
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       MODAL: COMPROBANTE DE PAGO
+       ================================================================ -->
+  <div id="sa-modal-receipt" class="sa-modal-backdrop" style="display:none;">
+    <div class="sa-modal-card" style="max-width:580px;">
+      <div class="sa-modal-header">
+        <div>
+          <h2 class="sa-modal-title">Comprobante de Pago</h2>
+          <p class="sa-modal-sub" id="sa-receipt-subtitle"></p>
+        </div>
+        <button type="button" class="sa-modal-close" onclick="closeReceiptModal()">✕</button>
+      </div>
+
+      <div class="sa-receipt" id="sa-receipt-content"></div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:1.25rem; border-top:1px solid var(--border-subtle); padding-top:1rem;">
+        <button type="button" onclick="closeReceiptModal()" class="btn-outline" style="padding:0.5rem 1rem;">
+          Cerrar
+        </button>
+        <button type="button" class="btn-terracota" onclick="window.print()" style="width:auto; padding:0.5rem 1.25rem;">
+          Descargar / Imprimir PDF
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       MODAL: REGISTRAR PAGO
+       ================================================================ -->
+  <div id="sa-modal-register-pay" class="sa-modal-backdrop" style="display:none;">
+    <div class="sa-modal-card" style="max-width:480px;">
+      <div class="sa-modal-header">
+        <div>
+          <h2 class="sa-modal-title">Registrar Pago</h2>
+          <p class="sa-modal-sub" id="sa-regpay-subtitle"></p>
+        </div>
+        <button type="button" class="sa-modal-close" onclick="closeRegisterPayModal()">✕</button>
+      </div>
+
+      <div id="sa-regpay-alert" class="sa-alert" style="display:none;"></div>
+
+      <form id="sa-regpay-form">
+        <input type="hidden" id="sa-regpay-pay-id">
+        <input type="hidden" id="sa-regpay-company-id">
+
+        <div class="form-group" style="margin-bottom:1.1rem;">
+          <label class="form-label">Número de Referencia / Comprobante *</label>
+          <input type="text" id="sa-regpay-ref" class="form-input" placeholder="Ej. TRF-20260919-020" required>
+        </div>
+
+        <div class="form-group" style="margin-bottom:1.5rem;">
+          <label class="form-label">Notas (opcional)</label>
+          <input type="text" id="sa-regpay-notes" class="form-input" placeholder="Ej. Pago con 1 día de retraso">
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:0.75rem;">
+          <button type="button" onclick="closeRegisterPayModal()" class="btn-outline" style="padding:0.55rem 1rem;">
+            Cancelar
+          </button>
+          <button type="submit" class="sa-action-btn success" style="padding:0.55rem 1.4rem; font-size:0.85rem;">
+            Confirmar Pago
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       MODAL: CONFIRMAR RESET DE DEMO
+       ================================================================ -->
+  <div id="sa-modal-reset-confirm" class="sa-modal-backdrop" style="display:none;">
+    <div class="sa-modal-card" style="max-width:420px;">
+      <div class="sa-modal-header">
+        <div>
+          <h2 class="sa-modal-title" style="color:#fca5a5;">⚠ Confirmar Restablecimiento</h2>
+          <p class="sa-modal-sub">Esta acción borrará todos los datos actuales de localStorage</p>
+        </div>
+        <button type="button" class="sa-modal-close" onclick="closeResetModal()">✕</button>
+      </div>
+      <p style="font-size:0.84rem; color:var(--text-secondary); margin-bottom:1.5rem; line-height:1.5;">
+        Se eliminarán todas las empresas, usuarios y pagos del sistema y se restaurarán los datos de demostración inicial. Esta acción <strong style="color:#fca5a5;">no se puede deshacer</strong>.
+      </p>
+      <div style="display:flex; justify-content:flex-end; gap:0.75rem;">
+        <button type="button" onclick="closeResetModal()" class="btn-outline" style="padding:0.55rem 1rem;">
+          Cancelar
+        </button>
+        <button type="button" id="btn-sa-reset-confirm" class="sa-action-btn danger" style="padding:0.55rem 1.2rem;">
+          Sí, Restablecer Demo
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       SCRIPTS
+       ================================================================ -->
   <script src="js/storage.js"></script>
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const loginScreen = document.getElementById('superadmin-login-screen');
-      const dashScreen = document.getElementById('superadmin-dashboard-screen');
-      const form = document.getElementById('superadmin-form');
-      const saEmail = document.getElementById('sa-email');
-      const saPass = document.getElementById('sa-pass');
-      const saAlert = document.getElementById('superadmin-alert');
-      const btnLogout = document.getElementById('btn-sa-logout');
+    /* ── Helpers ── */
+    const fmt = n => new Intl.NumberFormat('es-CO', { style:'currency', currency:'COP', maximumFractionDigits:0 }).format(n);
+    const fmtDate = s => s ? new Date(s + 'T00:00').toLocaleDateString('es-CO', { day:'2-digit', month:'short', year:'numeric' }) : '—';
 
-      // Verificar si ya hay sesión superadmin
-      const session = getSuperAdminSession();
-      if (session) {
-        showSuperAdminDashboard();
+    const STATUS_LABELS = {
+      trial: 'En Prueba', active: 'Activa', pending: 'Pendiente',
+      expired: 'Vencida', cancelled: 'Cancelada', suspended: 'Suspendida'
+    };
+
+    function pillHTML(status) {
+      return `<span class="sa-pill ${status}">${STATUS_LABELS[status] || status}</span>`;
+    }
+
+    function payPillHTML(estado) {
+      return `<span class="sa-pill ${estado}">${estado.charAt(0).toUpperCase() + estado.slice(1)}</span>`;
+    }
+
+    function planChipHTML(plan) {
+      const cls = plan === 'Personal' ? 'personal' : 'empresarial';
+      return `<span class="sa-plan-chip ${cls}">${plan}</span>`;
+    }
+
+    /* ── Navigation ── */
+    let currentTenantId = null;
+
+    document.querySelectorAll('.sa-nav-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = btn.dataset.saPanel;
+        document.querySelectorAll('.sa-nav-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.sa-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('sa-panel-' + target).classList.add('active');
+        if (target === 'overview') renderOverview();
+        if (target === 'tenants') renderTenants();
+        if (target === 'payments') renderPayments();
+      });
+    });
+
+    /* ── Login ── */
+    const loginScreen = document.getElementById('sa-screen-login');
+    const dashScreen  = document.getElementById('sa-screen-dashboard');
+
+    if (getSuperAdminSession()) showDashboard();
+
+    document.getElementById('sa-login-form').addEventListener('submit', e => {
+      e.preventDefault();
+      const res = authenticateSuperAdmin(
+        document.getElementById('sa-email').value,
+        document.getElementById('sa-pass').value
+      );
+      if (res.success) {
+        showDashboard();
+      } else {
+        const alert = document.getElementById('sa-login-alert');
+        alert.textContent = res.message;
+        alert.style.display = 'block';
+      }
+    });
+
+    document.getElementById('btn-sa-logout').addEventListener('click', () => {
+      clearSuperAdminSession();
+      dashScreen.style.display = 'none';
+      loginScreen.style.display = 'flex';
+    });
+
+    function showDashboard() {
+      loginScreen.style.display = 'none';
+      dashScreen.style.display = 'flex';
+      renderOverview();
+      renderTenants();
+      renderPayments();
+    }
+
+    /* ── PANEL 1: Overview ── */
+    function renderOverview() {
+      const m = getSystemMetrics();
+
+      // KPI Grid
+      const kpiDefs = [
+        { label:'Total Tenants',    value: m.totalTenants,  sub: 'empresas registradas',    color: 'indigo' },
+        { label:'Total Usuarios',   value: m.totalUsers,    sub: 'cuentas en el sistema',   color: 'amber'  },
+        { label:'Activas',          value: m.byStatus.active,    sub: 'suscripciones al día',  color: 'green'  },
+        { label:'En Prueba',        value: m.byStatus.trial,     sub: 'en período de prueba',  color: 'amber'  },
+        { label:'Pendientes',       value: m.byStatus.pending,   sub: 'en período de gracia',  color: 'amber'  },
+        { label:'Vencidas',         value: m.byStatus.expired,   sub: 'sin renovación',        color: 'red'    },
+        { label:'Suspendidas',      value: m.byStatus.suspended, sub: 'bloqueadas D-25',       color: 'red'    },
+        { label:'Canceladas',       value: m.byStatus.cancelled, sub: 'baja voluntaria',       color: 'slate'  },
+        { label:'MRR',              value: fmt(m.mrr),      sub: 'ingresos mensuales recurrentes', color: 'green',  isMoney: true },
+        { label:'ARR (Proyectado)', value: fmt(m.arr),      sub: 'ingresos anuales proyectados',   color: 'indigo', isMoney: true },
+        { label:'Total Cobrado',    value: fmt(m.totalCollected), sub: 'pagos verificados históricos', color: 'green', isMoney: true },
+        { label:'Por Cobrar',       value: fmt(m.pendingRevenue), sub: 'pendientes + vencidos',     color: 'amber',  isMoney: true },
+      ];
+
+      document.getElementById('sa-kpi-grid').innerHTML = kpiDefs.map(k => `
+        <div class="sa-kpi-card ${k.color}">
+          <span class="sa-kpi-label">${k.label}</span>
+          <span class="sa-kpi-value ${k.isMoney ? 'money' : ''}">${k.value}</span>
+          <span class="sa-kpi-sub">${k.sub}</span>
+        </div>
+      `).join('');
+
+      // Status distribution
+      const total = m.totalTenants || 1;
+      const statusRows = [
+        { label: 'Activa',      count: m.byStatus.active,    color: '#10b981', pct: (m.byStatus.active/total*100).toFixed(0) },
+        { label: 'En Prueba',   count: m.byStatus.trial,     color: '#f59e0b', pct: (m.byStatus.trial/total*100).toFixed(0) },
+        { label: 'Pendiente',   count: m.byStatus.pending,   color: '#f59e0b', pct: (m.byStatus.pending/total*100).toFixed(0) },
+        { label: 'Vencida',     count: m.byStatus.expired,   color: '#ef4444', pct: (m.byStatus.expired/total*100).toFixed(0) },
+        { label: 'Suspendida',  count: m.byStatus.suspended, color: '#f87171', pct: (m.byStatus.suspended/total*100).toFixed(0) },
+        { label: 'Cancelada',   count: m.byStatus.cancelled, color: '#64748b', pct: (m.byStatus.cancelled/total*100).toFixed(0) },
+      ];
+
+      document.getElementById('sa-dist-status').innerHTML = statusRows.map(r => `
+        <div class="sa-dist-row">
+          <span class="sa-dist-label">${r.label}</span>
+          <div class="sa-dist-bar-wrap">
+            <div class="sa-dist-bar" style="width:${r.pct}%; background:${r.color};"></div>
+          </div>
+          <span class="sa-dist-count">${r.count}</span>
+        </div>
+      `).join('');
+
+      // Plan distribution
+      const planRows = [
+        { label:'Empresarial', count: m.byPlan.Empresarial, color:'#d96b43', pct: (m.byPlan.Empresarial/total*100).toFixed(0) },
+        { label:'Personal',    count: m.byPlan.Personal,    color:'#64748b', pct: (m.byPlan.Personal/total*100).toFixed(0) },
+      ];
+
+      document.getElementById('sa-dist-plan').innerHTML = planRows.map(r => `
+        <div class="sa-dist-row">
+          <span class="sa-dist-label">${r.label}</span>
+          <div class="sa-dist-bar-wrap">
+            <div class="sa-dist-bar" style="width:${r.pct}%; background:${r.color};"></div>
+          </div>
+          <span class="sa-dist-count">${r.count}</span>
+        </div>
+      `).join('');
+
+      // Revenue cards
+      document.getElementById('sa-revenue-grid').innerHTML = `
+        <div style="padding:1rem; background:var(--sa-green-dim); border:1px solid rgba(16,185,129,0.25); border-radius:var(--radius-sm);">
+          <div style="font-size:0.68rem; font-weight:700; text-transform:uppercase; color:var(--sa-green); margin-bottom:0.4rem;">Ingresos Cobrados</div>
+          <div style="font-size:1.4rem; font-weight:800; color:#fff; font-family:var(--font-mono);">${fmt(m.totalCollected)}</div>
+          <div style="font-size:0.7rem; color:var(--text-muted);">Pagos verificados históricos</div>
+        </div>
+        <div style="padding:1rem; background:var(--sa-amber-dim); border:1px solid rgba(245,158,11,0.25); border-radius:var(--radius-sm);">
+          <div style="font-size:0.68rem; font-weight:700; text-transform:uppercase; color:var(--sa-amber); margin-bottom:0.4rem;">Por Cobrar</div>
+          <div style="font-size:1.4rem; font-weight:800; color:#fff; font-family:var(--font-mono);">${fmt(m.pendingRevenue)}</div>
+          <div style="font-size:0.7rem; color:var(--text-muted);">Pendientes + vencidos</div>
+        </div>
+        <div style="padding:1rem; background:var(--sa-indigo-dim); border:1px solid var(--sa-indigo-border); border-radius:var(--radius-sm);">
+          <div style="font-size:0.68rem; font-weight:700; text-transform:uppercase; color:#f97316; margin-bottom:0.4rem;">MRR Actual</div>
+          <div style="font-size:1.4rem; font-weight:800; color:#fff; font-family:var(--font-mono);">${fmt(m.mrr)}</div>
+          <div style="font-size:0.7rem; color:var(--text-muted);">${m.byStatus.active} cuentas activas</div>
+        </div>
+        <div style="padding:1rem; background:rgba(217,107,67,0.06); border:1px solid rgba(217,107,67,0.22); border-radius:var(--radius-sm);">
+          <div style="font-size:0.68rem; font-weight:700; text-transform:uppercase; color:#e67d56; margin-bottom:0.4rem;">ARR Proyectado</div>
+          <div style="font-size:1.4rem; font-weight:800; color:#fff; font-family:var(--font-mono);">${fmt(m.arr)}</div>
+          <div style="font-size:0.7rem; color:var(--text-muted);">MRR × 12 meses</div>
+        </div>
+      `;
+    }
+
+    /* ── PANEL 2: Tenants ── */
+    let allCompanies = [];
+
+    function renderTenants(filter = {}) {
+      allCompanies = getCompanies();
+      const search = (filter.search || '').toLowerCase();
+      const statusF = filter.status || '';
+      const planF   = filter.plan   || '';
+
+      let list = allCompanies;
+      if (search) list = list.filter(c =>
+        c.razonSocial.toLowerCase().includes(search) || c.nit.includes(search)
+      );
+      if (statusF) list = list.filter(c => c.estadoSuscripcion === statusF);
+      if (planF)   list = list.filter(c => c.plan === planF);
+
+      document.getElementById('sa-tenant-count').textContent = `${list.length} empresa${list.length !== 1 ? 's' : ''}`;
+
+      const tbody = document.getElementById('sa-tenants-tbody');
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6"><div class="sa-empty">No hay empresas que coincidan con los filtros.</div></td></tr>`;
+        return;
       }
 
-      form.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const res = authenticateSuperAdmin(saEmail.value, saPass.value);
-        if (res.success) {
-          showSuperAdminDashboard();
-        } else {
-          saAlert.textContent = res.message;
-          saAlert.style.display = 'block';
-        }
-      });
-
-      btnLogout.addEventListener('click', () => {
-        clearSuperAdminSession();
-        dashScreen.style.display = 'none';
-        loginScreen.style.display = 'flex';
-      });
-
-      function showSuperAdminDashboard() {
-        loginScreen.style.display = 'none';
-        dashScreen.style.display = 'flex';
-        renderTenantsList();
-      }
-
-      function renderTenantsList() {
-        const container = document.getElementById('tenants-list-container');
-        const companies = getCompanies();
-        container.innerHTML = '';
-
-        companies.forEach(c => {
-          const card = document.createElement('div');
-          card.className = 'tenant-card';
-
-          const statusNames = {
-            'trial': `En Prueba (${c.diasPruebaRestantes || 15} días)`,
-            'active': 'Activa (Al Día)',
-            'expired': 'Suscripción Vencida',
-            'suspended': 'Suspendida por Superadmin (D-25)'
-          };
-
-          card.innerHTML = `
-            <div style="flex:1;">
-              <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.3rem;">
-                <h4 style="font-size:1.05rem; font-weight:700;">${c.razonSocial}</h4>
-                <span class="status-pill ${c.estadoSuscripcion}">
-                  ${statusNames[c.estadoSuscripcion] || c.estadoSuscripcion}
-                </span>
-                <span class="plan-tag">${c.plan}</span>
-              </div>
-              <p style="font-size:0.8rem; color:var(--text-secondary);">
-                NIT: <strong>${c.nit}</strong> | ID: <code>${c.id}</code> | Registro: ${c.fechaRegistro} | 
-                <span style="color:#93c5fd;">${(c.unidadesMedida || []).length} unidades estándar asociadas</span>
-              </p>
-            </div>
-
-            <div style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">
-              <button class="action-btn-sm" onclick="changeStatus('${c.id}', 'active')">
-                ✓ Activar
+      const users = getUsers();
+      tbody.innerHTML = list.map(c => {
+        const userCount = users.filter(u => u.companyId === c.id).length;
+        return `
+          <tr>
+            <td>
+              <div style="font-weight:700; color:#e2e8f0;">${c.razonSocial}</div>
+              <div style="font-size:0.72rem; color:var(--text-muted); font-family:var(--font-mono);">NIT: ${c.nit}</div>
+            </td>
+            <td>${planChipHTML(c.plan)}</td>
+            <td>${pillHTML(c.estadoSuscripcion)}</td>
+            <td style="font-family:var(--font-mono); font-size:0.78rem;">${fmtDate(c.fechaVencimiento)}</td>
+            <td style="font-size:0.8rem;">${userCount} usuario${userCount !== 1 ? 's' : ''}</td>
+            <td style="text-align:right;">
+              <button class="sa-action-btn" onclick="openTenantModal('${c.id}')">
+                Ver detalle
               </button>
-              <button class="action-btn-sm" onclick="changeStatus('${c.id}', 'trial', 15)">
-                ⏱ Prueba (15d)
-              </button>
-              <button class="action-btn-sm" onclick="changeStatus('${c.id}', 'expired')">
-                ⚠ Vencer
-              </button>
-              <button class="action-btn-sm" style="border-color:rgba(239,68,68,0.5); color:#fca5a5;" onclick="changeStatus('${c.id}', 'suspended')">
-                ⛔ Suspender (D-25)
-              </button>
-            </div>
-          `;
-          container.appendChild(card);
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Filters
+    ['sa-tenant-search','sa-filter-status','sa-filter-plan'].forEach(id => {
+      document.getElementById(id).addEventListener('input', () => {
+        renderTenants({
+          search: document.getElementById('sa-tenant-search').value,
+          status: document.getElementById('sa-filter-status').value,
+          plan:   document.getElementById('sa-filter-plan').value
         });
+      });
+    });
+
+    /* ── Tenant Modal ── */
+    function openTenantModal(companyId) {
+      currentTenantId = companyId;
+      const c = getCompanyById(companyId);
+      if (!c) return;
+      const users = getUsersByCompany(companyId);
+
+      document.getElementById('sa-modal-tenant-title').textContent = c.razonSocial;
+      document.getElementById('sa-modal-tenant-sub').textContent = `NIT: ${c.nit} · ${c.plan} · ${STATUS_LABELS[c.estadoSuscripcion]}`;
+
+      // Detail grid
+      document.getElementById('sa-modal-tenant-detail').innerHTML = `
+        <div class="sa-detail-item">
+          <span class="sa-detail-label">Estado</span>
+          <span class="sa-detail-value">${pillHTML(c.estadoSuscripcion)}</span>
+        </div>
+        <div class="sa-detail-item">
+          <span class="sa-detail-label">Plan</span>
+          <span class="sa-detail-value">${planChipHTML(c.plan)}</span>
+        </div>
+        <div class="sa-detail-item">
+          <span class="sa-detail-label">Registro</span>
+          <span class="sa-detail-value">${fmtDate(c.fechaRegistro)}</span>
+        </div>
+        <div class="sa-detail-item">
+          <span class="sa-detail-label">Vencimiento</span>
+          <span class="sa-detail-value">${fmtDate(c.fechaVencimiento)}</span>
+        </div>
+        ${c.estadoSuscripcion === 'trial' ? `
+        <div class="sa-detail-item">
+          <span class="sa-detail-label">Días de Prueba</span>
+          <span class="sa-detail-value" style="color:var(--sa-amber);">${c.diasPruebaRestantes} días restantes</span>
+        </div>` : ''}
+        ${c.fechaCancelacion ? `
+        <div class="sa-detail-item">
+          <span class="sa-detail-label">Fecha Cancelación</span>
+          <span class="sa-detail-value" style="color:var(--sa-red);">${fmtDate(c.fechaCancelacion)}</span>
+        </div>` : ''}
+        <div class="sa-detail-item">
+          <span class="sa-detail-label">ID Sistema</span>
+          <span class="sa-detail-value"><code>${c.id}</code></span>
+        </div>
+        <div class="sa-detail-item">
+          <span class="sa-detail-label">Unidades estándar</span>
+          <span class="sa-detail-value">${(c.unidadesMedida || []).length} cargadas</span>
+        </div>
+      `;
+
+      // Users
+      document.getElementById('sa-modal-tenant-users').innerHTML = users.length === 0
+        ? '<p style="font-size:0.78rem; color:var(--text-muted);">Sin usuarios registrados.</p>'
+        : users.map(u => `
+          <div class="sa-user-mini-row">
+            <div class="sa-user-avatar">${u.nombre.charAt(0).toUpperCase()}</div>
+            <div style="flex:1;">
+              <div style="font-weight:600; color:#e2e8f0;">${u.nombre}</div>
+              <div style="color:var(--text-muted); font-size:0.72rem;">${u.email} · ${u.rol}</div>
+            </div>
+            ${u.requiereCambioClave ? '<span style="font-size:0.68rem; color:var(--sa-amber); background:var(--sa-amber-dim); padding:0.15rem 0.4rem; border-radius:4px;">Clave temporal</span>' : ''}
+          </div>
+        `).join('');
+
+      // Status actions (exclude current state)
+      const actions = [
+        { estado:'active',    label:'✓ Activar',        cls:'' },
+        { estado:'trial',     label:'⏱ Prueba (15d)',   cls:'' },
+        { estado:'pending',   label:'⏳ Pendiente',      cls:'' },
+        { estado:'expired',   label:'⌛ Expirar',        cls:'' },
+        { estado:'suspended', label:'⛔ Suspender D-25', cls:'danger' },
+      ].filter(a => a.estado !== c.estadoSuscripcion);
+
+      document.getElementById('sa-modal-status-actions').innerHTML = actions.map(a => `
+        <button class="sa-action-btn ${a.cls}" onclick="saChangeStatus('${c.id}', '${a.estado}')">
+          ${a.label}
+        </button>
+      `).join('');
+
+      // Cancel zone — only show if not already cancelled
+      document.getElementById('sa-modal-cancel-zone').style.display =
+        ['cancelled','expired'].includes(c.estadoSuscripcion) ? 'none' : 'block';
+
+      document.getElementById('btn-sa-cancel-sub').onclick = () => {
+        if (confirm(`¿Cancelar la suscripción de "${c.razonSocial}"? El tenant perderá acceso inmediatamente.`)) {
+          updateCompanySubscription(c.id, 'cancelled');
+          closeTenantModal();
+          renderTenants();
+          renderOverview();
+        }
+      };
+
+      document.getElementById('sa-modal-tenant').style.display = 'flex';
+    }
+
+    function closeTenantModal() {
+      document.getElementById('sa-modal-tenant').style.display = 'none';
+      currentTenantId = null;
+    }
+
+    window.saChangeStatus = function(companyId, nuevoEstado) {
+      const dias = nuevoEstado === 'trial' ? 15 : 0;
+      updateCompanySubscription(companyId, nuevoEstado, dias);
+      closeTenantModal();
+      renderTenants();
+      renderOverview();
+    };
+
+    window.openTenantModal = openTenantModal;
+    window.closeTenantModal = closeTenantModal;
+
+    // Close on backdrop click
+    document.getElementById('sa-modal-tenant').addEventListener('click', function(e) {
+      if (e.target === this) closeTenantModal();
+    });
+
+    /* ── PANEL 3: Payments ── */
+    function renderPayments(filter = {}) {
+      const payments = getPayments();
+      const companies = getCompanies();
+      const companyMap = {};
+      companies.forEach(c => companyMap[c.id] = c);
+
+      const search  = (filter.search || '').toLowerCase();
+      const statusF = filter.status || '';
+
+      let list = payments.map(p => ({ ...p, company: companyMap[p.companyId] }));
+      if (search) list = list.filter(p =>
+        (p.company?.razonSocial || '').toLowerCase().includes(search) ||
+        p.periodo.toLowerCase().includes(search)
+      );
+      if (statusF) list = list.filter(p => p.estado === statusF);
+
+      // Sort: vencido/pendiente first, then desc by id
+      const priority = { vencido:0, pendiente:1, cancelado:2, pagado:3 };
+      list.sort((a,b) => (priority[a.estado] ?? 9) - (priority[b.estado] ?? 9) || b.id.localeCompare(a.id));
+
+      document.getElementById('sa-pay-count').textContent = `${list.length} registro${list.length !== 1 ? 's' : ''}`;
+
+      const tbody = document.getElementById('sa-payments-tbody');
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8"><div class="sa-empty">No hay pagos que coincidan con los filtros.</div></td></tr>`;
+        return;
       }
 
-      window.changeStatus = function(companyId, nuevoEstado, dias = 0) {
-        updateCompanySubscription(companyId, nuevoEstado, dias);
-        renderTenantsList();
-      };
+      const totalMonto = list.reduce((s,p) => s + p.monto, 0);
+      const totalPagado = list.filter(p=>p.estado==='pagado').reduce((s,p) => s + p.monto, 0);
+
+      tbody.innerHTML = list.map(p => `
+        <tr>
+          <td>
+            <div style="font-weight:600; color:#e2e8f0; font-size:0.8rem;">${p.company?.razonSocial || p.companyId}</div>
+          </td>
+          <td>${planChipHTML(p.plan)}</td>
+          <td style="font-family:var(--font-mono); font-size:0.8rem;">${p.periodo}</td>
+          <td style="font-family:var(--font-mono); font-size:0.82rem; font-weight:700; color:#e2e8f0;">${fmt(p.monto)}</td>
+          <td style="font-family:var(--font-mono); font-size:0.78rem;">${fmtDate(p.fechaPago)}</td>
+          <td style="font-family:var(--font-mono); font-size:0.78rem;">${fmtDate(p.fechaVencimiento)}</td>
+          <td>${payPillHTML(p.estado)}</td>
+          <td style="text-align:right;">
+            <div style="display:flex; gap:0.4rem; justify-content:flex-end;">
+              ${p.estado === 'pagado' || p.estado === 'cancelado' ? `
+                <button class="sa-action-btn" onclick='openReceiptModal(${JSON.stringify(p).replace(/'/g,"&#39;")})'>
+                  Comprobante
+                </button>
+              ` : ''}
+              ${['pendiente','vencido'].includes(p.estado) ? `
+                <button class="sa-action-btn success" onclick="openRegisterPayModal('${p.id}','${p.companyId}')">
+                  Registrar Pago
+                </button>
+              ` : ''}
+            </div>
+          </td>
+        </tr>
+      `).join('') + `
+        <tr class="sa-table-total-row">
+          <td colspan="3" style="font-size:0.78rem; color:var(--text-muted);">Total mostrado (${list.length} registros)</td>
+          <td style="font-family:var(--font-mono);">${fmt(totalMonto)}</td>
+          <td colspan="2" style="font-size:0.72rem; color:var(--text-muted);">Cobrado: ${fmt(totalPagado)}</td>
+          <td colspan="2"></td>
+        </tr>
+      `;
+    }
+
+    ['sa-pay-search','sa-filter-pay-status'].forEach(id => {
+      document.getElementById(id).addEventListener('input', () => {
+        renderPayments({
+          search: document.getElementById('sa-pay-search').value,
+          status: document.getElementById('sa-filter-pay-status').value,
+        });
+      });
+    });
+
+    /* ── Receipt Modal ── */
+    function openReceiptModal(payment) {
+      const companies = getCompanies();
+      const c = companies.find(x => x.id === payment.companyId);
+      document.getElementById('sa-receipt-subtitle').textContent = `${c?.razonSocial || payment.companyId} · ${payment.periodo}`;
+      document.getElementById('sa-receipt-content').innerHTML = `
+        <div style="text-align:center; margin-bottom:1.25rem;">
+          <div style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted); margin-bottom:0.25rem;">
+            ConstruSoft Platform S.A.S. · NIT 901.882.110-4
+          </div>
+          <div style="font-size:1rem; font-weight:800; color:#fff;">Comprobante Oficial de Pago</div>
+        </div>
+        <div class="sa-receipt">
+          <div class="sa-receipt-row"><span class="label">Empresa</span><span class="value">${c?.razonSocial || payment.companyId}</span></div>
+          <div class="sa-receipt-row"><span class="label">NIT Empresa</span><span class="value" style="font-family:var(--font-mono);">${c?.nit || '—'}</span></div>
+          <div class="sa-receipt-row"><span class="label">Plan</span><span class="value">${payment.plan}</span></div>
+          <div class="sa-receipt-row"><span class="label">Período</span><span class="value">${payment.periodo}</span></div>
+          <div class="sa-receipt-row"><span class="label">Monto</span><span class="value" style="font-family:var(--font-mono); font-size:1.05rem; color:var(--sa-green);">${fmt(payment.monto)}</span></div>
+          <div class="sa-receipt-row"><span class="label">Fecha de Pago</span><span class="value">${fmtDate(payment.fechaPago)}</span></div>
+          <div class="sa-receipt-row"><span class="label">Fecha Vencimiento</span><span class="value">${fmtDate(payment.fechaVencimiento)}</span></div>
+          <div class="sa-receipt-row"><span class="label">Referencia</span><span class="value" style="font-family:var(--font-mono);">${payment.referencia || '—'}</span></div>
+          <div class="sa-receipt-row"><span class="label">ID Registro</span><span class="value" style="font-family:var(--font-mono);">${payment.id}</span></div>
+          ${payment.notas ? `<div class="sa-receipt-row"><span class="label">Notas</span><span class="value">${payment.notas}</span></div>` : ''}
+          <div class="sa-receipt-row"><span class="label">Estado</span><span class="value">${payPillHTML(payment.estado)}</span></div>
+        </div>
+        <div style="text-align:center; margin-top:1rem; font-size:0.72rem; color:var(--text-muted);">
+          Comprobante generado por ConstruSoft Platform · pagos@contrusoft.internal
+        </div>
+      `;
+      document.getElementById('sa-modal-receipt').style.display = 'flex';
+    }
+
+    function closeReceiptModal() {
+      document.getElementById('sa-modal-receipt').style.display = 'none';
+    }
+
+    window.openReceiptModal = openReceiptModal;
+    window.closeReceiptModal = closeReceiptModal;
+    document.getElementById('sa-modal-receipt').addEventListener('click', function(e) {
+      if (e.target === this) closeReceiptModal();
+    });
+
+    /* ── Register Payment Modal ── */
+    function openRegisterPayModal(payId, companyId) {
+      const payments = getPayments();
+      const p = payments.find(x => x.id === payId);
+      const c = getCompanyById(companyId);
+      if (!p || !c) return;
+      document.getElementById('sa-regpay-subtitle').textContent = `${c.razonSocial} · ${p.periodo} · ${fmt(p.monto)}`;
+      document.getElementById('sa-regpay-pay-id').value = payId;
+      document.getElementById('sa-regpay-company-id').value = companyId;
+      document.getElementById('sa-regpay-ref').value = '';
+      document.getElementById('sa-regpay-notes').value = '';
+      document.getElementById('sa-regpay-alert').style.display = 'none';
+      document.getElementById('sa-modal-register-pay').style.display = 'flex';
+    }
+
+    function closeRegisterPayModal() {
+      document.getElementById('sa-modal-register-pay').style.display = 'none';
+    }
+
+    window.openRegisterPayModal = openRegisterPayModal;
+    window.closeRegisterPayModal = closeRegisterPayModal;
+
+    document.getElementById('sa-modal-register-pay').addEventListener('click', function(e) {
+      if (e.target === this) closeRegisterPayModal();
+    });
+
+    document.getElementById('sa-regpay-form').addEventListener('submit', e => {
+      e.preventDefault();
+      const payId = document.getElementById('sa-regpay-pay-id').value;
+      const companyId = document.getElementById('sa-regpay-company-id').value;
+      const ref = document.getElementById('sa-regpay-ref').value.trim();
+      const notes = document.getElementById('sa-regpay-notes').value.trim();
+
+      if (!ref) {
+        const al = document.getElementById('sa-regpay-alert');
+        al.textContent = 'El número de referencia es obligatorio.';
+        al.style.display = 'block';
+        return;
+      }
+
+      const res = registerPayment(companyId, payId, ref, notes);
+      if (res.success) {
+        closeRegisterPayModal();
+        renderPayments({
+          search: document.getElementById('sa-pay-search').value,
+          status: document.getElementById('sa-filter-pay-status').value,
+        });
+        renderOverview();
+        renderTenants();
+      }
+    });
+
+    /* ── System: Reset DB ── */
+    document.getElementById('btn-sa-reset-db').addEventListener('click', () => {
+      document.getElementById('sa-modal-reset-confirm').style.display = 'flex';
+    });
+
+    document.getElementById('btn-sa-reset-confirm').addEventListener('click', () => {
+      ['contrusoft_users','contrusoft_companies','contrusoft_payments','contrusoft_superadmin'].forEach(k => {
+        localStorage.removeItem(k);
+      });
+      initStorage();
+      closeResetModal();
+      renderOverview();
+      renderTenants();
+      renderPayments();
+    });
+
+    function closeResetModal() {
+      document.getElementById('sa-modal-reset-confirm').style.display = 'none';
+    }
+
+    window.closeResetModal = closeResetModal;
+
+    document.getElementById('sa-modal-reset-confirm').addEventListener('click', function(e) {
+      if (e.target === this) closeResetModal();
     });
   </script>
 </body>
