@@ -1,0 +1,7 @@
+node_modules/
+dist/
+
+# Nunca el .env real: tiene las contraseñas de app_login/auth_login/superadmin_login.
+.env
+.env.*
+!.env.example

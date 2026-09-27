@@ -1,0 +1,23 @@
+{
+  "name": "construsoft",
+  "private": true,
+  "version": "0.1.0",
+  "description": "SaaS multi-inquilino de presupuestacion de obra civil (Colombia).",
+  "type": "module",
+  "engines": {
+    "node": ">=20.6.0"
+  },
+  "scripts": {
+    "test": "node --env-file=.env --import tsx --test src/**/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "@types/pg": "^8.23.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}
