@@ -85,6 +85,21 @@ identificador ajeno a una función. Debe parecer que usan bases distintas.
 total. Para corregirlo se reabre con justificación escrita, se edita y se vuelve
 a activar. Cada transición guarda una versión.
 
+**8. Los secretos no se generan ni se escriben aquí.** No inventes contraseñas,
+no las propongas, no las pegues en la conversación y no las pongas en un archivo.
+Tampoco las cambies: `ALTER ROLE ... PASSWORD` no lo ejecutas tú nunca, ni
+siquiera para «reponer» una que dejó de funcionar. Si una credencial falla, di
+cuál falla y detente ahí: la rotación la hace el dueño del proyecto, en su
+terminal, con un valor que solo él conoce.
+
+Motivo, sin rodeos: todo lo que pasa por esta conversación queda escrito en
+algún lado. Una contraseña que viajó por un chat ya no es un secreto, y la del
+superusuario de la base lo es todavía menos. Si necesitas un valor para un
+ejemplo, escribe `PONER_LA_CLAVE_AQUI` y sigue.
+
+Los archivos `.env` y `.env.test` los escribe el dueño del proyecto. Tú puedes
+decir qué variables hacen falta y para qué sirve cada una; los valores, no.
+
 ---
 
 ## Lo que NO se construye
