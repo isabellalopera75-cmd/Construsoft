@@ -1,8 +1,8 @@
 import { before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Pool } from 'pg';
-import { ejecutarComoTenant, registrarEmpresa } from './contextoTenant.js';
-import { autenticar } from './autenticacion.js';
+import { consumirTokenRecuperacion, ejecutarComoTenant, registrarEmpresa } from './contextoTenant.js';
+import { autenticar, resolverToken } from './autenticacion.js';
 
 /**
  * Fixtures de esta prueba: dos empresas reales, registradas con
@@ -220,8 +220,162 @@ describe('el problema que este wrapper existe para evitar', () => {
     },
   );
 
-  test('el módulo no expone el pool ni un query suelto: solo ejecutarComoTenant y registrarEmpresa', async () => {
-    const modulo = await import('./contextoTenant.js');
-    assert.deepEqual(Object.keys(modulo).sort(), ['ejecutarComoTenant', 'registrarEmpresa']);
+  test(
+    'el módulo no expone el pool ni un query suelto: solo ejecutarComoTenant, registrarEmpresa y consumirTokenRecuperacion',
+    async () => {
+      const modulo = await import('./contextoTenant.js');
+      assert.deepEqual(Object.keys(modulo).sort(), [
+        'consumirTokenRecuperacion',
+        'ejecutarComoTenant',
+        'registrarEmpresa',
+      ]);
+    },
+  );
+});
+
+/**
+ * Fixtures propias: dos empresas más, para probar el aislamiento entre
+ * inquilinos sobre tokens (no reutiliza empresaA/empresaB de arriba para no
+ * depender del orden de ejecución de los describe de este archivo).
+ */
+describe('consumirTokenRecuperacion', () => {
+  let empresaX: EmpresaDePrueba;
+  let empresaY: EmpresaDePrueba;
+
+  before(async () => {
+    empresaX = await registrarEmpresaDePrueba(
+      'Constructora Test X',
+      '900000008-8',
+      'fabio@construsoft.test',
+    );
+    empresaY = await registrarEmpresaDePrueba(
+      'Constructora Test Y',
+      '900000009-9',
+      'gina@construsoft.test',
+    );
+  });
+
+  /** Inserta un token real con ejecutarComoTenant, como lo haría la aplicación real al emitirlo. */
+  async function emitirToken(
+    empresa: EmpresaDePrueba,
+    usuarioId: string,
+    proposito: 'ACTIVACION' | 'RECUPERACION',
+    tokenHash: string,
+  ): Promise<string> {
+    // La vigencia máxima difiere por propósito (ck_token_vigencia): 30
+    // minutos para RECUPERACION, 72 horas para ACTIVACION. Usar 72 horas para
+    // los dos violaría el CHECK en cuanto el propósito fuera RECUPERACION.
+    const vigencia = proposito === 'RECUPERACION' ? '10 minutes' : '72 hours';
+    return ejecutarComoTenant({ tenantId: empresa.tenantId, usuarioId: empresa.usuarioId }, async (cliente) => {
+      const { rows } = await cliente.query<{ id: string }>(
+        `INSERT INTO app.token_recuperacion (tenant_id, usuario_id, proposito, token_hash, expira_en)
+         VALUES ($1, $2, $3, $4, now() + $5::interval)
+         RETURNING id`,
+        [empresa.tenantId, usuarioId, proposito, tokenHash, vigencia],
+      );
+      return rows[0]!.id;
+    });
+  }
+
+  test('un token emitido por la empresa X no se puede resolver como de la empresa Y ni usarse desde ahí', async () => {
+    const tokenHash = 'TOK_CROSS_TENANT';
+    const tokenId = await emitirToken(empresaX, empresaX.usuarioId, 'RECUPERACION', tokenHash);
+
+    const resuelto = await resolverToken(tokenHash);
+    assert.ok(resuelto);
+    assert.equal(resuelto.tenantId, empresaX.tenantId);
+    assert.notEqual(resuelto.tenantId, empresaY.tenantId);
+
+    // Aunque la empresa Y conociera el id real del token (por ejemplo, por un
+    // ataque de fuerza bruta sobre ids consecutivos), RLS le impide verlo:
+    // cero filas, no un error que confirme que el id existe en otra empresa.
+    const vistoDesdeY = await ejecutarComoTenant(
+      { tenantId: empresaY.tenantId, usuarioId: empresaY.usuarioId },
+      (cliente) => cliente.query('SELECT 1 FROM app.token_recuperacion WHERE id = $1', [tokenId]),
+    );
+    assert.equal(vistoDesdeY.rowCount, 0);
+
+    const resultado = await consumirTokenRecuperacion(tokenHash, 'nuevo_hash_cross_tenant');
+    assert.equal(resultado.tenantId, empresaX.tenantId);
+    assert.equal(resultado.usuarioId, empresaX.usuarioId);
+  });
+
+  test('el mismo token no funciona dos veces', async () => {
+    const tokenHash = 'TOK_UN_SOLO_USO';
+    await emitirToken(empresaY, empresaY.usuarioId, 'RECUPERACION', tokenHash);
+
+    await consumirTokenRecuperacion(tokenHash, 'primer_hash_valido');
+    await assert.rejects(
+      consumirTokenRecuperacion(tokenHash, 'segundo_hash_no_deberia_aplicarse'),
+      /ya fue usado/,
+    );
+  });
+
+  test('un token expirado no funciona (vencimiento fabricado, no esperado)', async () => {
+    const tokenHash = 'TOK_EXPIRADO';
+    const tokenId = await emitirToken(empresaY, empresaY.usuarioId, 'RECUPERACION', tokenHash);
+
+    // Fabrica el vencimiento sin esperar las 72 horas reales: mueve
+    // expira_en justo después de creado_en (sigue cumpliendo el CHECK
+    // expira_en > creado_en), y para cuando el test siguiente llegue a
+    // consumirTokenRecuperacion ya pasó más de un milisegundo real.
+    await ejecutarComoTenant({ tenantId: empresaY.tenantId, usuarioId: empresaY.usuarioId }, (cliente) =>
+      cliente.query(
+        `UPDATE app.token_recuperacion
+            SET expira_en = creado_en + interval '1 millisecond'
+          WHERE id = $1`,
+        [tokenId],
+      ),
+    );
+
+    await assert.rejects(
+      consumirTokenRecuperacion(tokenHash, 'hash_no_deberia_aplicarse'),
+      /expiró/,
+    );
+  });
+
+  test('emitir un token nuevo para el mismo usuario y propósito deja inservible el anterior', async () => {
+    const tokenViejo = 'TOK_VIEJO';
+    const tokenNuevo = 'TOK_NUEVO';
+    await emitirToken(empresaX, empresaX.usuarioId, 'RECUPERACION', tokenViejo);
+    await emitirToken(empresaX, empresaX.usuarioId, 'RECUPERACION', tokenNuevo);
+
+    await assert.rejects(
+      consumirTokenRecuperacion(tokenViejo, 'hash_no_deberia_aplicarse'),
+      /ya no es válido/,
+    );
+
+    const resultado = await consumirTokenRecuperacion(tokenNuevo, 'hash_valido_recuperacion');
+    assert.equal(resultado.usuarioId, empresaX.usuarioId);
+  });
+
+  test('después de activar, el usuario inicia sesión con su contraseña nueva y el tenantId/usuarioId correctos', async () => {
+    const email = 'hugo@construsoft.test';
+    const invitadoId = await ejecutarComoTenant(
+      { tenantId: empresaX.tenantId, usuarioId: empresaX.usuarioId },
+      async (cliente) => {
+        const { rows } = await cliente.query<{ id: string }>(
+          `INSERT INTO app.usuario (tenant_id, rol_id, nombre, email)
+           VALUES ($1, $2, 'Hugo Invitado', $3)
+           RETURNING id`,
+          [empresaX.tenantId, empresaX.rolAdminId, email],
+        );
+        return rows[0]!.id;
+      },
+    );
+    const tokenHash = 'TOK_ACTIVACION_HUGO';
+    await emitirToken(empresaX, invitadoId, 'ACTIVACION', tokenHash);
+
+    const nuevoHash = 'hash_de_hugo_nuevo';
+    const resultado = await consumirTokenRecuperacion(tokenHash, nuevoHash);
+    assert.equal(resultado.tenantId, empresaX.tenantId);
+    assert.equal(resultado.usuarioId, invitadoId);
+
+    const sesion = await autenticar(email);
+    assert.ok(sesion);
+    assert.equal(sesion.estado, 'ACTIVO');
+    assert.equal(sesion.passwordHash, nuevoHash);
+    assert.equal(sesion.tenantId, empresaX.tenantId);
+    assert.equal(sesion.usuarioId, invitadoId);
   });
 });

@@ -1,5 +1,6 @@
 import { Pool, type QueryResult, type QueryResultRow } from 'pg';
 import { leerEnvObligatoria } from './env.js';
+import { resolverToken } from './autenticacion.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -158,4 +159,71 @@ export async function registrarEmpresa(datos: DatosRegistroEmpresa): Promise<Emp
     usuarioId: fila.id_usuario,
     rolAdminId: fila.id_rol_admin,
   };
+}
+
+/**
+ * Consume un enlace de activación o de recuperación (RF-AUT-06..11, 13):
+ * valida que el token exista, no esté usado ni anulado y no haya expirado,
+ * fija la contraseña nueva y —si el usuario todavía estaba PENDIENTE— lo deja
+ * ACTIVO. Sirve para los dos propósitos porque el mecanismo es idéntico (ver
+ * el comentario de app.token_recuperacion); lo único que cambia es si hay una
+ * transición de estado que hacer, y eso lo decide el propio UPDATE.
+ *
+ * Usa resolverToken (auth_login, sin contexto) para encontrar a qué tenant y
+ * usuario pertenece el token, y recién con esos dos valores —nunca con un
+ * tenantId que reciba por fuera— abre la transacción con ejecutarComoTenant.
+ * Así una empresa nunca puede terminar actuando sobre el token de otra: el
+ * contexto sale siempre del propio token, no de quien llama.
+ *
+ * El UPDATE del token exige además `usado_en IS NULL AND anulado_en IS NULL`
+ * en el WHERE: sin esa comprobación dentro de la misma transacción, dos
+ * peticiones concurrentes con el mismo token podrían pasar las dos la
+ * validación de arriba (hecha con una lectura previa) y consumirlo dos veces.
+ */
+export async function consumirTokenRecuperacion(
+  tokenHash: string,
+  passwordHash: string,
+): Promise<ContextoTenant> {
+  const token = await resolverToken(tokenHash);
+  if (!token) {
+    throw new Error('El enlace no es válido: no corresponde a ningún token emitido.');
+  }
+  if (token.anuladoEn) {
+    throw new Error(
+      'Este enlace ya no es válido: se emitió uno más reciente para el mismo trámite. ' +
+        'Use el último enlace que se envió.',
+    );
+  }
+  if (token.usadoEn) {
+    throw new Error('Este enlace ya fue usado. Si necesita otro, pida que se lo reenvíen.');
+  }
+  if (token.expiraEn.getTime() <= Date.now()) {
+    throw new Error('Este enlace expiró. Pida que se lo reenvíen.');
+  }
+
+  const contexto: ContextoTenant = { tenantId: token.tenantId, usuarioId: token.usuarioId };
+  await ejecutarComoTenant(contexto, async (cliente) => {
+    const marcado = await cliente.query(
+      `UPDATE app.token_recuperacion
+          SET usado_en = now()
+        WHERE id = $1 AND usado_en IS NULL AND anulado_en IS NULL`,
+      [token.tokenId],
+    );
+    if (marcado.rowCount !== 1) {
+      throw new Error('Este enlace ya no se puede usar: alguien más lo consumió primero.');
+    }
+
+    const actualizado = await cliente.query(
+      `UPDATE app.usuario
+          SET password_hash = $1,
+              estado = CASE WHEN estado = 'PENDIENTE' THEN 'ACTIVO' ELSE estado END
+        WHERE id = $2`,
+      [passwordHash, token.usuarioId],
+    );
+    if (actualizado.rowCount !== 1) {
+      throw new Error('El enlace no corresponde a un usuario válido.');
+    }
+  });
+
+  return contexto;
 }
