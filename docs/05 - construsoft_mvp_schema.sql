@@ -35,12 +35,12 @@
 --  ---------------------------------------------------------------------------
 --  LAS DECISIONES DE DISEÑO QUE ESTE ESQUEMA IMPLEMENTA
 --
---  Son cincuenta: D-1 a D-51, sin la D-10, que no existe. El motivo de
+--  Son cincuenta y una: D-1 a D-52, sin la D-10, que no existe. El motivo de
 --  cada una está en la sección 14 del documento de alcance. Aquí va el
 --  enunciado, y cada decisión vuelve a aparecer anotada en el punto del esquema
 --  donde vive. Las ocho últimas están al final de esta lista y tienen fecha:
 --  D-44 a D-49 salieron de la auditoría externa del 24 de septiembre de 2026;
---  D-50 y D-51 son posteriores a ella y se distinguen a propósito, porque
+--  D-50, D-51 y D-52 son posteriores a ella y se distinguen a propósito, porque
 --  nadie debería tener que preguntarle a nadie qué se movió después del
 --  dictamen: está escrito aquí.
 --
@@ -221,7 +221,7 @@
 --  volver a auditar si el cambio solo altera lo que una función le devuelve a
 --  un llamador que ya tenía derecho a esas filas, porque ahí la superficie de
 --  lectura es la misma antes y después. D-50 cae del primer lado y se verificó
---  como tal; D-51, del segundo, y abajo está por qué.
+--  como tal; D-51 y D-52, del segundo, y abajo está por qué.
 --
 --   D-50  (posterior a la auditoría · toca roles y privilegios · verificada
 --         contra la base) El rol dueño de las funciones de autenticación no se
@@ -232,6 +232,15 @@
 --         apareció al revisar una frase suelta sobre el modelo de conexiones, y
 --         la escalada se reprodujo entera antes de cerrarla.
 --         app.fn_verificar_roles_login() la comprueba en cada instalación.
+--            El 27 de septiembre de 2026 el detector se amplió con una tercera
+--         rama, porque tenía un hueco: miraba de quién se puede vestir la
+--         conexión y si es superusuario, pero no lo que la conexión trae puesto
+--         ella misma. Un rol creado LOGIN BYPASSRLS no es miembro de nada, así
+--         que no salía por ninguna de las dos ramas, y con permisos de la
+--         aplicación encima leía todas las empresas. Se comprobó leyendo 3
+--         usuarios de 2 empresas sin fijar inquilino, con el detector diciendo
+--         «cero filas». Apareció porque en el servidor del dueño había un rol
+--         de conexión ajeno al proyecto y hubo que poder descartarlo.
 --   D-51  (posterior a la auditoría · no toca tablas, políticas, privilegios,
 --         roles ni disparadores) fn_alta_tenant devuelve las tres cosas que
 --         crea: el inquilino, el administrador y su rol. Antes devolvía solo el
@@ -248,6 +257,18 @@
 --         preexistentes las toca. Devuelve los identificadores de las filas que
 --         ella misma acabó de crear en esa misma llamada, y no puede devolver
 --         otra cosa.
+--   D-52  (posterior a la auditoría · agrega una función, no toca tablas,
+--         políticas, privilegios, roles ni disparadores) El permiso de cada
+--         acción lo comprueba la base en cada petición, con
+--         app.fn_exigir_permiso. RF-CFG-25 ya estaba defendido al configurar un
+--         rol; faltaba la otra mitad, la de la petición en curso. No reexige el
+--         Ver del módulo, y no por descuido: la coherencia está garantizada en
+--         el origen por tg_rol_permisos_coherentes, que cubre INSERT, UPDATE y
+--         DELETE —quitar RECURSOS.VER dejando RECURSOS.CREAR lo rechaza el
+--         COMMIT—, así que si el rol tiene la acción, el Ver lo tiene por
+--         construcción. Dos copias de una regla son dos verdades que algún día
+--         discrepan. La función lee lo que su llamador ya podía leer y falla
+--         cerrada bajo RLS, así que no amplía la superficie de lectura.
 --
 --  ---------------------------------------------------------------------------
 --  LO QUE SIGUE ABIERTO, A PROPÓSITO
@@ -3051,6 +3072,26 @@ LANGUAGE sql STABLE AS $$
       FROM pg_roles r
      WHERE r.rolcanlogin AND r.rolsuper
        AND r.rolname NOT IN ('postgres')
+    UNION ALL
+    -- Tercera rama. Las dos de arriba miran de quién se puede vestir la
+    -- conexión y si es superusuario; ninguna mira lo que la conexión trae
+    -- puesto ELLA MISMA. Un rol creado como LOGIN BYPASSRLS no es miembro de
+    -- nada, así que no aparece en pg_auth_members y la primera rama no lo
+    -- alcanza; tampoco es superusuario, así que la segunda tampoco. Con
+    -- permisos de la aplicación encima, ese rol lee todas las empresas de la
+    -- plataforma y el detector daba vía libre. Comprobado: 3 usuarios de 2
+    -- empresas, con sus correos, sin fijar ningún inquilino.
+    SELECT r.rolname, r.rolname,
+           'tiene BYPASSRLS puesto sobre sí mismo: lee todas las empresas sin '
+           'pasar por ninguna política, aunque no sea miembro de ningún grupo'
+      FROM pg_roles r
+     WHERE r.rolcanlogin AND r.rolbypassrls
+       AND NOT r.rolsuper                 -- ya lo dice la rama de arriba
+       AND r.rolname NOT IN ('postgres')
+       AND r.rolname <> 'superadmin_login'   -- misma excepción documentada que
+                                             -- la primera rama: el soporte de
+                                             -- la plataforma se crea LOGIN
+                                             -- BYPASSRLS a propósito
      ORDER BY 1, 2;
 $$;
 COMMENT ON FUNCTION app.fn_verificar_roles_login() IS
@@ -3786,6 +3827,88 @@ BEGIN
           p_accion;
     END IF;
 END $$;
+
+-- -----------------------------------------------------------------------------
+--  D-52 · El permiso de cada acción lo comprueba la base, en cada petición.
+--
+--  RF-CFG-25 ya estaba defendido, pero en el momento de CONFIGURAR un rol: el
+--  disparador diferido tg_rol_permisos_coherentes no deja guardar una acción sin
+--  el Ver de su módulo. Lo que faltaba es la otra mitad: dado un rol que la base
+--  ya garantiza coherente, comprobar en cada petición que tiene el código puntual
+--  que la acción exige.
+--
+--  Y por eso esta función NO vuelve a exigir el Ver del módulo. No es un olvido:
+--  la coherencia está garantizada en el origen —comprobado, el disparador cubre
+--  INSERT, UPDATE y DELETE, así que quitar RECURSOS.VER dejando RECURSOS.CREAR
+--  lo rechaza el COMMIT—, de modo que si el rol tiene la acción, el Ver lo tiene
+--  por construcción. Comprobarlo otra vez aquí sería reimplementar una regla que
+--  ya vive en un solo lugar, y dos copias de una regla son dos verdades que
+--  algún día discrepan.
+--
+--  No es SECURITY DEFINER, y es deliberado: corre después de que la transacción
+--  ya fijó app.tenant_id y app.usuario_id, y construsoft_app tiene SELECT sobre
+--  app.permiso y app.rol_permiso. Con RLS encima, un app.usuario_id de otra
+--  empresa sencillamente no existe para esta consulta y la función falla cerrada
+--  —no «encuentra al usuario equivocado»—, que es el modo de falla que se quiere.
+--
+--  El estado del usuario es parte de la pregunta, igual que en fn_exigir_admin.
+--  app.usuario nace PENDIENTE y solo pasa a ACTIVO al consumir su enlace, así
+--  que un invitado que todavía no activó su cuenta no actúa aunque su rol tenga
+--  el permiso, y un REVOCADO tampoco. Los tres motivos de rechazo dan mensajes
+--  distintos porque son problemas distintos de resolver, y ninguno revela nada
+--  de otra empresa: hablan del propio usuario, dentro de la propia empresa.
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION app.fn_exigir_permiso(p_permiso_codigo text)
+RETURNS void LANGUAGE plpgsql STABLE AS $$
+DECLARE v_usuario uuid := app.fn_usuario_actual(); v_estado text;
+BEGIN
+    -- Un código que no existe en el catálogo es un error de programación, no
+    -- una falta de autorización. Sin esta rama falla cerrado igual —no aparece
+    -- en rol_permiso— pero el mensaje culparía al usuario y lo mandaría a
+    -- pedirle a su administrador un permiso que no existe en ninguna parte.
+    IF NOT EXISTS (SELECT 1 FROM app.permiso WHERE codigo = p_permiso_codigo) THEN
+        RAISE EXCEPTION
+          'El permiso «%» no existe en el catálogo de app.permiso. Es un error '
+          'de programación, no una falta de autorización.', p_permiso_codigo;
+    END IF;
+
+    IF v_usuario IS NULL THEN
+        RAISE EXCEPTION
+          'No hay usuario en el contexto de la transacción. Fije app.usuario_id '
+          'antes de exigir un permiso: sin él no hay a quién preguntarle.';
+    END IF;
+
+    -- Bajo RLS esto devuelve NULL tanto si el usuario no existe como si es de
+    -- otra empresa. Las dos cosas son lo mismo desde aquí, y así debe ser.
+    SELECT u.estado INTO v_estado FROM app.usuario u WHERE u.id = v_usuario;
+    IF v_estado IS NULL THEN
+        RAISE EXCEPTION
+          'El usuario del contexto no existe en esta empresa.';
+    END IF;
+    IF v_estado <> 'ACTIVO' THEN
+        RAISE EXCEPTION
+          'La cuenta está en estado % y no puede ejecutar acciones. Una cuenta '
+          'PENDIENTE se activa con su enlace; una REVOCADA la restablece un '
+          'administrador.', v_estado;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+          FROM app.usuario u
+          JOIN app.rol_permiso rp ON rp.rol_id = u.rol_id
+                                 AND rp.tenant_id = u.tenant_id
+         WHERE u.id = v_usuario
+           AND rp.permiso_codigo = p_permiso_codigo)
+    THEN
+        RAISE EXCEPTION
+          'Su rol no tiene el permiso «%». Pídale a un administrador de su '
+          'empresa que se lo asigne.', p_permiso_codigo;
+    END IF;
+END $$;
+COMMENT ON FUNCTION app.fn_exigir_permiso(text) IS
+  'D-52, RF-CFG-25. Comprueba en cada petición que el rol del usuario de sesión '
+  'tiene el código exacto que la acción exige. No reexige el Ver del módulo: lo '
+  'garantiza tg_rol_permisos_coherentes al configurar el rol.';
 
 -- Las tres transiciones pasan por funciones SECURITY DEFINER de construsoft_owner,
 -- porque el rol de la aplicación ya no tiene UPDATE sobre presupuesto.estado

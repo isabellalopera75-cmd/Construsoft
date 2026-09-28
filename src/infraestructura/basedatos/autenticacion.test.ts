@@ -2,14 +2,15 @@ import { before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Pool } from 'pg';
 import { autenticar, resolverToken } from './autenticacion.js';
-import { ejecutarComoTenant, registrarEmpresa } from './contextoTenant.js';
+import { ejecutarConPermiso, registrarEmpresa } from './contextoTenant.js';
 
 /**
  * Fixture de esta prueba: una empresa real, registrada con registrarEmpresa
  * (D-51 le da los tres ids en la misma llamada, sin rodeo de superusuario),
- * y un token de recuperación real insertado con ejecutarComoTenant — ya con
- * el contexto de la propia administradora, como si hubiera pedido
- * recuperar su contraseña. Valores fijos (no sufijos aleatorios):
+ * y un token de recuperación real insertado con ejecutarConPermiso — ya con
+ * el contexto de la propia administradora (que gracias a fn_alta_tenant
+ * tiene los 18 permisos), como si hubiera pedido recuperar su contraseña.
+ * Valores fijos (no sufijos aleatorios):
  * construsoft_test se rehace desde cero antes de cada suite
  * (scripts/resetear-base-pruebas.sh).
  *
@@ -37,15 +38,19 @@ describe('autenticar / resolverToken', () => {
     tenantId = alta.tenantId;
     usuarioId = alta.usuarioId;
 
-    tokenId = await ejecutarComoTenant({ tenantId, usuarioId }, async (cliente) => {
-      const { rows } = await cliente.query<{ id: string }>(
-        `INSERT INTO app.token_recuperacion (tenant_id, usuario_id, proposito, token_hash, expira_en)
-         VALUES ($1, $2, 'RECUPERACION', $3, now() + interval '10 minutes')
-         RETURNING id`,
-        [tenantId, usuarioId, TOKEN_HASH],
-      );
-      return rows[0]!.id;
-    });
+    tokenId = await ejecutarConPermiso(
+      { tenantId, usuarioId },
+      'USUARIOS.GESTIONAR',
+      async (cliente) => {
+        const { rows } = await cliente.query<{ id: string }>(
+          `INSERT INTO app.token_recuperacion (tenant_id, usuario_id, proposito, token_hash, expira_en)
+           VALUES ($1, $2, 'RECUPERACION', $3, now() + interval '10 minutes')
+           RETURNING id`,
+          [tenantId, usuarioId, TOKEN_HASH],
+        );
+        return rows[0]!.id;
+      },
+    );
   });
 
   test('autenticar(email) devuelve el usuario con el tenantId/usuarioId reales', async () => {
