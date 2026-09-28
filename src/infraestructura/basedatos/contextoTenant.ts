@@ -1,17 +1,7 @@
 import { Pool, type QueryResult, type QueryResultRow } from 'pg';
+import { leerEnvObligatoria } from './env.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function leerEnvObligatoria(nombre: string): string {
-  const valor = process.env[nombre];
-  if (!valor) {
-    throw new Error(
-      `Falta la variable de entorno ${nombre}. Copiá .env.example a .env y ` +
-        'completá las credenciales de app_login antes de levantar la aplicación.',
-    );
-  }
-  return valor;
-}
 
 /**
  * Pool de conexiones como app_login (grupo construsoft_app, RLS forzado).
