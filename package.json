@@ -9,7 +9,7 @@
   },
   "scripts": {
     "pretest": "bash scripts/resetear-base-pruebas.sh",
-    "test": "node --env-file=.env.test --import tsx --test src/**/*.test.ts",
+    "test": "bash scripts/correr-pruebas.sh",
     "typecheck": "tsc --noEmit",
     "lint": "eslint ."
   },
