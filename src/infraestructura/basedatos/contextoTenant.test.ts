@@ -1,6 +1,5 @@
 import { after, before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 import { ejecutarComoTenant } from './contextoTenant.js';
 
@@ -20,11 +19,15 @@ import { ejecutarComoTenant } from './contextoTenant.js';
  * resolver un id de usuario antes de que exista contexto (RF-AUT-04):
  * app.fn_autenticar. La usamos tal cual la usaría auth_login en producción.
  *
- * Esta base de datos de desarrollo no ofrece un borrado inmediato de
- * tenants: app.fn_eliminar_tenant exige 10 días de prueba vencida (RF-SAD-13)
- * y es deliberado — el esquema hace difícil destruir datos a propósito. Los
- * tenants de esta prueba quedan en la base; usamos sufijos aleatorios para
- * que correr la prueba de nuevo no choque con un UNIQUE.
+ * Valores fijos, no sufijos aleatorios: construsoft_test se rehace desde
+ * cero antes de cada suite (scripts/resetear-base-pruebas.sh, enganchado
+ * como pretest), así que no hay nada previo con qué chocar en un UNIQUE. No
+ * se usa app.fn_eliminar_tenant para "limpiar" — exige 10 días de prueba
+ * vencida (D-14, RF-SAD-13) a propósito, y esta base desechable resuelve el
+ * problema sin tocar esa puerta.
+ *
+ * Email/NIT distintos de los que usa autenticacion.test.ts: ambos archivos
+ * pueden correr contra la misma construsoft_test en la misma corrida.
  */
 const poolSuperusuario = new Pool({
   host: process.env.TEST_SUPERUSER_HOST,
@@ -61,16 +64,15 @@ let empresaB: EmpresaDePrueba;
 
 describe('ejecutarComoTenant', () => {
   before(async () => {
-    const sufijo = randomUUID().slice(0, 8);
     empresaA = await sembrarEmpresa(
-      `Constructora Test A ${sufijo}`,
-      `900-${sufijo}`,
-      `ana-${sufijo}@test.co`,
+      'Constructora Test A',
+      '900000001-1',
+      'ana@construsoft.test',
     );
     empresaB = await sembrarEmpresa(
-      `Constructora Test B ${sufijo}`,
-      `800-${sufijo}`,
-      `beto-${sufijo}@test.co`,
+      'Constructora Test B',
+      '800000002-2',
+      'beto@construsoft.test',
     );
   });
 

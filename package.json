@@ -8,8 +8,10 @@
     "node": ">=20.6.0"
   },
   "scripts": {
-    "test": "node --env-file=.env --import tsx --test src/**/*.test.ts",
-    "typecheck": "tsc --noEmit"
+    "pretest": "bash scripts/resetear-base-pruebas.sh",
+    "test": "node --env-file=.env.test --import tsx --test src/**/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
   },
   "dependencies": {
     "pg": "^8.23.0"
@@ -17,7 +19,9 @@
   "devDependencies": {
     "@types/node": "^26.6.3",
     "@types/pg": "^8.23.1",
+    "@typescript-eslint/parser": "^8.70.1",
+    "eslint": "^10.11.0",
     "tsx": "^4.23.15",
-    "typescript": "^7.0.2"
+    "typescript": "^5.9.3"
   }
 }
