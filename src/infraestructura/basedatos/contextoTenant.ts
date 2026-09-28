@@ -6,12 +6,13 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /**
  * Pool de conexiones como app_login (grupo construsoft_app, RLS forzado).
  *
- * PRIVADO A PROPÓSITO: no se exporta. La única forma de obtener algo con
- * qué consultar esta base es llamar a ejecutarComoTenant, que fija el
- * contexto de inquilino ANTES de entregar el cliente. No existe en este
- * módulo, ni en ningún otro, una vía para hacer una consulta "suelta" que
- * corra sin ese contexto — no es una convención que alguien pueda olvidar,
- * es que no hay ningún identificador exportado con el que hacerlo.
+ * PRIVADO A PROPÓSITO: no se exporta. Las únicas dos formas de obtener algo
+ * con qué hablarle a esta base son ejecutarComoTenant (trabajo con un
+ * contexto de inquilino que YA existe) y registrarEmpresa (la única
+ * operación que lo crea por primera vez, y por eso es la única que no lo
+ * recibe). Ninguna de las dos expone el pool ni un cliente genérico — no es
+ * una convención que alguien pueda olvidar, es que no hay ningún
+ * identificador exportado con el que hacerlo.
  */
 const pool = new Pool({
   host: leerEnvObligatoria('APP_DB_HOST'),
@@ -64,10 +65,9 @@ function validarUuid(valor: string, campo: string): void {
  * `operacion` resuelve y ROLLBACK si lanza, y siempre libera el cliente al
  * final.
  *
- * Es la ÚNICA función de este módulo que se exporta: no hay pool, ni
- * cliente, ni query accesibles desde afuera de acá. Ningún código de la
- * aplicación puede consultar esta base sin que el contexto de inquilino
- * quede fijado primero.
+ * Ningún código de la aplicación puede consultar esta base sin que el
+ * contexto de inquilino quede fijado primero — salvo registrarEmpresa, que
+ * es quien lo crea.
  */
 export async function ejecutarComoTenant<T>(
   contexto: ContextoTenant,
@@ -95,4 +95,67 @@ export async function ejecutarComoTenant<T>(
   } finally {
     cliente.release();
   }
+}
+
+/** Lo que pide app.fn_alta_tenant. El hash llega YA calculado con Argon2id: la base no sabe calcularlo (Stack, CLAUDE.md). */
+export interface DatosRegistroEmpresa {
+  razonSocial: string;
+  nit: string;
+  plan: string;
+  adminNombre: string;
+  adminEmail: string;
+  adminHash: string;
+  emailRecuperacion?: string;
+}
+
+/**
+ * Los tres identificadores que fn_alta_tenant acaba de crear (D-51): el
+ * inquilino, su administrador y el rol de ese administrador. Es lo que hace
+ * falta para abrir la primera sesión sin volver a preguntarle nada a nadie.
+ */
+export interface EmpresaRegistrada {
+  tenantId: string;
+  usuarioId: string;
+  rolAdminId: string;
+}
+
+interface FilaAltaTenant {
+  id_tenant: string;
+  id_usuario: string;
+  id_rol_admin: string;
+}
+
+/**
+ * Registra una empresa nueva contra app.fn_alta_tenant (RN-01, D-51).
+ *
+ * No pasa por ejecutarComoTenant: todavía no hay tenant_id que fijar —
+ * es lo que esta llamada está a punto de crear. Tampoco abre una
+ * transacción explícita: fn_alta_tenant YA es una transacción completa por
+ * sí sola (una única sentencia, RETURN QUERY al final), así que envolverla
+ * en un BEGIN/COMMIT propio no protegería nada que Postgres no proteja ya.
+ *
+ * No usa fn_autenticar para descubrir la identidad del administrador que
+ * acaba de nacer: D-51 hizo que fn_alta_tenant devuelva sus tres ids
+ * porque ese uso de fn_autenticar es justo el que D-46 estrechó — esa
+ * función verifica credenciales, no resuelve identidades.
+ */
+export async function registrarEmpresa(datos: DatosRegistroEmpresa): Promise<EmpresaRegistrada> {
+  const { rows } = await pool.query<FilaAltaTenant>(
+    'SELECT * FROM app.fn_alta_tenant($1, $2, $3, $4, $5, $6, $7)',
+    [
+      datos.razonSocial,
+      datos.nit,
+      datos.plan,
+      datos.adminNombre,
+      datos.adminEmail,
+      datos.adminHash,
+      datos.emailRecuperacion ?? null,
+    ],
+  );
+  const fila = rows[0]!;
+  return {
+    tenantId: fila.id_tenant,
+    usuarioId: fila.id_usuario,
+    rolAdminId: fila.id_rol_admin,
+  };
 }

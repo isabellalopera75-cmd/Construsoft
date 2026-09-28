@@ -21,13 +21,16 @@ SELECT * FROM app.fn_verificar_roles_login();
 
 BEGIN;
 
-SELECT app.fn_alta_tenant('Constructora A SAS','900.123.456-1','EMPRESARIAL',
-                          'Ana Admin','ana@a.co','hash_de_prueba_A','recupera@a.co') AS empresa_a;
-SELECT app.fn_alta_tenant('Constructora B SAS','800.555.111-2','PERSONAL',
-                          'Beto Admin','beto@b.co','hash_de_prueba_B') AS empresa_b;
+SELECT 'A · empresa '||id_tenant||' · administrador '||id_usuario AS empresa_a
+  FROM app.fn_alta_tenant('Constructora A SAS','900.123.456-1','EMPRESARIAL',
+                          'Ana Admin','ana@a.co','hash_de_prueba_A','recupera@a.co');
+SELECT 'B · empresa '||id_tenant||' · administrador '||id_usuario AS empresa_b
+  FROM app.fn_alta_tenant('Constructora B SAS','800.555.111-2','PERSONAL',
+                          'Beto Admin','beto@b.co','hash_de_prueba_B');
 
 \echo ''
-\echo '=== 2 · Los identificadores salen de la autenticación, no de una consulta'
+\echo '=== 2 · Al iniciar sesión, los identificadores salen de fn_autenticar'
+\echo '--- (al registrar salen de fn_alta_tenant, que los devuelve los tres)'
 SELECT usuario_id AS u_beto, tenant_id AS t_beto FROM app.fn_autenticar('beto@b.co') \gset
 
 \echo ''

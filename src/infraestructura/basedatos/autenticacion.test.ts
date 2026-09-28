@@ -1,14 +1,17 @@
-import { after, before, describe, test } from 'node:test';
+import { before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Pool } from 'pg';
 import { autenticar, resolverToken } from './autenticacion.js';
+import { ejecutarComoTenant, registrarEmpresa } from './contextoTenant.js';
 
 /**
- * Fixture de esta prueba: una empresa real (fn_alta_tenant) y un token de
- * recuperación real, sembrados con el rol SUPERUSER de pruebas — la misma
- * razón que en contextoTenant.test.ts: bypassea RLS para poder leer lo que
- * acaba de insertar. Valores fijos (no sufijos aleatorios): construsoft_test
- * se rehace desde cero antes de cada suite (scripts/resetear-base-pruebas.sh).
+ * Fixture de esta prueba: una empresa real, registrada con registrarEmpresa
+ * (D-51 le da los tres ids en la misma llamada, sin rodeo de superusuario),
+ * y un token de recuperación real insertado con ejecutarComoTenant — ya con
+ * el contexto de la propia administradora, como si hubiera pedido
+ * recuperar su contraseña. Valores fijos (no sufijos aleatorios):
+ * construsoft_test se rehace desde cero antes de cada suite
+ * (scripts/resetear-base-pruebas.sh).
  *
  * Distintos del email/NIT que usa contextoTenant.test.ts, porque ambos
  * archivos pueden correr contra la misma construsoft_test en la misma
@@ -17,43 +20,32 @@ import { autenticar, resolverToken } from './autenticacion.js';
 const EMAIL = 'carla@construsoft.test';
 const TOKEN_HASH = 'hash_de_token_de_prueba_no_real';
 
-const poolSuperusuario = new Pool({
-  host: process.env.TEST_SUPERUSER_HOST,
-  port: Number(process.env.TEST_SUPERUSER_PORT ?? 5432),
-  database: process.env.TEST_SUPERUSER_DB,
-  user: process.env.TEST_SUPERUSER_USER,
-  password: process.env.TEST_SUPERUSER_PASSWORD,
-});
-
 let tenantId: string;
 let usuarioId: string;
 let tokenId: string;
 
 describe('autenticar / resolverToken', () => {
   before(async () => {
-    const alta = await poolSuperusuario.query<{ fn_alta_tenant: string }>(
-      `SELECT app.fn_alta_tenant($1, $2, 'EMPRESARIAL', $3, $4, $5) AS fn_alta_tenant`,
-      ['Constructora Test Auth', '900000003-3', 'Carla Admin', EMAIL, 'hash_de_prueba_no_real'],
-    );
-    tenantId = alta.rows[0]!.fn_alta_tenant;
+    const alta = await registrarEmpresa({
+      razonSocial: 'Constructora Test Auth',
+      nit: '900000003-3',
+      plan: 'EMPRESARIAL',
+      adminNombre: 'Carla Admin',
+      adminEmail: EMAIL,
+      adminHash: 'hash_de_prueba_no_real',
+    });
+    tenantId = alta.tenantId;
+    usuarioId = alta.usuarioId;
 
-    const usuario = await poolSuperusuario.query<{ id: string }>(
-      'SELECT id FROM app.usuario WHERE email = $1',
-      [EMAIL],
-    );
-    usuarioId = usuario.rows[0]!.id;
-
-    const token = await poolSuperusuario.query<{ id: string }>(
-      `INSERT INTO app.token_recuperacion (tenant_id, usuario_id, proposito, token_hash, expira_en)
-       VALUES ($1, $2, 'RECUPERACION', $3, now() + interval '10 minutes')
-       RETURNING id`,
-      [tenantId, usuarioId, TOKEN_HASH],
-    );
-    tokenId = token.rows[0]!.id;
-  });
-
-  after(async () => {
-    await poolSuperusuario.end();
+    tokenId = await ejecutarComoTenant({ tenantId, usuarioId }, async (cliente) => {
+      const { rows } = await cliente.query<{ id: string }>(
+        `INSERT INTO app.token_recuperacion (tenant_id, usuario_id, proposito, token_hash, expira_en)
+         VALUES ($1, $2, 'RECUPERACION', $3, now() + interval '10 minutes')
+         RETURNING id`,
+        [tenantId, usuarioId, TOKEN_HASH],
+      );
+      return rows[0]!.id;
+    });
   });
 
   test('autenticar(email) devuelve el usuario con el tenantId/usuarioId reales', async () => {

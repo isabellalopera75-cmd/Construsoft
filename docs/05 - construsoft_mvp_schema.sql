@@ -35,11 +35,14 @@
 --  ---------------------------------------------------------------------------
 --  LAS DECISIONES DE DISEÑO QUE ESTE ESQUEMA IMPLEMENTA
 --
---  Son cuarenta y nueve: D-1 a D-50, sin la D-10, que no existe. El motivo de
+--  Son cincuenta: D-1 a D-51, sin la D-10, que no existe. El motivo de
 --  cada una está en la sección 14 del documento de alcance. Aquí va el
 --  enunciado, y cada decisión vuelve a aparecer anotada en el punto del esquema
---  donde vive. Las seis últimas, D-44 a D-49, salieron de la auditoría externa
---  del 24 de septiembre de 2026 y están al final de esta lista.
+--  donde vive. Las ocho últimas están al final de esta lista y tienen fecha:
+--  D-44 a D-49 salieron de la auditoría externa del 24 de septiembre de 2026;
+--  D-50 y D-51 son posteriores a ella y se distinguen a propósito, porque
+--  nadie debería tener que preguntarle a nadie qué se movió después del
+--  dictamen: está escrito aquí.
 --
 --    D-1  «Rendimiento» es consumo por unidad de actividad y aplica a los
 --         cuatro tipos de recurso. El subtotal MULTIPLICA, no divide:
@@ -203,11 +206,48 @@
 --   D-49  El historial NO se particiona todavía, y esto es lo único que la
 --         auditoría recomendó y aquí no se hizo. El motivo, el punto de disparo
 --         y la forma de mirarlo están en la sección 0.b.
---   D-50  El rol dueño de las funciones de autenticación no se le concede a
---         nadie. La conexión de login es miembro de construsoft_autenticador,
---         que solo puede ejecutar esas dos funciones; ser miembro de
---         construsoft_auth habría permitido SET ROLE y, con él, leer los hashes
---         de toda la plataforma. app.fn_verificar_roles_login() lo comprueba.
+--
+--  ---------------------------------------------------------------------------
+--  LO QUE CAMBIÓ DESPUÉS DE LA AUDITORÍA
+--
+--  Estas dos NO salieron de la auditoría externa: son posteriores a su dictamen
+--  y quedan separadas para que se pueda responder sin depender de la memoria de
+--  nadie la única pregunta que importa cuando el esquema se mueve — ¿esto hay
+--  que volverlo a auditar?
+--
+--  La raya es esta. Hay que volver a auditar si el cambio toca una tabla, una
+--  política de aislamiento, un privilegio, un rol o un disparador: todo eso
+--  cambia QUIÉN PUEDE VER QUÉ, y eso es lo que una auditoría mide. NO hay que
+--  volver a auditar si el cambio solo altera lo que una función le devuelve a
+--  un llamador que ya tenía derecho a esas filas, porque ahí la superficie de
+--  lectura es la misma antes y después. D-50 cae del primer lado y se verificó
+--  como tal; D-51, del segundo, y abajo está por qué.
+--
+--   D-50  (posterior a la auditoría · toca roles y privilegios · verificada
+--         contra la base) El rol dueño de las funciones de autenticación no se
+--         le concede a nadie. La conexión de login es miembro de
+--         construsoft_autenticador, que solo puede ejecutar esas dos funciones;
+--         ser miembro de construsoft_auth habría permitido SET ROLE y, con él,
+--         leer los hashes de toda la plataforma. No lo encontró la auditoría:
+--         apareció al revisar una frase suelta sobre el modelo de conexiones, y
+--         la escalada se reprodujo entera antes de cerrarla.
+--         app.fn_verificar_roles_login() la comprueba en cada instalación.
+--   D-51  (posterior a la auditoría · no toca tablas, políticas, privilegios,
+--         roles ni disparadores) fn_alta_tenant devuelve las tres cosas que
+--         crea: el inquilino, el administrador y su rol. Antes devolvía solo el
+--         inquilino, y quien registraba una empresa se quedaba sin la identidad
+--         del administrador que acababa de nacer; el camino para recuperarla era
+--         llamar a fn_autenticar con el correo, que es justo el uso que D-46
+--         acababa de estrechar. La función ya sabía los tres valores.
+--         Ocultarlos obligaba a sus llamadores a redescubrirlos por la peor
+--         puerta disponible.
+--            Por qué esto NO amplía lo que nadie puede leer, aunque la función
+--         sea SECURITY DEFINER y su dueño tenga BYPASSRLS: las tres variables
+--         que devuelve se asignan en un solo lugar cada una, y es RETURNING id
+--         INTO de sus propios tres INSERT. Ningún SELECT sobre filas
+--         preexistentes las toca. Devuelve los identificadores de las filas que
+--         ella misma acabó de crear en esa misma llamada, y no puede devolver
+--         otra cosa.
 --
 --  ---------------------------------------------------------------------------
 --  LO QUE SIGUE ABIERTO, A PROPÓSITO
@@ -3537,10 +3577,18 @@ CREATE OR REPLACE FUNCTION app.fn_alta_tenant(
     p_admin_email  citext,
     p_admin_hash   text,
     p_email_recuperacion citext DEFAULT NULL)
-RETURNS uuid
+-- D-51 · Devuelve los TRES identificadores que acaba de crear, y no solo el de
+-- la empresa. Con RETURNS uuid, quien registraba se quedaba con el inquilino y sin
+-- la identidad del administrador, que es justo lo que necesita para abrir la
+-- primera sesión: tenía que salir a buscarla por el camino de autenticación, que
+-- existe para resolver credenciales en el login y no para averiguar el id de un
+-- usuario que uno mismo acaba de crear. La función lo sabe; ocultarlo obligaba a
+-- todos sus llamadores a redescubrirlo.
+RETURNS TABLE (id_tenant uuid, id_usuario uuid, id_rol_admin uuid)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = app, plataforma, pg_temp AS $$
 DECLARE v_tenant uuid; v_plan smallint; v_dias smallint; v_rol uuid;
+        v_usuario uuid;
 BEGIN
     SELECT id, dias_prueba INTO v_plan, v_dias
       FROM plataforma.plan WHERE codigo = p_plan AND activo;
@@ -3602,18 +3650,20 @@ BEGIN
     -- ck_usuario_primer_ingreso al escribir ultimo_acceso.
     INSERT INTO app.usuario (tenant_id, rol_id, nombre, email, password_hash, estado)
          VALUES (v_tenant, v_rol, p_admin_nombre, p_admin_email, p_admin_hash,
-                 'ACTIVO');
+                 'ACTIVO')
+      RETURNING id INTO v_usuario;
 
     PERFORM plataforma.fn_evento_plataforma(v_tenant, 'TENANT_CREADO',
         format('Empresa registrada en el plan %s', p_plan));
 
-    RETURN v_tenant;
+    RETURN QUERY SELECT v_tenant, v_usuario, v_rol;
 END $$;
 COMMENT ON FUNCTION app.fn_alta_tenant IS
   'Alta completa de una empresa en UNA transacción: inquilino, '
   'suscripción en prueba, configuración, las doce unidades estándar, los dos '
   'correlativos de código (D-24), el rol Administrador con todos los permisos y '
-  'el usuario que se registró.';
+  'el usuario que se registró. Devuelve los tres identificadores creados, que es '
+  'todo lo que hace falta para abrir la primera sesión sin volver a consultar.';
 REVOKE EXECUTE ON FUNCTION
     app.fn_alta_tenant(text,text,text,text,citext,text,citext) FROM PUBLIC;
 

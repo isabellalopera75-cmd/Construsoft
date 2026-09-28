@@ -1,23 +1,17 @@
-import { after, before, describe, test } from 'node:test';
+import { before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Pool } from 'pg';
-import { ejecutarComoTenant } from './contextoTenant.js';
+import { ejecutarComoTenant, registrarEmpresa } from './contextoTenant.js';
+import { autenticar } from './autenticacion.js';
 
 /**
- * Fixtures de esta prueba: dos empresas reales, creadas con
- * app.fn_alta_tenant (RN-01), igual que hace docs/prueba-fase-0.sql.
- *
- * Se siembran con un rol SUPERUSER local (ver .env.example,
- * TEST_SUPERUSER_*) y NO con app_login, por una razón concreta: RLS con
- * FORCE está activo incluso para el propio sembrado, y fn_alta_tenant fija
- * su contexto con `set_config(..., true)` — local a SU transacción. Cuando
- * esa transacción termina, el contexto se pierde; una lectura posterior con
- * app_login y sin contexto vería cero filas aunque el WHERE sea correcto.
- * Un superusuario evita ese problema porque bypassea RLS por completo, y es
- * exactamente lo que docs/prueba-fase-0.sql hace con SET ROLE en un solo
- * archivo de psql. Esta base es la única vía sancionada por el esquema para
- * resolver un id de usuario antes de que exista contexto (RF-AUT-04):
- * app.fn_autenticar. La usamos tal cual la usaría auth_login en producción.
+ * Fixtures de esta prueba: dos empresas reales, registradas con
+ * registrarEmpresa — la función bajo prueba en la otra mitad de este
+ * archivo. Hasta D-51, fn_alta_tenant devolvía solo el tenant_id y sembrar
+ * necesitaba un rol SUPERUSER aparte para resolver el usuario_id del
+ * administrador sin que RLS se metiera en el medio. Ya no: los tres ids
+ * salen de la misma llamada, así que el fixture usa el mismo camino que
+ * usaría la aplicación real.
  *
  * Valores fijos, no sufijos aleatorios: construsoft_test se rehace desde
  * cero antes de cada suite (scripts/resetear-base-pruebas.sh, enganchado
@@ -29,34 +23,28 @@ import { ejecutarComoTenant } from './contextoTenant.js';
  * Email/NIT distintos de los que usa autenticacion.test.ts: ambos archivos
  * pueden correr contra la misma construsoft_test en la misma corrida.
  */
-const poolSuperusuario = new Pool({
-  host: process.env.TEST_SUPERUSER_HOST,
-  port: Number(process.env.TEST_SUPERUSER_PORT ?? 5432),
-  database: process.env.TEST_SUPERUSER_DB,
-  user: process.env.TEST_SUPERUSER_USER,
-  password: process.env.TEST_SUPERUSER_PASSWORD,
-});
-
 interface EmpresaDePrueba {
   tenantId: string;
   usuarioId: string;
+  rolAdminId: string;
   razonSocial: string;
+  email: string;
 }
 
-async function sembrarEmpresa(nombre: string, nit: string, email: string): Promise<EmpresaDePrueba> {
-  const alta = await poolSuperusuario.query<{ fn_alta_tenant: string }>(
-    `SELECT app.fn_alta_tenant($1, $2, 'EMPRESARIAL', $3, $4, 'hash_de_prueba_no_real') AS fn_alta_tenant`,
-    [nombre, nit, `Admin de ${nombre}`, email],
-  );
-  const tenantId = alta.rows[0]!.fn_alta_tenant;
-
-  const auth = await poolSuperusuario.query<{ usuario_id: string }>(
-    `SELECT usuario_id FROM app.fn_autenticar($1)`,
-    [email],
-  );
-  const usuarioId = auth.rows[0]!.usuario_id;
-
-  return { tenantId, usuarioId, razonSocial: nombre };
+async function registrarEmpresaDePrueba(
+  razonSocial: string,
+  nit: string,
+  email: string,
+): Promise<EmpresaDePrueba> {
+  const alta = await registrarEmpresa({
+    razonSocial,
+    nit,
+    plan: 'EMPRESARIAL',
+    adminNombre: `Admin de ${razonSocial}`,
+    adminEmail: email,
+    adminHash: 'hash_de_prueba_no_real',
+  });
+  return { ...alta, razonSocial, email };
 }
 
 let empresaA: EmpresaDePrueba;
@@ -64,20 +52,16 @@ let empresaB: EmpresaDePrueba;
 
 describe('ejecutarComoTenant', () => {
   before(async () => {
-    empresaA = await sembrarEmpresa(
+    empresaA = await registrarEmpresaDePrueba(
       'Constructora Test A',
       '900000001-1',
       'ana@construsoft.test',
     );
-    empresaB = await sembrarEmpresa(
+    empresaB = await registrarEmpresaDePrueba(
       'Constructora Test B',
       '800000002-2',
       'beto@construsoft.test',
     );
-  });
-
-  after(async () => {
-    await poolSuperusuario.end();
   });
 
   test('cada empresa ve su propia razón social y ninguna otra (RN-01)', async () => {
@@ -153,6 +137,65 @@ describe('ejecutarComoTenant', () => {
   });
 });
 
+describe('registrarEmpresa', () => {
+  test('devuelve los tres ids reales y coherentes entre sí (D-51)', async () => {
+    const empresa = await registrarEmpresaDePrueba(
+      'Constructora Test C',
+      '900000004-4',
+      'diego@construsoft.test',
+    );
+
+    const filaUsuario = await ejecutarComoTenant(
+      { tenantId: empresa.tenantId, usuarioId: empresa.usuarioId },
+      async (cliente) => {
+        const { rows } = await cliente.query<{ nombre: string; rol_id: string }>(
+          'SELECT nombre, rol_id FROM app.usuario WHERE id = $1',
+          [empresa.usuarioId],
+        );
+        return rows[0];
+      },
+    );
+
+    assert.ok(filaUsuario);
+    assert.equal(filaUsuario.nombre, 'Admin de Constructora Test C');
+    assert.equal(filaUsuario.rol_id, empresa.rolAdminId);
+  });
+
+  // Esto es lo que reemplaza al paso en dos tiempos (registrar y después
+  // llamar a autenticar para descubrir la identidad): ya no hace falta.
+  // Esta prueba no ejercita ese camino — confirma que, aparte, el correo
+  // recién registrado funciona con el camino real de login, sin relación
+  // con cómo registrarEmpresa obtuvo sus ids.
+  test('el correo registrado se autentica después con el mismo tenantId/usuarioId', async () => {
+    const empresa = await registrarEmpresaDePrueba(
+      'Constructora Test D',
+      '900000005-5',
+      'elena@construsoft.test',
+    );
+
+    const resultado = await autenticar(empresa.email);
+
+    assert.ok(resultado);
+    assert.equal(resultado.tenantId, empresa.tenantId);
+    assert.equal(resultado.usuarioId, empresa.usuarioId);
+    assert.equal(resultado.estado, 'ACTIVO');
+  });
+
+  test('propaga el error de la base tal cual (NIT vacío, D-34)', async () => {
+    await assert.rejects(
+      registrarEmpresa({
+        razonSocial: 'Constructora Sin NIT',
+        nit: '',
+        plan: 'EMPRESARIAL',
+        adminNombre: 'Nadie',
+        adminEmail: 'nadie@construsoft.test',
+        adminHash: 'hash_de_prueba_no_real',
+      }),
+      /NIT de la empresa es obligatorio/,
+    );
+  });
+});
+
 describe('el problema que este wrapper existe para evitar', () => {
   test(
     'un cliente del pool de app_login sin pasar por el wrapper no ve nada, sin ningún error que lo explique',
@@ -177,8 +220,8 @@ describe('el problema que este wrapper existe para evitar', () => {
     },
   );
 
-  test('el módulo no expone el pool ni un query suelto: solo ejecutarComoTenant', async () => {
+  test('el módulo no expone el pool ni un query suelto: solo ejecutarComoTenant y registrarEmpresa', async () => {
     const modulo = await import('./contextoTenant.js');
-    assert.deepEqual(Object.keys(modulo).sort(), ['ejecutarComoTenant']);
+    assert.deepEqual(Object.keys(modulo).sort(), ['ejecutarComoTenant', 'registrarEmpresa']);
   });
 });
