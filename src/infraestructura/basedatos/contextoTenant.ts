@@ -150,10 +150,20 @@ async function ejecutarComoTenant<T>(
  *   2. consumirTokenRecuperacion — autoservicio sobre la identidad propia: el
  *      token ya demostró quién es la persona. No hay ningún rol que
  *      consultar para dejarla fijar su propia contraseña.
- *   3. listarMisPermisos — preguntar los permisos propios no puede exigir un
- *      permiso previo sin caer en una paradoja (¿qué permiso hace falta para
- *      preguntar qué permisos hay?), y es la operación que la interfaz
- *      necesita para decidir qué mostrar en el menú.
+ *   3. leerArranqueDeSesion — antes se llamaba listarMisPermisos y devolvía
+ *      solo los permisos; ahora también devuelve el formato numérico
+ *      (separadores y decimales de vista, de app.configuracion_empresa).
+ *      Preguntar los permisos propios no puede exigir un permiso previo sin
+ *      caer en una paradoja (¿qué permiso hace falta para preguntar qué
+ *      permisos hay?), y el formato numérico es el mismo tipo de dato: hace
+ *      falta para dibujar CUALQUIER número en cualquier pantalla, incluida
+ *      una cuyo permiso todavía no se comprobó (el Asistente nace sin
+ *      ninguno, D-44, y aun así tiene que ver cifras bien puntuadas). Es la
+ *      MISMA excepción con más carga, no una cuarta — y esa es la regla para
+ *      sumar algo más acá: "hace falta antes de saber qué permiso aplica",
+ *      no "es cómodo tenerlo a mano". El resto de app.configuracion_empresa
+ *      (moneda, notificaciones) sigue exigiendo CONFIG.PREFERENCIAS en
+ *      configuracionEmpresa.ts, porque ahí ya se sabe qué pantalla es.
  */
 function ejecutarSinPermiso<T>(
   contexto: ContextoTenant,
@@ -188,17 +198,30 @@ export async function ejecutarConPermiso<T>(
   });
 }
 
+/** Lo que hace falta para puntuar cualquier número en cualquier pantalla (RF-CFG-14/15). */
+export interface FormatoNumerico {
+  separadorMiles: string;
+  separadorDecimal: string;
+  decimalesVista: number;
+}
+
+/** Lo que la interfaz necesita antes de dibujar la primera pantalla, y nada más. */
+export interface ArranqueDeSesion {
+  permisos: CodigoPermiso[];
+  formatoNumerico: FormatoNumerico;
+}
+
 /**
- * Los permisos del usuario de la sesión, en vivo, en cada llamada — nunca
- * guardados en el login ni en la sesión. Guardarlos sería la misma caché que
- * ya se descartó para app.tenant_id, con otro nombre: quedarían viejos en
- * cuanto un administrador le cambiara el rol a alguien que sigue conectado.
- * Es la operación que la interfaz necesita para dibujar el menú según lo que
- * esa persona puede hacer, y por eso está exenta de exigir un permiso propio.
+ * Todo en vivo, en cada llamada — nunca guardado en el login ni en la
+ * sesión. Guardarlo sería la misma caché que ya se descartó para
+ * app.tenant_id, con otro nombre: los permisos quedarían viejos en cuanto un
+ * administrador le cambiara el rol a alguien que sigue conectado, y el
+ * formato numérico en cuanto alguien cambiara los separadores desde
+ * configuracionEmpresa.ts.
  */
-export async function listarMisPermisos(contexto: ContextoTenant): Promise<CodigoPermiso[]> {
+export async function leerArranqueDeSesion(contexto: ContextoTenant): Promise<ArranqueDeSesion> {
   return ejecutarSinPermiso(contexto, async (cliente) => {
-    const { rows } = await cliente.query<{ permiso_codigo: CodigoPermiso }>(
+    const { rows: filasPermiso } = await cliente.query<{ permiso_codigo: CodigoPermiso }>(
       `SELECT rp.permiso_codigo
          FROM app.usuario u
          JOIN app.rol_permiso rp ON rp.rol_id = u.rol_id
@@ -206,7 +229,27 @@ export async function listarMisPermisos(contexto: ContextoTenant): Promise<Codig
         ORDER BY rp.permiso_codigo`,
       [contexto.usuarioId],
     );
-    return rows.map((fila) => fila.permiso_codigo);
+
+    const { rows: filasFormato } = await cliente.query<{
+      separador_miles: string;
+      separador_decimal: string;
+      decimales_vista: number;
+    }>(
+      `SELECT separador_miles, separador_decimal, decimales_vista
+         FROM app.configuracion_empresa
+        WHERE tenant_id = $1`,
+      [contexto.tenantId],
+    );
+    const filaFormato = filasFormato[0]!;
+
+    return {
+      permisos: filasPermiso.map((fila) => fila.permiso_codigo),
+      formatoNumerico: {
+        separadorMiles: filaFormato.separador_miles,
+        separadorDecimal: filaFormato.separador_decimal,
+        decimalesVista: filaFormato.decimales_vista,
+      },
+    };
   });
 }
 

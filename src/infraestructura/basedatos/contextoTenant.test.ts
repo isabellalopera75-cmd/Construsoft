@@ -7,7 +7,7 @@ import {
   type CodigoPermiso,
   consumirTokenRecuperacion,
   ejecutarConPermiso,
-  listarMisPermisos,
+  leerArranqueDeSesion,
   registrarEmpresa,
 } from './contextoTenant.js';
 import { autenticar, resolverToken } from './autenticacion.js';
@@ -58,12 +58,16 @@ async function registrarEmpresaDePrueba(
 /**
  * Todas las operaciones de preparación de este archivo las hace el propio
  * administrador de la empresa, que gracias a fn_alta_tenant nace con los 18
- * permisos. USUARIOS.GESTIONAR es el que se usa acá para las tareas de
- * fixture (crear usuarios, emitir y leer tokens): no porque el catálogo
- * tenga un código para "tareas de prueba", sino porque el administrador ya
- * lo tiene y es, de los 18, el más cercano a lo que estas fixtures hacen.
+ * permisos. El nombre dice lo que es: montaje de escenario, no el caso bajo
+ * prueba. Antes se llamaba comoAdmin, y a través de ese nombre neutro
+ * declaraba USUARIOS.GESTIONAR como si fuera parte de la aserción —quien
+ * leyera la prueba no podía distinguir "esto exige ese permiso" de "esto es
+ * ruido de montaje"—. USUARIOS.GESTIONAR sigue siendo el permiso que pasa
+ * por dentro (el administrador ya lo tiene, y es de los 18 el más cercano a
+ * lo que estas fixtures hacen), pero ya no hace falta leer el cuerpo de la
+ * función para saber que es incidental.
  */
-async function comoAdmin<T>(
+async function montarEscenarioComoAdmin<T>(
   empresa: EmpresaDePrueba,
   operacion: (cliente: ClienteEnContexto) => Promise<T>,
 ): Promise<T> {
@@ -85,7 +89,7 @@ async function crearAsistente(
   email: string,
   nombre: string,
 ): Promise<string> {
-  return comoAdmin(empresa, async (cliente) => {
+  return montarEscenarioComoAdmin(empresa, async (cliente) => {
     const { rows: roles } = await cliente.query<{ id: string }>(
       `SELECT id FROM app.rol WHERE tenant_id = $1 AND tipo = 'ASISTENTE'`,
       [empresa.tenantId],
@@ -118,48 +122,74 @@ describe('ejecutarConPermiso — el motor común (transacción, contexto, rollba
     );
   });
 
+  // Este describe prueba a ejecutarConPermiso mismo (vía el motor que
+  // comparte con ejecutarSinPermiso), así que lo llama directo con un
+  // permiso real y explícito — RECURSOS.VER, sin significado especial acá
+  // más que "uno que el administrador realmente tiene" — en vez de esconderlo
+  // detrás de un helper de fixture, que es para cuando el permiso NO es parte
+  // de lo que la prueba afirma.
   test('cada empresa ve su propia razón social y ninguna otra (RN-01)', async () => {
-    const vistaDesdeA = await comoAdmin(empresaA, async (cliente) => {
-      const { rows } = await cliente.query<{ razon_social: string }>(
-        'SELECT razon_social FROM plataforma.tenant',
-      );
-      return rows;
-    });
+    const vistaDesdeA = await ejecutarConPermiso(
+      { tenantId: empresaA.tenantId, usuarioId: empresaA.usuarioId },
+      'RECURSOS.VER',
+      async (cliente) => {
+        const { rows } = await cliente.query<{ razon_social: string }>(
+          'SELECT razon_social FROM plataforma.tenant',
+        );
+        return rows;
+      },
+    );
     assert.deepEqual(vistaDesdeA.map((f) => f.razon_social), [empresaA.razonSocial]);
 
-    const vistaDesdeB = await comoAdmin(empresaB, async (cliente) => {
-      const { rows } = await cliente.query<{ razon_social: string }>(
-        'SELECT razon_social FROM plataforma.tenant',
-      );
-      return rows;
-    });
+    const vistaDesdeB = await ejecutarConPermiso(
+      { tenantId: empresaB.tenantId, usuarioId: empresaB.usuarioId },
+      'RECURSOS.VER',
+      async (cliente) => {
+        const { rows } = await cliente.query<{ razon_social: string }>(
+          'SELECT razon_social FROM plataforma.tenant',
+        );
+        return rows;
+      },
+    );
     assert.deepEqual(vistaDesdeB.map((f) => f.razon_social), [empresaB.razonSocial]);
   });
 
   test('fija app.usuario_id: fn_usuario_actual() devuelve exactamente el usuarioId del contexto', async () => {
-    const usuarioVisto = await comoAdmin(empresaA, async (cliente) => {
-      const { rows } = await cliente.query<{ fn_usuario_actual: string }>(
-        'SELECT app.fn_usuario_actual()',
-      );
-      return rows[0]!.fn_usuario_actual;
-    });
+    const usuarioVisto = await ejecutarConPermiso(
+      { tenantId: empresaA.tenantId, usuarioId: empresaA.usuarioId },
+      'RECURSOS.VER',
+      async (cliente) => {
+        const { rows } = await cliente.query<{ fn_usuario_actual: string }>(
+          'SELECT app.fn_usuario_actual()',
+        );
+        return rows[0]!.fn_usuario_actual;
+      },
+    );
     assert.equal(usuarioVisto, empresaA.usuarioId);
   });
 
   test('hace ROLLBACK si la operación lanza, y libera el cliente de todos modos', async () => {
     await assert.rejects(
-      comoAdmin(empresaA, async () => {
-        throw new Error('falla deliberada de la prueba');
-      }),
+      ejecutarConPermiso(
+        { tenantId: empresaA.tenantId, usuarioId: empresaA.usuarioId },
+        'RECURSOS.VER',
+        async () => {
+          throw new Error('falla deliberada de la prueba');
+        },
+      ),
       /falla deliberada de la prueba/,
     );
 
     // Si el cliente hubiera quedado sin liberar, este segundo llamado se
     // colgaría esperando una conexión libre del pool en vez de resolver.
-    const siguePudiendoConsultar = await comoAdmin(empresaA, async (cliente) => {
-      const { rows } = await cliente.query('SELECT 1 AS ok');
-      return rows[0]!.ok;
-    });
+    const siguePudiendoConsultar = await ejecutarConPermiso(
+      { tenantId: empresaA.tenantId, usuarioId: empresaA.usuarioId },
+      'RECURSOS.VER',
+      async (cliente) => {
+        const { rows } = await cliente.query('SELECT 1 AS ok');
+        return rows[0]!.ok;
+      },
+    );
     assert.equal(siguePudiendoConsultar, 1);
   });
 
@@ -185,7 +215,7 @@ describe('registrarEmpresa', () => {
       'diego@construsoft.test',
     );
 
-    const filaUsuario = await comoAdmin(empresa, async (cliente) => {
+    const filaUsuario = await montarEscenarioComoAdmin(empresa, async (cliente) => {
       const { rows } = await cliente.query<{ nombre: string; rol_id: string }>(
         'SELECT nombre, rol_id FROM app.usuario WHERE id = $1',
         [empresa.usuarioId],
@@ -237,7 +267,7 @@ describe('el problema que este wrapper existe para evitar', () => {
   test(
     'un cliente del pool de app_login sin pasar por el wrapper no ve nada, sin ningún error que lo explique',
     async () => {
-      // A propósito NO se usa ejecutarConPermiso/comoAdmin acá: este pool es
+      // A propósito NO se usa ejecutarConPermiso/montarEscenarioComoAdmin acá: este pool es
       // "suelto", tal como lo describe el pedido original. Nunca fija
       // app.tenant_id. RLS con FORCE hace que el WHERE ni siquiera importe:
       // devuelve cero filas en silencio, aunque sí exista una empresa A.
@@ -265,7 +295,7 @@ describe('el problema que este wrapper existe para evitar', () => {
         'CODIGOS_PERMISO',
         'consumirTokenRecuperacion',
         'ejecutarConPermiso',
-        'listarMisPermisos',
+        'leerArranqueDeSesion',
         'registrarEmpresa',
       ]);
     },
@@ -305,7 +335,7 @@ describe('consumirTokenRecuperacion', () => {
     // minutos para RECUPERACION, 72 horas para ACTIVACION. Usar 72 horas para
     // los dos violaría el CHECK en cuanto el propósito fuera RECUPERACION.
     const vigencia = proposito === 'RECUPERACION' ? '10 minutes' : '72 hours';
-    return comoAdmin(empresa, async (cliente) => {
+    return montarEscenarioComoAdmin(empresa, async (cliente) => {
       const { rows } = await cliente.query<{ id: string }>(
         `INSERT INTO app.token_recuperacion (tenant_id, usuario_id, proposito, token_hash, expira_en)
          VALUES ($1, $2, $3, $4, now() + $5::interval)
@@ -328,7 +358,7 @@ describe('consumirTokenRecuperacion', () => {
     // Aunque la empresa Y conociera el id real del token (por ejemplo, por un
     // ataque de fuerza bruta sobre ids consecutivos), RLS le impide verlo:
     // cero filas, no un error que confirme que el id existe en otra empresa.
-    const vistoDesdeY = await comoAdmin(empresaY, (cliente) =>
+    const vistoDesdeY = await montarEscenarioComoAdmin(empresaY, (cliente) =>
       cliente.query('SELECT 1 FROM app.token_recuperacion WHERE id = $1', [tokenId]),
     );
     assert.equal(vistoDesdeY.rowCount, 0);
@@ -357,7 +387,7 @@ describe('consumirTokenRecuperacion', () => {
     // expira_en justo después de creado_en (sigue cumpliendo el CHECK
     // expira_en > creado_en), y para cuando el test siguiente llegue a
     // consumirTokenRecuperacion ya pasó más de un milisegundo real.
-    await comoAdmin(empresaY, (cliente) =>
+    await montarEscenarioComoAdmin(empresaY, (cliente) =>
       cliente.query(
         `UPDATE app.token_recuperacion
             SET expira_en = creado_en + interval '1 millisecond'
@@ -389,7 +419,7 @@ describe('consumirTokenRecuperacion', () => {
 
   test('después de activar, el usuario inicia sesión con su contraseña nueva y el tenantId/usuarioId correctos', async () => {
     const email = 'hugo@construsoft.test';
-    const invitadoId = await comoAdmin(empresaX, async (cliente) => {
+    const invitadoId = await montarEscenarioComoAdmin(empresaX, async (cliente) => {
       const { rows } = await cliente.query<{ id: string }>(
         `INSERT INTO app.usuario (tenant_id, rol_id, nombre, email)
          VALUES ($1, $2, 'Hugo Invitado', $3)
@@ -458,7 +488,7 @@ describe('ejecutarConPermiso — la comprobación de permiso', () => {
     // rechazo no pueda confundirse con "falta el permiso": un invitado nace
     // PENDIENTE (D-7) y solo pasa a ACTIVO al consumir su enlace, así que
     // esto tiene que fallar por el estado, no por el rol.
-    const invitadoId = await comoAdmin(empresaP, async (cliente) => {
+    const invitadoId = await montarEscenarioComoAdmin(empresaP, async (cliente) => {
       const { rows } = await cliente.query<{ id: string }>(
         `INSERT INTO app.usuario (tenant_id, rol_id, nombre, email)
          VALUES ($1, $2, 'Invitado Pendiente', 'pendiente@construsoft.test')
@@ -483,7 +513,7 @@ describe('ejecutarConPermiso — la comprobación de permiso', () => {
   });
 
   test('otorgar el permiso puntual alcanza para que la misma acción funcione después', async () => {
-    await comoAdmin(empresaP, (cliente) =>
+    await montarEscenarioComoAdmin(empresaP, (cliente) =>
       cliente.query(
         `INSERT INTO app.rol_permiso (tenant_id, rol_id, permiso_codigo)
          SELECT tenant_id, rol_id, 'RECURSOS.VER' FROM app.usuario WHERE id = $1`,
@@ -536,9 +566,11 @@ describe('ejecutarConPermiso — la comprobación de permiso', () => {
   });
 });
 
-describe('listarMisPermisos', () => {
+describe('leerArranqueDeSesion', () => {
   let empresaR: EmpresaDePrueba;
   let asistenteId: string;
+
+  const formatoPorDefecto = { separadorMiles: '.', separadorDecimal: ',', decimalesVista: 2 };
 
   before(async () => {
     empresaR = await registrarEmpresaDePrueba(
@@ -549,33 +581,52 @@ describe('listarMisPermisos', () => {
     asistenteId = await crearAsistente(empresaR, 'karina@construsoft.test', 'Karina Asistente');
   });
 
-  test('el administrador ve los 18 permisos que fn_alta_tenant le dio', async () => {
-    const permisos = await listarMisPermisos({
+  test('el administrador ve los 18 permisos que fn_alta_tenant le dio, y el formato numérico por defecto', async () => {
+    const arranque = await leerArranqueDeSesion({
       tenantId: empresaR.tenantId,
       usuarioId: empresaR.usuarioId,
     });
-    assert.deepEqual([...permisos].sort(), [...CODIGOS_PERMISO].sort());
+    assert.deepEqual([...arranque.permisos].sort(), [...CODIGOS_PERMISO].sort());
+    assert.deepEqual(arranque.formatoNumerico, formatoPorDefecto);
   });
 
-  test('un asistente recién creado no ve ninguno', async () => {
-    const permisos = await listarMisPermisos({ tenantId: empresaR.tenantId, usuarioId: asistenteId });
-    assert.deepEqual(permisos, []);
+  test('un asistente recién creado no ve ningún permiso, pero sí ve el formato numérico de su empresa (D-44)', async () => {
+    const arranque = await leerArranqueDeSesion({
+      tenantId: empresaR.tenantId,
+      usuarioId: asistenteId,
+    });
+    assert.deepEqual(arranque.permisos, []);
+    assert.deepEqual(arranque.formatoNumerico, formatoPorDefecto);
   });
 
-  test('lee en vivo: otorgar un permiso lo refleja en la siguiente llamada, sin sesión ni login de por medio', async () => {
-    const antes = await listarMisPermisos({ tenantId: empresaR.tenantId, usuarioId: asistenteId });
-    assert.deepEqual(antes, []);
+  test('lee en vivo: otorgar un permiso y cambiar el formato se reflejan en la siguiente llamada, sin sesión de por medio', async () => {
+    const antes = await leerArranqueDeSesion({ tenantId: empresaR.tenantId, usuarioId: asistenteId });
+    assert.deepEqual(antes.permisos, []);
+    assert.deepEqual(antes.formatoNumerico, formatoPorDefecto);
 
-    await comoAdmin(empresaR, (cliente) =>
+    await montarEscenarioComoAdmin(empresaR, (cliente) =>
       cliente.query(
         `INSERT INTO app.rol_permiso (tenant_id, rol_id, permiso_codigo)
          SELECT tenant_id, rol_id, 'APU.VER' FROM app.usuario WHERE id = $1`,
         [asistenteId],
       ),
     );
+    await montarEscenarioComoAdmin(empresaR, (cliente) =>
+      cliente.query(
+        `UPDATE app.configuracion_empresa
+            SET separador_miles = ' ', separador_decimal = '.', decimales_vista = 0
+          WHERE tenant_id = $1`,
+        [empresaR.tenantId],
+      ),
+    );
 
-    const despues = await listarMisPermisos({ tenantId: empresaR.tenantId, usuarioId: asistenteId });
-    assert.deepEqual(despues, ['APU.VER']);
+    const despues = await leerArranqueDeSesion({ tenantId: empresaR.tenantId, usuarioId: asistenteId });
+    assert.deepEqual(despues.permisos, ['APU.VER']);
+    assert.deepEqual(despues.formatoNumerico, {
+      separadorMiles: ' ',
+      separadorDecimal: '.',
+      decimalesVista: 0,
+    });
   });
 });
 

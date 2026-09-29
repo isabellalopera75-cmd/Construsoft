@@ -4963,7 +4963,11 @@ INSERT INTO app.permiso (codigo, modulo, accion, descripcion) VALUES
   ('PRESUPUESTOS.DUPLICAR', 'PRESUPUESTOS', 'DUPLICAR',       'Duplicar presupuestos'),
   ('PRESUPUESTOS.ESTADO',   'PRESUPUESTOS', 'CAMBIAR_ESTADO', 'Activar, cerrar y reabrir — solo Administrador (RN-03)'),
   ('CONFIG.EMPRESA',        'CONFIG',       'EDITAR',         'Editar datos de empresa y logo'),
-  ('CONFIG.PREFERENCIAS',   'CONFIG',       'EDITAR',         'Editar moneda, formatos, AIU y unidades'),
+  -- Sin el AIU, que esta descripción prometía y D-41 sacó de aquí: los cuatro
+  -- porcentajes viven en cada presupuesto, no en la configuración de la empresa.
+  -- Un permiso que nombra algo que no existe en esa pantalla manda a buscarlo
+  -- donde no está.
+  ('CONFIG.PREFERENCIAS',   'CONFIG',       'EDITAR',         'Editar moneda, formatos y unidades de medida'),
   ('CONFIG.SUSCRIPCION',    'CONFIG',       'VER',            'Consultar suscripción y facturación'),
   ('USUARIOS.GESTIONAR',    'USUARIOS',     'GESTIONAR',      'Crear usuarios y administrar roles');
 
