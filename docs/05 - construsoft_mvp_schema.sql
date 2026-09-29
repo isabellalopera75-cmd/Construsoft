@@ -4276,10 +4276,30 @@ CREATE TRIGGER tg_renumerar_item_del AFTER DELETE ON app.presupuesto_item
 --  mantener al día, y no puede filtrar una columna de más.
 --
 --  Sin contexto de inquilino no devuelven nada: no son una puerta trasera.
+--
+--  POR QUÉ RETURNS TABLE (id uuid) Y NO RETURNS SETOF uuid (28 de septiembre
+--  de 2026). Con SETOF uuid la columna de salida no tiene nombre propio, y eso
+--  convertía la forma natural de llamarlas en una trampa silenciosa:
+--
+--      SELECT ... FROM app.recurso r
+--       WHERE r.id IN (SELECT id FROM app.fn_buscar_recurso('cemento'));
+--
+--  Ese «id» no existe dentro de la subconsulta, así que PostgreSQL lo resuelve
+--  contra la fila externa: la subconsulta queda correlacionada sin que nadie lo
+--  pidiera y «id IN (id)» es cierto para TODA fila en cuanto la función
+--  devuelve al menos un resultado. Comprobado: con cuatro recursos que buscar
+--  «cemento» reduce a dos, esa consulta devolvía los doce del catálogo. Sin
+--  error, sin aviso, con aspecto de resultado razonable.
+--
+--  Nombrar la columna «id» lo desactiva, porque el nombre se resuelve primero
+--  contra el ámbito interno y ya no se escapa al externo: la misma consulta
+--  ingenua, sin alias y sin cambiar una letra, devuelve dos. El alias deja de
+--  ser algo que haya que recordar en cada llamada de cada módulo, que es la
+--  clase de acuerdo que se rompe el día que alguien tiene prisa.
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION app.fn_buscar_recurso(
     p_texto text, p_tipo text DEFAULT NULL, p_limite integer DEFAULT 50)
-RETURNS SETOF uuid LANGUAGE plpgsql STABLE SECURITY DEFINER
+RETURNS TABLE (id uuid) LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = app, pg_temp AS $$
 DECLARE v_tenant uuid := app.fn_tenant_actual();
 BEGIN
@@ -4297,7 +4317,7 @@ END $$;
 
 CREATE OR REPLACE FUNCTION app.fn_buscar_apu(
     p_texto text, p_limite integer DEFAULT 50)
-RETURNS SETOF uuid LANGUAGE plpgsql STABLE SECURITY DEFINER
+RETURNS TABLE (id uuid) LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = app, pg_temp AS $$
 DECLARE v_tenant uuid := app.fn_tenant_actual();
 BEGIN
@@ -4314,7 +4334,7 @@ END $$;
 
 CREATE OR REPLACE FUNCTION app.fn_buscar_presupuesto(
     p_texto text, p_limite integer DEFAULT 50)
-RETURNS SETOF uuid LANGUAGE plpgsql STABLE SECURITY DEFINER
+RETURNS TABLE (id uuid) LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = app, pg_temp AS $$
 DECLARE v_tenant uuid := app.fn_tenant_actual();
 BEGIN
