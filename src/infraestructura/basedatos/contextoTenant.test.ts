@@ -263,6 +263,51 @@ describe('registrarEmpresa', () => {
   });
 });
 
+/**
+ * Los tres verificadores que CLAUDE.md exige en cero antes de dar algo por
+ * terminado. Hasta D-54 ninguno corría en esta suite: fn_verificar_rls solo
+ * se ejecutaba al cargar el esquema, y ese NOTICE no hace fallar nada.
+ *
+ * Pool propio y sin contexto de empresa, a propósito: leen el catálogo de
+ * PostgreSQL, no datos de un inquilino, y ninguno de los 18 permisos
+ * describe "verificar el esquema" — pasarlos por ejecutarConPermiso sería
+ * inventarles un permiso de relleno. Se comprueban con la conexión de la
+ * aplicación porque es la que de verdad corre en producción; que devuelvan
+ * cero no depende del rol que pregunta.
+ *
+ * deepEqual contra [] y no .length === 0: si falla, el mensaje muestra la
+ * tabla o la función culpable y por qué.
+ */
+describe('verificadores del esquema: cero filas', () => {
+  async function consultarVerificador(funcion: string): Promise<unknown[]> {
+    const pool = new Pool({
+      host: process.env.APP_DB_HOST,
+      port: Number(process.env.APP_DB_PORT ?? 5432),
+      database: process.env.APP_DB_NAME,
+      user: process.env.APP_DB_USER,
+      password: process.env.APP_DB_PASSWORD,
+    });
+    try {
+      const { rows } = await pool.query(`SELECT * FROM app.${funcion}()`);
+      return rows;
+    } finally {
+      await pool.end();
+    }
+  }
+
+  test('fn_verificar_rls: ninguna tabla de inquilino sin aislamiento', async () => {
+    assert.deepEqual(await consultarVerificador('fn_verificar_rls'), []);
+  });
+
+  test('fn_verificar_funciones: ninguna función SECURITY DEFINER de superusuario ni ejecutable por PUBLIC (D-54)', async () => {
+    assert.deepEqual(await consultarVerificador('fn_verificar_funciones'), []);
+  });
+
+  test('fn_verificar_roles_login: ninguna conexión puede vestirse de un rol con BYPASSRLS (D-50)', async () => {
+    assert.deepEqual(await consultarVerificador('fn_verificar_roles_login'), []);
+  });
+});
+
 describe('el problema que este wrapper existe para evitar', () => {
   test(
     'un cliente del pool de app_login sin pasar por el wrapper no ve nada, sin ningún error que lo explique',

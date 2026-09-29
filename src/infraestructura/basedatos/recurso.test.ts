@@ -313,6 +313,25 @@ describe('leerRecurso / listarRecursos', () => {
     assert.ok(resultado.every((recurso) => recurso.nombre.toLowerCase().includes('cemento')));
   });
 
+  test('busca por código, completo o parcial y sin distinguir mayúsculas (RF-REC-14)', async () => {
+    const contexto = { tenantId: empresaC.tenantId, usuarioId: empresaC.usuarioId };
+
+    // Cada caso tiene que dar exactamente 1 de los 4: cero delataría que el
+    // código no se busca, y 4 —el catálogo entero de esta empresa— que no se
+    // filtra nada. Ningún nombre de los cuatro contiene su propio código.
+    const porCodigoCompleto = await listarRecursos(contexto, { texto: cementoGris.codigo });
+    assert.equal(porCodigoCompleto.length, 1);
+    assert.equal(porCodigoCompleto[0]!.id, cementoGris.id);
+
+    const enMinusculas = await listarRecursos(contexto, { texto: cementoGris.codigo.toLowerCase() });
+    assert.equal(enMinusculas.length, 1);
+
+    const soloElNumero = cementoGris.codigo.split('-')[1]!;
+    const porFragmento = await listarRecursos(contexto, { texto: soloElNumero });
+    assert.equal(porFragmento.length, 1);
+    assert.equal(porFragmento[0]!.id, cementoGris.id);
+  });
+
   test('filtra por unidad', async () => {
     const enHoras = await listarRecursos(
       { tenantId: empresaC.tenantId, usuarioId: empresaC.usuarioId },

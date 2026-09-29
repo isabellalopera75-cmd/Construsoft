@@ -35,12 +35,12 @@
 --  ---------------------------------------------------------------------------
 --  LAS DECISIONES DE DISEÑO QUE ESTE ESQUEMA IMPLEMENTA
 --
---  Son cincuenta y una: D-1 a D-52, sin la D-10, que no existe. El motivo de
+--  Son cincuenta y tres: D-1 a D-54, sin la D-10, que no existe. El motivo de
 --  cada una está en la sección 14 del documento de alcance. Aquí va el
 --  enunciado, y cada decisión vuelve a aparecer anotada en el punto del esquema
 --  donde vive. Las ocho últimas están al final de esta lista y tienen fecha:
 --  D-44 a D-49 salieron de la auditoría externa del 24 de septiembre de 2026;
---  D-50, D-51 y D-52 son posteriores a ella y se distinguen a propósito, porque
+--  D-50 a D-54 son posteriores a ella y se distinguen a propósito, porque
 --  nadie debería tener que preguntarle a nadie qué se movió después del
 --  dictamen: está escrito aquí.
 --
@@ -221,7 +221,7 @@
 --  volver a auditar si el cambio solo altera lo que una función le devuelve a
 --  un llamador que ya tenía derecho a esas filas, porque ahí la superficie de
 --  lectura es la misma antes y después. D-50 cae del primer lado y se verificó
---  como tal; D-51 y D-52, del segundo, y abajo está por qué.
+--  como tal; D-51 a D-54, del segundo, y abajo está por qué.
 --
 --   D-50  (posterior a la auditoría · toca roles y privilegios · verificada
 --         contra la base) El rol dueño de las funciones de autenticación no se
@@ -269,6 +269,31 @@
 --         construcción. Dos copias de una regla son dos verdades que algún día
 --         discrepan. La función lee lo que su llamador ya podía leer y falla
 --         cerrada bajo RLS, así que no amplía la superficie de lectura.
+--   D-53  (posterior a la auditoría · agrega una función e índices, no toca
+--         tablas, políticas, privilegios, roles ni disparadores) El reapunte de
+--         un presupuesto abierto a la versión vigente de un APU sale de dentro
+--         de fn_propagar_recurso y pasa a app.fn_reapuntar_apu, porque editar un
+--         APU a mano (RF-APU-15..17) necesita exactamente lo mismo y la única
+--         alternativa era reescribir el redondeo a seis decimales en el backend.
+--         Dos copias de una fórmula monetaria se separan el día que alguien toca
+--         una sola. La función no recibe la versión: siempre apunta a la
+--         vigente, porque aceptar un id dejaría reapuntar a una histórica o a la
+--         de otro APU. En la misma tanda, fn_buscar_recurso y fn_buscar_apu
+--         buscan también por código —RF-APU-02 pide «nombre o código», y «en
+--         tiempo real» significa coincidencia parcial mientras se escribe— con
+--         sus dos índices trigrama; medido sobre 30.000 recursos, el plan usa
+--         los dos índices con BitmapOr y lee un bloque.
+--   D-54  (posterior a la auditoría · agrega una función de comprobación y una
+--         excepción al final del archivo) Ninguna función SECURITY DEFINER
+--         corre como superusuario ni la puede ejecutar cualquiera, y el esquema
+--         se niega a cargar si alguna lo hace. Nació de un error real: la D-53
+--         se agregó sin sus tres líneas de dueño y permisos, así que quedó a
+--         nombre de postgres —superusuario— y ejecutable por PUBLIC, corriendo
+--         su UPDATE por fuera de todas las políticas. El daño estaba contenido,
+--         pero nada lo detectó: el esquema cargaba, las ocho baterías daban
+--         verde y fn_verificar_rls no mira funciones. Lo encontró una persona
+--         leyendo el catálogo a mano. app.fn_verificar_funciones() lo comprueba
+--         ahora en cada instalación.
 --
 --  ---------------------------------------------------------------------------
 --  LO QUE SIGUE ABIERTO, A PROPÓSITO
@@ -1042,6 +1067,14 @@ CREATE INDEX ix_recurso_nombre  ON app.recurso (tenant_id, lower(nombre));  -- R
 -- usuarios escribiendo a la vez, no.
 CREATE INDEX ix_recurso_nombre_trgm ON app.recurso
     USING gin (tenant_id, nombre gin_trgm_ops);
+-- RF-REC-14 y RF-APU-02 buscan tambien por codigo, y «en tiempo real» quiere
+-- decir coincidencia parcial mientras se escribe: una igualdad exacta solo
+-- encuentra «REC-0042» completo, nunca «0042». Compuesto con tenant_id igual
+-- que el de nombre, para que el inquilino se filtre dentro del indice y no
+-- despues. Medido sobre 30.000 recursos: BitmapOr de los dos trigramas, un
+-- bloque leido, un milisegundo.
+CREATE INDEX ix_recurso_codigo_trgm ON app.recurso
+    USING gin (tenant_id, codigo gin_trgm_ops);
 
 -- Cabecera estable del APU: el código vive aquí y nunca cambia (RF-APU-18).
 CREATE TABLE app.apu (
@@ -1065,6 +1098,11 @@ CREATE INDEX ix_apu_nombre ON app.apu (tenant_id, lower(nombre));   -- RF-APU-02
 CREATE INDEX ix_apu_unidad ON app.apu (tenant_id, unidad_id);       -- RF-APU-03
 CREATE INDEX ix_apu_nombre_trgm ON app.apu
     USING gin (tenant_id, nombre gin_trgm_ops);
+-- RF-APU-02 busca «por nombre o código». Mismo motivo y misma forma que el de
+-- app.recurso: compuesto con tenant_id, para que el inquilino se filtre dentro
+-- del índice.
+CREATE INDEX ix_apu_codigo_trgm ON app.apu
+    USING gin (tenant_id, codigo gin_trgm_ops);
 
 -- Composición congelada. INMUTABLE: solo inserción (RNF-09).
 CREATE TABLE app.apu_version (
@@ -3126,6 +3164,60 @@ COMMENT ON FUNCTION app.fn_aplicar_rls() IS
   'Vuelve a aplicar el aislamiento a TODA tabla de app con tenant_id. Toda '
   'migración que cree una tabla de inquilino termina llamándola (RNF-24).';
 
+-- -----------------------------------------------------------------------------
+--  D-54 · Ninguna función SECURITY DEFINER corre como superusuario ni la puede
+--  ejecutar cualquiera.
+--
+--  Existe por un error concreto y vale la pena que quede contado, porque el
+--  error es el argumento. La D-53 se agregó al esquema sin sus tres líneas de
+--  dueño y permisos, y en este esquema el dueño no se asigna en bloque: cada
+--  función lleva su propio ALTER FUNCTION ... OWNER. Al faltar, la función
+--  quedó a nombre de quien cargó el archivo —postgres, superusuario— y
+--  ejecutable por PUBLIC. Siendo SECURITY DEFINER, su UPDATE sobre
+--  presupuesto_item no pasaba por el aislamiento. El daño estaba contenido
+--  porque fn_exigir_mismo_tenant rechaza un APU ajeno, pero era la única
+--  función del sistema corriendo por fuera de las políticas, y la llamaba
+--  también la propagación por cambio de precio.
+--
+--  Nada lo detectó. El esquema carga igual, las ocho baterías dan verde y
+--  fn_verificar_rls no mira funciones. Lo encontró una persona leyendo el
+--  catálogo a mano, que es justo la clase de vigilancia que no se sostiene.
+--
+--  Las funciones de disparador quedan fuera a propósito: no se pueden invocar
+--  directamente —PostgreSQL rechaza llamarlas fuera de un trigger—, así que su
+--  dueño construsoft_super es deliberado y no un descuido.
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION app.fn_verificar_funciones()
+RETURNS TABLE (funcion text, problema text) LANGUAGE sql STABLE AS $$
+    SELECT n.nspname || '.' || p.proname,
+           'es SECURITY DEFINER y su dueño (' || pg_get_userbyid(p.proowner) ||
+           ') es superusuario: corre saltándose todas las políticas'
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      JOIN pg_roles r     ON r.oid = p.proowner
+     WHERE n.nspname IN ('app','plataforma')
+       AND p.prosecdef
+       AND p.prorettype <> 'pg_catalog.trigger'::regtype
+       AND r.rolsuper
+    UNION ALL
+    SELECT n.nspname || '.' || p.proname,
+           'es SECURITY DEFINER y la puede ejecutar cualquiera: le falta el '
+           'REVOKE de PUBLIC'
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname IN ('app','plataforma')
+       AND p.prosecdef
+       AND p.prorettype <> 'pg_catalog.trigger'::regtype
+       AND (p.proacl IS NULL
+            OR EXISTS (SELECT 1 FROM aclexplode(p.proacl) a
+                        WHERE a.grantee = 0 AND a.privilege_type = 'EXECUTE'))
+     ORDER BY 1, 2;
+$$;
+COMMENT ON FUNCTION app.fn_verificar_funciones() IS
+  'D-54. Cero filas = ninguna función SECURITY DEFINER corre como superusuario '
+  'ni es ejecutable por PUBLIC. Se ejecuta junto a fn_verificar_rls después de '
+  'cargar el esquema y al cerrar cada fase.';
+
 CREATE OR REPLACE FUNCTION app.fn_verificar_rls()
 RETURNS TABLE (tabla text, problema text) LANGUAGE sql STABLE AS $$
     -- (1) Tablas de inquilino (con tenant_id) sin aislamiento aplicado.
@@ -4309,7 +4401,8 @@ BEGIN
     RETURN QUERY
         SELECT r.id FROM app.recurso r
          WHERE r.tenant_id = v_tenant
-           AND r.nombre ILIKE '%' || p_texto || '%'
+           AND (r.nombre ILIKE '%' || p_texto || '%'
+             OR r.codigo ILIKE '%' || p_texto || '%')
            AND (p_tipo IS NULL OR r.tipo = p_tipo)
          ORDER BY lower(r.nombre)
          LIMIT greatest(p_limite, 0);
@@ -4327,7 +4420,8 @@ BEGIN
     RETURN QUERY
         SELECT a.id FROM app.apu a
          WHERE a.tenant_id = v_tenant
-           AND a.nombre ILIKE '%' || p_texto || '%'
+           AND (a.nombre ILIKE '%' || p_texto || '%'
+             OR a.codigo ILIKE '%' || p_texto || '%')
          ORDER BY lower(a.nombre)
          LIMIT greatest(p_limite, 0);
 END $$;
@@ -4600,6 +4694,67 @@ COMMENT ON FUNCTION app.fn_nueva_version_apu(uuid, jsonb, text, uuid, text) IS
   'subtotales y el costo directo con el precio vigente del recurso (D-1, D-2).';
 
 -- -----------------------------------------------------------------------------
+--  D-53 · Reapuntar un presupuesto abierto a la versión vigente de un APU.
+--
+--  Existe porque la misma operación la necesitan dos caminos: cambiar el precio
+--  de un recurso (RF-REC-12) y editar un APU a mano (RF-APU-15..17). Vivía
+--  dentro de fn_propagar_recurso, así que el segundo camino habría tenido que
+--  reescribirla en el backend —incluido el redondeo a seis decimales— y dos
+--  copias de una fórmula monetaria se separan el día que alguien toca una sola.
+--
+--  NO recibe la versión como parámetro, y es deliberado: siempre reapunta a
+--  version_vigente_id. RF-APU-17 dice que la vigente es la que manda, y aceptar
+--  un id de versión le abriría la puerta a quien llama para dejar un
+--  presupuesto apuntando a una versión histórica, o a la de otro APU.
+--
+--  Devuelve cuántos ítems movió, no un booleano: así una prueba puede afirmar
+--  «uno» en vez de «algo cambió», que es la diferencia entre comprobar y creer.
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION app.fn_reapuntar_apu(
+    p_apu_id uuid, p_presupuestos uuid[])
+RETURNS integer LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = app, pg_temp AS $$
+DECLARE v_tenant uuid; v_ver uuid; v_costo app.dinero; v_n integer;
+BEGIN
+    SELECT tenant_id, version_vigente_id INTO v_tenant, v_ver
+      FROM app.apu WHERE id = p_apu_id;
+    IF v_tenant IS NULL THEN
+        RAISE EXCEPTION 'El APU no existe en esta empresa.';
+    END IF;
+    -- SECURITY DEFINER: sin esto, un inquilino movería los ítems de otro
+    -- pasando su UUID. Mismo criterio que fn_eliminar_apu (RN-01).
+    PERFORM app.fn_exigir_mismo_tenant(v_tenant, 'El APU');
+
+    IF p_presupuestos IS NULL OR cardinality(p_presupuestos) = 0 THEN
+        RETURN 0;
+    END IF;
+
+    SELECT costo_directo INTO v_costo FROM app.apu_version WHERE id = v_ver;
+
+    UPDATE app.presupuesto_item i
+       SET apu_version_id  = v_ver,
+           precio_unitario = v_costo,
+           costo_total     = round(i.cantidad * v_costo, 6)
+     WHERE i.apu_id = p_apu_id
+       AND i.presupuesto_id = ANY (p_presupuestos)
+       -- El filtro que convierte «ignora los que no son ABIERTOS» en algo
+       -- distinto de «aborta la transacción entera». Ver la nota de
+       -- fn_propagar_recurso, más abajo.
+       AND EXISTS (SELECT 1 FROM app.presupuesto p
+                    WHERE p.id = i.presupuesto_id AND p.estado = 'ABIERTO');
+    GET DIAGNOSTICS v_n = ROW_COUNT;
+
+    -- Los totales del presupuesto no se tocan aquí: los recalcula solo el
+    -- disparador de app.presupuesto_item, y únicamente para los ABIERTOS.
+    RETURN v_n;
+END $$;
+COMMENT ON FUNCTION app.fn_reapuntar_apu(uuid, uuid[]) IS
+  'D-53. Mueve los ítems de los presupuestos ABIERTOS que se le pasen a la '
+  'versión vigente del APU y devuelve cuántos movió. Los ACTIVOS y CERRADOS se '
+  'ignoran en silencio, aunque vengan en la lista (RF-APU-14, D-5).';
+
+
+-- -----------------------------------------------------------------------------
 --  D-22 · Propagar el cambio de precio de un recurso.
 --
 --  Editar un recurso crea una versión nueva de CADA APU que lo usa, y esas
@@ -4607,8 +4762,18 @@ COMMENT ON FUNCTION app.fn_nueva_version_apu(uuid, jsonb, text, uuid, text) IS
 --  excepción. La respuesta del usuario decide una sola cosa, y es el segundo
 --  parámetro: qué presupuestos ABIERTOS se reapuntan a la versión nueva.
 --
+-- -----------------------------------------------------------------------------
 --  Los presupuestos activos y cerrados no entran nunca, ni aunque se pasen en
---  la lista: el trigger de línea base los rechaza y ese es el punto (D-5).
+--  la lista (D-5). Y conviene ser exacto sobre QUIÉN los deja fuera, porque
+--  este comentario decía antes que los rechazaba el disparador de línea base y
+--  no es cierto: los excluye el EXISTS (... estado = 'ABIERTO') del WHERE, que
+--  los descarta antes de que el disparador llegue a verlos. La diferencia no es
+--  académica. Con el filtro, pasar un presupuesto ACTIVO en la lista lo ignora
+--  y el resto de la operación sigue. Sin él, el disparador abortaría la
+--  transacción entera —incluida la versión nueva del APU, que sí debía
+--  crearse— por un id que el usuario no debió mandar. Quien toque este WHERE
+--  tiene que saber que ese filtro es el que convierte «lo ignora» en algo
+--  distinto de «falla todo».
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION app.fn_propagar_recurso(
     p_recurso_id uuid, p_presupuestos uuid[] DEFAULT NULL)
@@ -4646,17 +4811,11 @@ BEGIN
                    format('Cambio de precio del recurso %s (D-22)', v_codigo));
         v_n := v_n + 1;
 
-        IF p_presupuestos IS NOT NULL AND array_length(p_presupuestos, 1) > 0 THEN
-            SELECT costo_directo INTO v_costo FROM app.apu_version WHERE id = v_ver;
-            UPDATE app.presupuesto_item i
-               SET apu_version_id  = v_ver,
-                   precio_unitario = v_costo,
-                   costo_total     = round(i.cantidad * v_costo, 6)
-             WHERE i.apu_id = r.apu_id
-               AND i.presupuesto_id = ANY (p_presupuestos)
-               AND EXISTS (SELECT 1 FROM app.presupuesto p
-                            WHERE p.id = i.presupuesto_id AND p.estado = 'ABIERTO');
-        END IF;
+        -- El reapunte vive en app.fn_reapuntar_apu y no aquí (D-53). Editar un
+        -- APU a mano necesita exactamente lo mismo que esto hacía, y escrito en
+        -- dos sitios el redondeo a seis decimales se separa el día que alguien
+        -- toque uno solo.
+        PERFORM app.fn_reapuntar_apu(r.apu_id, p_presupuestos);
     END LOOP;
 
     RETURN v_n;
@@ -5116,6 +5275,7 @@ ALTER FUNCTION app.fn_duplicar_presupuesto(uuid,text,text,boolean)
 ALTER FUNCTION app.fn_nueva_version_apu(uuid,jsonb,text,uuid,text)
     OWNER TO construsoft_owner;
 ALTER FUNCTION app.fn_propagar_recurso(uuid,uuid[])             OWNER TO construsoft_owner;
+ALTER FUNCTION app.fn_reapuntar_apu(uuid,uuid[])               OWNER TO construsoft_owner;
 
 -- 16.4 · Alta y eliminación de inquilino y registro de pago: cruzan inquilinos o
 --        corren sin contexto, de construsoft_super (BYPASSRLS).
@@ -5214,6 +5374,7 @@ REVOKE EXECUTE ON FUNCTION
     app.fn_duplicar_presupuesto(uuid,text,text,boolean),
     app.fn_nueva_version_apu(uuid,jsonb,text,uuid,text),
     app.fn_propagar_recurso(uuid,uuid[]),
+    app.fn_reapuntar_apu(uuid,uuid[]),
     app.fn_eliminar_apu(uuid),
     app.fn_eliminar_recurso(uuid),
     app.fn_evento_interno(uuid,uuid,text,uuid,text,text,jsonb,jsonb,text),
@@ -5233,6 +5394,7 @@ GRANT EXECUTE ON FUNCTION
     app.fn_duplicar_presupuesto(uuid,text,text,boolean),
     app.fn_nueva_version_apu(uuid,jsonb,text,uuid,text),
     app.fn_propagar_recurso(uuid,uuid[]),
+    app.fn_reapuntar_apu(uuid,uuid[]),
     app.fn_eliminar_apu(uuid),
     app.fn_eliminar_recurso(uuid),
     -- No es una puerta para escribir el historial a mano: la función se niega
@@ -5323,6 +5485,28 @@ GRANT EXECUTE ON FUNCTION plataforma.fn_marcar_aviso(uuid,text)
 --      SELECT * FROM app.fn_verificar_roles_login();
 --
 --  Ninguno de los tres es dueño de las tablas ni superusuario.
+-- -----------------------------------------------------------------------------
+--  La comprobación de D-54, y va AQUÍ y no arriba con la de aislamiento: tiene
+--  que correr después de que la sección 16 asignó todos los dueños y permisos,
+--  porque antes de eso toda función recién creada pertenece a quien cargó el
+--  archivo y el resultado no significaría nada.
+--
+--  Es una excepción y no un aviso a propósito. Una función SECURITY DEFINER a
+--  nombre de un superusuario no es un detalle de instalación: es una puerta que
+--  corre por fuera de todas las políticas. Vale más una base que se niega a
+--  crearse que una que queda en pie con esa puerta abierta.
+-- -----------------------------------------------------------------------------
+DO $$
+DECLARE v_malas text;
+BEGIN
+    SELECT string_agg(funcion || ' (' || problema || ')', E'\n  ')
+      INTO v_malas FROM app.fn_verificar_funciones();
+    IF v_malas IS NOT NULL THEN
+        RAISE EXCEPTION E'Funciones SECURITY DEFINER mal aseguradas:\n  %', v_malas;
+    END IF;
+    RAISE NOTICE 'Privilegios verificados: ninguna función SECURITY DEFINER corre como superusuario ni la puede ejecutar cualquiera.';
+END $$;
+
 -- =============================================================================
 --  Fin del esquema.
 -- =============================================================================

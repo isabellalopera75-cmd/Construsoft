@@ -125,6 +125,7 @@ export async function leerRecurso(contexto: ContextoTenant, id: string): Promise
  */
 export interface FiltrosRecurso {
   tipo?: TipoRecurso;
+  /** Coincidencia parcial por nombre O por código (RF-REC-03/14): las dos las resuelve fn_buscar_recurso. */
   texto?: string;
   unidadId?: string;
   precioMin?: string;
@@ -134,12 +135,13 @@ export interface FiltrosRecurso {
 }
 
 /**
- * RF-REC-03/04/14 en una sola función. `texto` pasa por app.fn_buscar_recurso
- * (D-47, índice trigrama) y nunca por un LIKE/ILIKE directo contra la tabla:
- * bajo RLS esos operadores no son LEAKPROOF y Postgres termina leyendo el
- * catálogo entero en cada tecla. La función devuelve ids; el resto de los
- * filtros —código, unidad, rango de precio— son operadores de igualdad (sí
- * LEAKPROOF) y se aplican directo contra app.recurso, que sigue bajo RLS.
+ * RF-REC-03/04/14 en una sola función. `texto` —nombre o código, coincidencia
+ * parcial— pasa por app.fn_buscar_recurso (D-47, índices trigrama compuestos
+ * con tenant_id) y nunca por un LIKE/ILIKE directo contra la tabla: bajo RLS
+ * esos operadores no son LEAKPROOF y Postgres termina leyendo el catálogo
+ * entero en cada tecla. La función devuelve ids; el resto de los filtros
+ * —unidad, rango de precio— son comparaciones LEAKPROOF y se aplican directo
+ * contra app.recurso, que sigue bajo RLS.
  */
 export async function listarRecursos(
   contexto: ContextoTenant,
