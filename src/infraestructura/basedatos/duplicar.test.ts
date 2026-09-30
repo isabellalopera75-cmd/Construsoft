@@ -13,7 +13,7 @@ import { agregarCapitulo, agregarSubcapitulo, leerEdt } from './edt.js';
 import { agregarActividad, leerActividades } from './actividad.js';
 import { activarPresupuesto, cerrarPresupuesto } from './cicloDeVida.js';
 import { listarHistorial } from './historial.js';
-import { duplicarPresupuesto, listarApusDesactualizados } from './duplicar.js';
+import { duplicarPresupuesto, leerPieConApuVigentes, listarApusDesactualizados, type PieFinanciero } from './duplicar.js';
 
 let empresa: EmpresaRegistrada;
 let admin: ContextoTenant;
@@ -192,6 +192,35 @@ describe('duplicar (RF-PRE-27, D-19)', () => {
     assert.deepEqual(await contenido(id), antes);
   });
 
+  test('el «después» del diálogo es exactamente el pie que queda guardado en la copia actualizada (D-19, D-63)', async () => {
+    const pieGuardado = async (id: string): Promise<PieFinanciero> => {
+      const p = (await leerPresupuesto(admin, id))!;
+      return {
+        costoDirecto: p.totalCostoDirecto,
+        costoIndirecto: p.totalCostoIndirecto,
+        administracion: p.totalAdministracion,
+        imprevistos: p.totalImprevistos,
+        utilidad: p.totalUtilidad,
+        aiu: p.totalAiu,
+        iva: p.totalIva,
+        valorTotal: p.valorTotal,
+      };
+    };
+    const queSube = await apuDeMil('Actividad del diálogo');
+    const id = await origen(queSube);
+
+    // Sin nada desactualizado, antes y después son el mismo pie.
+    assert.deepEqual(await leerPieConApuVigentes(admin, id), await pieGuardado(id));
+
+    await subirPrecio(queSube);
+    const despues = (await leerPieConApuVigentes(admin, id))!;
+    assert.equal(despues.valorTotal, '6289.400000');
+    assert.equal((await pieGuardado(id)).valorTotal, '6047.500000');
+
+    const copia = await duplicarPresupuesto(admin, id, { codigo: 'DUP-DIALOGO', actualizarApu: true });
+    assert.deepEqual(despues, await pieGuardado(copia));
+  });
+
   test('el código repetido lo rechaza la base y no queda ninguna copia a medias', async () => {
     const id = await origen(await apuDeMil('Actividad D'));
     const codigoOrigen = (await leerPresupuesto(admin, id))!.codigo;
@@ -210,6 +239,7 @@ describe('duplicar (RF-PRE-27, D-19)', () => {
       /PRESUPUESTOS\.DUPLICAR/,
     );
     await assert.rejects(listarApusDesactualizados(asistente, id), /PRESUPUESTOS\.DUPLICAR/);
+    await assert.rejects(leerPieConApuVigentes(asistente, id), /PRESUPUESTOS\.DUPLICAR/);
   });
 
   test('aislamiento: otra empresa no duplica este presupuesto ni ve sus desactualizados', async () => {
@@ -230,5 +260,6 @@ describe('duplicar (RF-PRE-27, D-19)', () => {
       /no existe en esta empresa/,
     );
     assert.deepEqual(await listarApusDesactualizados(contextoB, id), []);
+    assert.equal(await leerPieConApuVigentes(contextoB, id), null);
   });
 });

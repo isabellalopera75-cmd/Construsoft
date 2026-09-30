@@ -9,7 +9,7 @@ import {
 import { crearRecurso } from './recurso.js';
 import { crearApu, type Apu } from './apu.js';
 import { crearPresupuesto, editarPorcentajes } from './presupuesto.js';
-import { agregarCapitulo } from './edt.js';
+import { agregarCapitulo, agregarSubcapitulo } from './edt.js';
 import { agregarActividad, cambiarCantidad, type Actividad } from './actividad.js';
 import { activarPresupuesto, cerrarPresupuesto, reabrirPresupuesto } from './cicloDeVida.js';
 import { guardarVersion, leerFotografia, leerVersion, listarVersiones } from './versiones.js';
@@ -156,7 +156,7 @@ describe('versiones: guardar manual, listar y consultar la fotografía (RF-VER-0
     const [lineaBase] = await listarVersiones(contexto(), id);
     const antes = (await leerVersion(contexto(), lineaBase!.id))!;
 
-    assert.equal(antes.fotografia.schema, 3);
+    assert.equal(antes.fotografia.schema, 4);
     assert.deepEqual(antes.fotografia.presupuesto.totales, {
       costoDirecto: '2000.000000',
       costoIndirecto: '1000.000000',
@@ -192,6 +192,33 @@ describe('versiones: guardar manual, listar y consultar la fotografía (RF-VER-0
     await reabrirPresupuesto(contexto(), id, 'Cambió la cimentación');
     await cambiarCantidad(contexto(), actividadObra.id, '9');
     assert.deepEqual(await leerVersion(contexto(), lineaBase!.id), antes);
+  });
+
+  test('schema 4: cada nodo de la fotografía trae la clasificación heredada de su capítulo raíz, también los subniveles', async () => {
+    secuencia += 1;
+    const p = await crearPresupuesto(contexto(), {
+      codigo: `VER-EDT-${secuencia}`,
+      nombre: 'Con subcapítulos',
+      ubicacion: 'Medellín',
+      modoEstructura: 'WBS',
+    });
+    const estudios = await agregarCapitulo(contexto(), p.id, { nombre: 'ESTUDIOS', clasificacion: 'INDIRECTO' });
+    const suelos = await agregarSubcapitulo(contexto(), estudios.id, { nombre: 'Suelos' });
+    await agregarSubcapitulo(contexto(), suelos.id, { nombre: 'Sondeos' });
+    const obra = await agregarCapitulo(contexto(), p.id, { nombre: 'OBRA', clasificacion: 'DIRECTO' });
+    await agregarSubcapitulo(contexto(), obra.id, { nombre: 'Concretos' });
+    const guardada = await guardarVersion(contexto(), p.id, 'Con la EDT armada');
+
+    assert.deepEqual(
+      (await leerVersion(contexto(), guardada.id))!.fotografia.capitulos.map((c) => [c.codigoWbs, c.nombre, c.clasificacion]),
+      [
+        ['1.0', 'ESTUDIOS', 'INDIRECTO'],
+        ['1.1', 'Suelos', 'INDIRECTO'],
+        ['1.1.1', 'Sondeos', 'INDIRECTO'],
+        ['2.0', 'OBRA', 'DIRECTO'],
+        ['2.1', 'Concretos', 'DIRECTO'],
+      ],
+    );
   });
 
   test('una versión no se edita ni se borra: la aplicación no tiene con qué (RF-VER-04, 02 §10.2)', async () => {
@@ -247,9 +274,11 @@ describe('versiones: guardar manual, listar y consultar la fotografía (RF-VER-0
 });
 
 describe('leerFotografia: el número de schema se comprueba, no se asume', () => {
-  test('un schema distinto de 3 se rechaza nombrando el que llegó y el que se sabe leer', () => {
-    assert.throws(() => leerFotografia({ schema: 2, presupuesto: {} }), /schema 2.*solo sabe leer el schema 3/);
-    assert.throws(() => leerFotografia({ schema: 4, presupuesto: {} }), /schema 4.*solo sabe leer el schema 3/);
+  test('un schema distinto de 4 se rechaza nombrando el que llegó y el que se sabe leer', () => {
+    assert.throws(() => leerFotografia({ schema: 2, presupuesto: {} }), /schema 2.*solo sabe leer el schema 4/);
+    // El 3 guardaba la clasificación cruda, null en los subniveles: leerlo como 4 la perdería en silencio.
+    assert.throws(() => leerFotografia({ schema: 3, presupuesto: {} }), /schema 3.*solo sabe leer el schema 4/);
+    assert.throws(() => leerFotografia({ schema: 5, presupuesto: {} }), /schema 5.*solo sabe leer el schema 4/);
   });
 
   test('una fotografía sin número de schema, o que no es un objeto, también se rechaza', () => {

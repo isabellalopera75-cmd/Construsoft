@@ -28,8 +28,8 @@ export interface CapituloFotografia {
   padreCodigo: string | null;
   nivel: number;
   nombre: string;
-  /** La columna tal como estaba: null en los subniveles, que la heredan del raíz (D-8). */
-  clasificacion: Clasificacion | null;
+  /** La efectiva: la del capítulo raíz, heredada por los subniveles (D-8). Schema 4. */
+  clasificacion: Clasificacion;
   montoAcumulado: string;
   /** Null cuando no había costo directo (RF-PRE-37): se muestra como guion. */
   incidenciaPct: string | null;
@@ -49,9 +49,9 @@ export interface ItemFotografia {
   apuVersionId: string;
 }
 
-/** La fotografía completa de D-28, schema 3, con los importes como texto. */
+/** La fotografía completa de D-28, schema 4, con los importes como texto. */
 export interface FotografiaPresupuesto {
-  schema: 3;
+  schema: 4;
   presupuesto: {
     codigo: string;
     nombre: string;
@@ -90,12 +90,17 @@ export interface Version extends ResumenVersion {
   fotografia: FotografiaPresupuesto;
 }
 
-/** El único formato de fotografía que este lector sabe leer. */
-const SCHEMA_FOTOGRAFIA = 3;
+/**
+ * El único formato de fotografía que este lector sabe leer. El 3 guardaba la
+ * clasificación cruda (null en los subniveles); el 4 la guarda heredada. Leer
+ * un 3 como si fuera un 4 dejaría subcapítulos sin clasificación sin que nada
+ * fallara, y por eso el 3 se rechaza igual que cualquier otro número.
+ */
+const SCHEMA_FOTOGRAFIA = 4;
 
 /* La fotografía tal como la escribe app.fn_snapshot_presupuesto, en snake_case. */
 interface FotografiaCruda {
-  schema: 3;
+  schema: 4;
   presupuesto: {
     codigo: string;
     nombre: string;
@@ -125,7 +130,7 @@ interface FotografiaCruda {
     padre_codigo: string | null;
     nivel: number;
     nombre: string;
-    clasificacion: Clasificacion | null;
+    clasificacion: Clasificacion;
     monto_acumulado: string;
     incidencia_pct: string | null;
   }>;
@@ -155,7 +160,7 @@ interface FotografiaCruda {
  * Interpreta la fotografía de una versión. El número de schema se COMPRUEBA,
  * no se asume. Las versiones son inmutables, así que una guardada con otro
  * formato no se podrá corregir nunca. Un lector que la leyera como si fuera
- * del 3 mostraría una línea base mal interpretada, y nadie se enteraría. Ante
+ * del 4 mostraría una línea base mal interpretada, y nadie se enteraría. Ante
  * un número desconocido, falla y nombra el número que llegó.
  */
 export function leerFotografia(snapshot: unknown): FotografiaPresupuesto {

@@ -86,3 +86,62 @@ export async function duplicarPresupuesto(
     return rows[0]!.id;
   });
 }
+
+/** El pie financiero completo, con los importes como texto. */
+export interface PieFinanciero {
+  costoDirecto: string;
+  costoIndirecto: string;
+  administracion: string;
+  imprevistos: string;
+  utilidad: string;
+  aiu: string;
+  iva: string;
+  valorTotal: string;
+}
+
+interface FilaPie {
+  costo_directo: string;
+  costo_indirecto: string;
+  administracion: string;
+  imprevistos: string;
+  utilidad: string;
+  aiu: string;
+  iva: string;
+  valor_total: string;
+}
+
+/**
+ * D-19, D-63 · El «después» del diálogo de duplicar: el pie que tendría el
+ * presupuesto con cada actividad en la versión vigente de su APU. Lo calcula
+ * app.fn_pie_con_apu_vigentes con las mismas funciones que el recálculo
+ * (fn_costo_actividad, fn_pie_financiero), así que la cifra que la pantalla
+ * anticipa es la que queda guardada en la copia. El «antes» es la cabecera
+ * del presupuesto tal como está. Null si el presupuesto no existe en esta
+ * empresa.
+ */
+export async function leerPieConApuVigentes(
+  contexto: ContextoTenant,
+  presupuestoId: string,
+): Promise<PieFinanciero | null> {
+  return ejecutarConPermiso(contexto, 'PRESUPUESTOS.DUPLICAR', async (cliente) => {
+    const { rows } = await cliente.query<FilaPie>(
+      `SELECT costo_directo, costo_indirecto, administracion, imprevistos,
+              utilidad, aiu, iva, valor_total
+         FROM app.fn_pie_con_apu_vigentes($1)`,
+      [presupuestoId],
+    );
+    const fila = rows[0];
+    return fila
+      ? {
+          costoDirecto: fila.costo_directo,
+          costoIndirecto: fila.costo_indirecto,
+          administracion: fila.administracion,
+          imprevistos: fila.imprevistos,
+          utilidad: fila.utilidad,
+          aiu: fila.aiu,
+          iva: fila.iva,
+          valorTotal: fila.valor_total,
+        }
+      : null;
+  });
+}
