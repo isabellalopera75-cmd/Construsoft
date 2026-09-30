@@ -9,16 +9,24 @@ APU sin recursos, ni un presupuesto sin APU. Ese orden gobierna el desarrollo.
 
 ## Lo primero que tienes que leer
 
-Antes de escribir una línea de código, lee estos dos archivos de `docs/`:
+Antes de escribir una línea de código, lee estos archivos de `docs/`:
 
-| Archivo | Qué contiene |
-|---|---|
-| `docs/05 - construsoft_mvp_schema.sql` | **El modelo de datos. Es la definición del sistema, no una sugerencia.** |
-| `docs/CONSTRUSOFT - MVP y fases posteriores.docx` | Alcance, reglas de negocio, los 150 requisitos, las fórmulas verificadas y las 49 decisiones de diseño con su porqué |
+| Archivo | Qué contiene | De qué es árbitro |
+|---|---|---|
+| `docs/05 - construsoft_mvp_schema.sql` | **El modelo de datos. Es la definición del sistema, no una sugerencia.** Cada decisión D-n está explicada en un comentario, en el punto del esquema donde vive. | De las reglas de negocio y de los privilegios |
+| `docs/01 - Alcance del MVP.docx` | Alcance, reglas de negocio y los 150 requisitos (RF-*, RN-*, RNF-*). Su sección 14 da el porqué de cada decisión. | De qué entra en el MVP y qué no |
+| `docs/02 - Guia de comportamiento de interfaz.docx` | Cómo se comporta cada pantalla, módulo por módulo. | De la conducta de la interfaz |
+| `docs/06 - Formulas y calculos.docx` | AIU, IVA, incidencia y el presupuesto de referencia verificado a mano. | De los cálculos |
 
-La sección 14 del documento explica **por qué** cada regla es como es. Léela antes
-de proponer un cambio: casi todo lo que parece una omisión está decidido a
+La sección 14 del documento 01 explica **por qué** cada regla es como es. Léela
+antes de proponer un cambio: casi todo lo que parece una omisión está decidido a
 propósito y tiene su motivo escrito.
+
+**Si dos fuentes se contradicen, manda el comentario del esquema.** Ha pasado ya
+varias veces que un comentario afirmaba algo falso sobre su propio código; cuando
+eso ocurra, no lo interpretes: dilo, y se corrige. Un archivo que se contradice a
+sí mismo es un error que hay que arreglar, nunca una ambigüedad que haya que
+resolver adivinando.
 
 ---
 
