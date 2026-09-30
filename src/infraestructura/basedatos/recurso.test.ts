@@ -589,8 +589,8 @@ async function crearPresupuestoConItem(
 
       const { rows: filasNodo } = await cliente.query<{ id: string }>(
         `INSERT INTO app.wbs_nodo
-               (tenant_id, presupuesto_id, orden, nivel, codigo_wbs, nombre, clasificacion)
-         VALUES ($1, $2, 1, 1, '1.0', 'Capítulo único', 'DIRECTO')
+               (tenant_id, presupuesto_id, nombre, clasificacion)
+         VALUES ($1, $2, 'Capítulo único', 'DIRECTO')
          RETURNING id`,
         [empresa.tenantId, presupuestoId],
       );
@@ -598,9 +598,9 @@ async function crearPresupuestoConItem(
 
       const { rows: filasItem } = await cliente.query<{ id: string }>(
         `INSERT INTO app.presupuesto_item
-               (tenant_id, presupuesto_id, wbs_nodo_id, orden, apu_id, apu_version_id,
-                codigo_apu, descripcion, unidad_simbolo, precio_unitario, cantidad, costo_total)
-         VALUES ($1, $2, $3, 1, $4, $5, $6, 'Ítem de prueba', $7, $8, 1, $8)
+               (tenant_id, presupuesto_id, wbs_nodo_id, apu_id, apu_version_id,
+                codigo_apu, descripcion, unidad_simbolo, precio_unitario, cantidad)
+         VALUES ($1, $2, $3, $4, $5, $6, 'Ítem de prueba', $7, $8, 1)
          RETURNING id`,
         [
           empresa.tenantId,
