@@ -335,6 +335,11 @@ export async function listarApus(contexto: ContextoTenant, filtros: FiltrosApu =
  * actividad, porque un presupuesto viejo puede usar uno que se desactivó
  * después. Sin APU.VER, fn_exigir_permiso rechaza con el nombre del permiso
  * que falta, en vez de devolver una lista vacía que parezca un catálogo vacío.
+ *
+ * PENDIENTE: fn_buscar_apu aplica su LIMIT antes que el filtro de activos de
+ * aquí, así que muchos inactivos que coincidan pueden ocupar cupos del límite y
+ * dejar fuera a activos. Cuando se toque esa función, el filtro de activos se
+ * mueve dentro de ella y este `AND a.activo` sale.
  */
 export async function buscarApusParaActividad(
   contexto: ContextoTenant,

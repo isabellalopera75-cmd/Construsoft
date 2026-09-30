@@ -24,8 +24,9 @@ export interface DatosPresupuesto {
  * (RF-PRE-09) y los datos del pie financiero (RF-PRE-22/43). Los importes y
  * porcentajes son numeric de Postgres y viajan como texto: esta capa no hace
  * aritmética con ellos (CLAUDE.md, regla 2; 06 §2.4). Todos los totales los
- * escribe app.fn_recalcular_presupuesto, y sinBaseAiu es una columna generada
- * que decide el aviso de RF-PRE-36: la interfaz no evalúa la condición.
+ * escribe app.fn_recalcular_presupuesto, y sinBaseAiu y aiuEnCero son columnas
+ * generadas que deciden los avisos de RF-PRE-36 y RF-PRE-35: la interfaz no
+ * evalúa ninguna de las dos condiciones.
  */
 export interface Presupuesto {
   id: string;
@@ -50,6 +51,8 @@ export interface Presupuesto {
   totalIva: string;
   valorTotal: string;
   sinBaseAiu: boolean;
+  /** RF-PRE-35 · Los tres porcentajes del AIU en cero: la confirmación de activar lo advierte. Columna generada. */
+  aiuEnCero: boolean;
   fechaElaboracion: Date;
   fechaModificacion: Date;
 }
@@ -76,6 +79,7 @@ interface FilaPresupuesto {
   total_iva: string;
   valor_total: string;
   sin_base_aiu: boolean;
+  aiu_en_cero: boolean;
   fecha_elaboracion: Date;
   fecha_modificacion: Date;
 }
@@ -85,7 +89,7 @@ const SELECT_CABECERA = `
          archivado_en, aiu_administracion, aiu_imprevistos, aiu_utilidad,
          iva_utilidad_pct, total_costo_directo, total_costo_indirecto,
          total_administracion, total_imprevistos, total_utilidad, total_aiu,
-         total_iva, valor_total, sin_base_aiu, fecha_elaboracion,
+         total_iva, valor_total, sin_base_aiu, aiu_en_cero, fecha_elaboracion,
          fecha_modificacion
     FROM app.presupuesto`;
 
@@ -112,6 +116,7 @@ function filaAPresupuesto(fila: FilaPresupuesto): Presupuesto {
     totalIva: fila.total_iva,
     valorTotal: fila.valor_total,
     sinBaseAiu: fila.sin_base_aiu,
+    aiuEnCero: fila.aiu_en_cero,
     fechaElaboracion: fila.fecha_elaboracion,
     fechaModificacion: fila.fecha_modificacion,
   };

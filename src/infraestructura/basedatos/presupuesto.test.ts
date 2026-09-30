@@ -127,6 +127,7 @@ describe('crearPresupuesto / leerPresupuesto', () => {
       totalIva: '0.000000',
       valorTotal: '0.000000',
       sinBaseAiu: false,
+      aiuEnCero: true,
     });
   });
 
@@ -423,6 +424,7 @@ describe('editarCabecera / editarPorcentajes / cambiarModoEstructura / archivar'
         iva: editado!.totalIva,
         total: editado!.valorTotal,
         sinBase: editado!.sinBaseAiu,
+        aiuEnCero: editado!.aiuEnCero,
       },
       {
         cd: '1000.000000',
@@ -433,6 +435,7 @@ describe('editarCabecera / editarPorcentajes / cambiarModoEstructura / archivar'
         iva: '9.500000',
         total: '1209.500000',
         sinBase: false,
+        aiuEnCero: false,
       },
     );
   });
