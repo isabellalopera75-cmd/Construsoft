@@ -1,4 +1,5 @@
 import { ejecutarConPermiso, type ClienteEnContexto, type ContextoTenant } from './contextoTenant.js';
+import type { EstadoPresupuesto } from './presupuesto.js';
 import type { TipoRecurso } from './recurso.js';
 
 /**
@@ -199,8 +200,6 @@ export async function crearApu(contexto: ContextoTenant, datos: DatosApu): Promi
 export async function leerApu(contexto: ContextoTenant, id: string): Promise<Apu | null> {
   return ejecutarConPermiso(contexto, 'APU.VER', (cliente) => leerConCliente(cliente, id));
 }
-
-export type EstadoPresupuesto = 'ABIERTO' | 'ACTIVO' | 'CERRADO';
 
 /** Un presupuesto que usa el APU, con su estado: la interfaz solo pregunta por los ABIERTOS. */
 export interface PresupuestoVinculado {
