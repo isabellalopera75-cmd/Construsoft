@@ -35,12 +35,12 @@
 --  ---------------------------------------------------------------------------
 --  LAS DECISIONES DE DISEÑO QUE ESTE ESQUEMA IMPLEMENTA
 --
---  Son cincuenta y tres: D-1 a D-54, sin la D-10, que no existe. El motivo de
+--  Son cincuenta y seis: D-1 a D-57, sin la D-10, que no existe. El motivo de
 --  cada una está en la sección 14 del documento de alcance. Aquí va el
 --  enunciado, y cada decisión vuelve a aparecer anotada en el punto del esquema
 --  donde vive. Las ocho últimas están al final de esta lista y tienen fecha:
 --  D-44 a D-49 salieron de la auditoría externa del 24 de septiembre de 2026;
---  D-50 a D-54 son posteriores a ella y se distinguen a propósito, porque
+--  D-50 a D-57 son posteriores a ella y se distinguen a propósito, porque
 --  nadie debería tener que preguntarle a nadie qué se movió después del
 --  dictamen: está escrito aquí.
 --
@@ -221,7 +221,7 @@
 --  volver a auditar si el cambio solo altera lo que una función le devuelve a
 --  un llamador que ya tenía derecho a esas filas, porque ahí la superficie de
 --  lectura es la misma antes y después. D-50 cae del primer lado y se verificó
---  como tal; D-51 a D-54, del segundo, y abajo está por qué.
+--  como tal; D-51 a D-57, del segundo, y abajo está por qué.
 --
 --   D-50  (posterior a la auditoría · toca roles y privilegios · verificada
 --         contra la base) El rol dueño de las funciones de autenticación no se
@@ -294,6 +294,35 @@
 --         verde y fn_verificar_rls no mira funciones. Lo encontró una persona
 --         leyendo el catálogo a mano. app.fn_verificar_funciones() lo comprueba
 --         ahora en cada instalación.
+--   D-55  (posterior a la auditoría · agrega columnas derivadas y disparadores)
+--         El nivel y el orden de un elemento de la EDT los deriva la base, y
+--         codigo_wbs deja de ser NOT NULL. «Agregar al final» es max+1 sobre un
+--         contador compartido entre capítulos y actividades: calculado en la
+--         aplicación es una carrera, y su caso feo no es el choque visible de
+--         las actividades sino el empate silencioso de los capítulos, que
+--         desempata un UUID en vez de la intención de nadie. El orden se calcula
+--         DESPUÉS de bloquear la fila del presupuesto; al revés, la ventana
+--         sigue abierta. Con codigo_wbs obligatorio, quien agregaba un capítulo
+--         tenía que inventar un código provisional que no chocara: un dato falso
+--         durante toda la transacción.
+--   D-56  (posterior a la auditoría · agrega una función y quita permisos)
+--         Reordenar un hermano pasa solo por app.fn_mover_en_edt, y el UPDATE
+--         sobre «orden» sale del GRANT de la aplicación. Recibe la posición
+--         absoluta y no «subir» o «bajar», así que es idempotente: un doble clic
+--         no mueve dos veces. El documento 02 §8.2 promete un solo paso, sin
+--         estado intermedio ni códigos temporales, y con UPDATE sueltos eso no
+--         se puede cumplir cuando el hermano de al lado vive en la otra tabla.
+--   D-57  (posterior a la auditoría · agrega dos funciones de lectura)
+--         app.fn_incidencia y app.fn_leer_edt. La fórmula de la incidencia vivía
+--         dentro de la fotografía de versión y la mesa de trabajo la necesita
+--         igual: escrita dos veces, un día la pantalla y el PDF dirían cosas
+--         distintas del mismo presupuesto. Devuelve NULL cuando no hay costo
+--         directo —el guion de RF-PRE-37 lo pone la interfaz al formatear, no la
+--         base al calcular— y sin redondear, porque el redondeo es de la
+--         presentación (documento 06 §2.2). Las dos son SECURITY INVOKER: no
+--         pueden ver nada que su llamador no viera, así que no son puertas.
+--         En la misma tanda, app.presupuesto guarda A, I y U por separado y no
+--         solo su suma, y sin_base_aiu decide el aviso de RF-PRE-36.
 --
 --  ---------------------------------------------------------------------------
 --  LO QUE SIGUE ABIERTO, A PROPÓSITO
@@ -466,13 +495,17 @@ GRANT USAGE ON SCHEMA app, plataforma TO construsoft_auth, construsoft_autentica
 --                         función SECURITY DEFINER suya sigue aislada por
 --                         inquilino. Es lo que cierra el borrado cruzado de APU.
 --    construsoft_super   dueño de las funciones que DEBEN cruzar inquilinos o
---                         correr sin contexto: alta y eliminación de inquilino y
---                         registro de pago. BYPASSRLS, NOLOGIN.
+--                         correr sin contexto: alta y eliminación de inquilino,
+--                         registro de pago, las tres transiciones de estado, el
+--                         recálculo y las tres búsquedas. BYPASSRLS, NOLOGIN.
+--                         Todas se contienen ellas mismas con
+--                         fn_exigir_mismo_tenant: no hay política debajo.
 --    construsoft_app     grupo de conexión de la aplicación. Privilegio mínimo:
 --                         nada de DELETE sobre las tablas inmutables, ni UPDATE
 --                         sobre estado ni sobre los totales. Las
 --                         escrituras sensibles pasan por funciones SECURITY
---                         DEFINER de construsoft_owner.
+--                         DEFINER de construsoft_owner o de construsoft_super,
+--                         según lo que cada una necesite ver (§16.2 y §16.3).
 --    construsoft_superadmin  grupo del panel del superadministrador.
 -- =============================================================================
 DO $$
@@ -1042,6 +1075,8 @@ CREATE TABLE app.recurso (
     -- borran (pasan a REVOCADO), la llave no estorba.
     FOREIGN KEY (tenant_id, creado_por)
         REFERENCES app.usuario(tenant_id, id),
+    CONSTRAINT ck_recurso_texto_no_vacio
+        CHECK (btrim(codigo) <> '' AND btrim(nombre) <> ''),
     CHECK (precio_total >= precio_base),
     -- La base defiende la fórmula: sin esto se aceptaría un recurso con base
     -- 100, IVA 19 y total 500. La comprobación es direccional según la vía de
@@ -1092,7 +1127,10 @@ CREATE TABLE app.apu (
     FOREIGN KEY (tenant_id, unidad_id)
         REFERENCES app.unidad_medida(tenant_id, id) ON DELETE RESTRICT,
     FOREIGN KEY (tenant_id, creado_por)
-        REFERENCES app.usuario(tenant_id, id)
+        REFERENCES app.usuario(tenant_id, id),
+    -- Mismo motivo que en presupuesto y recurso: NOT NULL deja pasar '   '.
+    CONSTRAINT ck_apu_texto_no_vacio
+        CHECK (btrim(codigo) <> '' AND btrim(nombre) <> '')
 );
 CREATE INDEX ix_apu_nombre ON app.apu (tenant_id, lower(nombre));   -- RF-APU-02
 CREATE INDEX ix_apu_unidad ON app.apu (tenant_id, unidad_id);       -- RF-APU-03
@@ -1226,6 +1264,12 @@ CREATE INDEX ix_avr_recurso ON app.apu_version_recurso (tenant_id, recurso_id);
 CREATE TABLE app.presupuesto (
     id                     uuid        PRIMARY KEY DEFAULT app.uuid_v7(),
     tenant_id              uuid        NOT NULL REFERENCES plataforma.tenant(id) ON DELETE CASCADE,
+    -- NOT NULL no alcanza: '   ' es un valor y entra sin protestar. RF-PRE-04 y
+    -- RF-REC-06 dicen «obligatorio», y un nombre en blanco no lo es. El CHECK va
+    -- en la base y no en la aplicacion porque RF-PRE-38 pide «los mismos
+    -- validadores» al editar que al crear: una restriccion se aplica sola al
+    -- INSERT y al UPDATE, mientras que dos funciones de TypeScript hay que
+    -- acordarse de mantenerlas iguales. Mismo criterio que tenant.nit.
     codigo                 text        NOT NULL,          -- manual y único, RF-PRE-03
     nombre                 text        NOT NULL,
     ubicacion              text        NOT NULL,
@@ -1255,9 +1299,15 @@ CREATE TABLE app.presupuesto (
     tipo_proyecto          text        NOT NULL DEFAULT 'CONSTRUCCION'
                                        CHECK (tipo_proyecto IN ('CONSTRUCCION')),
     -- Los tres porcentajes del AIU son POR PRESUPUESTO, no una constante del
-    -- sistema: varían con cada obra. Al crear el proyecto se copian de
-    -- app.configuracion_empresa como punto de partida (RF-CFG-16) y quedan
-    -- editables mientras el proyecto esté ABIERTO (RF-PRE-23).
+    -- sistema: varían con cada obra, y quedan editables mientras el proyecto
+    -- esté ABIERTO (RF-PRE-23).
+    --   Este comentario decía que al crear el proyecto se copian de
+    -- app.configuracion_empresa «como punto de partida (RF-CFG-16)». Era falso
+    -- dos veces: la D-41 sacó el AIU de la configuración de empresa a propósito
+    -- —precargarlo desde una configuración general es la forma más barata de que
+    -- una obra salga con el AIU de otra— y RF-CFG-16 no existe, la lista de
+    -- requisitos salta de la 15 a la 17. No se copian de ningún lado: nacen en
+    -- cero.
     -- El DEFAULT es 0, no un valor «razonable» de 25: un AIU inventado por el
     -- sistema y no revisado por el ingeniero es peor que un AIU en cero, que
     -- salta a la vista. La interfaz avisa al activar con el AIU en cero
@@ -1284,9 +1334,22 @@ CREATE TABLE app.presupuesto (
     -- escritura se rechaza, en cualquier estado.
     total_costo_directo    app.dinero  NOT NULL DEFAULT 0,
     total_costo_indirecto  app.dinero  NOT NULL DEFAULT 0,
+    -- A, I y U por separado, y no solo su suma. RF-PRE-22 pide las tres lineas
+    -- en el pie, y la fase 5 las necesita en el PDF. Derivarlas al leer
+    -- escribiria CD x %A / 100 en tres sitios distintos; guardadas, la formula
+    -- vive solo donde ya vivia, dentro de fn_recalcular_presupuesto.
+    total_administracion   app.dinero  NOT NULL DEFAULT 0,
+    total_imprevistos      app.dinero  NOT NULL DEFAULT 0,
+    total_utilidad         app.dinero  NOT NULL DEFAULT 0,
     total_aiu              app.dinero  NOT NULL DEFAULT 0,
     total_iva              app.dinero  NOT NULL DEFAULT 0,        -- D-33
     valor_total            app.dinero  NOT NULL DEFAULT 0,
+    -- RF-PRE-36 · El aviso de «hay AIU pero no hay sobre que aplicarlo» lo
+    -- decide la base y no la pantalla, por el mismo motivo que todo lo demas:
+    -- una regla escrita en la interfaz solo vale en la interfaz que la escribio.
+    sin_base_aiu boolean GENERATED ALWAYS AS
+        (total_costo_directo = 0
+         AND aiu_administracion + aiu_imprevistos + aiu_utilidad > 0) STORED,
     duplicado_de_id        uuid,                                -- RF-PRE-27
     fecha_elaboracion      timestamptz NOT NULL DEFAULT now(),  -- no editable, RF-PRE-06
     fecha_modificacion     timestamptz NOT NULL DEFAULT now(),  -- RF-PRE-07
@@ -1302,8 +1365,12 @@ CREATE TABLE app.presupuesto (
     CHECK (estado <> 'ACTIVO'  OR activado_en IS NOT NULL),
     CHECK (estado <> 'CERRADO' OR cerrado_en  IS NOT NULL),
     -- Los totales guardados también se defienden, no solo se calculan.
+    CONSTRAINT ck_presupuesto_texto_no_vacio
+        CHECK (btrim(codigo) <> '' AND btrim(nombre) <> '' AND btrim(ubicacion) <> ''),
     CONSTRAINT ck_presupuesto_totales_no_negativos
         CHECK (total_costo_directo >= 0 AND total_costo_indirecto >= 0
+           AND total_administracion >= 0 AND total_imprevistos >= 0
+           AND total_utilidad >= 0
            AND total_aiu >= 0 AND total_iva >= 0 AND valor_total >= 0)
 );
 COMMENT ON COLUMN app.presupuesto.archivado_en IS
@@ -1311,6 +1378,9 @@ COMMENT ON COLUMN app.presupuesto.archivado_en IS
   'defecto. Reversible, disponible en cualquier estado, no borra nada (D-18).';
 CREATE INDEX ix_presupuesto_estado ON app.presupuesto (tenant_id, estado, fecha_modificacion DESC);
 CREATE INDEX ix_presupuesto_nombre ON app.presupuesto (tenant_id, lower(nombre));   -- RF-PRE-02
+-- RF-PRE-02 busca por nombre o codigo, igual que recurso y APU.
+CREATE INDEX ix_presupuesto_codigo_trgm ON app.presupuesto
+    USING gin (tenant_id, codigo gin_trgm_ops);
 CREATE INDEX ix_presupuesto_nombre_trgm ON app.presupuesto
     USING gin (tenant_id, nombre gin_trgm_ops);
 -- D-18 · La vista maestra muestra por defecto solo los no archivados.
@@ -1360,7 +1430,13 @@ CREATE TABLE app.wbs_nodo (
     -- su primer hijo, sea un subcapítulo o una actividad, y por eso capítulos
     -- y actividades pueden convivir bajo el mismo padre sin chocar. Lo deriva
     -- app.fn_renumerar_wbs del propio árbol; la aplicación no lo escribe.
-    codigo_wbs       text        NOT NULL,                 -- '1.0', '1.2', '1.2.3' — RF-PRE-12
+    -- Sin NOT NULL, igual que codigo_item y por el mismo motivo: lo deriva
+    -- app.fn_renumerar_wbs DESPUES de insertar, en el AFTER de la misma
+    -- sentencia. Exigirlo en el INSERT obligaria a quien agrega un capitulo a
+    -- inventar un codigo provisional que no choque con el UNIQUE, y ese codigo
+    -- inventado seria un dato falso durante el rato que dura la transaccion.
+    -- Los nulos no chocan entre si en un indice unico.
+    codigo_wbs       text,                                  -- '1.0', '1.2', '1.2.3' — RF-PRE-12
     nombre           text        NOT NULL,
     -- D-16: un capítulo es de costo DIRECTO (obra física) o INDIRECTO
     -- (topografía, dirección de obra, estudios, pólizas). Es obligatorio y no
@@ -1424,7 +1500,13 @@ CREATE TABLE app.presupuesto_item (
     unidad_simbolo      text        NOT NULL,
     precio_unitario     app.dinero  NOT NULL CHECK (precio_unitario >= 0),  -- RF-PRE-18
     cantidad            app.cantidad NOT NULL,
-    costo_total         app.dinero  NOT NULL,
+    -- GENERATED y no una columna con CHECK: con el CHECK, la formula seguia
+    -- calculandola el backend y la base solo decia si el resultado cuadraba.
+    -- Generada, el camino equivocado no existe —escribirla a mano devuelve
+    -- «cannot insert a non-DEFAULT value»— y la formula queda en un solo sitio,
+    -- no repetida en duplicar y en reapuntar. Comprobado en PostgreSQL 16.
+    costo_total         app.dinero GENERATED ALWAYS AS
+                        (round(cantidad * precio_unitario, 6)) STORED,
     UNIQUE (tenant_id, id),
     -- DEFERRABLE: reordenar hermanos intercambia valores de orden y no cabe
     -- en una sola sentencia si la unicidad se evalúa fila a fila.
@@ -1453,10 +1535,7 @@ CREATE TABLE app.presupuesto_item (
     -- El par apu_id / apu_version_id va atado: sin esto un ítem podría llevar
     -- el código de un APU y el precio de otro.
     CONSTRAINT fk_item_version_es_de_su_apu
-        FOREIGN KEY (apu_id, apu_version_id) REFERENCES app.apu_version (apu_id, id),
-    -- El costo total de la actividad cuadra con sus dos factores.
-    CONSTRAINT ck_item_costo_total_cuadra
-        CHECK (costo_total = round(cantidad * precio_unitario, 6))
+        FOREIGN KEY (apu_id, apu_version_id) REFERENCES app.apu_version (apu_id, id)
 );
 CREATE INDEX ix_item_presupuesto ON app.presupuesto_item (presupuesto_id);
 CREATE INDEX ix_item_apu_version ON app.presupuesto_item (tenant_id, apu_version_id); -- RF-APU-13
@@ -1840,9 +1919,11 @@ BEGIN
     -- 1) Los totales son territorio exclusivo de fn_recalcular_presupuesto.
     IF NOT v_recalculo
        AND (NEW.total_costo_directo, NEW.total_costo_indirecto,
+            NEW.total_administracion, NEW.total_imprevistos, NEW.total_utilidad,
             NEW.total_aiu, NEW.total_iva, NEW.valor_total)
            IS DISTINCT FROM
            (OLD.total_costo_directo, OLD.total_costo_indirecto,
+            OLD.total_administracion, OLD.total_imprevistos, OLD.total_utilidad,
             OLD.total_aiu, OLD.total_iva, OLD.valor_total)
     THEN
         RAISE EXCEPTION
@@ -2201,6 +2282,29 @@ CREATE TRIGGER tg_historia_recurso
 -- La fotografia de D-28. Todo valor monetario va como cadena: un numeric de
 -- veinticuatro digitos no cabe sin perdida en el numero de JavaScript, y este
 -- es justo el archivo que no puede desviarse un centavo.
+-- -----------------------------------------------------------------------------
+--  D-9 · La incidencia de un capitulo, en un solo sitio.
+--
+--  La formula vivia dentro de fn_snapshot_presupuesto y la mesa de trabajo la
+--  necesita igual, en vivo (RF-PRE-21). Escrita dos veces, el dia que alguien
+--  cambie una la fotografia y la pantalla dirian cosas distintas del mismo
+--  presupuesto, que es exactamente lo que nadie revisa hasta que un cliente lo
+--  nota.
+--
+--  Devuelve NULL cuando no hay costo directo, y NULL es la respuesta correcta:
+--  no es cero —el capitulo no pesa cero, es que no hay contra que medirlo— ni
+--  'NaN', que es justo lo que RF-PRE-37 prohibe mostrar. El guion lo pone la
+--  interfaz al formatear, no la base al calcular.
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION app.fn_incidencia(
+    p_monto app.dinero, p_costo_directo app.dinero)
+RETURNS numeric LANGUAGE sql IMMUTABLE AS $$
+    SELECT p_monto * 100 / NULLIF(p_costo_directo, 0);
+$$;
+COMMENT ON FUNCTION app.fn_incidencia(app.dinero, app.dinero) IS
+  'D-9. Incidencia de un capitulo sobre el costo directo. NULL cuando no hay '
+  'costo directo: el guion de RF-PRE-37 lo pone la interfaz, no la base.';
+
 CREATE OR REPLACE FUNCTION app.fn_snapshot_presupuesto(
     p_presupuesto_id uuid, p_estado text, p_disparador text, p_motivo text)
 RETURNS jsonb LANGUAGE sql STABLE AS $$
@@ -2213,7 +2317,7 @@ RETURNS jsonb LANGUAGE sql STABLE AS $$
     -- schema 1 no se pueden corregir nunca. Por eso entra hoy y no cuando haga
     -- falta. Hallazgo 7 de la auditoría del 24 de septiembre de 2026.
     SELECT jsonb_build_object(
-      'schema', 2,
+      'schema', 3,
       'presupuesto', jsonb_build_object(
           'codigo', p.codigo, 'nombre', p.nombre, 'ubicacion', p.ubicacion,
           'moneda', p.moneda, 'estado', p_estado,
@@ -2226,6 +2330,9 @@ RETURNS jsonb LANGUAGE sql STABLE AS $$
           'totales', jsonb_build_object(
               'costo_directo',   p.total_costo_directo::text,
               'costo_indirecto', p.total_costo_indirecto::text,
+              'administracion',  p.total_administracion::text,
+              'imprevistos',     p.total_imprevistos::text,
+              'utilidad',        p.total_utilidad::text,
               'aiu',             p.total_aiu::text,
               'iva',             p.total_iva::text,
               'valor_total',     p.valor_total::text),
@@ -2242,8 +2349,12 @@ RETURNS jsonb LANGUAGE sql STABLE AS $$
                    'nivel', w.nivel, 'nombre', w.nombre,
                    'clasificacion', w.clasificacion,
                    'monto_acumulado', w.monto_acumulado::text,
-                   'incidencia_pct', round(w.monto_acumulado * 100
-                                     / NULLIF(p.total_costo_directo, 0), 2)::text)
+                   -- Sin redondear a dos decimales: el documento 06 §2.2 dice
+                   -- que se redondea al presentar, y con decimales_vista = 0 el
+                   -- redondeo de aqui seria el primero de dos.
+                   'incidencia_pct',
+                       app.fn_incidencia(w.monto_acumulado,
+                                         p.total_costo_directo)::text)
                  -- Ordenar por el código como TEXTO pone el capítulo 10 entre
                  -- el 1 y el 2, y un presupuesto con diez capítulos o con
                  -- subcapítulos 1.1 a 1.12 es lo normal, no el caso raro. El
@@ -2391,6 +2502,86 @@ CREATE TRIGGER tg_version_por_transicion
 --  mismo; este trigger cubre los ciclos de dos o más nodos, que el CHECK no
 --  puede ver.
 -- -----------------------------------------------------------------------------
+-- -----------------------------------------------------------------------------
+--  D-55 · El nivel y el orden de un elemento de la EDT los deriva la base.
+--
+--  «Agregar al final» (documento 02, §8.2 y §8.3) significa max+1 sobre los
+--  hermanos, y el contador es compartido entre capitulos y actividades (D-42):
+--  un capitulo numerado 1.2 y una actividad 1.3 cuelgan del mismo padre. Hecho
+--  en la aplicacion, ese max+1 es una carrera. Dos usuarios agregando a la vez
+--  leen el mismo maximo y proponen el mismo orden.
+--
+--  En las actividades el choque se ve, porque hay un UNIQUE. En los capitulos
+--  no: quedan dos hermanos con el mismo orden y el empate lo desempata
+--  (es_nodo DESC, id) dentro de fn_renumerar_wbs, o sea el azar de un UUID en
+--  vez de la intencion de nadie. Nadie recibe un error; simplemente la EDT
+--  queda en un orden que ninguno de los dos pidio.
+--
+--  Por eso el orden lo pone la base, y lo pone DESPUES de bloquear la fila del
+--  presupuesto. El orden de esas dos cosas es la diferencia entre cerrar la
+--  carrera y no cerrarla: leer el maximo y bloquear despues deja la ventana
+--  abierta.
+--
+--  El nivel se deriva SIEMPRE, no solo cuando llega nulo: es un dato del arbol,
+--  no una entrada del usuario. El orden solo cuando llega nulo, para que
+--  fn_duplicar_presupuesto pueda conservar el del original.
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION app.fn_siguiente_orden_edt(
+    p_presupuesto_id uuid, p_padre_id uuid)
+RETURNS integer LANGUAGE plpgsql AS $$
+DECLARE v_max integer;
+BEGIN
+    PERFORM 1 FROM app.presupuesto WHERE id = p_presupuesto_id FOR NO KEY UPDATE;
+    SELECT COALESCE(max(orden), 0) INTO v_max FROM (
+        SELECT n.orden FROM app.wbs_nodo n
+         WHERE n.presupuesto_id = p_presupuesto_id
+           AND n.padre_id IS NOT DISTINCT FROM p_padre_id
+        UNION ALL
+        SELECT i.orden FROM app.presupuesto_item i
+         WHERE i.presupuesto_id = p_presupuesto_id
+           AND i.wbs_nodo_id IS NOT DISTINCT FROM p_padre_id
+    ) hermanos;
+    RETURN v_max + 1;
+END $$;
+
+CREATE OR REPLACE FUNCTION app.fn_derivar_posicion_wbs() RETURNS trigger
+LANGUAGE plpgsql AS $$
+DECLARE v_nivel smallint;
+BEGIN
+    IF NEW.padre_id IS NULL THEN
+        NEW.nivel := 1;
+    ELSE
+        SELECT n.nivel INTO v_nivel FROM app.wbs_nodo n WHERE n.id = NEW.padre_id;
+        IF v_nivel IS NULL THEN
+            RAISE EXCEPTION 'El capitulo padre no existe en esta empresa.';
+        END IF;
+        NEW.nivel := (v_nivel + 1)::smallint;
+    END IF;
+    IF TG_OP = 'INSERT' AND NEW.orden IS NULL THEN
+        NEW.orden := app.fn_siguiente_orden_edt(NEW.presupuesto_id, NEW.padre_id);
+    END IF;
+    RETURN NEW;
+END $$;
+
+CREATE OR REPLACE FUNCTION app.fn_derivar_orden_item() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF NEW.orden IS NULL THEN
+        NEW.orden := app.fn_siguiente_orden_edt(NEW.presupuesto_id, NEW.wbs_nodo_id);
+    END IF;
+    RETURN NEW;
+END $$;
+
+-- El nombre no es decorativo: PostgreSQL dispara los BEFORE de una tabla en
+-- orden alfabetico, y tg_modo_estructura, tg_wbs_clasificacion y
+-- tg_wbs_sin_ciclos leen NEW.nivel. «derivar» va antes que los tres.
+CREATE TRIGGER tg_derivar_posicion_wbs
+    BEFORE INSERT OR UPDATE OF padre_id ON app.wbs_nodo
+    FOR EACH ROW EXECUTE FUNCTION app.fn_derivar_posicion_wbs();
+CREATE TRIGGER tg_derivar_orden_item
+    BEFORE INSERT ON app.presupuesto_item
+    FOR EACH ROW EXECUTE FUNCTION app.fn_derivar_orden_item();
+
 CREATE OR REPLACE FUNCTION app.fn_wbs_sin_ciclos() RETURNS trigger
 LANGUAGE plpgsql AS $$
 DECLARE v_actual uuid; v_nivel_padre smallint; v_saltos int := 0;
@@ -3296,10 +3487,18 @@ CREATE POLICY p_pago_propio ON plataforma.pago
 --    barata. Es la tercera defensa contra los ciclos de la EDT, y la que
 --    protege contra cualquier forma futura de desconectar una rama.
 -- -----------------------------------------------------------------------------
--- SECURITY DEFINER (dueño construsoft_owner): la dispara un trigger cuando la
--- aplicación cambia una actividad, pero el rol de la app no tiene UPDATE sobre
--- los totales ni sobre monto_acumulado (modelo P4). El dueño no es BYPASSRLS, así
--- que sigue sujeto al aislamiento por inquilino.
+-- SECURITY DEFINER, dueño construsoft_super, que SÍ tiene BYPASSRLS: la dispara
+-- un trigger cuando la aplicación cambia una actividad, pero el rol de la app no
+-- tiene UPDATE sobre los totales ni sobre monto_acumulado (modelo P4).
+--
+-- Este comentario decía «dueño construsoft_owner» y «el dueño no es BYPASSRLS,
+-- así que sigue sujeto al aislamiento». Era falso, y además se contradecía con
+-- el cuerpo de su propia función veinte líneas más abajo, donde el comentario de
+-- RN-01 dice lo correcto. Quien leyera solo el encabezado creería que hay una
+-- política debajo sosteniendo la función, y no la hay: lo único que impide
+-- recalcular el presupuesto de otra empresa es la llamada a
+-- fn_exigir_mismo_tenant. Esa línea no es una comprobación redundante ni un
+-- cinturón sobre tirantes, es el tirante.
 CREATE OR REPLACE FUNCTION app.fn_recalcular_presupuesto(p_id uuid)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = app, plataforma, pg_temp AS $$
@@ -3408,6 +3607,9 @@ BEGIN
     UPDATE app.presupuesto
        SET total_costo_directo   = v_cd,
            total_costo_indirecto = v_ci,
+           total_administracion  = v_a,
+           total_imprevistos     = v_i,
+           total_utilidad        = v_u,
            total_aiu             = v_a + v_i + v_u,
            total_iva             = v_iva,
            valor_total           = v_cd + v_ci + v_a + v_i + v_u + v_iva,
@@ -4002,9 +4204,15 @@ COMMENT ON FUNCTION app.fn_exigir_permiso(text) IS
   'tiene el código exacto que la acción exige. No reexige el Ver del módulo: lo '
   'garantiza tg_rol_permisos_coherentes al configurar el rol.';
 
--- Las tres transiciones pasan por funciones SECURITY DEFINER de construsoft_owner,
--- porque el rol de la aplicación ya no tiene UPDATE sobre presupuesto.estado
--- (modelo P4). Cada una comprueba el rol antes de mover el estado; el resto de
+-- Las tres transiciones pasan por funciones SECURITY DEFINER de
+-- construsoft_super —que SÍ tiene BYPASSRLS; este comentario decía
+-- construsoft_owner y era falso—, porque el rol de la aplicación ya no tiene
+-- UPDATE sobre presupuesto.estado (modelo P4). Que corran sin políticas encima
+-- no es un agujero, y el motivo hay que saberlo para no confiarse: lo que las
+-- contiene no es el aislamiento sino el fn_exigir_mismo_tenant que cada una
+-- llama antes de tocar nada. Quien agregue una función a esta familia y olvide
+-- esa llamada no tendrá una segunda red debajo.
+-- Cada una comprueba el rol antes de mover el estado; el resto de
 -- la maquinaria (versión automática, evento, congelamiento) la disparan los
 -- triggers de la sección 8.
 CREATE OR REPLACE FUNCTION app.fn_activar_presupuesto(p_presupuesto_id uuid)
@@ -4296,6 +4504,149 @@ COMMENT ON FUNCTION app.fn_renumerar_wbs(uuid) IS
   '(RF-PRE-12/14, D-39, D-42). La disparan solos los cambios de estructura.';
 
 -- -----------------------------------------------------------------------------
+--  D-56 · Reordenar un hermano en la EDT, en un solo paso.
+--
+--  El documento 02, §8.2, promete que subir o bajar un capitulo renumera a
+--  todos sus hermanos «en un solo paso, sin estado intermedio visible ni
+--  codigos temporales», y que si el guardado falla la EDT vuelve al orden
+--  anterior completo, «nunca a medias». Con UPDATE sueltos eso no se puede
+--  cumplir por dos motivos: un empate de orden lo desempata (es_nodo DESC, id)
+--  y no la intencion del usuario, y si el hermano de al lado esta en la otra
+--  tabla hacen falta dos UPDATE con una renumeracion en medio que deshace el
+--  primero.
+--
+--  Recibe la posicion ABSOLUTA y no «subir» o «bajar». Los botones de la
+--  pantalla siguen siendo subir y bajar; la posicion la calcula la interfaz.
+--  La diferencia es que asi la operacion es idempotente: un doble clic no mueve
+--  dos veces, y reintentar tras un error de red no corre el capitulo dos
+--  lugares.
+--
+--  Un solo p_id para capitulo o actividad, porque comparten contador (D-42).
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION app.fn_mover_en_edt(p_id uuid, p_posicion integer)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = app, pg_temp AS $$
+DECLARE v_pres uuid; v_padre uuid; v_es_nodo boolean;
+        v_tenant uuid; v_estado text; v_n integer;
+BEGIN
+    -- Bajo RLS, un id de otra empresa sencillamente no aparece.
+    SELECT n.presupuesto_id, n.padre_id, true
+      INTO v_pres, v_padre, v_es_nodo
+      FROM app.wbs_nodo n WHERE n.id = p_id;
+    IF v_pres IS NULL THEN
+        SELECT i.presupuesto_id, i.wbs_nodo_id, false
+          INTO v_pres, v_padre, v_es_nodo
+          FROM app.presupuesto_item i WHERE i.id = p_id;
+    END IF;
+    IF v_pres IS NULL THEN
+        RAISE EXCEPTION 'Ese capitulo o actividad no existe en esta empresa.';
+    END IF;
+
+    SELECT tenant_id, estado INTO v_tenant, v_estado
+      FROM app.presupuesto WHERE id = v_pres FOR NO KEY UPDATE;
+    PERFORM app.fn_exigir_mismo_tenant(v_tenant, 'El presupuesto');
+    IF v_estado <> 'ABIERTO' THEN
+        RAISE EXCEPTION
+          'El presupuesto esta en estado %: su estructura es la linea base y no '
+          'se reordena (RN-04, RF-PRE-32).', v_estado;
+    END IF;
+
+    SELECT count(*) INTO v_n FROM (
+        SELECT n.id FROM app.wbs_nodo n
+         WHERE n.presupuesto_id = v_pres
+           AND n.padre_id IS NOT DISTINCT FROM v_padre
+        UNION ALL
+        SELECT i.id FROM app.presupuesto_item i
+         WHERE i.presupuesto_id = v_pres
+           AND i.wbs_nodo_id IS NOT DISTINCT FROM v_padre
+    ) h;
+
+    IF p_posicion IS NULL OR p_posicion < 1 OR p_posicion > v_n THEN
+        RAISE EXCEPTION
+          'La posicion % no existe: este nivel tiene % hermanos, asi que la '
+          'posicion va de 1 a %.', p_posicion, v_n, v_n;
+    END IF;
+
+    SET CONSTRAINTS app.presupuesto_item_wbs_nodo_id_orden_key DEFERRED;
+    -- Sin la bandera, cada UPDATE de aqui dispararia una renumeracion completa
+    -- del presupuesto. Se renumera una sola vez, al final.
+    PERFORM set_config('app.renumerando', v_pres::text, true);
+
+    CREATE TEMP TABLE z_orden ON COMMIT DROP AS
+    WITH hermanos AS (
+        SELECT n.id, true AS es_nodo, n.orden FROM app.wbs_nodo n
+         WHERE n.presupuesto_id = v_pres
+           AND n.padre_id IS NOT DISTINCT FROM v_padre
+        UNION ALL
+        SELECT i.id, false, i.orden FROM app.presupuesto_item i
+         WHERE i.presupuesto_id = v_pres
+           AND i.wbs_nodo_id IS NOT DISTINCT FROM v_padre
+    ), resto AS (
+        SELECT h.id, h.es_nodo,
+               row_number() OVER (ORDER BY h.orden, h.es_nodo DESC, h.id) AS lugar
+          FROM hermanos h WHERE h.id <> p_id
+    )
+    SELECT id, es_nodo,
+           (CASE WHEN lugar < p_posicion THEN lugar ELSE lugar + 1 END)::integer AS nuevo
+      FROM resto
+    UNION ALL
+    SELECT p_id, v_es_nodo, p_posicion;
+
+    UPDATE app.wbs_nodo n SET orden = z.nuevo
+      FROM z_orden z WHERE z.id = n.id AND z.es_nodo AND n.orden <> z.nuevo;
+    UPDATE app.presupuesto_item i SET orden = z.nuevo
+      FROM z_orden z WHERE z.id = i.id AND NOT z.es_nodo AND i.orden <> z.nuevo;
+    DROP TABLE z_orden;
+
+    PERFORM set_config('app.renumerando', '', true);
+    PERFORM app.fn_renumerar_wbs(v_pres);
+END $$;
+COMMENT ON FUNCTION app.fn_mover_en_edt(uuid, integer) IS
+  'D-56, RF-PRE-13, documento 02 §8.2. Mueve un capitulo o una actividad a una '
+  'posicion absoluta entre sus hermanos y renumera una sola vez. Idempotente.';
+
+-- -----------------------------------------------------------------------------
+--  D-57 · Leer la EDT con su incidencia, sin que la aplicacion divida nada.
+--
+--  SECURITY INVOKER a proposito: corre con los permisos de quien la llama y bajo
+--  sus politicas, asi que un presupuesto de otra empresa devuelve cero filas sin
+--  necesitar fn_exigir_mismo_tenant. Queda fuera de la superficie que vigila la
+--  D-54 porque no es una puerta: no puede ver nada que su llamador no viera.
+--
+--  La clasificacion es la del capitulo raiz, heredada por los subniveles (D-8):
+--  un subcapitulo no la lleva propia, y preguntarla nodo a nodo desde la
+--  aplicacion seria reimplementar la herencia en cada pantalla.
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION app.fn_leer_edt(p_presupuesto_id uuid)
+RETURNS TABLE (id uuid, padre_id uuid, codigo_wbs text, nivel smallint,
+               nombre text, clasificacion text,
+               monto_acumulado app.dinero, incidencia_pct numeric)
+LANGUAGE sql STABLE AS $$
+    WITH RECURSIVE arbol AS (
+        SELECT n.id, n.padre_id, n.codigo_wbs, n.nivel, n.nombre,
+               n.clasificacion, n.monto_acumulado, n.orden
+          FROM app.wbs_nodo n
+         WHERE n.presupuesto_id = p_presupuesto_id AND n.padre_id IS NULL
+        UNION ALL
+        SELECT h.id, h.padre_id, h.codigo_wbs, h.nivel, h.nombre,
+               a.clasificacion, h.monto_acumulado, h.orden
+          FROM app.wbs_nodo h
+          JOIN arbol a ON h.padre_id = a.id
+         WHERE h.presupuesto_id = p_presupuesto_id
+    )
+    SELECT a.id, a.padre_id, a.codigo_wbs, a.nivel, a.nombre, a.clasificacion,
+           a.monto_acumulado,
+           app.fn_incidencia(a.monto_acumulado, p.total_costo_directo)
+      FROM arbol a
+      JOIN app.presupuesto p ON p.id = p_presupuesto_id
+     -- Ordenar el codigo como texto pone el capitulo 10 entre el 1 y el 2.
+     ORDER BY string_to_array(a.codigo_wbs, '.')::int[];
+$$;
+COMMENT ON FUNCTION app.fn_leer_edt(uuid) IS
+  'D-57, RF-PRE-21. El arbol con su monto y su incidencia ya calculada. '
+  'SECURITY INVOKER: la RLS del llamador la contiene.';
+
+-- -----------------------------------------------------------------------------
 --  La renumeración no se pide: ocurre. Agregar, mover, reordenar o eliminar un
 --  capítulo o una actividad deja la numeración al día sin que el backend tenga
 --  que acordarse, igual que pasa con los totales.
@@ -4438,7 +4789,8 @@ BEGIN
     RETURN QUERY
         SELECT p.id FROM app.presupuesto p
          WHERE p.tenant_id = v_tenant
-           AND p.nombre ILIKE '%' || p_texto || '%'
+           AND (p.nombre ILIKE '%' || p_texto || '%'
+             OR p.codigo ILIKE '%' || p_texto || '%')
          ORDER BY lower(p.nombre)
          LIMIT greatest(p_limite, 0);
 END $$;
@@ -4450,7 +4802,8 @@ COMMENT ON FUNCTION app.fn_buscar_recurso(text,text,integer) IS
 COMMENT ON FUNCTION app.fn_buscar_apu(text,integer) IS
   'Búsqueda por nombre de RF-APU-02, misma mecánica que fn_buscar_recurso (D-47).';
 COMMENT ON FUNCTION app.fn_buscar_presupuesto(text,integer) IS
-  'Búsqueda por nombre de RF-PRE-02, misma mecánica que fn_buscar_recurso (D-47).';
+  'Búsqueda por nombre o código de RF-PRE-02, misma mecánica que '
+  'fn_buscar_recurso (D-47).';
 
 -- -----------------------------------------------------------------------------
 --  RF-PRE-27 / D-19 · Duplicar un presupuesto.
@@ -4540,8 +4893,7 @@ BEGIN
         INSERT INTO app.presupuesto_item
             (tenant_id, presupuesto_id, wbs_nodo_id, orden, codigo_item,
              apu_id, apu_version_id,
-             codigo_apu, descripcion, unidad_simbolo, precio_unitario, cantidad,
-             costo_total)
+             codigo_apu, descripcion, unidad_simbolo, precio_unitario, cantidad)
         SELECT v_tenant, v_nuevo, (v_map->>i.wbs_nodo_id::text)::uuid, i.orden,
                i.codigo_item,
                i.apu_id,
@@ -4554,10 +4906,7 @@ BEGIN
                     ELSE i.unidad_simbolo END,
                CASE WHEN p_actualizar_apu THEN COALESCE(vv.costo_directo, i.precio_unitario)
                     ELSE i.precio_unitario END,
-               i.cantidad,
-               round(i.cantidad * CASE WHEN p_actualizar_apu
-                                       THEN COALESCE(vv.costo_directo, i.precio_unitario)
-                                       ELSE i.precio_unitario END, 6)
+               i.cantidad
           FROM app.presupuesto_item i
           JOIN app.apu a           ON a.id  = i.apu_id
           LEFT JOIN app.apu_version vv ON vv.id = a.version_vigente_id
@@ -4733,8 +5082,7 @@ BEGIN
 
     UPDATE app.presupuesto_item i
        SET apu_version_id  = v_ver,
-           precio_unitario = v_costo,
-           costo_total     = round(i.cantidad * v_costo, 6)
+           precio_unitario = v_costo
      WHERE i.apu_id = p_apu_id
        AND i.presupuesto_id = ANY (p_presupuestos)
        -- El filtro que convierte «ignora los que no son ABIERTOS» en algo
@@ -5270,6 +5618,7 @@ ALTER FUNCTION app.fn_eliminar_recurso(uuid)                    OWNER TO constru
 -- Las tres operaciones de D-39, por la misma razón: reciben identificadores que
 -- llegan del cliente y escriben en varias tablas del inquilino.
 ALTER FUNCTION app.fn_renumerar_wbs(uuid)                       OWNER TO construsoft_owner;
+ALTER FUNCTION app.fn_mover_en_edt(uuid,integer)                OWNER TO construsoft_owner;
 ALTER FUNCTION app.fn_duplicar_presupuesto(uuid,text,text,boolean)
     OWNER TO construsoft_owner;
 ALTER FUNCTION app.fn_nueva_version_apu(uuid,jsonb,text,uuid,text)
@@ -5330,12 +5679,36 @@ GRANT UPDATE (codigo, nombre, ubicacion, aiu_administracion, aiu_imprevistos,
               aiu_utilidad, iva_utilidad_pct, modo_estructura,
               archivado_en, fecha_modificacion, duplicado_de_id)
     ON app.presupuesto TO construsoft_app;
--- del ítem: nunca su número, que lo deriva la renumeración.
-GRANT UPDATE (wbs_nodo_id, orden, apu_id, apu_version_id, codigo_apu, descripcion,
-              unidad_simbolo, precio_unitario, cantidad, costo_total)
+-- Del item y del nodo, SOLO lo que decide una persona. Lo demas se deriva, y
+-- conceder UPDATE sobre un dato derivado es dejar abierta la puerta que la
+-- derivacion existe para cerrar:
+--   · costo_total, nivel y codigo_wbs son ahora columnas generadas o derivadas
+--     por trigger; un GRANT sobre ellas no serviria de nada o competiria.
+--   · orden sale a proposito. Reordenar pasa solo por app.fn_mover_en_edt: un
+--     UPDATE orden suelto reproduce el empate silencioso que D-55 cierra.
+--   · padre_id y wbs_nodo_id son «mover a otro padre», que el documento 02 no
+--     ofrece en ninguna pantalla (§8.2). Si construir la funcion seria preparar
+--     el terreno para una pantalla que nadie diseño, conceder el permiso
+--     tambien lo es.
+--   · apu_id, apu_version_id y los snapshots los escribe fn_reapuntar_apu, que
+--     corre como su dueño.
+-- Solo la cantidad. La descripcion NO: el documento 02 §8.3 la marca como no
+-- editable —la unica fila editable de la mesa es «Cantidad de obra»— y
+-- concederla habilitaria algo que ninguna pantalla ofrece. Ademas seria una
+-- funcion que pierde datos en silencio: fn_duplicar_presupuesto con
+-- p_actualizar_apu = true pisa descripcion con el nombre de la version vigente
+-- del APU, asi que un nombre escrito a mano desapareceria al duplicar sin
+-- aviso, y tg_item_fiel_a_su_version no lo protege porque se diseño como copia
+-- fiel del APU, igual que el codigo y la unidad.
+--   No es una pregunta abierta: el dueño del proyecto la resolvio el 30 de
+-- septiembre de 2026 y la respuesta es que NO debe poderse renombrar. El motivo
+-- es de negocio y no tecnico: si la descripcion de la actividad pudiera diferir
+-- del APU, dejaria de ser cierto que la oferta refleja el analisis del que salio
+-- el precio. Queda escrito aqui para que nadie vuelva a abrirla creyendo que
+-- solo faltaba decidirlo.
+GRANT UPDATE (cantidad)
     ON app.presupuesto_item TO construsoft_app;
--- del nodo: todo menos monto_acumulado (lo escribe el recálculo).
-GRANT UPDATE (padre_id, orden, nivel, codigo_wbs, nombre, clasificacion)
+GRANT UPDATE (nombre, clasificacion)
     ON app.wbs_nodo TO construsoft_app;
 -- tablas cuyos guardianes ya defienden las columnas inmutables por trigger.
 GRANT UPDATE ON app.recurso, app.apu, app.rol, app.rol_permiso, app.usuario,
@@ -5371,6 +5744,7 @@ REVOKE EXECUTE ON FUNCTION
     app.fn_cerrar_presupuesto(uuid),
     app.fn_reabrir_presupuesto(uuid,text),
     app.fn_renumerar_wbs(uuid),
+    app.fn_mover_en_edt(uuid,integer),
     app.fn_duplicar_presupuesto(uuid,text,text,boolean),
     app.fn_nueva_version_apu(uuid,jsonb,text,uuid,text),
     app.fn_propagar_recurso(uuid,uuid[]),
@@ -5391,6 +5765,7 @@ GRANT EXECUTE ON FUNCTION
     app.fn_cerrar_presupuesto(uuid),
     app.fn_reabrir_presupuesto(uuid,text),
     app.fn_renumerar_wbs(uuid),
+    app.fn_mover_en_edt(uuid,integer),
     app.fn_duplicar_presupuesto(uuid,text,text,boolean),
     app.fn_nueva_version_apu(uuid,jsonb,text,uuid,text),
     app.fn_propagar_recurso(uuid,uuid[]),
