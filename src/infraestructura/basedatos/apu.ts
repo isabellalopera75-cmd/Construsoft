@@ -318,3 +318,37 @@ export async function listarApus(contexto: ContextoTenant, filtros: FiltrosApu =
     return rows.map(filaAResumen);
   });
 }
+
+/**
+ * El buscador de «+ Agregar Actividad» de la mesa de trabajo (RF-PRE-15,
+ * 02 §6.5 y §8.3): solo APU activos. Es una función aparte y no un parámetro
+ * de listarApus a propósito. Con un parámetro de valor por defecto, una de las
+ * dos pantallas dependería de que nadie olvide pasarlo, y el olvido no falla:
+ * devuelve en silencio la lista equivocada. Si el valor por defecto excluyera
+ * los inactivos, la vista maestra dejaría de mostrarlos y no habría dónde
+ * reactivarlos; si los incluyera, el buscador ofrecería lo que se desactivó
+ * para no ofrecerse. Con dos funciones, cada pantalla nombra lo que quiere, y
+ * la regla del buscador no se puede apagar. El texto es obligatorio: un
+ * autocompletado siempre busca algo.
+ *
+ * El filtro es solo de lectura: la base sigue aceptando un APU inactivo en una
+ * actividad, porque un presupuesto viejo puede usar uno que se desactivó
+ * después. Sin APU.VER, fn_exigir_permiso rechaza con el nombre del permiso
+ * que falta, en vez de devolver una lista vacía que parezca un catálogo vacío.
+ */
+export async function buscarApusParaActividad(
+  contexto: ContextoTenant,
+  texto: string,
+  limite = 50,
+): Promise<ResumenApu[]> {
+  return ejecutarConPermiso(contexto, 'APU.VER', async (cliente) => {
+    const { rows } = await cliente.query<FilaCabecera>(
+      `${SELECT_CABECERA}
+        WHERE a.id IN (SELECT id FROM app.fn_buscar_apu($1, $2))
+          AND a.activo
+        ORDER BY lower(a.nombre)`,
+      [texto.trim(), limite],
+    );
+    return rows.map(filaAResumen);
+  });
+}

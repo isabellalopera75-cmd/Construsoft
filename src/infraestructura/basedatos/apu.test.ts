@@ -8,7 +8,11 @@ import {
   type EmpresaRegistrada,
 } from './contextoTenant.js';
 import { crearRecurso, type Recurso } from './recurso.js';
+import { crearPresupuesto } from './presupuesto.js';
+import { agregarCapitulo } from './edt.js';
+import { agregarActividad, leerActividades } from './actividad.js';
 import {
+  buscarApusParaActividad,
   crearApu,
   editarApu,
   leerApu,
@@ -638,5 +642,87 @@ describe('editarApu / listarPresupuestosDelApu', () => {
     const sigue = (await leerApu(contexto(), apu.id))!;
     assert.equal(sigue.numeroVersion, 1);
     assert.equal(sigue.nombre, 'APU de E');
+  });
+});
+
+describe('buscarApusParaActividad: el buscador de «+ Agregar Actividad» no ofrece inactivos', () => {
+  let empresaA: EmpresaRegistrada;
+  let asistenteId: string;
+  let morteroInactivo: Apu;
+
+  // Tres morteros (uno inactivo) y un concreto: el buscador de la mesa ve dos, la vista maestra tres.
+  before(async () => {
+    empresaA = await registrarEmpresaDePrueba('Constructora Buscador A', '900000046-6', 'apu.buscador.a@construsoft.test');
+    asistenteId = await crearAsistente(empresaA, 'apu.buscador.asistente@construsoft.test', 'Asistente del buscador');
+    const contexto = { tenantId: empresaA.tenantId, usuarioId: empresaA.usuarioId };
+    const unidadM3 = await leerUnidadPorSimbolo(empresaA, 'm³');
+    const arena = await crearRecurso(contexto, {
+      nombre: 'Arena',
+      tipo: 'MATERIAL',
+      unidadId: unidadM3,
+      precioBase: '50000',
+      ivaPct: '0',
+      precioTotal: '50000',
+      viaCaptura: 'BASE',
+    });
+    const nuevo = (nombre: string) =>
+      crearApu(contexto, {
+        nombre,
+        unidadId: unidadM3,
+        lineas: [{ recursoId: arena.id, cantidad: '1', rendimiento: '1', desperdicioPct: '0' }],
+      });
+    await nuevo('Mortero 1:3');
+    await nuevo('Mortero 1:4');
+    morteroInactivo = await nuevo('Mortero 1:5 descontinuado');
+    await nuevo('Concreto ciclópeo');
+    await montarEscenarioComoAdmin(empresaA, 'APU.EDITAR', (cliente) =>
+      cliente.query('UPDATE app.apu SET activo = false WHERE id = $1', [morteroInactivo.id]),
+    );
+  });
+
+  const contexto = () => ({ tenantId: empresaA.tenantId, usuarioId: empresaA.usuarioId });
+  const nombres = (lista: { nombre: string }[]) => lista.map((a) => a.nombre).sort();
+
+  test('por nombre: dos de los tres morteros, nunca el inactivo; la vista maestra sigue mostrando los tres', async () => {
+    assert.deepEqual(nombres(await buscarApusParaActividad(contexto(), 'mortero')), ['Mortero 1:3', 'Mortero 1:4']);
+    assert.deepEqual(nombres(await listarApus(contexto(), { texto: 'mortero' })), [
+      'Mortero 1:3',
+      'Mortero 1:4',
+      'Mortero 1:5 descontinuado',
+    ]);
+  });
+
+  test('por el código exacto del inactivo: cero', async () => {
+    assert.deepEqual(await buscarApusParaActividad(contexto(), morteroInactivo.codigo), []);
+  });
+
+  test('la base sigue permitiendo el APU inactivo en un presupuesto: el filtro es del buscador, no una restricción', async () => {
+    const presupuesto = await crearPresupuesto(contexto(), {
+      codigo: 'BUS-1',
+      nombre: 'Con un APU desactivado después',
+      ubicacion: 'Medellín',
+      modoEstructura: 'ITEMS',
+    });
+    const capitulo = await agregarCapitulo(contexto(), presupuesto.id, { nombre: 'OBRA', clasificacion: 'DIRECTO' });
+    await agregarActividad(contexto(), capitulo.id, morteroInactivo.id, '2');
+    assert.deepEqual(
+      (await leerActividades(contexto(), presupuesto.id)).map((a) => [a.codigoItem, a.descripcion]),
+      [['1.1', 'Mortero 1:5 descontinuado']],
+    );
+  });
+
+  test('sin APU.VER el buscador no devuelve una lista vacía muda: el rechazo dice qué permiso falta y a quién pedirlo', async () => {
+    await assert.rejects(
+      buscarApusParaActividad({ tenantId: empresaA.tenantId, usuarioId: asistenteId }, 'mortero'),
+      /Su rol no tiene el permiso «APU\.VER»\. Pídale a un administrador/,
+    );
+  });
+
+  test('aislamiento: otra empresa no encuentra estos APU', async () => {
+    const empresaB = await registrarEmpresaDePrueba('Constructora Buscador B', '900000047-7', 'apu.buscador.b@construsoft.test');
+    assert.deepEqual(
+      await buscarApusParaActividad({ tenantId: empresaB.tenantId, usuarioId: empresaB.usuarioId }, 'mortero'),
+      [],
+    );
   });
 });
