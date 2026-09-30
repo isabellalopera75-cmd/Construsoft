@@ -35,12 +35,12 @@
 --  ---------------------------------------------------------------------------
 --  LAS DECISIONES DE DISEÑO QUE ESTE ESQUEMA IMPLEMENTA
 --
---  Son cincuenta y siete: D-1 a D-58, sin la D-10, que no existe. El motivo de
+--  Son cincuenta y ocho: D-1 a D-59, sin la D-10, que no existe. El motivo de
 --  cada una está en la sección 14 del documento de alcance. Aquí va el
 --  enunciado, y cada decisión vuelve a aparecer anotada en el punto del esquema
 --  donde vive. Las ocho últimas están al final de esta lista y tienen fecha:
 --  D-44 a D-49 salieron de la auditoría externa del 24 de septiembre de 2026;
---  D-50 a D-58 son posteriores a ella y se distinguen a propósito, porque
+--  D-50 a D-59 son posteriores a ella y se distinguen a propósito, porque
 --  nadie debería tener que preguntarle a nadie qué se movió después del
 --  dictamen: está escrito aquí.
 --
@@ -221,7 +221,7 @@
 --  volver a auditar si el cambio solo altera lo que una función le devuelve a
 --  un llamador que ya tenía derecho a esas filas, porque ahí la superficie de
 --  lectura es la misma antes y después. D-50 cae del primer lado y se verificó
---  como tal; D-51 a D-58, del segundo, y abajo está por qué.
+--  como tal; D-51 a D-59, del segundo, y abajo está por qué.
 --
 --   D-50  (posterior a la auditoría · toca roles y privilegios · verificada
 --         contra la base) El rol dueño de las funciones de autenticación no se
@@ -334,6 +334,15 @@
 --         propósito: el momento de archivar ya lo guarda archivado_en, y si la
 --         moviera, desarchivar una licitación de hace un año la pondría arriba
 --         de la lista como si se acabara de trabajar en ella.
+--   D-59  (posterior a la auditoría · amplía un disparador) Editar presupuestos
+--         exige también Ver APU. Es el único prerrequisito ENTRE módulos, y por
+--         eso se escribe aparte en vez de generalizarlo: no es que todos
+--         dependan de todos, es que una actividad de la mesa de trabajo ES un
+--         APU con una cantidad, así que sin el catálogo la pantalla se abre y el
+--         buscador no ofrece nada. Decisión del dueño del proyecto, 30 de
+--         septiembre de 2026. Antes el rol se guardaba sin protestar y el
+--         síntoma aparecía después, en la pantalla de otra persona, con forma de
+--         programa roto en vez de forma de permiso que falta.
 --
 --  ---------------------------------------------------------------------------
 --  LO QUE SIGUE ABIERTO, A PROPÓSITO
@@ -2965,6 +2974,33 @@ BEGIN
           'El rol tiene acciones de % sin el permiso de consulta del modulo. '
           'Para marcar cualquier accion hay que marcar primero Ver (RF-CFG-25).',
           v_modulos;
+    END IF;
+
+    -- D-59 · El unico prerrequisito ENTRE modulos: editar un presupuesto exige
+    -- ver el catalogo de APU.
+    --
+    -- La regla de arriba es dentro de un modulo; esta cruza dos, y por eso se
+    -- escribe aparte y no se generaliza: no es que todos los modulos dependan
+    -- de todos, es que la mesa de trabajo no se puede usar sin APU. Una
+    -- actividad de un presupuesto ES un APU con una cantidad; sin ver el
+    -- catalogo, la pantalla se abre y el buscador no ofrece nada.
+    --
+    -- Sin esta comprobacion el rol se podia guardar y el sintoma aparecia mucho
+    -- despues, en la pantalla de otra persona, con forma de programa roto en vez
+    -- de forma de permiso que falta. Vale mas rechazar la configuracion
+    -- imposible que explicar bien sus consecuencias.
+    --
+    -- Cubre tambien el DELETE, como su hermana: quitarle APU.VER a un rol que
+    -- edita presupuestos se rechaza al confirmar la transaccion.
+    IF EXISTS (SELECT 1 FROM app.rol_permiso rp
+                WHERE rp.rol_id = v_rol AND rp.permiso_codigo = 'PRESUPUESTOS.EDITAR')
+       AND NOT EXISTS (SELECT 1 FROM app.rol_permiso rp
+                        WHERE rp.rol_id = v_rol AND rp.permiso_codigo = 'APU.VER')
+    THEN
+        RAISE EXCEPTION
+          'Un rol que edita presupuestos necesita tambien Ver APU: una actividad '
+          'de la mesa de trabajo es un APU con una cantidad, y sin el catalogo '
+          'la pantalla se abre vacia. Marque Ver en el modulo APU (D-59).';
     END IF;
     RETURN NULL;
 END $$;
