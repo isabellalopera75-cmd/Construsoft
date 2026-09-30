@@ -42,3 +42,19 @@ export async function reabrirPresupuesto(contexto: ContextoTenant, id: string, j
     cliente.query('SELECT app.fn_reabrir_presupuesto($1, $2)', [id, justificacion]),
   );
 }
+
+/**
+ * RF-PRE-40, D-18, D-61 · Eliminar un presupuesto que nunca se activó. La
+ * única puerta es app.fn_eliminar_presupuesto: la aplicación no tiene DELETE
+ * sobre la tabla. La base exige el rol Administrador y un motivo escrito, que
+ * queda en el evento PRESUPUESTO_ELIMINADO, la única huella que sobrevive.
+ * Uno que se activó alguna vez lo rechaza tg_borrar_solo_no_activado.
+ *
+ * Aquí la puerta es PRESUPUESTOS.ESTADO porque es el único permiso exclusivo
+ * del Administrador, y D-18 pone el borrado junto al cambio de estado.
+ */
+export async function eliminarPresupuesto(contexto: ContextoTenant, id: string, motivo: string): Promise<void> {
+  await ejecutarConPermiso(contexto, 'PRESUPUESTOS.ESTADO', (cliente) =>
+    cliente.query('SELECT app.fn_eliminar_presupuesto($1, $2)', [id, motivo]),
+  );
+}

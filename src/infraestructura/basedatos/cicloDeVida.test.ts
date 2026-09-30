@@ -11,7 +11,8 @@ import { crearApu, type Apu } from './apu.js';
 import { crearPresupuesto, editarPorcentajes, leerPresupuesto } from './presupuesto.js';
 import { agregarCapitulo } from './edt.js';
 import { agregarActividad, cambiarCantidad } from './actividad.js';
-import { activarPresupuesto, cerrarPresupuesto, reabrirPresupuesto } from './cicloDeVida.js';
+import { activarPresupuesto, cerrarPresupuesto, eliminarPresupuesto, reabrirPresupuesto } from './cicloDeVida.js';
+import { guardarVersion } from './versiones.js';
 
 let empresa: EmpresaRegistrada;
 let asistenteId: string;
@@ -247,5 +248,123 @@ describe('ciclo de vida: activar, cerrar y reabrir (RF-PRE-24..28, RF-VER-01/02/
     assert.equal(await estado(abierto), 'ABIERTO');
     assert.equal(await estado(activo), 'ACTIVO');
     assert.equal((await rastro(activo)).versiones.length, 1);
+  });
+});
+
+describe('eliminar un presupuesto nunca activado (RF-PRE-40, D-18, D-61)', () => {
+  /** Lo que queda del presupuesto en la base, visto por la empresa: cabecera, nodos, actividades, versiones y eventos propios. */
+  async function restos(id: string) {
+    return comoAdmin(async (cliente) => {
+      const contar = async (sql: string) => Number((await cliente.query<{ n: string }>(sql, [id])).rows[0]!.n);
+      return {
+        presupuesto: await contar('SELECT count(*) AS n FROM app.presupuesto WHERE id = $1'),
+        nodos: await contar('SELECT count(*) AS n FROM app.wbs_nodo WHERE presupuesto_id = $1'),
+        actividades: await contar('SELECT count(*) AS n FROM app.presupuesto_item WHERE presupuesto_id = $1'),
+        versiones: await contar('SELECT count(*) AS n FROM app.presupuesto_version WHERE presupuesto_id = $1'),
+        eventos: await contar('SELECT count(*) AS n FROM app.evento_auditoria WHERE presupuesto_id = $1'),
+      };
+    });
+  }
+
+  test('con motivo se borra en cascada, y queda un solo evento firmado con la justificación, fuera del proyecto', async () => {
+    const id = await presupuestoConActividad();
+    await guardarVersion(contexto(), id, 'Borrador');
+    assert.deepEqual(await restos(id), { presupuesto: 1, nodos: 1, actividades: 1, versiones: 1, eventos: 2 });
+
+    await eliminarPresupuesto(contexto(), id, 'Licitación duplicada por error');
+
+    assert.deepEqual(await restos(id), { presupuesto: 0, nodos: 0, actividades: 0, versiones: 0, eventos: 0 });
+    const huella = await comoAdmin(async (cliente) => {
+      const { rows } = await cliente.query<{
+        tipo_evento: string;
+        presupuesto_id: string | null;
+        justificacion: string;
+        usuario_id: string;
+      }>(
+        'SELECT tipo_evento, presupuesto_id, justificacion, usuario_id FROM app.evento_auditoria WHERE entidad_id = $1',
+        [id],
+      );
+      return rows;
+    });
+    assert.deepEqual(huella, [
+      {
+        tipo_evento: 'PRESUPUESTO_ELIMINADO',
+        presupuesto_id: null,
+        justificacion: 'Licitación duplicada por error',
+        usuario_id: empresa.usuarioId,
+      },
+    ]);
+  });
+
+  test('sin motivo, o con uno en blanco, no se borra nada', async () => {
+    const id = await presupuestoConActividad();
+    await assert.rejects(eliminarPresupuesto(contexto(), id, '   '), /exige una justificación escrita/);
+    assert.equal((await restos(id)).presupuesto, 1);
+  });
+
+  test('un presupuesto que alguna vez fue activado no se borra, aunque hoy esté ABIERTO otra vez: se archiva', async () => {
+    const id = await presupuestoConActividad();
+    await activarPresupuesto(contexto(), id);
+    await reabrirPresupuesto(contexto(), id, 'Para intentar borrarlo');
+    await assert.rejects(eliminarPresupuesto(contexto(), id, 'Ya no sirve'), /fue activado alguna vez.*Archívelo/);
+    assert.equal((await restos(id)).presupuesto, 1);
+  });
+
+  test('la aplicación no tiene DELETE directo: la única puerta es la función', async () => {
+    const id = await presupuestoConActividad();
+    await assert.rejects(
+      ejecutarConPermiso(contexto(), 'PRESUPUESTOS.EDITAR', (cliente) =>
+        cliente.query('DELETE FROM app.presupuesto WHERE id = $1', [id]),
+      ),
+      /permiso denegado|permission denied/,
+    );
+    assert.equal((await restos(id)).presupuesto, 1);
+  });
+
+  test('sin PRESUPUESTOS.ESTADO no se elimina; y aunque alguien llame la función de la base sin ser Administrador, la base lo rechaza', async () => {
+    const id = await presupuestoConActividad();
+    const asistente = { tenantId: empresa.tenantId, usuarioId: asistenteId };
+    await assert.rejects(eliminarPresupuesto(asistente, id, 'Sin permiso'), /PRESUPUESTOS\.ESTADO/);
+
+    const colaboradorId = await ejecutarConPermiso(contexto(), 'USUARIOS.GESTIONAR', async (cliente) => {
+      const { rows: roles } = await cliente.query<{ id: string }>(
+        `INSERT INTO app.rol (tenant_id, nombre, tipo) VALUES ($1, 'Consulta', 'PERSONALIZADO') RETURNING id`,
+        [empresa.tenantId],
+      );
+      await cliente.query(
+        `INSERT INTO app.rol_permiso (tenant_id, rol_id, permiso_codigo) VALUES ($1, $2, 'PRESUPUESTOS.VER')`,
+        [empresa.tenantId, roles[0]!.id],
+      );
+      const { rows } = await cliente.query<{ id: string }>(
+        `INSERT INTO app.usuario (tenant_id, rol_id, nombre, email, password_hash, estado)
+         VALUES ($1, $2, 'Consultor', 'ciclo.consultor@construsoft.test', 'x', 'ACTIVO') RETURNING id`,
+        [empresa.tenantId, roles[0]!.id],
+      );
+      return rows[0]!.id;
+    });
+    await assert.rejects(
+      ejecutarConPermiso({ tenantId: empresa.tenantId, usuarioId: colaboradorId }, 'PRESUPUESTOS.VER', (cliente) =>
+        cliente.query(`SELECT app.fn_eliminar_presupuesto($1, 'Por la puerta de atrás')`, [id]),
+      ),
+      /exclusivo del rol Administrador/,
+    );
+    assert.equal((await restos(id)).presupuesto, 1);
+  });
+
+  test('aislamiento: otra empresa no elimina este presupuesto con su id exacto', async () => {
+    const empresaB = await registrarEmpresa({
+      razonSocial: 'Constructora Ciclo Borrado B',
+      nit: '900000102-2',
+      plan: 'PERSONAL',
+      adminNombre: 'Admin B',
+      adminEmail: 'ciclo.borrado.b@construsoft.test',
+      adminHash: 'hash_de_prueba_no_real',
+    });
+    const id = await presupuestoConActividad();
+    await assert.rejects(
+      eliminarPresupuesto({ tenantId: empresaB.tenantId, usuarioId: empresaB.usuarioId }, id, 'Intruso'),
+      /no existe en esta empresa/,
+    );
+    assert.equal((await restos(id)).presupuesto, 1);
   });
 });
