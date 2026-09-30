@@ -35,12 +35,12 @@
 --  ---------------------------------------------------------------------------
 --  LAS DECISIONES DE DISEÑO QUE ESTE ESQUEMA IMPLEMENTA
 --
---  Son cincuenta y ocho: D-1 a D-59, sin la D-10, que no existe. El motivo de
+--  Son sesenta: D-1 a D-61, sin la D-10, que no existe. El motivo de
 --  cada una está en la sección 14 del documento de alcance. Aquí va el
 --  enunciado, y cada decisión vuelve a aparecer anotada en el punto del esquema
 --  donde vive. Las ocho últimas están al final de esta lista y tienen fecha:
 --  D-44 a D-49 salieron de la auditoría externa del 24 de septiembre de 2026;
---  D-50 a D-59 son posteriores a ella y se distinguen a propósito, porque
+--  D-50 a D-61 son posteriores a ella y se distinguen a propósito, porque
 --  nadie debería tener que preguntarle a nadie qué se movió después del
 --  dictamen: está escrito aquí.
 --
@@ -221,7 +221,7 @@
 --  volver a auditar si el cambio solo altera lo que una función le devuelve a
 --  un llamador que ya tenía derecho a esas filas, porque ahí la superficie de
 --  lectura es la misma antes y después. D-50 cae del primer lado y se verificó
---  como tal; D-51 a D-59, del segundo, y abajo está por qué.
+--  como tal; D-51 a D-61, del segundo, y abajo está por qué.
 --
 --   D-50  (posterior a la auditoría · toca roles y privilegios · verificada
 --         contra la base) El rol dueño de las funciones de autenticación no se
@@ -343,6 +343,29 @@
 --         septiembre de 2026. Antes el rol se guardaba sin protestar y el
 --         síntoma aparecía después, en la pantalla de otra persona, con forma de
 --         programa roto en vez de forma de permiso que falta.
+--   D-60  (posterior a la auditoría · agrega una función pura) El pie financiero
+--         se calcula en app.fn_pie_financiero, que recibe seis números y
+--         devuelve seis, sin tocar ninguna tabla. Lo usan el recálculo —sobre lo
+--         guardado— y el diálogo de duplicar de D-19 —sobre lo hipotético, «este
+--         es el valor antes y después de actualizar los APU»—. Escrita dos
+--         veces, esa cuenta diría algún día cosas distintas del mismo
+--         presupuesto: una en la pantalla que pregunta y otra en el total que
+--         queda guardado. Comprobado: el presupuesto de referencia sigue en
+--         180.590.155 después de la extracción.
+--   D-61  (posterior a la auditoría · agrega una función, quita dos permisos)
+--         Eliminar un presupuesto pasa por app.fn_eliminar_presupuesto, exige
+--         rol Administrador y justificación escrita, y el DELETE sale del GRANT.
+--         Estaba rota de dos maneras y ninguna se veía porque nada la llamaba
+--         todavía: el tipo de evento PRESUPUESTO_ELIMINADO exige justificación y
+--         el disparador la escribía sin ninguna, así que borrar fallaba SIEMPRE
+--         —una función que el documento promete y que no se podía ejecutar
+--         nunca—, y además el rol de la aplicación tenía DELETE directo, de modo
+--         que borrar no exigía ser Administrador aunque D-18 lo ponga junto al
+--         cambio de estado. En la misma tanda sale duplicado_de_id del GRANT
+--         UPDATE: es la única prueba de que una copia es una copia, y con el
+--         permiso la aplicación podía decir que un presupuesto salió de otro que
+--         nunca lo originó. Y se agrega aiu_en_cero, hermana de sin_base_aiu,
+--         para el aviso de RF-PRE-35.
 --
 --  ---------------------------------------------------------------------------
 --  LO QUE SIGUE ABIERTO, A PROPÓSITO
@@ -1367,6 +1390,12 @@ CREATE TABLE app.presupuesto (
     -- RF-PRE-36 · El aviso de «hay AIU pero no hay sobre que aplicarlo» lo
     -- decide la base y no la pantalla, por el mismo motivo que todo lo demas:
     -- una regla escrita en la interfaz solo vale en la interfaz que la escribio.
+    -- RF-PRE-35 · El aviso al activar con el AIU en cero. Lo decide la base por
+    -- el mismo motivo que sin_base_aiu: comparar contra '0.000000' desde la
+    -- pantalla es reimplementar en JavaScript una pregunta que aquí es una
+    -- columna.
+    aiu_en_cero boolean GENERATED ALWAYS AS
+        (aiu_administracion + aiu_imprevistos + aiu_utilidad = 0) STORED,
     sin_base_aiu boolean GENERATED ALWAYS AS
         (total_costo_directo = 0
          AND aiu_administracion + aiu_imprevistos + aiu_utilidad > 0) STORED,
@@ -2119,7 +2148,11 @@ END $$;
 COMMENT ON FUNCTION app.fn_evento_interno IS
   'Única puerta de escritura del historial (D-45). No recibe el autor: lo lee de '
   'app.usuario_id, así que nadie puede firmar un evento a nombre de otro. La '
-  'llaman los triggers de este esquema; el rol de la aplicación no la ejecuta.';
+  'llaman los triggers de este esquema. El rol de la aplicación SÍ tiene EXECUTE '
+  '—los triggers de historia corren con su rol y lo necesitan—, pero la función '
+  'se niega fuera de un trigger (pg_trigger_depth), que es lo que de verdad la '
+  'cierra. Este comentario decía «el rol de la aplicación no la ejecuta» y era '
+  'falso: el permiso está concedido en la §16.6.';
 
 CREATE OR REPLACE FUNCTION app.fn_historia_silenciada() RETURNS boolean
 LANGUAGE sql STABLE AS $$
@@ -2225,10 +2258,16 @@ BEGIN
         -- presupuesto_id va en NULO a propósito: con el id puesto, la llave
         -- foránea se llevaría por delante el evento que dice que el proyecto se
         -- borró, que es justo el que hay que conservar (D-18).
+        -- El motivo viaja por variable de sesión desde fn_eliminar_presupuesto,
+        -- igual que el de la reapertura. Sin esta línea el evento salía sin
+        -- justificación y tipo_evento la exige, así que eliminar un presupuesto
+        -- fallaba SIEMPRE: una función documentada que no se podía ejecutar
+        -- nunca, y nadie lo notó porque nada la llamaba todavía (D-61).
         PERFORM app.fn_evento_interno(OLD.tenant_id, NULL, 'PRESUPUESTO',
             OLD.id, 'PRESUPUESTO_ELIMINADO',
             format('Presupuesto «%s» (%s) eliminado', OLD.nombre, OLD.codigo),
-            to_jsonb(OLD), NULL);
+            to_jsonb(OLD), NULL,
+            NULLIF(current_setting('app.motivo_eliminacion', true), ''));
         RETURN NULL;
     END IF;
 
@@ -2760,7 +2799,7 @@ BEGIN
        AND NOT app.fn_bandera_interna('app.motivo_reapertura') THEN
         RAISE EXCEPTION
           'Reabrir % exige justificacion escrita (RF-PRE-28, RN-03). Use '
-          'app.fn_reabrir_presupuesto(presupuesto, usuario, motivo): es el unico '
+          'app.fn_reabrir_presupuesto(presupuesto, motivo): es el unico '
           'camino, y es lo que garantiza que la linea base quede archivada y el '
           'motivo en el historial.', NEW.codigo;
     END IF;
@@ -3550,6 +3589,52 @@ CREATE POLICY p_pago_propio ON plataforma.pago
 -- recalcular el presupuesto de otra empresa es la llamada a
 -- fn_exigir_mismo_tenant. Esa línea no es una comprobación redundante ni un
 -- cinturón sobre tirantes, es el tirante.
+-- -----------------------------------------------------------------------------
+--  D-60 · El pie financiero se calcula en una funcion pura.
+--
+--  La formula vivia dentro de fn_recalcular_presupuesto, y el dialogo de D-19
+--  —«este es el valor total antes y despues de actualizar los APU»— necesita
+--  exactamente la misma cuenta sobre numeros que todavia no estan guardados.
+--  Calcularla en el backend seria reimplementar el pie entero: AIU sobre el
+--  costo directo, IVA sobre la utilidad, y el costo indirecto sumandose despues.
+--  Tres reglas que, escritas dos veces, algun dia diran cosas distintas del
+--  mismo presupuesto: una en la pantalla que pregunta y otra en el total que
+--  queda guardado.
+--
+--  IMMUTABLE y sin tocar ninguna tabla: recibe seis numeros y devuelve seis.
+--  Eso es lo que la hace servir para las dos cosas —lo guardado y lo hipotetico—
+--  sin que ninguna de las dos sea un caso especial de la otra.
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION app.fn_pie_financiero(
+    p_costo_directo app.dinero, p_costo_indirecto app.dinero,
+    p_pct_a app.porcentaje, p_pct_i app.porcentaje, p_pct_u app.porcentaje,
+    p_pct_iva app.porcentaje)
+RETURNS TABLE (administracion app.dinero, imprevistos app.dinero,
+               utilidad app.dinero, aiu app.dinero, iva app.dinero,
+               valor_total app.dinero)
+LANGUAGE sql IMMUTABLE AS $$
+    -- El AIU se aplica SOLO sobre el costo directo (D-3): el costo indirecto ya
+    -- es administracion, y aplicarle el porcentaje encima lo cobraria dos veces.
+    -- El IVA grava la utilidad y nada mas (D-33). El costo indirecto y el IVA se
+    -- suman al final, fuera de la base del AIU.
+    WITH x AS (
+        SELECT (p_costo_directo * p_pct_a / 100)::app.dinero AS a,
+               (p_costo_directo * p_pct_i / 100)::app.dinero AS i,
+               (p_costo_directo * p_pct_u / 100)::app.dinero AS u
+    )
+    SELECT x.a, x.i, x.u, (x.a + x.i + x.u)::app.dinero,
+           (x.u * p_pct_iva / 100)::app.dinero,
+           (p_costo_directo + p_costo_indirecto + x.a + x.i + x.u
+            + x.u * p_pct_iva / 100)::app.dinero
+      FROM x;
+$$;
+COMMENT ON FUNCTION app.fn_pie_financiero(app.dinero,app.dinero,app.porcentaje,
+                                          app.porcentaje,app.porcentaje,
+                                          app.porcentaje) IS
+  'D-60. El pie financiero sobre seis numeros, sin tocar tablas. La usan el '
+  'recalculo (sobre lo guardado) y el dialogo de duplicar (sobre lo hipotetico), '
+  'para que la formula viva en un solo sitio.';
+
 CREATE OR REPLACE FUNCTION app.fn_recalcular_presupuesto(p_id uuid)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = app, plataforma, pg_temp AS $$
@@ -3640,9 +3725,12 @@ BEGIN
     -- │ El costo indirecto sí entra en el valor total, después del AIU:     │
     -- │   Valor Total = Costo Directo + Costo Indirecto + AIU + IVA(U)      │
     -- └─────────────────────────────────────────────────────────────────────┘
-    v_a := v_cd * v_pa / 100;
-    v_i := v_cd * v_pi / 100;
-    v_u := v_cd * v_pu / 100;
+    -- La cuenta no se repite aqui: vive en app.fn_pie_financiero (D-60), que
+    -- usa tambien el dialogo de duplicar. Los dos recuadros de arriba y de abajo
+    -- explican POR QUE la formula es asi; el COMO esta en un solo sitio.
+    SELECT administracion, imprevistos, utilidad, iva
+      INTO v_a, v_i, v_u, v_iva
+      FROM app.fn_pie_financiero(v_cd, v_ci, v_pa, v_pi, v_pu, v_piva);
 
     -- ┌── IVA (D-33) ───────────────────────────────────────────────────────┐
     -- │ El 19 % grava la UTILIDAD, no el costo directo ni el AIU completo.  │
@@ -3652,7 +3740,6 @@ BEGIN
     -- │ El IVA no entra en la base del AIU ni en el denominador de la       │
     -- │ incidencia; se suma al final, como el costo indirecto.              │
     -- └─────────────────────────────────────────────────────────────────────┘
-    v_iva := v_u * v_piva / 100;
 
     PERFORM set_config('app.recalculo_en_curso', p_id::text, true);
     UPDATE app.presupuesto
@@ -4339,6 +4426,52 @@ BEGIN
     UPDATE app.presupuesto SET estado = 'ABIERTO' WHERE id = p_presupuesto_id;
     PERFORM set_config('app.motivo_reapertura', '', true);
 END $$;
+-- -----------------------------------------------------------------------------
+--  D-61 · Eliminar un presupuesto es una operación con dueño y con motivo.
+--
+--  Estaba rota de dos maneras distintas y ninguna se veía, porque todavía no
+--  había quien la llamara. El tipo de evento PRESUPUESTO_ELIMINADO exige
+--  justificación y el disparador la escribía sin ninguna, así que el borrado
+--  fallaba siempre: una función que el documento promete y que no se podía
+--  ejecutar nunca. Y el rol de la aplicación tenía DELETE directo sobre la
+--  tabla, de modo que borrar no exigía ser Administrador aunque D-18 lo ponga
+--  junto al cambio de estado, que sí lo exige.
+--
+--  Ahora es como la reapertura, y por las mismas razones: una sola puerta, el
+--  rol comprobado antes de tocar nada y el motivo obligatorio, que la base
+--  guarda en el evento. El DELETE sale del GRANT: con él puesto, la puerta
+--  seguiría teniendo una ventana al lado.
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION app.fn_eliminar_presupuesto(
+    p_presupuesto_id uuid, p_motivo text)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = app, plataforma, pg_temp AS $$
+DECLARE v_tenant uuid; v_codigo text; v_estado text;
+BEGIN
+    IF btrim(COALESCE(p_motivo, '')) = '' THEN
+        RAISE EXCEPTION
+          'Eliminar un presupuesto exige una justificación escrita: es la única '
+          'huella que queda de que existió (D-18, RF-PRE-40).';
+    END IF;
+    SELECT tenant_id, codigo, estado INTO v_tenant, v_codigo, v_estado
+      FROM app.presupuesto WHERE id = p_presupuesto_id;
+    IF v_tenant IS NULL THEN
+        RAISE EXCEPTION 'El presupuesto no existe en esta empresa.';
+    END IF;
+    PERFORM app.fn_exigir_mismo_tenant(v_tenant, 'El presupuesto');
+    PERFORM app.fn_exigir_admin(v_tenant, 'Eliminar');
+
+    -- Que nunca se haya activado lo comprueba tg_borrar_solo_no_activado; aquí
+    -- no se repite. Lo que sí hace falta es el motivo en la sesión, para que el
+    -- disparador de historia pueda firmarlo.
+    PERFORM set_config('app.motivo_eliminacion', p_motivo, true);
+    DELETE FROM app.presupuesto WHERE id = p_presupuesto_id;
+    PERFORM set_config('app.motivo_eliminacion', '', true);
+END $$;
+COMMENT ON FUNCTION app.fn_eliminar_presupuesto(uuid, text) IS
+  'D-61, RF-PRE-40. Única puerta para eliminar un presupuesto nunca activado. '
+  'Exige rol Administrador y justificación escrita, que queda en el evento.';
+
 COMMENT ON FUNCTION app.fn_reabrir_presupuesto(uuid, text) IS
   'Unico camino para reabrir un proyecto activo (RF-PRE-28). Comprueba el rol '
   'Administrador con app.fn_usuario_actual(), archiva la linea base como version '
@@ -5724,6 +5857,7 @@ ALTER FUNCTION app.fn_guardar_version(uuid,text,text,text,text) OWNER TO constru
 ALTER FUNCTION app.fn_activar_presupuesto(uuid)                 OWNER TO construsoft_super;
 ALTER FUNCTION app.fn_cerrar_presupuesto(uuid)                  OWNER TO construsoft_super;
 ALTER FUNCTION app.fn_reabrir_presupuesto(uuid,text)           OWNER TO construsoft_super;
+ALTER FUNCTION app.fn_eliminar_presupuesto(uuid,text)          OWNER TO construsoft_super;
 -- Auditoría de la plataforma y avisos (D-38, RF-CFG-21): escriben tablas que
 -- ningún rol de conexión puede tocar, y corren sin contexto de inquilino.
 ALTER FUNCTION plataforma.fn_evento_plataforma(uuid,text,text,text,jsonb,uuid)
@@ -5785,7 +5919,10 @@ GRANT INSERT ON app.recurso, app.apu, app.apu_version, app.apu_version_recurso,
 
 -- DELETE solo donde el día a día lo permite; nunca sobre las cuatro inmutables
 -- (apu_version, apu_version_recurso, presupuesto_version, evento_auditoria).
-GRANT DELETE ON app.presupuesto, app.wbs_nodo, app.presupuesto_item,
+-- app.presupuesto NO está aquí: eliminar un presupuesto pasa solo por
+-- app.fn_eliminar_presupuesto, que exige Administrador y motivo (D-61). Con el
+-- DELETE concedido, esa puerta tendría una ventana al lado.
+GRANT DELETE ON app.wbs_nodo, app.presupuesto_item,
                 app.rol, app.rol_permiso, app.unidad_medida, app.recurso,
                 app.token_recuperacion TO construsoft_app;
 
@@ -5800,7 +5937,11 @@ GRANT DELETE ON app.presupuesto, app.wbs_nodo, app.presupuesto_item,
 -- de fn_cabecera_presupuesto.
 GRANT UPDATE (codigo, nombre, ubicacion, aiu_administracion, aiu_imprevistos,
               aiu_utilidad, iva_utilidad_pct, modo_estructura,
-              archivado_en, duplicado_de_id)
+              -- duplicado_de_id NO: lo escribe fn_duplicar_presupuesto y es la
+              -- única prueba de que una copia es una copia. Con el permiso, la
+              -- aplicación podía decir que un presupuesto salió de otro que
+              -- nunca lo originó. Mismo caso que fecha_modificacion (D-58).
+              archivado_en)
     ON app.presupuesto TO construsoft_app;
 -- Del item y del nodo, SOLO lo que decide una persona. Lo demas se deriva, y
 -- conceder UPDATE sobre un dato derivado es dejar abierta la puerta que la
@@ -5866,6 +6007,7 @@ REVOKE EXECUTE ON FUNCTION
     app.fn_activar_presupuesto(uuid),
     app.fn_cerrar_presupuesto(uuid),
     app.fn_reabrir_presupuesto(uuid,text),
+    app.fn_eliminar_presupuesto(uuid,text),
     app.fn_renumerar_wbs(uuid),
     app.fn_mover_en_edt(uuid,integer),
     app.fn_duplicar_presupuesto(uuid,text,text,boolean),
@@ -5887,6 +6029,7 @@ GRANT EXECUTE ON FUNCTION
     app.fn_activar_presupuesto(uuid),
     app.fn_cerrar_presupuesto(uuid),
     app.fn_reabrir_presupuesto(uuid,text),
+    app.fn_eliminar_presupuesto(uuid,text),
     app.fn_renumerar_wbs(uuid),
     app.fn_mover_en_edt(uuid,integer),
     app.fn_duplicar_presupuesto(uuid,text,text,boolean),
