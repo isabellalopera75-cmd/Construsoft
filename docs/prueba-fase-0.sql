@@ -9,6 +9,47 @@
 --
 --  No deja nada: termina con ROLLBACK.
 -- ============================================================================
+-- ----------------------------------------------------------------------------
+--  La guarda. Está aquí porque la cabecera de arriba no alcanzó: este script se
+--  intentó correr dos veces con app_login siguiendo una instrucción equivocada,
+--  y lo que ocurre entonces es peor que un error claro. El paso 2 falla —esa
+--  conexión no puede ejecutar fn_autenticar, y eso está bien, es la D-50— pero
+--  falla FUERA de un savepoint, así que aborta la transacción. De ahí en
+--  adelante los pasos 4, 5 y 6 también fallan, con «transacción abortada» en
+--  vez de con la regla que cada uno prueba. Una lectura rápida ve tres fallos
+--  donde esperaba tres fallos y lo da por bueno, sin que ninguno de los tres
+--  haya llegado a comprobar nada. Es el falso verde exacto que este script
+--  existe para no tener.
+--
+--  Así que no se avisa: se detiene.
+-- ----------------------------------------------------------------------------
+SELECT current_setting('is_superuser') = 'on' AS es_superusuario \gset
+\if :es_superusuario
+\else
+\echo ''
+\echo '  DETENIDO. Esta prueba se ejecuta como SUPERUSUARIO, no con la conexión'
+\echo '  de la aplicación. Usa SET ROLE para ponerse en la piel de la aplicación'
+\echo '  cuando toca, y antes de eso necesita hacer cosas que ninguna conexión'
+\echo '  legítima puede hacer a la vez: autenticar (paso 2) y ser la aplicación'
+\echo '  (paso 3). Que no exista una conexión capaz de las dos cosas no es un'
+\echo '  estorbo de la prueba: es justo lo que la D-50 garantiza.'
+\echo ''
+\echo '      psql -U postgres -d construsoft -f "docs/prueba-fase-0.sql"'
+\echo ''
+-- Se detiene con una excepción y no con \quit, aunque en pantalla el mensaje
+-- sea el mismo. \quit sale con código 0, así que para cualquier herramienta que
+-- llame a este script —un pipeline, un script de despliegue, otra prueba—
+-- «detenido sin ejecutar nada» y «pasó» se verían idénticos. Es el mismo falso
+-- verde que la guarda existe para impedir, una vuelta más arriba: esta vez el
+-- engañado no sería un lector distraído sino un proceso automático, que no
+-- tiene manera de sospechar.
+\set ON_ERROR_STOP on
+DO $$ BEGIN
+    RAISE EXCEPTION
+      'prueba-fase-0 se ejecuta como superusuario, y esta conexion no lo es.';
+END $$;
+\endif
+
 \set ON_ERROR_STOP off
 \echo ''
 \echo '=== 0 · El modelo de privilegios no tiene escaleras (D-50)'
