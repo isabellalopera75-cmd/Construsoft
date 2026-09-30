@@ -35,12 +35,12 @@
 --  ---------------------------------------------------------------------------
 --  LAS DECISIONES DE DISEÑO QUE ESTE ESQUEMA IMPLEMENTA
 --
---  Son sesenta: D-1 a D-61, sin la D-10, que no existe. El motivo de
+--  Son sesenta y dos: D-1 a D-63, sin la D-10, que no existe. El motivo de
 --  cada una está en la sección 14 del documento de alcance. Aquí va el
 --  enunciado, y cada decisión vuelve a aparecer anotada en el punto del esquema
 --  donde vive. Las ocho últimas están al final de esta lista y tienen fecha:
 --  D-44 a D-49 salieron de la auditoría externa del 24 de septiembre de 2026;
---  D-50 a D-61 son posteriores a ella y se distinguen a propósito, porque
+--  D-50 a D-63 son posteriores a ella y se distinguen a propósito, porque
 --  nadie debería tener que preguntarle a nadie qué se movió después del
 --  dictamen: está escrito aquí.
 --
@@ -221,7 +221,7 @@
 --  volver a auditar si el cambio solo altera lo que una función le devuelve a
 --  un llamador que ya tenía derecho a esas filas, porque ahí la superficie de
 --  lectura es la misma antes y después. D-50 cae del primer lado y se verificó
---  como tal; D-51 a D-61, del segundo, y abajo está por qué.
+--  como tal; D-51 a D-63, del segundo, y abajo está por qué.
 --
 --   D-50  (posterior a la auditoría · toca roles y privilegios · verificada
 --         contra la base) El rol dueño de las funciones de autenticación no se
@@ -366,6 +366,27 @@
 --         permiso la aplicación podía decir que un presupuesto salió de otro que
 --         nunca lo originó. Y se agrega aiu_en_cero, hermana de sin_base_aiu,
 --         para el aviso de RF-PRE-35.
+--   D-62  (posterior a la auditoría · agrega una función pura) El costo de una
+--         actividad vive en app.fn_costo_actividad, y la respalda la columna
+--         generada costo_total. La comparte el pie anticipado de D-63, así que
+--         la cuenta no se escribe dos veces.
+--   D-63  (posterior a la auditoría · agrega una función de lectura)
+--         app.fn_pie_con_apu_vigentes calcula el «después» del diálogo de
+--         duplicar: el pie que tendría el presupuesto si sus actividades se
+--         reapuntaran a la versión vigente de cada APU. En el backend habría
+--         obligado a reescribir tres reglas que ya viven aquí —la herencia de la
+--         clasificación, el costo de una actividad y qué precio toma cada una al
+--         actualizar—, y no una duplicación cualquiera: la que decide si lo que
+--         la pantalla anticipa es lo que queda guardado. Comprobado: sobre el
+--         presupuesto de referencia, el anticipado y el total real de la copia
+--         dan 210.815.560 los dos.
+--            En la misma tanda, la fotografía de versión sube al schema 4 porque
+--         guarda la clasificación YA HEREDADA del capítulo raíz y no la columna
+--         cruda, que vale null en los subniveles. Sin eso, el exportador de la
+--         fase 5 tendría que reimplementar la herencia — y las versiones son
+--         inmutables, así que una foto guardada mal no se arregla nunca. Mismo
+--         motivo por el que el schema 2 subió a 3: entra antes de que exista una
+--         sola versión que no se pueda corregir.
 --
 --  ---------------------------------------------------------------------------
 --  LO QUE SIGUE ABIERTO, A PROPÓSITO
@@ -1526,6 +1547,23 @@ CREATE TABLE app.wbs_nodo (
 );
 CREATE INDEX ix_wbs_padre ON app.wbs_nodo (presupuesto_id, padre_id, orden);
 
+-- -----------------------------------------------------------------------------
+--  D-62 · El costo de una actividad, en una funcion.
+--
+--  La usa la columna generada costo_total y la usa fn_pie_con_apu_vigentes para
+--  anticipar el total de una copia actualizada. Escrita dos veces, la pantalla
+--  que dice «este sera el valor despues» y el valor que queda guardado podrian
+--  discrepar, y el usuario aceptaria un numero y recibiria otro.
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION app.fn_costo_actividad(
+    p_cantidad app.cantidad, p_precio app.dinero)
+RETURNS app.dinero LANGUAGE sql IMMUTABLE AS $$
+    SELECT round(p_cantidad * p_precio, 6)::app.dinero;
+$$;
+COMMENT ON FUNCTION app.fn_costo_actividad(app.cantidad, app.dinero) IS
+  'D-62. cantidad x precio, redondeado a seis decimales. La respalda la columna '
+  'generada presupuesto_item.costo_total y la comparte el pie anticipado.';
+
 CREATE TABLE app.presupuesto_item (
     id                  uuid        PRIMARY KEY DEFAULT app.uuid_v7(),
     tenant_id           uuid        NOT NULL,
@@ -1554,8 +1592,15 @@ CREATE TABLE app.presupuesto_item (
     -- Generada, el camino equivocado no existe —escribirla a mano devuelve
     -- «cannot insert a non-DEFAULT value»— y la formula queda en un solo sitio,
     -- no repetida en duplicar y en reapuntar. Comprobado en PostgreSQL 16.
+    -- La formula es app.fn_costo_actividad, definida mas abajo: la misma que usa
+    -- app.fn_pie_con_apu_vigentes para anticipar el total de una copia. Un solo
+    -- sitio para la cuenta.
+    --   CUIDADO al tocar esa funcion: cambiar su cuerpo con CREATE OR REPLACE NO
+    -- recalcula las filas ya guardadas. Si algun dia hay que corregirla, hay que
+    -- reescribir los costos existentes en la misma migracion, o quedan filas
+    -- viejas con la formula vieja y nada lo dice.
     costo_total         app.dinero GENERATED ALWAYS AS
-                        (round(cantidad * precio_unitario, 6)) STORED,
+                        (app.fn_costo_actividad(cantidad, precio_unitario)) STORED,
     UNIQUE (tenant_id, id),
     -- DEFERRABLE: reordenar hermanos intercambia valores de orden y no cabe
     -- en una sola sentencia si la unicidad se evalúa fila a fila.
@@ -2096,6 +2141,173 @@ COMMENT ON FUNCTION app.fn_usuario_actual() IS
   'La leen las versiones automaticas y los eventos de auditoria.';
 
 -- -----------------------------------------------------------------------------
+--  D-60 · El pie financiero se calcula en una funcion pura.
+--
+--  La formula vivia dentro de fn_recalcular_presupuesto, y el dialogo de D-19
+--  —«este es el valor total antes y despues de actualizar los APU»— necesita
+--  exactamente la misma cuenta sobre numeros que todavia no estan guardados.
+--  Calcularla en el backend seria reimplementar el pie entero: AIU sobre el
+--  costo directo, IVA sobre la utilidad, y el costo indirecto sumandose despues.
+--  Tres reglas que, escritas dos veces, algun dia diran cosas distintas del
+--  mismo presupuesto: una en la pantalla que pregunta y otra en el total que
+--  queda guardado.
+--
+--  IMMUTABLE y sin tocar ninguna tabla: recibe seis numeros y devuelve seis.
+--  Eso es lo que la hace servir para las dos cosas —lo guardado y lo hipotetico—
+--  sin que ninguna de las dos sea un caso especial de la otra.
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION app.fn_pie_financiero(
+    p_costo_directo app.dinero, p_costo_indirecto app.dinero,
+    p_pct_a app.porcentaje, p_pct_i app.porcentaje, p_pct_u app.porcentaje,
+    p_pct_iva app.porcentaje)
+RETURNS TABLE (administracion app.dinero, imprevistos app.dinero,
+               utilidad app.dinero, aiu app.dinero, iva app.dinero,
+               valor_total app.dinero)
+LANGUAGE sql IMMUTABLE AS $$
+    -- El AIU se aplica SOLO sobre el costo directo (D-3): el costo indirecto ya
+    -- es administracion, y aplicarle el porcentaje encima lo cobraria dos veces.
+    -- El IVA grava la utilidad y nada mas (D-33). El costo indirecto y el IVA se
+    -- suman al final, fuera de la base del AIU.
+    WITH x AS (
+        SELECT (p_costo_directo * p_pct_a / 100)::app.dinero AS a,
+               (p_costo_directo * p_pct_i / 100)::app.dinero AS i,
+               (p_costo_directo * p_pct_u / 100)::app.dinero AS u
+    )
+    SELECT x.a, x.i, x.u, (x.a + x.i + x.u)::app.dinero,
+           (x.u * p_pct_iva / 100)::app.dinero,
+           (p_costo_directo + p_costo_indirecto + x.a + x.i + x.u
+            + x.u * p_pct_iva / 100)::app.dinero
+      FROM x;
+$$;
+COMMENT ON FUNCTION app.fn_pie_financiero(app.dinero,app.dinero,app.porcentaje,
+                                          app.porcentaje,app.porcentaje,
+                                          app.porcentaje) IS
+  'D-60. El pie financiero sobre seis numeros, sin tocar tablas. La usan el '
+  'recalculo (sobre lo guardado) y el dialogo de duplicar (sobre lo hipotetico), '
+  'para que la formula viva en un solo sitio.';
+
+-- -----------------------------------------------------------------------------
+--  D-9 · La incidencia de un capitulo, en un solo sitio.
+--
+--  La formula vivia dentro de fn_snapshot_presupuesto y la mesa de trabajo la
+--  necesita igual, en vivo (RF-PRE-21). Escrita dos veces, el dia que alguien
+--  cambie una la fotografia y la pantalla dirian cosas distintas del mismo
+--  presupuesto, que es exactamente lo que nadie revisa hasta que un cliente lo
+--  nota.
+--
+--  Devuelve NULL cuando no hay costo directo, y NULL es la respuesta correcta:
+--  no es cero —el capitulo no pesa cero, es que no hay contra que medirlo— ni
+--  'NaN', que es justo lo que RF-PRE-37 prohibe mostrar. El guion lo pone la
+--  interfaz al formatear, no la base al calcular.
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION app.fn_incidencia(
+    p_monto app.dinero, p_costo_directo app.dinero)
+RETURNS numeric LANGUAGE sql IMMUTABLE AS $$
+    SELECT p_monto * 100 / NULLIF(p_costo_directo, 0);
+$$;
+COMMENT ON FUNCTION app.fn_incidencia(app.dinero, app.dinero) IS
+  'D-9. Incidencia de un capitulo sobre el costo directo. NULL cuando no hay '
+  'costo directo: el guion de RF-PRE-37 lo pone la interfaz, no la base.';
+
+-- -----------------------------------------------------------------------------
+--  D-57 · Leer la EDT con su incidencia, sin que la aplicacion divida nada.
+--
+--  SECURITY INVOKER a proposito: corre con los permisos de quien la llama y bajo
+--  sus politicas, asi que un presupuesto de otra empresa devuelve cero filas sin
+--  necesitar fn_exigir_mismo_tenant. Queda fuera de la superficie que vigila la
+--  D-54 porque no es una puerta: no puede ver nada que su llamador no viera.
+--
+--  La clasificacion es la del capitulo raiz, heredada por los subniveles (D-8):
+--  un subcapitulo no la lleva propia, y preguntarla nodo a nodo desde la
+--  aplicacion seria reimplementar la herencia en cada pantalla.
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION app.fn_leer_edt(p_presupuesto_id uuid)
+RETURNS TABLE (id uuid, padre_id uuid, codigo_wbs text, nivel smallint,
+               nombre text, clasificacion text,
+               monto_acumulado app.dinero, incidencia_pct numeric)
+LANGUAGE sql STABLE AS $$
+    WITH RECURSIVE arbol AS (
+        SELECT n.id, n.padre_id, n.codigo_wbs, n.nivel, n.nombre,
+               n.clasificacion, n.monto_acumulado, n.orden
+          FROM app.wbs_nodo n
+         WHERE n.presupuesto_id = p_presupuesto_id AND n.padre_id IS NULL
+        UNION ALL
+        SELECT h.id, h.padre_id, h.codigo_wbs, h.nivel, h.nombre,
+               a.clasificacion, h.monto_acumulado, h.orden
+          FROM app.wbs_nodo h
+          JOIN arbol a ON h.padre_id = a.id
+         WHERE h.presupuesto_id = p_presupuesto_id
+    )
+    SELECT a.id, a.padre_id, a.codigo_wbs, a.nivel, a.nombre, a.clasificacion,
+           a.monto_acumulado,
+           app.fn_incidencia(a.monto_acumulado, p.total_costo_directo)
+      FROM arbol a
+      JOIN app.presupuesto p ON p.id = p_presupuesto_id
+     -- Ordenar el codigo como texto pone el capitulo 10 entre el 1 y el 2.
+     ORDER BY string_to_array(a.codigo_wbs, '.')::int[];
+$$;
+COMMENT ON FUNCTION app.fn_leer_edt(uuid) IS
+  'D-57, RF-PRE-21. El arbol con su monto y su incidencia ya calculada. '
+  'SECURITY INVOKER: la RLS del llamador la contiene.';
+
+-- -----------------------------------------------------------------------------
+--  D-63 · El «despues» del dialogo de duplicar, calculado por la base.
+--
+--  D-19 promete mostrar el valor total antes y despues de actualizar los APU,
+--  para que el usuario decida con el numero a la vista. El «antes» ya esta
+--  guardado; el «despues» no existe en ningun lado, porque es el total de una
+--  copia que todavia no se hizo.
+--
+--  Calcularlo en el backend obligaria a reescribir alli tres reglas que ya viven
+--  aqui: la herencia de la clasificacion hasta el capitulo raiz, el costo de una
+--  actividad, y que precio toma cada actividad al actualizar. Y no es una
+--  duplicacion cualquiera: seria la que decide si lo que la pantalla anticipa es
+--  lo que despues queda guardado. El usuario aceptaria un numero y recibiria
+--  otro, sin que nada fallara.
+--
+--  Devuelve el pie entero y no solo el total, porque al dialogo no le cuesta
+--  nada mostrar las mismas filas del pie y asi el «despues» se lee igual que el
+--  «antes».
+--
+--  SECURITY INVOKER: no ve nada que su llamador no viera.
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION app.fn_pie_con_apu_vigentes(p_presupuesto_id uuid)
+RETURNS TABLE (costo_directo app.dinero, costo_indirecto app.dinero,
+               administracion app.dinero, imprevistos app.dinero,
+               utilidad app.dinero, aiu app.dinero, iva app.dinero,
+               valor_total app.dinero)
+LANGUAGE sql STABLE AS $$
+    WITH costos AS (
+        -- El mismo COALESCE que usa fn_duplicar_presupuesto: la version vigente
+        -- del APU si existe, y si no el precio que la actividad ya tenia.
+        SELECT e.clasificacion,
+               app.fn_costo_actividad(
+                   i.cantidad,
+                   COALESCE(vv.costo_directo, i.precio_unitario)) AS costo
+          FROM app.presupuesto_item i
+          JOIN app.fn_leer_edt(p_presupuesto_id) e ON e.id = i.wbs_nodo_id
+          JOIN app.apu a               ON a.id  = i.apu_id
+          LEFT JOIN app.apu_version vv ON vv.id = a.version_vigente_id
+         WHERE i.presupuesto_id = p_presupuesto_id
+    ), sumas AS (
+        SELECT COALESCE(SUM(costo) FILTER (WHERE clasificacion = 'DIRECTO'),   0)::app.dinero AS cd,
+               COALESCE(SUM(costo) FILTER (WHERE clasificacion = 'INDIRECTO'), 0)::app.dinero AS ci
+          FROM costos
+    )
+    SELECT s.cd, s.ci, f.administracion, f.imprevistos, f.utilidad,
+           f.aiu, f.iva, f.valor_total
+      FROM sumas s
+      JOIN app.presupuesto p ON p.id = p_presupuesto_id
+      CROSS JOIN LATERAL app.fn_pie_financiero(
+          s.cd, s.ci, p.aiu_administracion, p.aiu_imprevistos,
+          p.aiu_utilidad, p.iva_utilidad_pct) f;
+$$;
+COMMENT ON FUNCTION app.fn_pie_con_apu_vigentes(uuid) IS
+  'D-63, RF-PRE-27, D-19. El pie que tendria el presupuesto si sus actividades '
+  'se reapuntaran a la version vigente de cada APU. Es el «despues» del dialogo '
+  'de duplicar: tiene que coincidir con el valor_total de la copia actualizada.';
+
+-- -----------------------------------------------------------------------------
 --  D-45 · El historial lo escribe la base, y solo la base.
 --
 --  RF-HIS-03 promete que quedan registrados el ítem agregado o eliminado, la
@@ -2341,28 +2553,6 @@ CREATE TRIGGER tg_historia_recurso
 -- La fotografia de D-28. Todo valor monetario va como cadena: un numeric de
 -- veinticuatro digitos no cabe sin perdida en el numero de JavaScript, y este
 -- es justo el archivo que no puede desviarse un centavo.
--- -----------------------------------------------------------------------------
---  D-9 · La incidencia de un capitulo, en un solo sitio.
---
---  La formula vivia dentro de fn_snapshot_presupuesto y la mesa de trabajo la
---  necesita igual, en vivo (RF-PRE-21). Escrita dos veces, el dia que alguien
---  cambie una la fotografia y la pantalla dirian cosas distintas del mismo
---  presupuesto, que es exactamente lo que nadie revisa hasta que un cliente lo
---  nota.
---
---  Devuelve NULL cuando no hay costo directo, y NULL es la respuesta correcta:
---  no es cero —el capitulo no pesa cero, es que no hay contra que medirlo— ni
---  'NaN', que es justo lo que RF-PRE-37 prohibe mostrar. El guion lo pone la
---  interfaz al formatear, no la base al calcular.
--- -----------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION app.fn_incidencia(
-    p_monto app.dinero, p_costo_directo app.dinero)
-RETURNS numeric LANGUAGE sql IMMUTABLE AS $$
-    SELECT p_monto * 100 / NULLIF(p_costo_directo, 0);
-$$;
-COMMENT ON FUNCTION app.fn_incidencia(app.dinero, app.dinero) IS
-  'D-9. Incidencia de un capitulo sobre el costo directo. NULL cuando no hay '
-  'costo directo: el guion de RF-PRE-37 lo pone la interfaz, no la base.';
 
 CREATE OR REPLACE FUNCTION app.fn_snapshot_presupuesto(
     p_presupuesto_id uuid, p_estado text, p_disparador text, p_motivo text)
@@ -2376,7 +2566,7 @@ RETURNS jsonb LANGUAGE sql STABLE AS $$
     -- schema 1 no se pueden corregir nunca. Por eso entra hoy y no cuando haga
     -- falta. Hallazgo 7 de la auditoría del 24 de septiembre de 2026.
     SELECT jsonb_build_object(
-      'schema', 3,
+      'schema', 4,
       'presupuesto', jsonb_build_object(
           'codigo', p.codigo, 'nombre', p.nombre, 'ubicacion', p.ubicacion,
           'moneda', p.moneda, 'estado', p_estado,
@@ -2406,7 +2596,16 @@ RETURNS jsonb LANGUAGE sql STABLE AS $$
                    'padre_codigo', (SELECT w2.codigo_wbs FROM app.wbs_nodo w2
                                      WHERE w2.id = w.padre_id),
                    'nivel', w.nivel, 'nombre', w.nombre,
-                   'clasificacion', w.clasificacion,
+                   -- HEREDADA del capitulo raiz (D-8), no la columna cruda, que
+                   -- vale null en los subniveles. Si la fotografia guardara el
+                   -- null, el exportador de la fase 5 tendria que reimplementar
+                   -- la herencia para saber si un subcapitulo es directo o
+                   -- indirecto — y las versiones son INMUTABLES, asi que una foto
+                   -- guardada sin esto no se puede arreglar nunca. Por eso entra
+                   -- hoy y no cuando el PDF la necesite. Es el mismo motivo por
+                   -- el que el schema 2 subio a 3.
+                   'clasificacion', (SELECT e.clasificacion FROM app.fn_leer_edt(p_presupuesto_id) e
+                                      WHERE e.id = w.id),
                    'monto_acumulado', w.monto_acumulado::text,
                    -- Sin redondear a dos decimales: el documento 06 §2.2 dice
                    -- que se redondea al presentar, y con decimales_vista = 0 el
@@ -3589,51 +3788,6 @@ CREATE POLICY p_pago_propio ON plataforma.pago
 -- recalcular el presupuesto de otra empresa es la llamada a
 -- fn_exigir_mismo_tenant. Esa línea no es una comprobación redundante ni un
 -- cinturón sobre tirantes, es el tirante.
--- -----------------------------------------------------------------------------
---  D-60 · El pie financiero se calcula en una funcion pura.
---
---  La formula vivia dentro de fn_recalcular_presupuesto, y el dialogo de D-19
---  —«este es el valor total antes y despues de actualizar los APU»— necesita
---  exactamente la misma cuenta sobre numeros que todavia no estan guardados.
---  Calcularla en el backend seria reimplementar el pie entero: AIU sobre el
---  costo directo, IVA sobre la utilidad, y el costo indirecto sumandose despues.
---  Tres reglas que, escritas dos veces, algun dia diran cosas distintas del
---  mismo presupuesto: una en la pantalla que pregunta y otra en el total que
---  queda guardado.
---
---  IMMUTABLE y sin tocar ninguna tabla: recibe seis numeros y devuelve seis.
---  Eso es lo que la hace servir para las dos cosas —lo guardado y lo hipotetico—
---  sin que ninguna de las dos sea un caso especial de la otra.
--- -----------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION app.fn_pie_financiero(
-    p_costo_directo app.dinero, p_costo_indirecto app.dinero,
-    p_pct_a app.porcentaje, p_pct_i app.porcentaje, p_pct_u app.porcentaje,
-    p_pct_iva app.porcentaje)
-RETURNS TABLE (administracion app.dinero, imprevistos app.dinero,
-               utilidad app.dinero, aiu app.dinero, iva app.dinero,
-               valor_total app.dinero)
-LANGUAGE sql IMMUTABLE AS $$
-    -- El AIU se aplica SOLO sobre el costo directo (D-3): el costo indirecto ya
-    -- es administracion, y aplicarle el porcentaje encima lo cobraria dos veces.
-    -- El IVA grava la utilidad y nada mas (D-33). El costo indirecto y el IVA se
-    -- suman al final, fuera de la base del AIU.
-    WITH x AS (
-        SELECT (p_costo_directo * p_pct_a / 100)::app.dinero AS a,
-               (p_costo_directo * p_pct_i / 100)::app.dinero AS i,
-               (p_costo_directo * p_pct_u / 100)::app.dinero AS u
-    )
-    SELECT x.a, x.i, x.u, (x.a + x.i + x.u)::app.dinero,
-           (x.u * p_pct_iva / 100)::app.dinero,
-           (p_costo_directo + p_costo_indirecto + x.a + x.i + x.u
-            + x.u * p_pct_iva / 100)::app.dinero
-      FROM x;
-$$;
-COMMENT ON FUNCTION app.fn_pie_financiero(app.dinero,app.dinero,app.porcentaje,
-                                          app.porcentaje,app.porcentaje,
-                                          app.porcentaje) IS
-  'D-60. El pie financiero sobre seis numeros, sin tocar tablas. La usan el '
-  'recalculo (sobre lo guardado) y el dialogo de duplicar (sobre lo hipotetico), '
-  'para que la formula viva en un solo sitio.';
 
 CREATE OR REPLACE FUNCTION app.fn_recalcular_presupuesto(p_id uuid)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
@@ -4789,46 +4943,6 @@ COMMENT ON FUNCTION app.fn_mover_en_edt(uuid, integer) IS
   'D-56, RF-PRE-13, documento 02 §8.2. Mueve un capitulo o una actividad a una '
   'posicion absoluta entre sus hermanos y renumera una sola vez. Idempotente.';
 
--- -----------------------------------------------------------------------------
---  D-57 · Leer la EDT con su incidencia, sin que la aplicacion divida nada.
---
---  SECURITY INVOKER a proposito: corre con los permisos de quien la llama y bajo
---  sus politicas, asi que un presupuesto de otra empresa devuelve cero filas sin
---  necesitar fn_exigir_mismo_tenant. Queda fuera de la superficie que vigila la
---  D-54 porque no es una puerta: no puede ver nada que su llamador no viera.
---
---  La clasificacion es la del capitulo raiz, heredada por los subniveles (D-8):
---  un subcapitulo no la lleva propia, y preguntarla nodo a nodo desde la
---  aplicacion seria reimplementar la herencia en cada pantalla.
--- -----------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION app.fn_leer_edt(p_presupuesto_id uuid)
-RETURNS TABLE (id uuid, padre_id uuid, codigo_wbs text, nivel smallint,
-               nombre text, clasificacion text,
-               monto_acumulado app.dinero, incidencia_pct numeric)
-LANGUAGE sql STABLE AS $$
-    WITH RECURSIVE arbol AS (
-        SELECT n.id, n.padre_id, n.codigo_wbs, n.nivel, n.nombre,
-               n.clasificacion, n.monto_acumulado, n.orden
-          FROM app.wbs_nodo n
-         WHERE n.presupuesto_id = p_presupuesto_id AND n.padre_id IS NULL
-        UNION ALL
-        SELECT h.id, h.padre_id, h.codigo_wbs, h.nivel, h.nombre,
-               a.clasificacion, h.monto_acumulado, h.orden
-          FROM app.wbs_nodo h
-          JOIN arbol a ON h.padre_id = a.id
-         WHERE h.presupuesto_id = p_presupuesto_id
-    )
-    SELECT a.id, a.padre_id, a.codigo_wbs, a.nivel, a.nombre, a.clasificacion,
-           a.monto_acumulado,
-           app.fn_incidencia(a.monto_acumulado, p.total_costo_directo)
-      FROM arbol a
-      JOIN app.presupuesto p ON p.id = p_presupuesto_id
-     -- Ordenar el codigo como texto pone el capitulo 10 entre el 1 y el 2.
-     ORDER BY string_to_array(a.codigo_wbs, '.')::int[];
-$$;
-COMMENT ON FUNCTION app.fn_leer_edt(uuid) IS
-  'D-57, RF-PRE-21. El arbol con su monto y su incidencia ya calculada. '
-  'SECURITY INVOKER: la RLS del llamador la contiene.';
 
 -- -----------------------------------------------------------------------------
 --  La renumeración no se pide: ocurre. Agregar, mover, reordenar o eliminar un
