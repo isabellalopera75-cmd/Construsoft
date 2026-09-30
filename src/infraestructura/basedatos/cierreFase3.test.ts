@@ -1,70 +1,29 @@
 import { before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  ejecutarConPermiso,
-  registrarEmpresa,
-  type ContextoTenant,
-  type EmpresaRegistrada,
-} from './contextoTenant.js';
-import { crearRecurso, type Recurso } from './recurso.js';
-import { crearApu, type Apu } from './apu.js';
+import { registrarEmpresa, type ContextoTenant } from './contextoTenant.js';
+import type { Apu } from './apu.js';
 import { crearPresupuesto, editarPorcentajes, leerPresupuesto } from './presupuesto.js';
 import { agregarCapitulo, leerEdt } from './edt.js';
 import { agregarActividad, leerActividades } from './actividad.js';
+import { armarPresupuestoDeReferencia } from '../../pruebas/presupuestoDeReferencia.js';
 
 /**
  * El hito de la fase 3 (CLAUDE.md, «Antes de dar algo por terminado»): el
  * presupuesto de referencia del documento 06 §8 —Casa campestre El Retiro—
  * construido desde cero con los módulos de la mesa de trabajo, sin una sola
- * fila escrita a mano, tiene que cerrar exactamente en $180.590.155.
- *
- * Solo el concreto tiene composición documentada (06 §8.2) y se arma con ella:
- * es el que ejercita D-1 (precio con IVA, desperdicio, cantidad × rendimiento).
- * Para las demás actividades el documento da el valor y la cantidad; su APU es
- * un solo recurso cuyo precio es el precio unitario que resulta.
+ * fila escrita a mano, tiene que cerrar exactamente en $180.590.155. El
+ * armado vive en src/pruebas/presupuestoDeReferencia.ts, compartido con los
+ * cierres de las fases siguientes.
  */
 
-let empresa: EmpresaRegistrada;
 let contexto: ContextoTenant;
-
-async function unidad(simbolo: string): Promise<string> {
-  return ejecutarConPermiso(contexto, 'CONFIG.PREFERENCIAS', async (cliente) => {
-    const { rows } = await cliente.query<{ id: string }>(
-      'SELECT id FROM app.unidad_medida WHERE tenant_id = $1 AND simbolo = $2',
-      [empresa.tenantId, simbolo],
-    );
-    return rows[0]!.id;
-  });
-}
-
-async function recursoSinIva(nombre: string, simbolo: string, precio: string): Promise<Recurso> {
-  return crearRecurso(contexto, {
-    nombre,
-    tipo: 'PERSONAL',
-    unidadId: await unidad(simbolo),
-    precioBase: precio,
-    ivaPct: '0',
-    precioTotal: precio,
-    viaCaptura: 'BASE',
-  });
-}
-
-/** Un APU de un solo recurso: su costo directo es el precio unitario de la actividad. */
-async function apuDePrecio(nombre: string, simbolo: string, precio: string): Promise<Apu> {
-  const recurso = await recursoSinIva(`Recurso · ${nombre}`, simbolo, precio);
-  return crearApu(contexto, {
-    nombre,
-    unidadId: await unidad(simbolo),
-    lineas: [{ recursoId: recurso.id, cantidad: '1', rendimiento: '1', desperdicioPct: '0' }],
-  });
-}
 
 describe('cierre de la fase 3: el presupuesto de referencia (06 §8)', () => {
   let presupuestoId: string;
   let concreto: Apu;
 
   before(async () => {
-    empresa = await registrarEmpresa({
+    const empresa = await registrarEmpresa({
       razonSocial: 'Constructora El Retiro',
       nit: '900000080-0',
       plan: 'EMPRESARIAL',
@@ -73,74 +32,9 @@ describe('cierre de la fase 3: el presupuesto de referencia (06 §8)', () => {
       adminHash: 'hash_de_prueba_no_real',
     });
     contexto = { tenantId: empresa.tenantId, usuarioId: empresa.usuarioId };
-
-    // 06 §8.1 · Los dos recursos documentados.
-    const premezclado = await crearRecurso(contexto, {
-      nombre: 'Concreto premezclado 3000 PSI',
-      tipo: 'MATERIAL',
-      unidadId: await unidad('m³'),
-      precioBase: '500000',
-      ivaPct: '19',
-      precioTotal: '595000',
-      viaCaptura: 'BASE',
-    });
-    const oficial = await recursoSinIva('Oficial de obra', 'Jr', '120000');
-
-    // 06 §8.2 · 1 × 1,00 × 1,05 × 595.000 + 2 × 0,05 × 1 × 120.000 = 636.750.
-    concreto = await crearApu(contexto, {
-      nombre: 'Concreto 3000 PSI para zapatas',
-      unidadId: await unidad('m³'),
-      lineas: [
-        { recursoId: premezclado.id, cantidad: '1', rendimiento: '1', desperdicioPct: '5' },
-        { recursoId: oficial.id, cantidad: '2', rendimiento: '0.05', desperdicioPct: '0' },
-      ],
-    });
-
-    const topografia = await apuDePrecio('Topografía y replanteo', 'Glb', '3200000');
-    const suelos = await apuDePrecio('Estudio de suelos', 'Glb', '4800000');
-    const director = await apuDePrecio('Director de obra', 'Ms', '7500000');
-    const excavacion = await apuDePrecio('Excavación manual', 'm³', '38500');
-    const acero = await apuDePrecio('Acero de refuerzo 60.000 PSI', 'Kg', '6850');
-    const formaleta = await apuDePrecio('Formaleta metálica', 'm²', '18200');
-
-    // 06 §8.3 · Casa campestre El Retiro, por ítems: capítulo → actividad.
-    const presupuesto = await crearPresupuesto(contexto, {
-      codigo: 'PRE-RETIRO',
-      nombre: 'Casa campestre El Retiro',
-      ubicacion: 'El Retiro, Antioquia',
-      modoEstructura: 'ITEMS',
-    });
-    presupuestoId = presupuesto.id;
-
-    const preliminares = await agregarCapitulo(contexto, presupuestoId, {
-      nombre: 'PRELIMINARES',
-      clasificacion: 'INDIRECTO',
-    });
-    await agregarActividad(contexto, preliminares.id, topografia.id, '1');
-    await agregarActividad(contexto, preliminares.id, suelos.id, '1');
-    await agregarActividad(contexto, preliminares.id, director.id, '6');
-
-    const cimentacion = await agregarCapitulo(contexto, presupuestoId, {
-      nombre: 'CIMENTACIÓN',
-      clasificacion: 'DIRECTO',
-    });
-    await agregarActividad(contexto, cimentacion.id, excavacion.id, '120');
-    await agregarActividad(contexto, cimentacion.id, concreto.id, '100');
-
-    const estructura = await agregarCapitulo(contexto, presupuestoId, {
-      nombre: 'ESTRUCTURA',
-      clasificacion: 'DIRECTO',
-    });
-    await agregarActividad(contexto, estructura.id, acero.id, '4500');
-    await agregarActividad(contexto, estructura.id, formaleta.id, '350');
-
-    // 06 §8.4 · AIU 10/5/5 e IVA 19 % sobre la utilidad.
-    await editarPorcentajes(contexto, presupuestoId, {
-      aiuAdministracion: '10',
-      aiuImprevistos: '5',
-      aiuUtilidad: '5',
-      ivaUtilidadPct: '19',
-    });
+    const referencia = await armarPresupuestoDeReferencia(contexto, 'PRE-RETIRO');
+    presupuestoId = referencia.presupuestoId;
+    concreto = referencia.concreto;
   });
 
   test('06 §8.2 · el APU del concreto cuesta exactamente 636.750 por m³', () => {
