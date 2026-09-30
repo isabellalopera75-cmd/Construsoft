@@ -156,3 +156,147 @@ export async function crearPresupuesto(
 export async function leerPresupuesto(contexto: ContextoTenant, id: string): Promise<Presupuesto | null> {
   return ejecutarConPermiso(contexto, 'PRESUPUESTOS.VER', (cliente) => leerConCliente(cliente, id));
 }
+
+/**
+ * RF-PRE-01/02/39. Sin filtros es la vista maestra: todos los no archivados.
+ * `archivados: true` es el filtro «Ver archivados» y muestra los archivados;
+ * texto y estado se combinan con cualquiera de los dos.
+ */
+export interface FiltrosPresupuesto {
+  /** Coincidencia parcial por nombre O por código: las dos las resuelve fn_buscar_presupuesto. */
+  texto?: string;
+  estado?: EstadoPresupuesto;
+  archivados?: boolean;
+  /** Solo se usa junto con `texto`: fn_buscar_presupuesto lo exige (D-47). Por defecto, el mismo 50 de la función. */
+  limite?: number;
+}
+
+/**
+ * La vista maestra. `texto` pasa por app.fn_buscar_presupuesto (D-47), nunca
+ * por ILIKE contra la tabla bajo RLS. El orden es el del índice
+ * ix_presupuesto_estado: lo último que se tocó, primero.
+ */
+export async function listarPresupuestos(
+  contexto: ContextoTenant,
+  filtros: FiltrosPresupuesto = {},
+): Promise<Presupuesto[]> {
+  return ejecutarConPermiso(contexto, 'PRESUPUESTOS.VER', async (cliente) => {
+    const texto = filtros.texto?.trim();
+    const parametros: unknown[] = [];
+    const condiciones: string[] = [
+      filtros.archivados ? 'archivado_en IS NOT NULL' : 'archivado_en IS NULL',
+    ];
+
+    if (texto) {
+      parametros.push(texto, filtros.limite ?? 50);
+      condiciones.push('id IN (SELECT id FROM app.fn_buscar_presupuesto($1, $2))');
+    }
+    if (filtros.estado) {
+      parametros.push(filtros.estado);
+      condiciones.push(`estado = $${parametros.length}`);
+    }
+
+    const { rows } = await cliente.query<FilaPresupuesto>(
+      `${SELECT_CABECERA} WHERE ${condiciones.join(' AND ')} ORDER BY fecha_modificacion DESC, codigo`,
+      parametros,
+    );
+    return rows.map(filaAPresupuesto);
+  });
+}
+
+/** RF-PRE-38 · Lo que se edita desde el encabezado de la mesa de trabajo. */
+export interface DatosCabecera {
+  codigo: string;
+  nombre: string;
+  ubicacion: string;
+}
+
+/**
+ * Un UPDATE de la cabecera que devuelve el presupuesto como quedó, o null si
+ * el id no existe en esta empresa (la RLS lo esconde y el UPDATE afecta cero
+ * filas). Los rechazos son de la base: tg_cabecera_presupuesto fuera de
+ * ABIERTO, UNIQUE del código, ck_presupuesto_texto_no_vacio, y los recálculos
+ * los dispara tg_recalculo_aiu.
+ */
+async function actualizarCabecera(
+  contexto: ContextoTenant,
+  id: string,
+  asignaciones: string,
+  valores: unknown[],
+): Promise<Presupuesto | null> {
+  return ejecutarConPermiso(contexto, 'PRESUPUESTOS.EDITAR', async (cliente) => {
+    const { rows } = await cliente.query<{ id: string }>(
+      `UPDATE app.presupuesto SET ${asignaciones} WHERE id = $1 RETURNING id`,
+      [id, ...valores],
+    );
+    return rows[0] ? leerConCliente(cliente, id) : null;
+  });
+}
+
+/**
+ * RF-PRE-38. Los validadores son los mismos que al crear porque son los
+ * mismos objetos de la base: el UNIQUE del código y ck_presupuesto_texto_no_vacio
+ * se aplican solos al INSERT y al UPDATE.
+ */
+export async function editarCabecera(
+  contexto: ContextoTenant,
+  id: string,
+  datos: DatosCabecera,
+): Promise<Presupuesto | null> {
+  return actualizarCabecera(contexto, id, 'codigo = $2, nombre = $3, ubicacion = $4', [
+    datos.codigo,
+    datos.nombre,
+    datos.ubicacion,
+  ]);
+}
+
+/** RF-PRE-23 · Los tres porcentajes del AIU y el del IVA, en puntos (19 es 19 %, RNF-22). */
+export interface PorcentajesPresupuesto {
+  aiuAdministracion: string;
+  aiuImprevistos: string;
+  aiuUtilidad: string;
+  ivaUtilidadPct: string;
+}
+
+/**
+ * RF-PRE-23. Solo escribe los porcentajes: A, I, U, IVA, valor total y
+ * sinBaseAiu los recalcula la base en la misma transacción (tg_recalculo_aiu),
+ * y lo que se devuelve es lo que quedó guardado.
+ */
+export async function editarPorcentajes(
+  contexto: ContextoTenant,
+  id: string,
+  porcentajes: PorcentajesPresupuesto,
+): Promise<Presupuesto | null> {
+  return actualizarCabecera(
+    contexto,
+    id,
+    'aiu_administracion = $2, aiu_imprevistos = $3, aiu_utilidad = $4, iva_utilidad_pct = $5',
+    [porcentajes.aiuAdministracion, porcentajes.aiuImprevistos, porcentajes.aiuUtilidad, porcentajes.ivaUtilidadPct],
+  );
+}
+
+/**
+ * RF-PRE-44. Pasar de EDT a ítems con subcapítulos lo rechaza
+ * tg_cambio_modo_estructura, nombrando cuántos hay.
+ */
+export async function cambiarModoEstructura(
+  contexto: ContextoTenant,
+  id: string,
+  modo: ModoEstructura,
+): Promise<Presupuesto | null> {
+  return actualizarCabecera(contexto, id, 'modo_estructura = $2', [modo]);
+}
+
+/**
+ * D-18, RF-PRE-39. Archivar no borra nada ni cambia el estado, y vale en
+ * cualquier estado: archivado_en no forma parte de la línea base que
+ * tg_cabecera_presupuesto congela.
+ */
+export async function archivarPresupuesto(contexto: ContextoTenant, id: string): Promise<Presupuesto | null> {
+  return actualizarCabecera(contexto, id, 'archivado_en = now()', []);
+}
+
+export async function desarchivarPresupuesto(contexto: ContextoTenant, id: string): Promise<Presupuesto | null> {
+  return actualizarCabecera(contexto, id, 'archivado_en = NULL', []);
+}
