@@ -35,12 +35,12 @@
 --  ---------------------------------------------------------------------------
 --  LAS DECISIONES DE DISEÑO QUE ESTE ESQUEMA IMPLEMENTA
 --
---  Son cincuenta y seis: D-1 a D-57, sin la D-10, que no existe. El motivo de
+--  Son cincuenta y siete: D-1 a D-58, sin la D-10, que no existe. El motivo de
 --  cada una está en la sección 14 del documento de alcance. Aquí va el
 --  enunciado, y cada decisión vuelve a aparecer anotada en el punto del esquema
 --  donde vive. Las ocho últimas están al final de esta lista y tienen fecha:
 --  D-44 a D-49 salieron de la auditoría externa del 24 de septiembre de 2026;
---  D-50 a D-57 son posteriores a ella y se distinguen a propósito, porque
+--  D-50 a D-58 son posteriores a ella y se distinguen a propósito, porque
 --  nadie debería tener que preguntarle a nadie qué se movió después del
 --  dictamen: está escrito aquí.
 --
@@ -221,7 +221,7 @@
 --  volver a auditar si el cambio solo altera lo que una función le devuelve a
 --  un llamador que ya tenía derecho a esas filas, porque ahí la superficie de
 --  lectura es la misma antes y después. D-50 cae del primer lado y se verificó
---  como tal; D-51 a D-57, del segundo, y abajo está por qué.
+--  como tal; D-51 a D-58, del segundo, y abajo está por qué.
 --
 --   D-50  (posterior a la auditoría · toca roles y privilegios · verificada
 --         contra la base) El rol dueño de las funciones de autenticación no se
@@ -323,6 +323,17 @@
 --         pueden ver nada que su llamador no viera, así que no son puertas.
 --         En la misma tanda, app.presupuesto guarda A, I y U por separado y no
 --         solo su suma, y sin_base_aiu decide el aviso de RF-PRE-36.
+--   D-58  (posterior a la auditoría · agrega disparadores y quita un permiso)
+--         fecha_modificacion la mueve la base, y solo la mueve el contenido.
+--         RF-PRE-07 la promete «ante cualquier cambio» y no ocurría: la escribía
+--         únicamente fn_recalcular_presupuesto, así que editar la cabecera o
+--         agregar un capítulo dejaban la marca intacta —y la vista maestra se
+--         ordena por esa columna—. Además estaba en el GRANT de la aplicación,
+--         que podía escribir una fecha anterior: una marca de tiempo que el
+--         llamador elige no es una marca de tiempo. Archivar NO la mueve, a
+--         propósito: el momento de archivar ya lo guarda archivado_en, y si la
+--         moviera, desarchivar una licitación de hace un año la pondría arriba
+--         de la lista como si se acabara de trabajar en ella.
 --
 --  ---------------------------------------------------------------------------
 --  LO QUE SIGUE ABIERTO, A PROPÓSITO
@@ -2690,8 +2701,12 @@ BEGIN
          WHERE presupuesto_id = NEW.id AND nivel > 1;
         IF v_sub > 0 THEN
             RAISE EXCEPTION
-              'El presupuesto tiene % subcapítulo(s): elimínelos o súbalos a '
-              'capítulo antes de cambiarlo a estructura por ítems (RF-PRE-44).',
+              -- Decia «elimínelos o súbalos a capítulo». Subir un subcapitulo
+              -- a capitulo es cambiarlo de padre, y el documento 02 §8.2 no
+              -- ofrece ningun control para eso: el mensaje mandaba al usuario a
+              -- buscar un boton que no existe.
+              'El presupuesto tiene % subcapítulo(s): elimínelos antes de '
+              'cambiarlo a estructura por ítems (RF-PRE-44).',
               v_sub;
         END IF;
     END IF;
@@ -4690,6 +4705,77 @@ CREATE TRIGGER tg_renumerar_item_del AFTER DELETE ON app.presupuesto_item
     FOR EACH STATEMENT EXECUTE FUNCTION app.fn_disparar_renumeracion();
 
 -- -----------------------------------------------------------------------------
+--  D-58 · La fecha de modificacion la mueve la base, y solo la mueve el
+--  contenido.
+--
+--  RF-PRE-07 la promete «actualizada automaticamente ante cualquier cambio» y el
+--  documento 02 §8.1 dice «en tiempo real». No ocurria: en todo el esquema la
+--  escribia unicamente fn_recalcular_presupuesto, asi que editar la cabecera,
+--  agregar un capitulo o renombrarlo dejaban la marca de tiempo intacta. Y la
+--  vista maestra se ordena por esta columna —ix_presupuesto_estado la lleva
+--  DESC—, o sea que la lista se ordenaba por una fecha que no se movia.
+--
+--  Ademas la columna estaba en el GRANT UPDATE de la aplicacion, que podia
+--  escribir cualquier fecha, incluso una anterior. Sale del GRANT: una marca de
+--  tiempo que el llamador puede elegir no es una marca de tiempo, es un campo.
+--
+--  QUE CUENTA COMO CAMBIO, y por que archivar NO cuenta. Esta columna responde
+--  «cuando cambio por ultima vez lo que el cliente veria en la oferta»:
+--  cabecera, porcentajes, estructura y actividades. Archivar es una accion sobre
+--  la visibilidad del proyecto, no sobre su contenido; el momento en que se
+--  archivo ya lo guarda archivado_en, que es otra columna porque es otra
+--  pregunta. Si archivar moviera la fecha, desarchivar una licitacion perdida de
+--  hace un año la pondria arriba de la vista maestra como si se acabara de
+--  trabajar en ella.
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION app.fn_marcar_modificacion() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = app, pg_temp AS $$
+BEGIN
+    -- Duplicar y purgar no son ediciones de nadie.
+    IF app.fn_bandera_interna('app.purga_tenant')
+       OR app.fn_bandera_interna('app.duplicando') THEN
+        RETURN NULL;
+    END IF;
+    UPDATE app.presupuesto SET fecha_modificacion = now()
+     WHERE id IN (SELECT presupuesto_id FROM afectados);
+    RETURN NULL;
+END $$;
+
+CREATE OR REPLACE FUNCTION app.fn_marcar_modificacion_cabecera() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    NEW.fecha_modificacion := now();
+    RETURN NEW;
+END $$;
+
+-- Solo las columnas de contenido. Archivar toca archivado_en, que no esta en
+-- esta lista, asi que no dispara nada.
+CREATE TRIGGER tg_modificacion_cabecera
+    BEFORE UPDATE OF codigo, nombre, ubicacion, aiu_administracion,
+                     aiu_imprevistos, aiu_utilidad, iva_utilidad_pct,
+                     modo_estructura ON app.presupuesto
+    FOR EACH ROW EXECUTE FUNCTION app.fn_marcar_modificacion_cabecera();
+
+CREATE TRIGGER tg_modificacion_wbs_ins AFTER INSERT ON app.wbs_nodo
+    REFERENCING NEW TABLE AS afectados
+    FOR EACH STATEMENT EXECUTE FUNCTION app.fn_marcar_modificacion();
+CREATE TRIGGER tg_modificacion_wbs_upd AFTER UPDATE ON app.wbs_nodo
+    REFERENCING NEW TABLE AS afectados
+    FOR EACH STATEMENT EXECUTE FUNCTION app.fn_marcar_modificacion();
+CREATE TRIGGER tg_modificacion_wbs_del AFTER DELETE ON app.wbs_nodo
+    REFERENCING OLD TABLE AS afectados
+    FOR EACH STATEMENT EXECUTE FUNCTION app.fn_marcar_modificacion();
+CREATE TRIGGER tg_modificacion_item_ins AFTER INSERT ON app.presupuesto_item
+    REFERENCING NEW TABLE AS afectados
+    FOR EACH STATEMENT EXECUTE FUNCTION app.fn_marcar_modificacion();
+CREATE TRIGGER tg_modificacion_item_upd AFTER UPDATE ON app.presupuesto_item
+    REFERENCING NEW TABLE AS afectados
+    FOR EACH STATEMENT EXECUTE FUNCTION app.fn_marcar_modificacion();
+CREATE TRIGGER tg_modificacion_item_del AFTER DELETE ON app.presupuesto_item
+    REFERENCING OLD TABLE AS afectados
+    FOR EACH STATEMENT EXECUTE FUNCTION app.fn_marcar_modificacion();
+
+-- -----------------------------------------------------------------------------
 --  D-47 · Buscar por nombre pasa por una función, no por la tabla.
 --
 --  RF-REC-03, RF-APU-02 y RF-PRE-02 piden búsqueda en tiempo real por nombre, y
@@ -5619,6 +5705,7 @@ ALTER FUNCTION app.fn_eliminar_recurso(uuid)                    OWNER TO constru
 -- llegan del cliente y escriben en varias tablas del inquilino.
 ALTER FUNCTION app.fn_renumerar_wbs(uuid)                       OWNER TO construsoft_owner;
 ALTER FUNCTION app.fn_mover_en_edt(uuid,integer)                OWNER TO construsoft_owner;
+ALTER FUNCTION app.fn_marcar_modificacion()                     OWNER TO construsoft_owner;
 ALTER FUNCTION app.fn_duplicar_presupuesto(uuid,text,text,boolean)
     OWNER TO construsoft_owner;
 ALTER FUNCTION app.fn_nueva_version_apu(uuid,jsonb,text,uuid,text)
@@ -5677,7 +5764,7 @@ GRANT DELETE ON app.presupuesto, app.wbs_nodo, app.presupuesto_item,
 -- de fn_cabecera_presupuesto.
 GRANT UPDATE (codigo, nombre, ubicacion, aiu_administracion, aiu_imprevistos,
               aiu_utilidad, iva_utilidad_pct, modo_estructura,
-              archivado_en, fecha_modificacion, duplicado_de_id)
+              archivado_en, duplicado_de_id)
     ON app.presupuesto TO construsoft_app;
 -- Del item y del nodo, SOLO lo que decide una persona. Lo demas se deriva, y
 -- conceder UPDATE sobre un dato derivado es dejar abierta la puerta que la
