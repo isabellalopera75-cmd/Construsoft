@@ -35,12 +35,12 @@
 --  ---------------------------------------------------------------------------
 --  LAS DECISIONES DE DISEÑO QUE ESTE ESQUEMA IMPLEMENTA
 --
---  Son sesenta y dos: D-1 a D-63, sin la D-10, que no existe. El motivo de
+--  Son sesenta y tres: D-1 a D-64, sin la D-10, que no existe. El motivo de
 --  cada una está en la sección 14 del documento de alcance. Aquí va el
 --  enunciado, y cada decisión vuelve a aparecer anotada en el punto del esquema
 --  donde vive. Las ocho últimas están al final de esta lista y tienen fecha:
 --  D-44 a D-49 salieron de la auditoría externa del 24 de septiembre de 2026;
---  D-50 a D-63 son posteriores a ella y se distinguen a propósito, porque
+--  D-50 a D-64 son posteriores a ella y se distinguen a propósito, porque
 --  nadie debería tener que preguntarle a nadie qué se movió después del
 --  dictamen: está escrito aquí.
 --
@@ -221,7 +221,7 @@
 --  volver a auditar si el cambio solo altera lo que una función le devuelve a
 --  un llamador que ya tenía derecho a esas filas, porque ahí la superficie de
 --  lectura es la misma antes y después. D-50 cae del primer lado y se verificó
---  como tal; D-51 a D-63, del segundo, y abajo está por qué.
+--  como tal; D-51 a D-64, del segundo, y abajo está por qué.
 --
 --   D-50  (posterior a la auditoría · toca roles y privilegios · verificada
 --         contra la base) El rol dueño de las funciones de autenticación no se
@@ -387,6 +387,16 @@
 --         inmutables, así que una foto guardada mal no se arregla nunca. Mismo
 --         motivo por el que el schema 2 subió a 3: entra antes de que exista una
 --         sola versión que no se pueda corregir.
+--   D-64  (posterior a la auditoría · amplía la fotografía al schema 5) El logo
+--         se congela con la versión. Decisión del dueño del proyecto, 30 de
+--         septiembre de 2026. D-28 ya congelaba la razón social y el NIT para
+--         que una reimpresión diga lo que decía el día que se emitió, y el logo
+--         es parte de lo que decía: una oferta de 2026 reimpresa en 2028 con la
+--         marca nueva no es la misma oferta.
+--            Tiene una consecuencia operativa que hay que respetar: un objeto de
+--         logo referenciado por cualquier versión no se borra nunca del
+--         almacenamiento. Quien escriba una limpieza de huérfanos tiene que
+--         excluir los que aparezcan en una fotografía.
 --
 --  ---------------------------------------------------------------------------
 --  LO QUE SIGUE ABIERTO, A PROPÓSITO
@@ -2566,7 +2576,7 @@ RETURNS jsonb LANGUAGE sql STABLE AS $$
     -- schema 1 no se pueden corregir nunca. Por eso entra hoy y no cuando haga
     -- falta. Hallazgo 7 de la auditoría del 24 de septiembre de 2026.
     SELECT jsonb_build_object(
-      'schema', 4,
+      'schema', 5,
       'presupuesto', jsonb_build_object(
           'codigo', p.codigo, 'nombre', p.nombre, 'ubicacion', p.ubicacion,
           'moneda', p.moneda, 'estado', p_estado,
@@ -2586,8 +2596,19 @@ RETURNS jsonb LANGUAGE sql STABLE AS $$
               'iva',             p.total_iva::text,
               'valor_total',     p.valor_total::text),
           'fecha_elaboracion', p.fecha_elaboracion),
+      -- El logo se congela con la version, igual que la razon social y el NIT
+      -- (D-28, D-64). Una reimpresion tiene que verse como el dia que se emitio,
+      -- y el logo es parte de como se veia: una oferta de 2026 reimpresa en 2028
+      -- con la marca nueva no es la misma oferta.
+      --   CONSECUENCIA OPERATIVA, y hay que respetarla: un objeto de logo
+      -- referenciado por CUALQUIER version no se borra nunca del almacenamiento,
+      -- aunque la empresa haya cambiado de logo diez veces. Quien algun dia
+      -- escriba una limpieza de objetos huerfanos tiene que excluir los que
+      -- aparezcan en una fotografia; si no, las reimpresiones viejas saldran sin
+      -- marca y nadie sabra por que.
       'empresa', (SELECT jsonb_build_object('razon_social', t.razon_social,
-                                            'nit', t.nit)
+                                            'nit', t.nit,
+                                            'logo_ruta', t.logo_ruta)
                     FROM plataforma.tenant t WHERE t.id = p.tenant_id),
       'capitulos', COALESCE((
           SELECT jsonb_agg(jsonb_build_object(
