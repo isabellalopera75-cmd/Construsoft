@@ -11,7 +11,8 @@
     "pretest": "bash scripts/resetear-base-pruebas.sh",
     "test": "bash scripts/correr-pruebas.sh",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "muestras": "node --env-file=.env.test --import tsx src/pruebas/generarMuestras.ts"
   },
   "dependencies": {
     "exceljs": "^4.4.0",

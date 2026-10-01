@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import type { DocumentoExportable } from '../infraestructura/basedatos/exportacion.js';
-import { filasDeLaOferta, lineasDelPie } from './filas.js';
+import { filasDeLaOferta, formatearFecha, lineasDelPie } from './filas.js';
 import { redondear } from './formatoNumerico.js';
 
 /** Los bytes del logo y su formato: los trae el almacenamiento de objetos (D-30), no la base. */
@@ -60,6 +60,7 @@ export async function generarExcel(documento: DocumentoExportable, logo: Logo | 
   hoja.addRow([`${p.codigo} — ${p.nombre}`]).font = { bold: true };
   hoja.addRow([p.ubicacion]);
   hoja.addRow([`Estado: ${p.estado}`, '', `Moneda: ${p.moneda}`]);
+  hoja.addRow([`Fecha de elaboración: ${formatearFecha(p.fechaElaboracion)}`]);
   if (numeroVersion !== null) hoja.addRow([`Versión ${numeroVersion}`]).font = { bold: true };
   hoja.addRow([]);
 

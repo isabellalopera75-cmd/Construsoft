@@ -98,20 +98,28 @@ describe('Excel de la oferta (RF-PRE-29/31, RF-VER-07, 02 §9.5)', () => {
     );
   });
 
-  test('el pie financiero completo cierra en 180.590.155 (D-28)', async () => {
+  test('el pie financiero completo, en el orden decidido por el dueño, cierra en 180.590.155 (D-28)', async () => {
     const hoja = (await abrir(await generarExcel(vivo, null))).worksheets[0]!;
     assert.deepEqual(
       [
+        'Total costo indirecto',
         'Total costo directo',
         'Administración (10,00 %)',
         'Imprevistos (5,00 %)',
         'Utilidad (5,00 %)',
         'AIU',
-        'IVA sobre la utilidad (19,00 %)',
-        'Total costo indirecto',
+        'IVA (19,00 %)',
         'VALOR TOTAL',
       ].map((concepto) => fila(hoja, concepto).getCell(6).value),
-      [105490000, 10549000, 5274500, 5274500, 21098000, 1002155, 53000000, 180590155],
+      [53000000, 105490000, 10549000, 5274500, 5274500, 21098000, 1002155, 180590155],
+    );
+    // El orden lo fija la posición en la hoja: Administración inmediatamente debajo del costo directo.
+    const filaDe = (concepto: string) => fila(hoja, concepto).number;
+    assert.deepEqual(
+      ['Total costo indirecto', 'Total costo directo', 'Administración (10,00 %)', 'Imprevistos (5,00 %)', 'Utilidad (5,00 %)', 'AIU', 'IVA (19,00 %)', 'VALOR TOTAL'].map(
+        (c, i, todos) => (i === 0 ? 1 : filaDe(c) - filaDe(todos[i - 1]!)),
+      ),
+      [1, 1, 1, 1, 1, 1, 1, 1],
     );
   });
 

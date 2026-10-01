@@ -75,24 +75,42 @@ export interface LineaDelPie {
 }
 
 /**
- * El pie financiero en el orden de la mesa de trabajo (02 §8.6, RF-PRE-22/43):
- * el AIU pegado al costo directo, el IVA debajo de la utilidad y el costo
- * indirecto al final. Los importes son los de la fotografía; ninguno se
- * calcula aquí. El Excel y el PDF lo toman de este único sitio, para que las
- * dos exportaciones no digan nunca conceptos distintos.
+ * El pie financiero de las exportaciones, en el orden que decidió el dueño del
+ * producto: los dos costos juntos al principio —el indirecto arriba— y debajo
+ * del costo directo, inmediatamente, la Administración que se calcula sobre
+ * él, de modo que el cliente verifica el porcentaje mirando el renglón de
+ * arriba. Los importes son los de la fotografía; ninguno se calcula aquí. El
+ * Excel y el PDF lo toman de este único sitio, para que las dos exportaciones
+ * no digan nunca conceptos distintos.
  */
 export function lineasDelPie(fotografia: FotografiaPresupuesto, formato: FormatoNumerico): LineaDelPie[] {
   const p = fotografia.presupuesto;
   const t = p.totales;
   const pct = (valor: string) => `${formatearNumero(valor, formato)} %`;
   return [
+    { concepto: 'Total costo indirecto', valor: t.costoIndirecto, destacado: false },
     { concepto: 'Total costo directo', valor: t.costoDirecto, destacado: false },
     { concepto: `Administración (${pct(p.aiu.a)})`, valor: t.administracion, destacado: false },
     { concepto: `Imprevistos (${pct(p.aiu.i)})`, valor: t.imprevistos, destacado: false },
     { concepto: `Utilidad (${pct(p.aiu.u)})`, valor: t.utilidad, destacado: false },
     { concepto: 'AIU', valor: t.aiu, destacado: false },
-    { concepto: `IVA sobre la utilidad (${pct(p.ivaUtilidadPct)})`, valor: t.iva, destacado: false },
-    { concepto: 'Total costo indirecto', valor: t.costoIndirecto, destacado: false },
+    { concepto: `IVA (${pct(p.ivaUtilidadPct)})`, valor: t.iva, destacado: false },
     { concepto: 'VALOR TOTAL', valor: t.valorTotal, destacado: true },
   ];
+}
+
+const FECHA_COLOMBIA = new Intl.DateTimeFormat('es-CO', {
+  timeZone: 'America/Bogota',
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+});
+
+/**
+ * Una marca de tiempo de la fotografía como fecha del documento, dd/mm/aaaa
+ * en la hora de Colombia: las 22:30 del 30 de septiembre en Bogotá son ya el
+ * 1 de octubre en UTC, y la oferta tiene que decir 30.
+ */
+export function formatearFecha(marca: string): string {
+  return FECHA_COLOMBIA.format(new Date(marca));
 }
