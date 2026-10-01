@@ -133,7 +133,10 @@ describe('Excel de la oferta (RF-PRE-29/31, RF-VER-07, 02 §9.5)', () => {
     const deLaVersion = textos((await abrir(await generarExcel(version1, null))).worksheets[0]!);
     assert.ok(delVivo.includes('Constructora Excel'));
     assert.ok(delVivo.includes('NIT 900000160-0'));
-    assert.ok(deLaVersion.includes('Versión 1'));
+    assert.ok(deLaVersion.some((t) => /^Versión 1 · \d{2}\/\d{2}\/\d{4}$/.test(t)), 'la versión no dice su propia fecha');
+    const deFebrero = structuredClone(version1);
+    deFebrero.fotografia.generada.en = '2027-02-15T03:00:00+00:00';
+    assert.ok(textos((await abrir(await generarExcel(deFebrero, null))).worksheets[0]!).includes('Versión 1 · 14/02/2027'));
     assert.ok(!delVivo.some((t) => t.startsWith('Versión')));
   });
 

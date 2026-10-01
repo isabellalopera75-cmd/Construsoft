@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url';
 import PDFDocument from 'pdfkit';
 import type { DocumentoExportable } from '../infraestructura/basedatos/exportacion.js';
 import type { Logo } from './excel.js';
-import { filasDeLaOferta, formatearFecha, lineasDelPie, type FilaOferta } from './filas.js';
+import { etiquetaDeVersion, filasDeLaOferta, formatearFecha, lineasDelPie, type FilaOferta } from './filas.js';
 import { formatearNumero } from './formatoNumerico.js';
 
 /*
@@ -97,7 +97,8 @@ function repartir(filas: FilaMedida[], altoPrimera: number, altoSiguientes: numb
  * aparecer (RF-PRE-31). Sin compresión: las pruebas leen lo que dice.
  */
 export async function generarPdf(documento: DocumentoExportable, logo: Logo | null): Promise<Buffer> {
-  const { fotografia, formato, numeroVersion } = documento;
+  const { fotografia, formato } = documento;
+  const version = etiquetaDeVersion(documento);
   const p = fotografia.presupuesto;
   const numero = (texto: string | null) => (texto === null ? '' : formatearNumero(texto, formato));
   const titulo = `${p.codigo} — ${p.nombre}`;
@@ -131,7 +132,7 @@ export async function generarPdf(documento: DocumentoExportable, logo: Logo | nu
     linea(p.ubicacion, MARGEN, MARGEN + 78, 'Normal', 9);
     linea(`Estado: ${p.estado}   ·   Moneda: ${p.moneda}`, MARGEN, MARGEN + 91, 'Normal', 9);
     linea(`Fecha de elaboración: ${formatearFecha(p.fechaElaboracion)}`, MARGEN, MARGEN + 104, 'Normal', 9);
-    if (numeroVersion !== null) linea(`Versión ${numeroVersion}`, MARGEN, MARGEN + 117, 'Negrita', 9);
+    if (version !== null) linea(version, MARGEN, MARGEN + 117, 'Negrita', 9);
     return MARGEN + 139;
   };
 
@@ -139,7 +140,7 @@ export async function generarPdf(documento: DocumentoExportable, logo: Logo | nu
   const encabezadoCorto = (): number => {
     linea(fotografia.empresa.razonSocial, MARGEN, MARGEN, 'Negrita', 9);
     linea(titulo, MARGEN, MARGEN + 12, 'Normal', 8);
-    if (numeroVersion !== null) linea(`Versión ${numeroVersion}`, 480, MARGEN + 12, 'Negrita', 8);
+    if (version !== null) linea(version, 440, MARGEN + 12, 'Negrita', 8);
     return MARGEN + 32;
   };
 

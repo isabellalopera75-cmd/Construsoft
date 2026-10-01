@@ -83,8 +83,12 @@ describe('PDF corporativo de la oferta (RF-PRE-30/31, RF-VER-07, RNF-20, 02 §9.
     assert.doesNotMatch(textoDePdf(await generarPdf(vivo, null)).join(' | '), /Concreto premezclado|Oficial de obra|Recurso ·/);
   });
 
-  test('una versión dice su número; el estado actual no dice ninguno (RF-VER-07)', async () => {
-    assert.ok(textoDePdf(await generarPdf(version1, null)).includes('Versión 1'));
+  test('una versión dice su número y su propia fecha; el estado actual no dice ninguno (RF-VER-07)', async () => {
+    // La fecha es la de la versión, no la de elaboración: 03:00 UTC del 15 de febrero son las 22:00 del 14 en Bogotá.
+    const deFebrero = structuredClone(version1);
+    deFebrero.fotografia.generada.en = '2027-02-15T03:00:00+00:00';
+    const texto = textoDePdf(await generarPdf(deFebrero, null));
+    assert.ok(texto.includes('Versión 1 · 14/02/2027'), 'la versión no dice su propia fecha');
     assert.ok(!textoDePdf(await generarPdf(vivo, null)).some((t) => t.startsWith('Versión')));
   });
 
@@ -138,6 +142,13 @@ describe('PDF de un presupuesto largo: la paginación', () => {
         assert.ok(pagina.includes(t), `la página ${i + 1} no trae «${t}»`);
       }
     });
+  });
+
+  test('en una versión, cada página dice qué versión es y de cuándo: una hoja suelta se identifica sola', async () => {
+    const version = { ...presupuestoLargo(), numeroVersion: 2 };
+    const paginas = leerPdf(await generarPdf(version, null)).paginas;
+    assert.ok(paginas.length >= 3);
+    paginas.forEach((pagina, i) => assert.ok(pagina.includes('Versión 2 · 30/09/2026'), `la página ${i + 1} no dice su versión`));
   });
 
   test('el pie nunca queda huérfano ni partido, para cualquier largo entre 40 y 90 actividades', async () => {

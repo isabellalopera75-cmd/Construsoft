@@ -66,7 +66,7 @@ describe('cierre de la fase 5: el presupuesto de referencia exportado desde sus 
 
   test('el PDF de la versión 1 dice «Versión 1», cierra en 180.590.155,00 y trae la excavación en 120 m³', async () => {
     const texto = textoDePdf(await generarPdf(version1, null));
-    assert.ok(texto.includes('Versión 1'));
+    assert.ok(texto.some((t) => t.startsWith('Versión 1 · ')));
     assert.ok(texto.includes('180.590.155,00'));
     assert.deepEqual(filaDelPdf(texto, 'Excavación manual'), [
       '2.1',
@@ -80,7 +80,7 @@ describe('cierre de la fase 5: el presupuesto de referencia exportado desde sus 
 
   test('el PDF de la versión 3 dice «Versión 3», cierra en 181.055.812,50 y trae la excavación en 130 m³', async () => {
     const texto = textoDePdf(await generarPdf(version3, null));
-    assert.ok(texto.includes('Versión 3'));
+    assert.ok(texto.some((t) => t.startsWith('Versión 3 · ')));
     assert.ok(texto.includes('181.055.812,50'));
     assert.deepEqual(filaDelPdf(texto, 'Excavación manual'), [
       '2.1',
@@ -95,10 +95,12 @@ describe('cierre de la fase 5: el presupuesto de referencia exportado desde sus 
   test('los dos PDF no dicen lo mismo: ninguno trae el número, la cifra ni la cantidad del otro', async () => {
     const uno = textoDePdf(await generarPdf(version1, null));
     const tres = textoDePdf(await generarPdf(version3, null));
-    for (const ajeno of ['Versión 3', '181.055.812,50', '130,00', '5.005.000,00']) {
+    assert.ok(!uno.some((t) => t.startsWith('Versión 3')), 'la versión 1 dice ser la 3');
+    assert.ok(!tres.some((t) => t.startsWith('Versión 1')), 'la versión 3 dice ser la 1');
+    for (const ajeno of ['181.055.812,50', '130,00', '5.005.000,00']) {
       assert.ok(!uno.includes(ajeno), `la versión 1 trae «${ajeno}»`);
     }
-    for (const ajeno of ['Versión 1', '180.590.155,00', '120,00', '4.620.000,00']) {
+    for (const ajeno of ['180.590.155,00', '120,00', '4.620.000,00']) {
       assert.ok(!tres.includes(ajeno), `la versión 3 trae «${ajeno}»`);
     }
   });

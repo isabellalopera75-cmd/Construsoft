@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import type { DocumentoExportable } from '../infraestructura/basedatos/exportacion.js';
-import { filasDeLaOferta, formatearFecha, lineasDelPie } from './filas.js';
+import { etiquetaDeVersion, filasDeLaOferta, formatearFecha, lineasDelPie } from './filas.js';
 import { redondear } from './formatoNumerico.js';
 
 /** Los bytes del logo y su formato: los trae el almacenamiento de objetos (D-30), no la base. */
@@ -41,7 +41,7 @@ function formatoDeCelda(decimales: number): string {
  * el formato de cada celda.
  */
 export async function generarExcel(documento: DocumentoExportable, logo: Logo | null): Promise<Buffer> {
-  const { fotografia, formato, numeroVersion } = documento;
+  const { fotografia, formato } = documento;
   const p = fotografia.presupuesto;
   const d = formato.decimalesVista;
   const formatoNumero = formatoDeCelda(d);
@@ -61,7 +61,8 @@ export async function generarExcel(documento: DocumentoExportable, logo: Logo | 
   hoja.addRow([p.ubicacion]);
   hoja.addRow([`Estado: ${p.estado}`, '', `Moneda: ${p.moneda}`]);
   hoja.addRow([`Fecha de elaboración: ${formatearFecha(p.fechaElaboracion)}`]);
-  if (numeroVersion !== null) hoja.addRow([`Versión ${numeroVersion}`]).font = { bold: true };
+  const version = etiquetaDeVersion(documento);
+  if (version !== null) hoja.addRow([version]).font = { bold: true };
   hoja.addRow([]);
 
   if (logo) {

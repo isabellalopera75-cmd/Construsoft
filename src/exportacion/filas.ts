@@ -1,4 +1,5 @@
 import type { FormatoNumerico } from '../infraestructura/basedatos/contextoTenant.js';
+import type { DocumentoExportable } from '../infraestructura/basedatos/exportacion.js';
 import type { FotografiaPresupuesto } from '../infraestructura/basedatos/versiones.js';
 import { formatearNumero } from './formatoNumerico.js';
 
@@ -113,4 +114,18 @@ const FECHA_COLOMBIA = new Intl.DateTimeFormat('es-CO', {
  */
 export function formatearFecha(marca: string): string {
   return FECHA_COLOMBIA.format(new Date(marca));
+}
+
+/**
+ * «Versión 3 · 14/02/2027»: el número y la fecha de la PROPIA versión, la que
+ * quedó congelada en su fotografía. La fecha de elaboración es la del
+ * presupuesto y no cambia al reabrir; la de la versión responde «¿de cuándo
+ * son estos precios?», que es lo primero que pregunta quien recibe una
+ * versión reabierta. Null cuando se exporta el estado actual, que no es una
+ * versión.
+ */
+export function etiquetaDeVersion(documento: DocumentoExportable): string | null {
+  return documento.numeroVersion === null
+    ? null
+    : `Versión ${documento.numeroVersion} · ${formatearFecha(documento.fotografia.generada.en)}`;
 }
