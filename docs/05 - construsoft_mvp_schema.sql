@@ -3152,7 +3152,7 @@ BEGIN
 
     IF NEW.permiso_codigo = 'PRESUPUESTOS.ESTADO' AND v_tipo <> 'ADMIN' THEN
         RAISE EXCEPTION
-          'Activar, cerrar y reabrir un proyecto es exclusivo del rol '
+          'Activar, cerrar, reabrir y eliminar un proyecto es exclusivo del rol '
           'Administrador y no es un permiso delegable (RN-03, RF-PRE-24/28). El rol '
           'destino es de tipo %.', v_tipo;
     END IF;
@@ -5857,7 +5857,10 @@ INSERT INTO app.permiso (codigo, modulo, accion, descripcion) VALUES
   ('PRESUPUESTOS.EDITAR',   'PRESUPUESTOS', 'EDITAR',         'Editar la mesa de trabajo, archivar y desarchivar'),
   ('PRESUPUESTOS.EXPORTAR', 'PRESUPUESTOS', 'EXPORTAR',       'Exportar a PDF y Excel'),
   ('PRESUPUESTOS.DUPLICAR', 'PRESUPUESTOS', 'DUPLICAR',       'Duplicar presupuestos'),
-  ('PRESUPUESTOS.ESTADO',   'PRESUPUESTOS', 'CAMBIAR_ESTADO', 'Activar, cerrar y reabrir — solo Administrador (RN-03)'),
+  -- Tambien eliminar: D-18 pone el borrado junto al cambio de estado, y D-61 lo
+  -- puso detras de este mismo permiso. La descripcion que lee el administrador
+  -- al configurar un rol tiene que nombrar todo lo que el permiso abre.
+  ('PRESUPUESTOS.ESTADO',   'PRESUPUESTOS', 'CAMBIAR_ESTADO', 'Activar, cerrar, reabrir y eliminar — solo Administrador (RN-03, D-18)'),
   ('CONFIG.EMPRESA',        'CONFIG',       'EDITAR',         'Editar datos de empresa y logo'),
   -- Sin el AIU, que esta descripción prometía y D-41 sacó de aquí: los cuatro
   -- porcentajes viven en cada presupuesto, no en la configuración de la empresa.
@@ -5878,7 +5881,10 @@ INSERT INTO app.tipo_evento (codigo, descripcion, exige_justificacion) VALUES
   ('PRECIO_MODIFICADO',       'Precio unitario modificado',                  false),
   ('CAPITULO_AGREGADO',       'Capítulo agregado',                           false),
   ('CAPITULO_ELIMINADO',      'Capítulo eliminado',                          false),
-  ('AIU_MODIFICADO',          'Porcentajes de AIU modificados',              false),
+  -- Registra tambien el IVA: el disparador vigila los cuatro porcentajes, no
+  -- tres. Un nombre que nombra de menos hace que nadie busque ahi el cambio que
+  -- si quedo guardado.
+  ('AIU_MODIFICADO',          'Porcentajes de AIU o IVA modificados',        false),
   ('PRESUPUESTO_ARCHIVADO',   'Presupuesto archivado (D-18)',                false),
   ('PRESUPUESTO_DESARCHIVADO','Presupuesto desarchivado (D-18)',             false),
   ('PRESUPUESTO_ELIMINADO',   'Presupuesto nunca activado, eliminado (D-18)', true ),
