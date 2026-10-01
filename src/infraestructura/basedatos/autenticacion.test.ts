@@ -63,6 +63,21 @@ describe('autenticar / resolverToken', () => {
     assert.equal(resultado.estado, 'ACTIVO');
   });
 
+  test('autenticar entrega el sello de credenciales, y cambiar la contraseña lo mueve (D-67)', async () => {
+    const antes = (await autenticar(EMAIL))!.credencialesEn;
+    assert.ok(antes instanceof Date);
+
+    await ejecutarConPermiso({ tenantId, usuarioId }, 'USUARIOS.GESTIONAR', (cliente) =>
+      cliente.query(`UPDATE app.usuario SET password_hash = 'otro_hash_de_prueba' WHERE id = $1`, [usuarioId]),
+    );
+    const despues = (await autenticar(EMAIL))!;
+    assert.ok(despues.credencialesEn.getTime() > antes.getTime(), 'el sello no se movió al cambiar la contraseña');
+
+    await ejecutarConPermiso({ tenantId, usuarioId }, 'USUARIOS.GESTIONAR', (cliente) =>
+      cliente.query(`UPDATE app.usuario SET password_hash = 'hash_de_prueba_no_real' WHERE id = $1`, [usuarioId]),
+    );
+  });
+
   test('autenticar(email inexistente) devuelve null, no un error', async () => {
     const resultado = await autenticar('nadie-existe-con-este-correo@construsoft.test');
     assert.equal(resultado, null);

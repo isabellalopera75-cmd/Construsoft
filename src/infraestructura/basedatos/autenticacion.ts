@@ -33,9 +33,18 @@ export interface UsuarioAutenticado {
   tenantId: string;
   rolId: string;
   nombre: string;
-  /** Hash Argon2id. El backend lo compara; Postgres no sabe calcularlo (documento 04). */
-  passwordHash: string;
+  /**
+   * Hash Argon2id. El backend lo compara; Postgres no sabe calcularlo. Null en
+   * un usuario PENDIENTE: nace sin contraseña y la elige al consumir su enlace.
+   */
+  passwordHash: string | null;
   estado: EstadoUsuario;
+  /**
+   * D-67 · El sello de credenciales: lo mueve tg_usuario_credenciales cada vez
+   * que cambia la contraseña. La cookie de sesión lo lleva desde el ingreso, y
+   * una cookie con un sello viejo ya no vale.
+   */
+  credencialesEn: Date;
 }
 
 /** Lo que devuelve app.fn_resolver_token. */
@@ -53,8 +62,9 @@ interface FilaAutenticar {
   tenant_id: string;
   rol_id: string;
   nombre: string;
-  password_hash: string;
+  password_hash: string | null;
   estado: EstadoUsuario;
+  credenciales_en: Date;
 }
 
 interface FilaResolverToken {
@@ -85,6 +95,7 @@ export async function autenticar(email: string): Promise<UsuarioAutenticado | nu
     nombre: fila.nombre,
     passwordHash: fila.password_hash,
     estado: fila.estado,
+    credencialesEn: fila.credenciales_en,
   };
 }
 
