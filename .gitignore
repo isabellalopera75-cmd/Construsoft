@@ -8,3 +8,6 @@ dist/
 .env
 .env.*
 !.env.example
+
+# Artefactos de revisión (PDF y Excel de muestra): se generan, no son código.
+muestras/
