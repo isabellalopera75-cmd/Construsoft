@@ -92,6 +92,7 @@ describe('duplicar (RF-PRE-27, D-19)', () => {
       adminNombre: 'Diana Admin',
       adminEmail: 'duplicar.admin@construsoft.test',
       adminHash: 'hash_de_prueba_no_real',
+      versionTerminos: 'terminos-de-prueba',
     });
     admin = { tenantId: empresa.tenantId, usuarioId: empresa.usuarioId };
     asistente = {
@@ -253,6 +254,7 @@ describe('duplicar (RF-PRE-27, D-19)', () => {
       adminNombre: 'Admin B',
       adminEmail: 'duplicar.b@construsoft.test',
       adminHash: 'hash_de_prueba_no_real',
+      versionTerminos: 'terminos-de-prueba',
     });
     const contextoB = { tenantId: empresaB.tenantId, usuarioId: empresaB.usuarioId };
     await assert.rejects(

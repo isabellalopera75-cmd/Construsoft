@@ -164,6 +164,16 @@ async function ejecutarComoTenant<T>(
  *      no "es cómodo tenerlo a mano". El resto de app.configuracion_empresa
  *      (moneda, notificaciones) sigue exigiendo CONFIG.PREFERENCIAS en
  *      configuracionEmpresa.ts, porque ahí ya se sabe qué pantalla es.
+ *      Desde D-65 trae también el estado de la suscripción: la interfaz lo
+ *      necesita para saber qué pantalla mostrar ANTES de pedir ninguna.
+ *   4. selloVigente — corre en CADA petición, antes que cualquier permiso:
+ *      decide si la cookie todavía es de esta persona (D-67). Exigirle un
+ *      permiso sería preguntarle a una sesión que quizá ya no vale qué puede
+ *      hacer. Solo lee.
+ *   5. actualizarHashAlIngresar — autoservicio sobre la identidad propia, como
+ *      el 2: corre justo después de que el ingreso verificó la contraseña, para
+ *      rehacer un hash con parámetros viejos (04 §8.2). Ningún rol tiene que
+ *      autorizar que alguien guarde su propia contraseña de otra forma.
  */
 function ejecutarSinPermiso<T>(
   contexto: ContextoTenant,
@@ -205,10 +215,35 @@ export interface FormatoNumerico {
   decimalesVista: number;
 }
 
+export type EstadoSuscripcion = 'EN_PRUEBA' | 'ACTIVA' | 'VENCIDA' | 'CANCELADA' | 'SUSPENDIDA' | 'SIN_SUSCRIPCION';
+
+/**
+ * plataforma.fn_estado_suscripcion tal cual (D-65). `soloLectura` sale de
+ * fn_suscripcion_vigente, la MISMA función que usa fn_exigir_permiso para
+ * rechazar las escrituras: la pantalla y el rechazo no pueden contradecirse.
+ * No se recalcula en la interfaz.
+ */
+export interface Suscripcion {
+  estado: EstadoSuscripcion;
+  soloLectura: boolean;
+  diasRestantes: number;
+  /** aaaa-mm-dd. Texto y no Date: un date de Postgres convertido a Date cae en la medianoche local. */
+  venceEl: string;
+  planCodigo: string;
+}
+
 /** Lo que la interfaz necesita antes de dibujar la primera pantalla, y nada más. */
 export interface ArranqueDeSesion {
+  usuarioNombre: string;
+  razonSocial: string;
   permisos: CodigoPermiso[];
   formatoNumerico: FormatoNumerico;
+  /**
+   * Null cuando la base no devuelve fila: es «sin acceso», nunca «al día»
+   * (fn_estado_suscripcion devuelve cero filas para un inquilino que el
+   * llamador no puede ver).
+   */
+  suscripcion: Suscripcion | null;
 }
 
 /**
@@ -242,13 +277,45 @@ export async function leerArranqueDeSesion(contexto: ContextoTenant): Promise<Ar
     );
     const filaFormato = filasFormato[0]!;
 
+    const { rows: filasIdentidad } = await cliente.query<{ nombre: string; razon_social: string }>(
+      `SELECT u.nombre, t.razon_social
+         FROM app.usuario u JOIN plataforma.tenant t ON t.id = u.tenant_id
+        WHERE u.id = $1`,
+      [contexto.usuarioId],
+    );
+    const identidad = filasIdentidad[0]!;
+
+    const { rows: filasSuscripcion } = await cliente.query<{
+      estado: EstadoSuscripcion;
+      solo_lectura: boolean;
+      dias_restantes: number;
+      vence_el: string;
+      plan_codigo: string;
+    }>(
+      `SELECT estado, solo_lectura, dias_restantes, vence_el::text AS vence_el, plan_codigo
+         FROM plataforma.fn_estado_suscripcion($1)`,
+      [contexto.tenantId],
+    );
+    const fila = filasSuscripcion[0];
+
     return {
-      permisos: filasPermiso.map((fila) => fila.permiso_codigo),
+      usuarioNombre: identidad.nombre,
+      razonSocial: identidad.razon_social,
+      permisos: filasPermiso.map((f) => f.permiso_codigo),
       formatoNumerico: {
         separadorMiles: filaFormato.separador_miles,
         separadorDecimal: filaFormato.separador_decimal,
         decimalesVista: filaFormato.decimales_vista,
       },
+      suscripcion: fila
+        ? {
+            estado: fila.estado,
+            soloLectura: fila.solo_lectura,
+            diasRestantes: fila.dias_restantes,
+            venceEl: fila.vence_el,
+            planCodigo: fila.plan_codigo,
+          }
+        : null,
     };
   });
 }
@@ -262,6 +329,12 @@ export interface DatosRegistroEmpresa {
   adminEmail: string;
   adminHash: string;
   emailRecuperacion?: string;
+  /**
+   * La versión de los términos y de la política de tratamiento que la persona
+   * aceptó al registrarse (Ley 1581, documento 04 §7). Obligatoria: sin ella
+   * no hay empresa.
+   */
+  versionTerminos: string;
 }
 
 /**
@@ -282,13 +355,15 @@ interface FilaAltaTenant {
 }
 
 /**
- * Registra una empresa nueva contra app.fn_alta_tenant (RN-01, D-51).
+ * Registra una empresa nueva contra app.fn_alta_tenant (RN-01, D-51) y deja
+ * firmada la aceptación de los términos (Ley 1581, 04 §7).
  *
  * No pasa por ejecutarComoTenant: todavía no hay tenant_id que fijar —
- * es lo que esta llamada está a punto de crear. Tampoco abre una
- * transacción explícita: fn_alta_tenant YA es una transacción completa por
- * sí sola (una única sentencia, RETURN QUERY al final), así que envolverla
- * en un BEGIN/COMMIT propio no protegería nada que Postgres no proteja ya.
+ * es lo que esta llamada está a punto de crear—. Sí abre su propia
+ * transacción, desde que firma los términos: el alta y la firma son dos
+ * sentencias, y una empresa sin la aceptación registrada no debe poder
+ * quedar creada si la segunda falla. Para la firma fija el contexto del
+ * inquilino recién nacido, porque plataforma.tenant está bajo RLS.
  *
  * No usa fn_autenticar para descubrir la identidad del administrador que
  * acaba de nacer: D-51 hizo que fn_alta_tenant devuelva sus tres ids
@@ -296,24 +371,93 @@ interface FilaAltaTenant {
  * función verifica credenciales, no resuelve identidades.
  */
 export async function registrarEmpresa(datos: DatosRegistroEmpresa): Promise<EmpresaRegistrada> {
-  const { rows } = await pool.query<FilaAltaTenant>(
-    'SELECT * FROM app.fn_alta_tenant($1, $2, $3, $4, $5, $6, $7)',
-    [
-      datos.razonSocial,
-      datos.nit,
-      datos.plan,
-      datos.adminNombre,
-      datos.adminEmail,
-      datos.adminHash,
-      datos.emailRecuperacion ?? null,
-    ],
-  );
-  const fila = rows[0]!;
-  return {
-    tenantId: fila.id_tenant,
-    usuarioId: fila.id_usuario,
-    rolAdminId: fila.id_rol_admin,
-  };
+  if (datos.versionTerminos.trim() === '') {
+    throw new Error(
+      'El registro necesita la aceptación de los términos y de la política de tratamiento de datos. ' +
+        'Léalos y márquelos como aceptados para continuar.',
+    );
+  }
+  const cliente = await pool.connect();
+  try {
+    await cliente.query('BEGIN');
+    const { rows } = await cliente.query<FilaAltaTenant>(
+      'SELECT * FROM app.fn_alta_tenant($1, $2, $3, $4, $5, $6, $7)',
+      [
+        datos.razonSocial,
+        datos.nit,
+        datos.plan,
+        datos.adminNombre,
+        datos.adminEmail,
+        datos.adminHash,
+        datos.emailRecuperacion ?? null,
+      ],
+    );
+    const fila = rows[0]!;
+    await cliente.query('SELECT set_config($1, $2, true)', ['app.tenant_id', fila.id_tenant]);
+    await cliente.query('SELECT set_config($1, $2, true)', ['app.usuario_id', fila.id_usuario]);
+    const firmado = await cliente.query(
+      `UPDATE plataforma.tenant
+          SET acepto_terminos_en = now(), version_terminos = $1
+        WHERE id = $2`,
+      [datos.versionTerminos, fila.id_tenant],
+    );
+    if (firmado.rowCount !== 1) {
+      throw new Error('No se pudo registrar la aceptación de los términos: la empresa no se creó.');
+    }
+    await cliente.query('COMMIT');
+    return {
+      tenantId: fila.id_tenant,
+      usuarioId: fila.id_usuario,
+      rolAdminId: fila.id_rol_admin,
+    };
+  } catch (error) {
+    await cliente.query('ROLLBACK');
+    throw error;
+  } finally {
+    cliente.release();
+  }
+}
+
+const SELLO = /^\d+\.\d{6}$/;
+
+/**
+ * D-67 · ¿Esta cookie sigue siendo de esta persona? Compara el sello que la
+ * cookie trae desde el ingreso con el de la fila, en la base y en texto
+ * exacto (ver UsuarioAutenticado.credencialesEn). Falso si no coinciden, si
+ * el usuario no existe en esta empresa, o si el sello ni siquiera tiene la
+ * forma de uno: una cookie manipulada no llega a la base como numeric.
+ */
+export async function selloVigente(contexto: ContextoTenant, sello: string): Promise<boolean> {
+  if (!SELLO.test(sello)) return false;
+  return ejecutarSinPermiso(contexto, async (cliente) => {
+    const { rows } = await cliente.query<{ vigente: boolean }>(
+      `SELECT EXISTS (
+         SELECT 1 FROM app.usuario
+          WHERE id = $1 AND extract(epoch FROM credenciales_en) = $2::numeric
+       ) AS vigente`,
+      [contexto.usuarioId, sello],
+    );
+    return rows[0]!.vigente;
+  });
+}
+
+/**
+ * 04 §8.2 · Rehace el hash al ingresar cuando el guardado se hizo con
+ * parámetros viejos. Cambiar password_hash mueve el sello (D-67), así que
+ * devuelve el NUEVO, que es el que tiene que ir en la cookie: con el de antes,
+ * la sesión recién abierta moriría en la petición siguiente.
+ */
+export async function actualizarHashAlIngresar(contexto: ContextoTenant, nuevoHash: string): Promise<string> {
+  return ejecutarSinPermiso(contexto, async (cliente) => {
+    const { rows } = await cliente.query<{ sello: string }>(
+      `UPDATE app.usuario SET password_hash = $1 WHERE id = $2
+       RETURNING extract(epoch FROM credenciales_en)::text AS sello`,
+      [nuevoHash, contexto.usuarioId],
+    );
+    const fila = rows[0];
+    if (!fila) throw new Error('El usuario de la sesión no existe en esta empresa.');
+    return fila.sello;
+  });
 }
 
 /**

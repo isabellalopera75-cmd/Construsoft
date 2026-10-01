@@ -36,6 +36,7 @@ async function registrarEmpresaDePrueba(
     adminNombre: `Admin de ${razonSocial}`,
     adminEmail: email,
     adminHash: 'hash_de_prueba_no_real',
+    versionTerminos: 'terminos-de-prueba',
   });
 }
 

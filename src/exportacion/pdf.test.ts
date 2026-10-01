@@ -36,6 +36,7 @@ describe('PDF corporativo de la oferta (RF-PRE-30/31, RF-VER-07, RNF-20, 02 §9.
       adminNombre: 'Admin del PDF',
       adminEmail: 'pdf.admin@construsoft.test',
       adminHash: 'hash_de_prueba_no_real',
+      versionTerminos: 'terminos-de-prueba',
     });
     const contexto: ContextoTenant = { tenantId: empresa.tenantId, usuarioId: empresa.usuarioId };
     const { presupuestoId } = await armarPresupuestoDeReferencia(contexto, 'PDF-RETIRO');

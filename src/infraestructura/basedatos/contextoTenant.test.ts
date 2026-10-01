@@ -5,12 +5,15 @@ import {
   CODIGOS_PERMISO,
   type ClienteEnContexto,
   type CodigoPermiso,
+  actualizarHashAlIngresar,
   consumirTokenRecuperacion,
   ejecutarConPermiso,
   leerArranqueDeSesion,
   registrarEmpresa,
+  selloVigente,
 } from './contextoTenant.js';
 import { autenticar, resolverToken } from './autenticacion.js';
+import { comoSuperusuario, vencerSuscripcion } from '../../pruebas/superusuario.js';
 
 /**
  * Fixtures de esta prueba: dos empresas reales, registradas con
@@ -51,6 +54,7 @@ async function registrarEmpresaDePrueba(
     adminNombre: `Admin de ${razonSocial}`,
     adminEmail: email,
     adminHash: 'hash_de_prueba_no_real',
+    versionTerminos: 'terminos-de-prueba',
   });
   return { ...alta, razonSocial, email };
 }
@@ -248,6 +252,35 @@ describe('registrarEmpresa', () => {
     assert.equal(resultado.estado, 'ACTIVO');
   });
 
+  test('deja firmada la aceptación de los términos, con su versión, en la misma transacción del alta (Ley 1581, 04 §7)', async () => {
+    const empresa = await registrarEmpresaDePrueba('Constructora Test Terminos', '900000018-8', 'teresa@construsoft.test');
+    const fila = await comoSuperusuario(async (cliente) => {
+      const { rows } = await cliente.query<{ acepto: boolean; version: string }>(
+        `SELECT acepto_terminos_en IS NOT NULL AS acepto, version_terminos AS version
+           FROM plataforma.tenant WHERE id = $1`,
+        [empresa.tenantId],
+      );
+      return rows[0];
+    });
+    assert.deepEqual(fila, { acepto: true, version: 'terminos-de-prueba' });
+  });
+
+  test('sin versión de términos no hay empresa: se rechaza antes de tocar la base', async () => {
+    await assert.rejects(
+      registrarEmpresa({
+        razonSocial: 'Constructora Sin Terminos',
+        nit: '900000019-9',
+        plan: 'EMPRESARIAL',
+        adminNombre: 'Nadie',
+        adminEmail: 'sin.terminos@construsoft.test',
+        adminHash: 'hash_de_prueba_no_real',
+        versionTerminos: '   ',
+      }),
+      /aceptación de los términos/,
+    );
+    assert.equal(await autenticar('sin.terminos@construsoft.test'), null);
+  });
+
   test('propaga el error de la base tal cual (NIT vacío, D-34)', async () => {
     await assert.rejects(
       registrarEmpresa({
@@ -257,6 +290,7 @@ describe('registrarEmpresa', () => {
         adminNombre: 'Nadie',
         adminEmail: 'nadie@construsoft.test',
         adminHash: 'hash_de_prueba_no_real',
+        versionTerminos: 'terminos-de-prueba',
       }),
       /NIT de la empresa es obligatorio/,
     );
@@ -338,10 +372,12 @@ describe('el problema que este wrapper existe para evitar', () => {
       const modulo = await import('./contextoTenant.js');
       assert.deepEqual(Object.keys(modulo).sort(), [
         'CODIGOS_PERMISO',
+        'actualizarHashAlIngresar',
         'consumirTokenRecuperacion',
         'ejecutarConPermiso',
         'leerArranqueDeSesion',
         'registrarEmpresa',
+        'selloVigente',
       ]);
     },
   );
@@ -633,6 +669,28 @@ describe('leerArranqueDeSesion', () => {
     });
     assert.deepEqual([...arranque.permisos].sort(), [...CODIGOS_PERMISO].sort());
     assert.deepEqual(arranque.formatoNumerico, formatoPorDefecto);
+    assert.deepEqual(
+      { usuario: arranque.usuarioNombre, empresa: arranque.razonSocial },
+      { usuario: 'Admin de Constructora Test R', empresa: 'Constructora Test R' },
+    );
+  });
+
+  test('trae el estado de la suscripción tal como lo da la base: en prueba, con sus días (D-65)', async () => {
+    const { suscripcion } = await leerArranqueDeSesion({ tenantId: empresaR.tenantId, usuarioId: empresaR.usuarioId });
+    assert.ok(suscripcion);
+    const { venceEl, ...resto } = suscripcion;
+    assert.match(venceEl, /^\d{4}-\d{2}-\d{2}$/);
+    assert.deepEqual(resto, { estado: 'EN_PRUEBA', soloLectura: false, diasRestantes: 15, planCodigo: 'EMPRESARIAL' });
+  });
+
+  test('vencida, la base dice solo lectura y la interfaz no tiene que calcular nada (D-65)', async () => {
+    const empresa = await registrarEmpresaDePrueba('Constructora Test Vencida', '900000015-5', 'vera@construsoft.test');
+    await vencerSuscripcion(empresa.tenantId);
+    const { suscripcion } = await leerArranqueDeSesion({ tenantId: empresa.tenantId, usuarioId: empresa.usuarioId });
+    assert.deepEqual(
+      { estado: suscripcion?.estado, soloLectura: suscripcion?.soloLectura, dias: suscripcion?.diasRestantes },
+      { estado: 'VENCIDA', soloLectura: true, dias: -1 },
+    );
   });
 
   test('un asistente recién creado no ve ningún permiso, pero sí ve el formato numérico de su empresa (D-44)', async () => {
@@ -722,5 +780,43 @@ describe('CODIGOS_PERMISO', () => {
       ),
       /error de programación/,
     );
+  });
+});
+
+describe('selloVigente y actualizarHashAlIngresar (D-67, 04 §8.1 y §8.2)', () => {
+  let empresa: EmpresaDePrueba;
+
+  before(async () => {
+    empresa = await registrarEmpresaDePrueba('Constructora Test Sello', '900000016-6', 'selena@construsoft.test');
+  });
+
+  const contexto = () => ({ tenantId: empresa.tenantId, usuarioId: empresa.usuarioId });
+
+  test('el sello que entrega el ingreso vale tal cual: la comparación es exacta, con microsegundos', async () => {
+    const { credencialesEn } = (await autenticar(empresa.email))!;
+    assert.match(credencialesEn, /^\d+\.\d{6}$/);
+    assert.equal(await selloVigente(contexto(), credencialesEn), true);
+  });
+
+  test('un sello que difiere en un microsegundo ya no vale: por eso el sello no viaja como Date', async () => {
+    const { credencialesEn } = (await autenticar(empresa.email))!;
+    const unoMas = (BigInt(credencialesEn.replace('.', '')) + 1n).toString();
+    const corrido = `${unoMas.slice(0, -6)}.${unoMas.slice(-6)}`;
+    assert.equal(await selloVigente(contexto(), corrido), false);
+  });
+
+  test('rehacer el hash al ingresar mueve el sello: el viejo deja de valer y el nuevo es el que devuelve', async () => {
+    const viejo = (await autenticar(empresa.email))!.credencialesEn;
+    const nuevo = await actualizarHashAlIngresar(contexto(), 'hash_rehecho_de_prueba');
+    assert.notEqual(nuevo, viejo);
+    assert.equal(await selloVigente(contexto(), viejo), false);
+    assert.equal(await selloVigente(contexto(), nuevo), true);
+    assert.equal((await autenticar(empresa.email))!.credencialesEn, nuevo);
+  });
+
+  test('aislamiento: desde otra empresa el sello de este usuario no existe', async () => {
+    const otra = await registrarEmpresaDePrueba('Constructora Test Sello B', '900000017-7', 'sebastian@construsoft.test');
+    const { credencialesEn } = (await autenticar(empresa.email))!;
+    assert.equal(await selloVigente({ tenantId: otra.tenantId, usuarioId: empresa.usuarioId }, credencialesEn), false);
   });
 });

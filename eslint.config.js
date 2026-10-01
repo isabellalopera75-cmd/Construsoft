@@ -30,6 +30,10 @@ export default [
       'src/infraestructura/basedatos/contextoTenant.test.ts',
       'src/infraestructura/basedatos/autenticacion.ts',
       'src/infraestructura/basedatos/autenticacion.test.ts',
+      // Solo pruebas: prepara escenarios que ninguna conexión legítima puede
+      // fabricar (vencer una suscripción) y se niega a abrir fuera de una base
+      // «_test». La aplicación no lo importa.
+      'src/pruebas/superusuario.ts',
     ],
     rules: {
       'no-restricted-imports': 'off',

@@ -35,6 +35,7 @@ const empresa = await registrarEmpresa({
   adminNombre: 'Ingeniera de muestras',
   adminEmail: `muestras.${Date.now()}@construsoft.test`,
   adminHash: 'hash_de_muestra_no_real',
+  versionTerminos: 'terminos-de-prueba',
 });
 const contexto = { tenantId: empresa.tenantId, usuarioId: empresa.usuarioId };
 const referencia = await armarPresupuestoDeReferencia(contexto, 'PRE-2026-001');

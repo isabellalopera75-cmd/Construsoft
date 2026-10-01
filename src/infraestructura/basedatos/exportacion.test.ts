@@ -21,6 +21,7 @@ describe('lo que se exporta: la fotografía, viva o de una versión, con el form
       adminNombre: 'Admin de exportación',
       adminEmail: 'exporta.admin@construsoft.test',
       adminHash: 'hash_de_prueba_no_real',
+      versionTerminos: 'terminos-de-prueba',
     });
     contexto = { tenantId: empresa.tenantId, usuarioId: empresa.usuarioId };
     asistente = {
@@ -92,6 +93,7 @@ describe('lo que se exporta: la fotografía, viva o de una versión, con el form
       adminNombre: 'Admin B',
       adminEmail: 'exporta.b@construsoft.test',
       adminHash: 'hash_de_prueba_no_real',
+      versionTerminos: 'terminos-de-prueba',
     });
     const contextoB = { tenantId: empresaB.tenantId, usuarioId: empresaB.usuarioId };
     const [v1] = await listarVersiones(contexto, presupuestoId);

@@ -58,6 +58,7 @@ describe('Excel de la oferta (RF-PRE-29/31, RF-VER-07, 02 §9.5)', () => {
       adminNombre: 'Admin del Excel',
       adminEmail: 'excel.admin@construsoft.test',
       adminHash: 'hash_de_prueba_no_real',
+      versionTerminos: 'terminos-de-prueba',
     });
     const contexto: ContextoTenant = { tenantId: empresa.tenantId, usuarioId: empresa.usuarioId };
     const { presupuestoId } = await armarPresupuestoDeReferencia(contexto, 'XLS-RETIRO');

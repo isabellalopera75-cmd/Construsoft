@@ -63,6 +63,7 @@ describe('redondear es exactamente el round() de PostgreSQL', () => {
       adminNombre: 'Admin del redondeo',
       adminEmail: 'redondeo.admin@construsoft.test',
       adminHash: 'hash_de_prueba_no_real',
+      versionTerminos: 'terminos-de-prueba',
     });
     contexto = { tenantId: empresa.tenantId, usuarioId: empresa.usuarioId };
   });

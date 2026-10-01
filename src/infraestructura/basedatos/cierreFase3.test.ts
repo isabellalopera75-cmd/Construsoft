@@ -30,6 +30,7 @@ describe('cierre de la fase 3: el presupuesto de referencia (06 §8)', () => {
       adminNombre: 'Ingeniera de El Retiro',
       adminEmail: 'cierre.retiro@construsoft.test',
       adminHash: 'hash_de_prueba_no_real',
+      versionTerminos: 'terminos-de-prueba',
     });
     contexto = { tenantId: empresa.tenantId, usuarioId: empresa.usuarioId };
     const referencia = await armarPresupuestoDeReferencia(contexto, 'PRE-RETIRO');

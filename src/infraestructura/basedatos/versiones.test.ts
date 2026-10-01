@@ -60,6 +60,7 @@ describe('versiones: guardar manual, listar y consultar la fotografía (RF-VER-0
       adminNombre: 'Valeria Admin',
       adminEmail: 'versiones.admin@construsoft.test',
       adminHash: 'hash_de_prueba_no_real',
+      versionTerminos: 'terminos-de-prueba',
     });
     asistenteId = await ejecutarConPermiso(contexto(), 'USUARIOS.GESTIONAR', async (cliente: ClienteEnContexto) => {
       const { rows: roles } = await cliente.query<{ id: string }>(
@@ -288,6 +289,7 @@ describe('versiones: guardar manual, listar y consultar la fotografía (RF-VER-0
       adminNombre: 'Admin B',
       adminEmail: 'versiones.b@construsoft.test',
       adminHash: 'hash_de_prueba_no_real',
+      versionTerminos: 'terminos-de-prueba',
     });
     const contextoB = { tenantId: empresaB.tenantId, usuarioId: empresaB.usuarioId };
     const { id } = await obra();

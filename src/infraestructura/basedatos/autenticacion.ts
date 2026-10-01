@@ -43,8 +43,13 @@ export interface UsuarioAutenticado {
    * D-67 · El sello de credenciales: lo mueve tg_usuario_credenciales cada vez
    * que cambia la contraseña. La cookie de sesión lo lleva desde el ingreso, y
    * una cookie con un sello viejo ya no vale.
+   *
+   * Es TEXTO —segundos desde 1970 con seis decimales, tal como los da
+   * extract(epoch)— y no un Date. La columna guarda microsegundos y Date solo
+   * milisegundos: con Date, la comparación de cada petición fallaría siempre
+   * que los microsegundos no fueran cero, es decir, casi siempre.
    */
-  credencialesEn: Date;
+  credencialesEn: string;
 }
 
 /** Lo que devuelve app.fn_resolver_token. */
@@ -64,7 +69,7 @@ interface FilaAutenticar {
   nombre: string;
   password_hash: string | null;
   estado: EstadoUsuario;
-  credenciales_en: Date;
+  credenciales_en: string;
 }
 
 interface FilaResolverToken {
@@ -83,9 +88,12 @@ interface FilaResolverToken {
  * para enumerar usuarios).
  */
 export async function autenticar(email: string): Promise<UsuarioAutenticado | null> {
-  const { rows } = await pool.query<FilaAutenticar>('SELECT * FROM app.fn_autenticar($1)', [
-    email,
-  ]);
+  const { rows } = await pool.query<FilaAutenticar>(
+    `SELECT usuario_id, tenant_id, rol_id, nombre, password_hash, estado,
+            extract(epoch FROM credenciales_en)::text AS credenciales_en
+       FROM app.fn_autenticar($1)`,
+    [email],
+  );
   const fila = rows[0];
   if (!fila) return null;
   return {

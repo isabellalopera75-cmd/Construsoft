@@ -34,6 +34,7 @@ describe('autenticar / resolverToken', () => {
       adminNombre: 'Carla Admin',
       adminEmail: EMAIL,
       adminHash: 'hash_de_prueba_no_real',
+      versionTerminos: 'terminos-de-prueba',
     });
     tenantId = alta.tenantId;
     usuarioId = alta.usuarioId;
@@ -64,14 +65,17 @@ describe('autenticar / resolverToken', () => {
   });
 
   test('autenticar entrega el sello de credenciales, y cambiar la contraseña lo mueve (D-67)', async () => {
+    // El sello es el texto exacto de la base —segundos desde 1970 con seis
+    // decimales—, no un Date: Date guarda milisegundos y la columna guarda
+    // microsegundos, y la comparación de la sesión es exacta.
     const antes = (await autenticar(EMAIL))!.credencialesEn;
-    assert.ok(antes instanceof Date);
+    assert.match(antes, /^\d+\.\d{6}$/);
 
     await ejecutarConPermiso({ tenantId, usuarioId }, 'USUARIOS.GESTIONAR', (cliente) =>
       cliente.query(`UPDATE app.usuario SET password_hash = 'otro_hash_de_prueba' WHERE id = $1`, [usuarioId]),
     );
     const despues = (await autenticar(EMAIL))!;
-    assert.ok(despues.credencialesEn.getTime() > antes.getTime(), 'el sello no se movió al cambiar la contraseña');
+    assert.ok(BigInt(despues.credencialesEn.replace('.', '')) > BigInt(antes.replace('.', '')), 'el sello no se movió al cambiar la contraseña');
 
     await ejecutarConPermiso({ tenantId, usuarioId }, 'USUARIOS.GESTIONAR', (cliente) =>
       cliente.query(`UPDATE app.usuario SET password_hash = 'hash_de_prueba_no_real' WHERE id = $1`, [usuarioId]),

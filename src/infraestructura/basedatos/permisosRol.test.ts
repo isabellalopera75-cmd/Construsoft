@@ -56,6 +56,7 @@ describe('D-59: editar presupuestos exige Ver APU, y lo impone la base', () => {
       adminNombre: 'Admin de roles',
       adminEmail: 'roles.admin@construsoft.test',
       adminHash: 'hash_de_prueba_no_real',
+      versionTerminos: 'terminos-de-prueba',
     });
     rolAsistente = await comoAdministrador(async (cliente) => {
       const { rows } = await cliente.query<{ id: string }>(

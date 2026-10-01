@@ -41,6 +41,7 @@ describe('cierre de la fase 4: el ciclo de vida del presupuesto de referencia', 
       adminNombre: 'Ingeniera del ciclo',
       adminEmail: 'cierre4.retiro@construsoft.test',
       adminHash: 'hash_de_prueba_no_real',
+      versionTerminos: 'terminos-de-prueba',
     });
     contexto = { tenantId: empresa.tenantId, usuarioId: empresa.usuarioId };
     referencia = await armarPresupuestoDeReferencia(contexto, 'PRE-RETIRO-CICLO');

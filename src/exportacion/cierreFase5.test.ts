@@ -48,6 +48,7 @@ describe('cierre de la fase 5: el presupuesto de referencia exportado desde sus 
       adminNombre: 'Ingeniera de las exportaciones',
       adminEmail: 'cierre5.retiro@construsoft.test',
       adminHash: 'hash_de_prueba_no_real',
+      versionTerminos: 'terminos-de-prueba',
     });
     const contexto: ContextoTenant = { tenantId: empresa.tenantId, usuarioId: empresa.usuarioId };
     const referencia = await armarPresupuestoDeReferencia(contexto, 'PRE-RETIRO-EXPORTA');

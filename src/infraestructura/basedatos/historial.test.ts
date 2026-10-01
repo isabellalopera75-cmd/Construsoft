@@ -92,6 +92,7 @@ describe('historial de cambios del presupuesto (RF-HIS-01..04)', () => {
       adminNombre: 'Hilda Admin',
       adminEmail: 'historial.admin@construsoft.test',
       adminHash: 'hash_de_prueba_no_real',
+      versionTerminos: 'terminos-de-prueba',
     });
     admin = { tenantId: empresa.tenantId, usuarioId: empresa.usuarioId };
     colaborador = { tenantId: empresa.tenantId, usuarioId: await crearColaborador() };
@@ -256,6 +257,7 @@ describe('historial de cambios del presupuesto (RF-HIS-01..04)', () => {
       adminNombre: 'Admin B',
       adminEmail: 'historial.b@construsoft.test',
       adminHash: 'hash_de_prueba_no_real',
+      versionTerminos: 'terminos-de-prueba',
     });
     assert.deepEqual(
       await listarHistorial({ tenantId: empresaB.tenantId, usuarioId: empresaB.usuarioId }, presupuestoId),

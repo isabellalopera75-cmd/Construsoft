@@ -74,6 +74,7 @@ describe('ciclo de vida: activar, cerrar y reabrir (RF-PRE-24..28, RF-VER-01/02/
       adminNombre: 'Admin del ciclo',
       adminEmail: 'ciclo.admin@construsoft.test',
       adminHash: 'hash_de_prueba_no_real',
+      versionTerminos: 'terminos-de-prueba',
     });
     asistenteId = await ejecutarConPermiso(contexto(), 'USUARIOS.GESTIONAR', async (cliente) => {
       const { rows: roles } = await cliente.query<{ id: string }>(
@@ -236,6 +237,7 @@ describe('ciclo de vida: activar, cerrar y reabrir (RF-PRE-24..28, RF-VER-01/02/
       adminNombre: 'Admin B',
       adminEmail: 'ciclo.b@construsoft.test',
       adminHash: 'hash_de_prueba_no_real',
+      versionTerminos: 'terminos-de-prueba',
     });
     const contextoB = { tenantId: empresaB.tenantId, usuarioId: empresaB.usuarioId };
     const abierto = await presupuestoConActividad();
@@ -359,6 +361,7 @@ describe('eliminar un presupuesto nunca activado (RF-PRE-40, D-18, D-61)', () =>
       adminNombre: 'Admin B',
       adminEmail: 'ciclo.borrado.b@construsoft.test',
       adminHash: 'hash_de_prueba_no_real',
+      versionTerminos: 'terminos-de-prueba',
     });
     const id = await presupuestoConActividad();
     await assert.rejects(
