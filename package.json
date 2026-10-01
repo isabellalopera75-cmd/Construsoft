@@ -12,7 +12,8 @@
     "test": "bash scripts/correr-pruebas.sh",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "muestras": "node --env-file=.env.test --import tsx src/pruebas/generarMuestras.ts"
+    "muestras": "node --env-file=.env.test --import tsx src/pruebas/generarMuestras.ts",
+    "api": "node --env-file=.env --import tsx src/http/arrancar.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",

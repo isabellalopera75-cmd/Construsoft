@@ -1,4 +1,5 @@
 import { ejecutarConPermiso, type ClienteEnContexto, type ContextoTenant } from './contextoTenant.js';
+import { ErrorParaElUsuario } from './errorParaElUsuario.js';
 
 /**
  * Una fila de actividad de la mesa de trabajo (RF-PRE-18, 02 §8.3). Solo la
@@ -96,9 +97,10 @@ export async function agregarActividad(
     );
     const id = rows[0]?.id;
     if (!id) {
-      throw new Error(
+      throw new ErrorParaElUsuario(
         'La actividad no se agregó: el capítulo o el APU elegido no existe en esta empresa. ' +
           'Vuelva a cargar la mesa de trabajo y elija de nuevo el capítulo y el APU.',
+        'RECHAZADO',
       );
     }
     return (await leerConCliente(cliente, id))!;

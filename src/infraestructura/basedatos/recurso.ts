@@ -1,4 +1,5 @@
 import { ejecutarConPermiso, type ContextoTenant } from './contextoTenant.js';
+import { ErrorParaElUsuario } from './errorParaElUsuario.js';
 
 /** Los cuatro tipos de app.recurso.tipo (RF-REC-01), y ningún otro string. */
 export type TipoRecurso = 'MATERIAL' | 'EQUIPO' | 'PERSONAL' | 'ACTIVIDAD_TODO_COSTO';
@@ -294,7 +295,7 @@ export async function actualizarRecurso(
     }>('SELECT precio_base, precio_total, iva_pct FROM app.recurso WHERE id = $1', [id]);
     const antes = filasAntes[0];
     if (!antes) {
-      throw new Error('El recurso no existe en esta empresa.');
+      throw new ErrorParaElUsuario('El recurso no existe en esta empresa.', 'NO_EXISTE');
     }
 
     const { rows } = await cliente.query<FilaRecurso>(

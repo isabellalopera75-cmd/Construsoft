@@ -1,6 +1,7 @@
 import { Pool, type QueryResult, type QueryResultRow } from 'pg';
 import { leerEnvObligatoria } from './env.js';
 import { resolverToken } from './autenticacion.js';
+import { ErrorParaElUsuario } from './errorParaElUsuario.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -372,9 +373,10 @@ interface FilaAltaTenant {
  */
 export async function registrarEmpresa(datos: DatosRegistroEmpresa): Promise<EmpresaRegistrada> {
   if (datos.versionTerminos.trim() === '') {
-    throw new Error(
+    throw new ErrorParaElUsuario(
       'El registro necesita la aceptación de los términos y de la política de tratamiento de datos. ' +
         'Léalos y márquelos como aceptados para continuar.',
+      'RECHAZADO',
     );
   }
   const cliente = await pool.connect();
@@ -486,19 +488,20 @@ export async function consumirTokenRecuperacion(
 ): Promise<ContextoTenant> {
   const token = await resolverToken(tokenHash);
   if (!token) {
-    throw new Error('El enlace no es válido: no corresponde a ningún token emitido.');
+    throw new ErrorParaElUsuario('El enlace no es válido: no corresponde a ningún token emitido.', 'RECHAZADO');
   }
   if (token.anuladoEn) {
-    throw new Error(
+    throw new ErrorParaElUsuario(
       'Este enlace ya no es válido: se emitió uno más reciente para el mismo trámite. ' +
         'Use el último enlace que se envió.',
+      'RECHAZADO',
     );
   }
   if (token.usadoEn) {
-    throw new Error('Este enlace ya fue usado. Si necesita otro, pida que se lo reenvíen.');
+    throw new ErrorParaElUsuario('Este enlace ya fue usado. Si necesita otro, pida que se lo reenvíen.', 'RECHAZADO');
   }
   if (token.expiraEn.getTime() <= Date.now()) {
-    throw new Error('Este enlace expiró. Pida que se lo reenvíen.');
+    throw new ErrorParaElUsuario('Este enlace expiró. Pida que se lo reenvíen.', 'RECHAZADO');
   }
 
   const contexto: ContextoTenant = { tenantId: token.tenantId, usuarioId: token.usuarioId };
@@ -510,7 +513,7 @@ export async function consumirTokenRecuperacion(
       [token.tokenId],
     );
     if (marcado.rowCount !== 1) {
-      throw new Error('Este enlace ya no se puede usar: alguien más lo consumió primero.');
+      throw new ErrorParaElUsuario('Este enlace ya no se puede usar: alguien más lo consumió primero.', 'RECHAZADO');
     }
 
     const actualizado = await cliente.query(
@@ -521,7 +524,7 @@ export async function consumirTokenRecuperacion(
       [passwordHash, token.usuarioId],
     );
     if (actualizado.rowCount !== 1) {
-      throw new Error('El enlace no corresponde a un usuario válido.');
+      throw new ErrorParaElUsuario('El enlace no corresponde a un usuario válido.', 'RECHAZADO');
     }
   });
 
