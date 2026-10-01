@@ -13,6 +13,7 @@ import { agregarCapitulo, agregarSubcapitulo } from './edt.js';
 import { agregarActividad, cambiarCantidad, type Actividad } from './actividad.js';
 import { activarPresupuesto, cerrarPresupuesto, reabrirPresupuesto } from './cicloDeVida.js';
 import { guardarVersion, leerFotografia, leerVersion, listarVersiones } from './versiones.js';
+import { actualizarDatosEmpresa, leerDatosEmpresa } from './configuracionEmpresa.js';
 
 let empresa: EmpresaRegistrada;
 let asistenteId: string;
@@ -156,7 +157,7 @@ describe('versiones: guardar manual, listar y consultar la fotografía (RF-VER-0
     const [lineaBase] = await listarVersiones(contexto(), id);
     const antes = (await leerVersion(contexto(), lineaBase!.id))!;
 
-    assert.equal(antes.fotografia.schema, 4);
+    assert.equal(antes.fotografia.schema, 5);
     assert.deepEqual(antes.fotografia.presupuesto.totales, {
       costoDirecto: '2000.000000',
       costoIndirecto: '1000.000000',
@@ -221,6 +222,32 @@ describe('versiones: guardar manual, listar y consultar la fotografía (RF-VER-0
     );
   });
 
+  test('schema 5: la empresa queda congelada con la versión —razón social, NIT y logo—, aunque cambie después (D-28, D-64)', async () => {
+    const datos = await leerDatosEmpresa(contexto());
+    await actualizarDatosEmpresa(contexto(), { ...datos, logoRuta: 'logos/2026.png' });
+    const { id } = await obra();
+    const de2026 = await guardarVersion(contexto(), id, 'Oferta con el logo de 2026');
+
+    await actualizarDatosEmpresa(contexto(), {
+      ...datos,
+      razonSocial: 'Constructora Versiones Renombrada',
+      logoRuta: 'logos/2028.png',
+    });
+    const de2028 = await guardarVersion(contexto(), id, 'Oferta con el logo de 2028');
+
+    assert.deepEqual((await leerVersion(contexto(), de2026.id))!.fotografia.empresa, {
+      razonSocial: 'Constructora Versiones',
+      nit: '900000110-0',
+      logoRuta: 'logos/2026.png',
+    });
+    assert.deepEqual((await leerVersion(contexto(), de2028.id))!.fotografia.empresa, {
+      razonSocial: 'Constructora Versiones Renombrada',
+      nit: '900000110-0',
+      logoRuta: 'logos/2028.png',
+    });
+    await actualizarDatosEmpresa(contexto(), datos);
+  });
+
   test('una versión no se edita ni se borra: la aplicación no tiene con qué (RF-VER-04, 02 §10.2)', async () => {
     const { id } = await obra();
     const guardada = await guardarVersion(contexto(), id, 'Intocable');
@@ -274,11 +301,13 @@ describe('versiones: guardar manual, listar y consultar la fotografía (RF-VER-0
 });
 
 describe('leerFotografia: el número de schema se comprueba, no se asume', () => {
-  test('un schema distinto de 4 se rechaza nombrando el que llegó y el que se sabe leer', () => {
-    assert.throws(() => leerFotografia({ schema: 2, presupuesto: {} }), /schema 2.*solo sabe leer el schema 4/);
-    // El 3 guardaba la clasificación cruda, null en los subniveles: leerlo como 4 la perdería en silencio.
-    assert.throws(() => leerFotografia({ schema: 3, presupuesto: {} }), /schema 3.*solo sabe leer el schema 4/);
-    assert.throws(() => leerFotografia({ schema: 5, presupuesto: {} }), /schema 5.*solo sabe leer el schema 4/);
+  test('un schema distinto de 5 se rechaza nombrando el que llegó y el que se sabe leer', () => {
+    assert.throws(() => leerFotografia({ schema: 2, presupuesto: {} }), /schema 2.*solo sabe leer el schema 5/);
+    // El 3 guardaba la clasificación cruda, null en los subniveles: leerlo como 5 la perdería en silencio.
+    assert.throws(() => leerFotografia({ schema: 3, presupuesto: {} }), /schema 3.*solo sabe leer el schema 5/);
+    // El 4 no traía el logo: leerlo como 5 reimprimiría con el logo de hoy sin que nada fallara.
+    assert.throws(() => leerFotografia({ schema: 4, presupuesto: {} }), /schema 4.*solo sabe leer el schema 5/);
+    assert.throws(() => leerFotografia({ schema: 6, presupuesto: {} }), /schema 6.*solo sabe leer el schema 5/);
   });
 
   test('una fotografía sin número de schema, o que no es un objeto, también se rechaza', () => {

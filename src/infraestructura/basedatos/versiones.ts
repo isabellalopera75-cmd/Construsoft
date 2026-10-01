@@ -49,9 +49,9 @@ export interface ItemFotografia {
   apuVersionId: string;
 }
 
-/** La fotografía completa de D-28, schema 4, con los importes como texto. */
+/** La fotografía completa de D-28, schema 5, con los importes como texto. */
 export interface FotografiaPresupuesto {
-  schema: 4;
+  schema: 5;
   presupuesto: {
     codigo: string;
     nombre: string;
@@ -74,7 +74,12 @@ export interface FotografiaPresupuesto {
     };
     fechaElaboracion: string;
   };
-  empresa: { razonSocial: string; nit: string | null };
+  /**
+   * Congelada con la versión (D-28, D-64): la reimpresión dice lo que decía el
+   * día que se emitió. logoRuta es la llave del objeto en el almacenamiento
+   * (D-30); un logo referenciado por una versión no se borra nunca.
+   */
+  empresa: { razonSocial: string; nit: string | null; logoRuta: string | null };
   capitulos: CapituloFotografia[];
   items: ItemFotografia[];
   generada: {
@@ -92,15 +97,16 @@ export interface Version extends ResumenVersion {
 
 /**
  * El único formato de fotografía que este lector sabe leer. El 3 guardaba la
- * clasificación cruda (null en los subniveles); el 4 la guarda heredada. Leer
- * un 3 como si fuera un 4 dejaría subcapítulos sin clasificación sin que nada
- * fallara, y por eso el 3 se rechaza igual que cualquier otro número.
+ * clasificación cruda (null en los subniveles) y el 4 no guardaba el logo. Leer
+ * cualquiera de los dos como si fuera un 5 no fallaría: dejaría subcapítulos
+ * sin clasificación, o reimprimiría con el logo de hoy. Por eso se rechazan
+ * igual que cualquier otro número.
  */
-const SCHEMA_FOTOGRAFIA = 4;
+const SCHEMA_FOTOGRAFIA = 5;
 
 /* La fotografía tal como la escribe app.fn_snapshot_presupuesto, en snake_case. */
 interface FotografiaCruda {
-  schema: 4;
+  schema: 5;
   presupuesto: {
     codigo: string;
     nombre: string;
@@ -123,7 +129,7 @@ interface FotografiaCruda {
     };
     fecha_elaboracion: string;
   };
-  empresa: { razon_social: string; nit: string | null };
+  empresa: { razon_social: string; nit: string | null; logo_ruta: string | null };
   capitulos: Array<{
     id: string;
     codigo_wbs: string;
@@ -160,7 +166,7 @@ interface FotografiaCruda {
  * Interpreta la fotografía de una versión. El número de schema se COMPRUEBA,
  * no se asume. Las versiones son inmutables, así que una guardada con otro
  * formato no se podrá corregir nunca. Un lector que la leyera como si fuera
- * del 4 mostraría una línea base mal interpretada, y nadie se enteraría. Ante
+ * del 5 mostraría una línea base mal interpretada, y nadie se enteraría. Ante
  * un número desconocido, falla y nombra el número que llegó.
  */
 export function leerFotografia(snapshot: unknown): FotografiaPresupuesto {
@@ -205,7 +211,7 @@ export function leerFotografia(snapshot: unknown): FotografiaPresupuesto {
       },
       fechaElaboracion: p.fecha_elaboracion,
     },
-    empresa: { razonSocial: f.empresa.razon_social, nit: f.empresa.nit },
+    empresa: { razonSocial: f.empresa.razon_social, nit: f.empresa.nit, logoRuta: f.empresa.logo_ruta },
     capitulos: f.capitulos.map((c) => ({
       id: c.id,
       codigoWbs: c.codigo_wbs,
