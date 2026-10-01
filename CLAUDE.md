@@ -132,13 +132,28 @@ Fase 1  Recursos
 Fase 2  APU
 Fase 3  Mesa de trabajo (presupuestos)
 Fase 4  Ciclo de vida y congelamiento
-Fase 5  Exportaciones          ← aquí ya hay algo que mostrarle a un cliente
-Fase 6  Superadministración y cobro
-Fase 7  Notificaciones y pulido
+Fase 5  Exportaciones
+Fase 6  Aplicación web, en cuatro rebanadas verticales:
+          6.1  Sesión, aislamiento por HTTP y una pantalla real
+               (antes de la 6.2: los patrones visuales)
+          6.2  Recursos y APU
+          6.3  Mesa de trabajo del presupuesto
+          6.4  Aprobación y exportación   ← aquí ya hay algo que mostrarle a un cliente
+Fase 7  Superadministración y cobro
+Fase 8  Notificaciones y pulido
 ```
+
+Las fases 0 a 5 construyen el sistema por debajo: la base y los módulos que
+hablan con ella. La fase 6 lo vuelve usable. Cada rebanada termina usable por
+sí sola, y la API se deriva de las pantallas del documento 02: no se construye
+completa primero.
 
 Cada fase cierra con un hito probado contra una base real. No pases a la
 siguiente sin ese hito verde.
+
+Estas son fases de **construcción**. La «fase 2» del producto que nombran los
+documentos —control de obra, inventario, compras— es otra cosa: es lo que
+viene después del MVP y no tiene número aquí.
 
 ---
 
