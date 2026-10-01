@@ -14,10 +14,13 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "exceljs": "^4.4.0",
+    "pdfkit": "^0.20.2",
     "pg": "^8.23.0"
   },
   "devDependencies": {
     "@types/node": "^26.6.3",
+    "@types/pdfkit": "^0.17.6",
     "@types/pg": "^8.23.1",
     "@typescript-eslint/parser": "^8.70.1",
     "eslint": "^10.11.0",
