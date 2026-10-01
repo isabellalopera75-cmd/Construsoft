@@ -398,6 +398,70 @@
 --         almacenamiento. Quien escriba una limpieza de huérfanos tiene que
 --         excluir los que aparezcan en una fotografía.
 --
+--   D-65  (posterior a la auditoría · agrega una rama a fn_exigir_permiso) La
+--         suscripción vencida es SOLO LECTURA, no bloqueo. Decisión del dueño
+--         del proyecto, 30 de septiembre de 2026.
+--            El documento 02 §3.4 promete que el servidor comprueba la vigencia
+--         en cada petición, y hasta aquí no la comprobaba nadie: una empresa
+--         vencida operaba igual que una al día, sin error, sin prueba roja y sin
+--         síntoma. La promesa estaba escrita y no existía.
+--            Ahora la comprueba fn_exigir_permiso, y lo que deja pasar son los
+--         permisos con accion IN ('VER','EXPORTAR'). Consultar y exportar
+--         responden; crear, editar, eliminar, duplicar, cambiar estado,
+--         configurar y gestionar usuarios se rechazan.
+--            El motivo de que exportar entre: los datos son del cliente. Una
+--         empresa a la que se le pasó la renovación tiene que poder sacar sus
+--         presupuestos, y un producto que se los retiene para cobrar es un
+--         producto que secuestra. La Ley 1581 de 2012 va en el mismo sentido.
+--            La regla es una condición sobre app.permiso.accion y NO una lista
+--         de excepciones, y la diferencia importa: CONFIG.SUSCRIPCION no
+--         necesita excepción porque ya está declarado con accion = 'VER', y los
+--         permisos que agregue la fase 2 caen del lado correcto el día que se
+--         crean, sin que nadie tenga que acordarse de volver aquí. Una lista es
+--         algo que alguien mantiene; una regla no.
+--
+--   D-66  (posterior a la auditoría · no cambia ninguna firma) Cada rechazo de
+--         fn_exigir_permiso tiene su propio SQLSTATE.
+--            Antes de esto el esquema entero no usaba ni un ERRCODE: las seis
+--         ramas salían como P0001 con el texto en español, y la única manera que
+--         tenía la API de distinguir «no hay sesión» de «la cuenta está
+--         revocada» de «tu rol no tiene el permiso» de «la suscripción se
+--         venció» era leer el mensaje. Con eso, corregir una tilde rompe una
+--         pantalla.
+--            Los códigos van por significado y no por estado HTTP: la base no
+--         sabe qué es un 403 ni tiene por qué saberlo. La traducción vive en un
+--         solo lugar de la API. La tabla está en el comentario de la función.
+--
+--   D-67  (posterior a la auditoría · agrega una columna y un disparador) El
+--         sello de credenciales, app.usuario.credenciales_en.
+--            La sesión viaja en una cookie firmada y no hay tabla de sesiones,
+--         de modo que no existe una fila que borrar para cortarle el acceso a
+--         alguien: una cookie sellada anda sola hasta que vence. Esta columna es
+--         lo que la reemplaza. La cookie lleva el valor que tenía al ingresar y
+--         el servidor lo compara con el de la fila en cada petición.
+--            La mueve un disparador y no la aplicación, a propósito: cambiar la
+--         contraseña invalida las sesiones anteriores aunque quien escriba ese
+--         código no se acuerde de este renglón. Y «cerrar sesión en todos los
+--         dispositivos» sale de aquí sin tabla ninguna.
+--            El mismo disparador RECHAZA que se escriba a mano, porque
+--         construsoft_app tiene UPDATE sobre toda app.usuario y sin eso la
+--         aplicación podría fijarla en cualquier valor y anular el sello.
+--
+--   D-68  (posterior a la auditoría · endurece una restricción) El ELSE de
+--         ck_token_vigencia dice interval '0', y es deliberado.
+--            Decía interval '72 hours', que era la vigencia de ACTIVACION
+--         escrita en el lugar donde cae todo lo que no se nombra. Un propósito
+--         nuevo agregado al CHECK de proposito heredaba 72 horas en silencio: el
+--         enlace de 24 que alguien quiso viviría tres días sin que nada se
+--         queje.
+--            Y quitar el ELSE es peor, no mejor: un CASE sin rama que coincida
+--         devuelve NULL, «expira_en <= creado_en + NULL» es NULL, y un CHECK que
+--         evalúa a NULL PASA. Quedaría permitiendo cualquier vigencia en vez de
+--         ninguna. Con interval '0' el propósito sin rama exige
+--         expira_en <= creado_en, que contradice el CHECK (expira_en > creado_en)
+--         de dos líneas más arriba: la fila se vuelve imposible de insertar y el
+--         olvido pasa de silencioso a ruidoso.
+--
 --  ---------------------------------------------------------------------------
 --  LO QUE SIGUE ABIERTO, A PROPÓSITO
 --
@@ -732,8 +796,13 @@ CREATE TABLE plataforma.suscripcion (               -- RF-SAD-07
     tenant_id             uuid        NOT NULL REFERENCES plataforma.tenant(id),
     plan_id               smallint    NOT NULL REFERENCES plataforma.plan(id),
     -- D-25: «VENCIDA» NO es un estado almacenado. Vencer es un hecho de
-    -- calendario —fecha_vencimiento < hoy— que la interfaz deriva y que se
-    -- revierte solo en el instante en que se registra el pago. Cancelar es una
+    -- calendario —fecha_vencimiento < hoy— que se revierte solo en el instante
+    -- en que se registra el pago.
+    --    Quién lo deriva no lo decía D-25 y ahora sí: lo deriva la base, en
+    -- plataforma.fn_estado_suscripcion. No la interfaz, como decía antes este
+    -- comentario, porque current_date del servidor es el único hoy confiable —el
+    -- reloj de un navegador es el reloj de su dueño— y la pantalla de vencida
+    -- del 02 §3.4 no puede depender de eso. Cancelar es una
     -- decisión comercial del superadministrador y nunca ocurre sola.
     -- Mezclarlas falsea el informe de bajas: una cuenta que solo dejó de pagar
     -- quedaba registrada como baja comercial.
@@ -999,6 +1068,16 @@ CREATE TABLE app.usuario (
                                CHECK (estado IN ('PENDIENTE','ACTIVO','REVOCADO')), -- RF-CFG-12
     creado_en      timestamptz NOT NULL DEFAULT now(),
     ultimo_acceso  timestamptz,
+    -- D-67 · El sello que invalida las cookies viejas. La sesión viaja en una
+    -- cookie firmada y no hay tabla de sesiones, así que no existe una fila que
+    -- borrar para cortarle el acceso a alguien. La cookie lleva el valor que
+    -- tenía al ingresar y el servidor lo compara con el de aquí en cada
+    -- petición: si no coinciden, la cookie es vieja y se rechaza.
+    --    Lo escribe tg_usuario_credenciales y nadie más. No se confunde con
+    -- ultimo_acceso: esa se mueve en cada ingreso, y si el sello se moviera con
+    -- ella, cada ingreso mataría la sesión del anterior y nadie podría trabajar
+    -- en dos pestañas.
+    credenciales_en timestamptz NOT NULL DEFAULT now(),
     UNIQUE (tenant_id, id),
     FOREIGN KEY (tenant_id, rol_id) REFERENCES app.rol(tenant_id, id),
     -- La implicación va en un solo sentido, a propósito. Exigirla en los dos
@@ -1014,6 +1093,55 @@ CREATE TABLE app.usuario (
         CHECK (estado <> 'ACTIVO' OR password_hash IS NOT NULL)
 );
 CREATE INDEX ix_usuario_tenant ON app.usuario (tenant_id, estado);
+
+-- -----------------------------------------------------------------------------
+--  D-67 · El sello de credenciales se mueve solo, y solo cuando corresponde.
+--
+--  Dos trabajos en un disparador, porque son la misma regla vista por sus dos
+--  lados: lo escribe cuando cambia la contraseña, y rechaza que lo escriba
+--  cualquier otro. Lo segundo no es paranoia: construsoft_app tiene UPDATE sobre
+--  toda app.usuario (§16.5), así que sin esta rama la aplicación podría fijar el
+--  sello en el valor que llevara la cookie y el sello no sellaría nada.
+--
+--  No lo mueve revocar una cuenta: para eso ya está la rama de estado de
+--  fn_exigir_permiso, que corta en la petición siguiente. Ni activarla, que es
+--  el primer hash y no un cambio —aunque de hecho pasa por la primera rama, y
+--  está bien que pase: antes de ese momento no puede existir ninguna cookie.
+--
+--  Si un mismo UPDATE cambia la contraseña Y trae un sello escrito a mano, gana
+--  el disparador y el valor de la mano se ignora. Es el resultado correcto, así
+--  que no hace falta protestar.
+-- -----------------------------------------------------------------------------
+-- clock_timestamp() y no now(), que es la hora de INICIO de la transacción y no
+-- avanza dentro de ella. Con now(), la propiedad «cambiar la contraseña cambia el
+-- sello» se cumplía de rebote: solo porque una fila creada en esta misma
+-- transacción no puede tener ninguna cookie emitida todavía. Es verdad, pero es
+-- un razonamiento que hay que rehacer cada vez que alguien lee esto, y una
+-- propiedad que se cumple por una coincidencia es una que se rompe cuando la
+-- coincidencia cambia. Con clock_timestamp() el sello avanza siempre y la
+-- propiedad vale sin condiciones. El sello es un valor opaco, no una hora que
+-- nadie va a mostrar, así que no se pierde nada.
+CREATE OR REPLACE FUNCTION app.fn_sellar_credenciales() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF NEW.password_hash IS DISTINCT FROM OLD.password_hash THEN
+        NEW.credenciales_en := clock_timestamp();
+    ELSIF NEW.credenciales_en IS DISTINCT FROM OLD.credenciales_en THEN
+        RAISE EXCEPTION
+          'credenciales_en no se escribe a mano (D-67): la mueve '
+          'tg_usuario_credenciales cuando cambia password_hash, y nada más. Si '
+          'lo que se busca es cerrar todas las sesiones de este usuario, el '
+          'camino es cambiarle la contraseña.';
+    END IF;
+    RETURN NEW;
+END $$;
+-- El nombre lo deja antes de tg_usuario_inmutable en el orden alfabético, que es
+-- el orden en que PostgreSQL dispara. Da igual aquí —ese guardián vigila
+-- tenant_id y creado_en, no esta columna— y por eso mismo credenciales_en NO
+-- puede entrar en su lista: el guardián compararía OLD con el NEW que este
+-- disparador acaba de mover y rechazaría todo cambio de contraseña.
+CREATE TRIGGER tg_usuario_credenciales BEFORE UPDATE ON app.usuario
+    FOR EACH ROW EXECUTE FUNCTION app.fn_sellar_credenciales();
 
 -- Una sola tubería para dos usos, porque el mecanismo es idéntico: enlace de
 -- un solo uso, hash almacenado, vencimiento. Las vigencias sí difieren y no es
@@ -1041,9 +1169,16 @@ CREATE TABLE app.token_recuperacion (                 -- RF-AUT-06..11, 13, RNF-
     anulado_en  timestamptz,
     CHECK (expira_en > creado_en),
     -- La vigencia por propósito deja de ser solo comentario (RNF-03, RF-AUT-13).
+    -- D-68 · El ELSE dice interval '0' y no la vigencia de ACTIVACION. Con
+    -- «ELSE interval '72 hours'», un propósito nuevo agregado al CHECK de arriba
+    -- heredaba 72 horas EN SILENCIO. Y quitar el ELSE sería peor: un CASE sin
+    -- rama devuelve NULL, y un CHECK que evalúa a NULL pasa. Con interval '0' el
+    -- propósito sin rama exige expira_en <= creado_en, que contradice el CHECK
+    -- de dos líneas arriba: la fila se vuelve imposible de insertar.
     CONSTRAINT ck_token_vigencia CHECK (expira_en <= creado_en +
         CASE proposito WHEN 'RECUPERACION' THEN interval '30 minutes'
-                       ELSE interval '72 hours' END),
+                       WHEN 'ACTIVACION'   THEN interval '72 hours'
+                       ELSE interval '0' END),
     FOREIGN KEY (tenant_id, usuario_id)
         REFERENCES app.usuario(tenant_id, id) ON DELETE CASCADE
 );
@@ -4150,13 +4285,19 @@ $$;
 -- -----------------------------------------------------------------------------
 GRANT SELECT ON app.usuario, app.token_recuperacion TO construsoft_auth;
 
+-- El DROP está porque la firma cambió al agregar credenciales_en (D-67), y
+-- CREATE OR REPLACE no puede cambiar el tipo de salida de una función. Al caer
+-- se lleva sus privilegios, y por eso el ALTER OWNER de abajo y el REVOKE/GRANT
+-- de §16.8 no son decorado: sin ellos la función volvería a nacer como PUBLIC y
+-- fn_verificar_funciones (D-54) negaría la carga del esquema.
+DROP FUNCTION IF EXISTS app.fn_autenticar(citext);
 CREATE OR REPLACE FUNCTION app.fn_autenticar(p_email citext)
 RETURNS TABLE (usuario_id uuid, tenant_id uuid, rol_id uuid, nombre text,
-               password_hash text, estado text)
+               password_hash text, estado text, credenciales_en timestamptz)
 LANGUAGE sql SECURITY DEFINER STABLE
 SET search_path = app, plataforma, pg_temp AS $$
     SELECT u.id, u.tenant_id, u.rol_id, u.nombre,
-           u.password_hash, u.estado
+           u.password_hash, u.estado, u.credenciales_en
       FROM app.usuario u
      WHERE u.email = p_email;
 $$;
@@ -4467,22 +4608,30 @@ END $$;
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION app.fn_exigir_permiso(p_permiso_codigo text)
 RETURNS void LANGUAGE plpgsql STABLE AS $$
-DECLARE v_usuario uuid := app.fn_usuario_actual(); v_estado text;
+DECLARE v_usuario uuid := app.fn_usuario_actual(); v_estado text; v_accion text;
 BEGIN
     -- Un código que no existe en el catálogo es un error de programación, no
     -- una falta de autorización. Sin esta rama falla cerrado igual —no aparece
     -- en rol_permiso— pero el mensaje culparía al usuario y lo mandaría a
     -- pedirle a su administrador un permiso que no existe en ninguna parte.
-    IF NOT EXISTS (SELECT 1 FROM app.permiso WHERE codigo = p_permiso_codigo) THEN
+    --
+    -- Trae la acción en la misma consulta porque la última rama la necesita
+    -- (D-65): preguntar dos veces por la misma fila del catálogo sería gratis en
+    -- rendimiento y caro en lecturas, que es donde se cuelan las diferencias.
+    SELECT p.accion INTO v_accion
+      FROM app.permiso p WHERE p.codigo = p_permiso_codigo;
+    IF v_accion IS NULL THEN
         RAISE EXCEPTION
           'El permiso «%» no existe en el catálogo de app.permiso. Es un error '
-          'de programación, no una falta de autorización.', p_permiso_codigo;
+          'de programación, no una falta de autorización.', p_permiso_codigo
+          USING ERRCODE = 'CS000';
     END IF;
 
     IF v_usuario IS NULL THEN
         RAISE EXCEPTION
           'No hay usuario en el contexto de la transacción. Fije app.usuario_id '
-          'antes de exigir un permiso: sin él no hay a quién preguntarle.';
+          'antes de exigir un permiso: sin él no hay a quién preguntarle.'
+          USING ERRCODE = 'CS001';
     END IF;
 
     -- Bajo RLS esto devuelve NULL tanto si el usuario no existe como si es de
@@ -4490,13 +4639,15 @@ BEGIN
     SELECT u.estado INTO v_estado FROM app.usuario u WHERE u.id = v_usuario;
     IF v_estado IS NULL THEN
         RAISE EXCEPTION
-          'El usuario del contexto no existe en esta empresa.';
+          'El usuario del contexto no existe en esta empresa.'
+          USING ERRCODE = 'CS002';
     END IF;
     IF v_estado <> 'ACTIVO' THEN
         RAISE EXCEPTION
           'La cuenta está en estado % y no puede ejecutar acciones. Una cuenta '
           'PENDIENTE se activa con su enlace; una REVOCADA la restablece un '
-          'administrador.', v_estado;
+          'administrador.', v_estado
+          USING ERRCODE = 'CS003';
     END IF;
 
     IF NOT EXISTS (
@@ -4509,13 +4660,48 @@ BEGIN
     THEN
         RAISE EXCEPTION
           'Su rol no tiene el permiso «%». Pídale a un administrador de su '
-          'empresa que se lo asigne.', p_permiso_codigo;
+          'empresa que se lo asigne.', p_permiso_codigo
+          USING ERRCODE = 'CS004';
+    END IF;
+
+    -- -------------------------------------------------------------------------
+    --  D-65 · La suscripción, al final y no al principio.
+    --
+    --  Va DESPUÉS del permiso del rol, y la razón es concreta: la interfaz
+    --  traduce este rechazo a 402 y lleva al usuario a la pantalla de
+    --  suscripción. Si la rama corriera antes, un ASISTENTE que intenta algo que
+    --  su rol nunca tuvo recibiría 402 y acabaría mandado a una pantalla que
+    --  además exige CONFIG.SUSCRIPCION, donde lo rechazarían otra vez. El orden
+    --  de arriba le responde lo que es verdad sobre él, y esta rama solo
+    --  aparece para quien sí podía hacerlo.
+    --
+    --  La condición de la acción va primero a propósito: plpgsql corta el AND en
+    --  cuanto es falso, así que consultar y exportar no pagan la consulta de
+    --  vigencia. Lo que se cobra, se cobra en las escrituras.
+    -- -------------------------------------------------------------------------
+    IF v_accion NOT IN ('VER','EXPORTAR')
+       AND NOT plataforma.fn_suscripcion_vigente(app.fn_tenant_actual())
+    THEN
+        RAISE EXCEPTION
+          'La suscripción de la empresa no está vigente. Mientras no lo esté '
+          'solo se puede consultar y exportar: la acción «%» escribe y queda '
+          'rechazada (D-65, 02 §3.4). Los datos siguen ahí y se pueden exportar.',
+          p_permiso_codigo
+          USING ERRCODE = 'CS005';
     END IF;
 END $$;
 COMMENT ON FUNCTION app.fn_exigir_permiso(text) IS
-  'D-52, RF-CFG-25. Comprueba en cada petición que el rol del usuario de sesión '
-  'tiene el código exacto que la acción exige. No reexige el Ver del módulo: lo '
-  'garantiza tg_rol_permisos_coherentes al configurar el rol.';
+  'D-52, D-65, D-66, RF-CFG-25, 02 §3.4. Comprueba en cada petición que el rol '
+  'del usuario de sesión tiene el código exacto que la acción exige, y que la '
+  'suscripción de la empresa permite escribir. No reexige el Ver del módulo: lo '
+  'garantiza tg_rol_permisos_coherentes al configurar el rol. '
+  'SQLSTATE por rechazo (D-66), para que nadie tenga que leer el mensaje: '
+  'CS000 el permiso no existe en el catálogo, error de programación; '
+  'CS001 no hay usuario en el contexto; '
+  'CS002 el usuario del contexto no es de esta empresa o no existe; '
+  'CS003 la cuenta no está ACTIVA; '
+  'CS004 el rol no tiene el permiso; '
+  'CS005 la suscripción no está vigente y la acción escribe.';
 
 -- Las tres transiciones pasan por funciones SECURITY DEFINER de
 -- construsoft_super —que SÍ tiene BYPASSRLS; este comentario decía
@@ -5580,6 +5766,66 @@ RETURNS boolean LANGUAGE sql STABLE AS $$
              ON s.tenant_id = t.id AND s.estado IN ('EN_PRUEBA','ACTIVA')
      WHERE t.id = p_tenant_id;
 $$;
+
+-- -----------------------------------------------------------------------------
+--  D-65 · El estado que la interfaz muestra, derivado aquí y no allá.
+--
+--  Lo que el arranque de sesión necesita para saber qué pantalla mostrar: el
+--  estado, los días que faltan y —lo importante— si la empresa está en solo
+--  lectura. Ese último campo sale de fn_suscripcion_vigente, la MISMA función
+--  que consulta fn_exigir_permiso para rechazar las escrituras. Por eso la
+--  pantalla y el rechazo no pueden contradecirse: si algún día cambia la regla
+--  de qué cuenta como vigente, cambia en un solo lugar y las dos la obedecen.
+--  Si la interfaz lo calculara por su cuenta, el día que discreparan ganaría el
+--  rechazo y el usuario vería una pantalla que le promete algo que no puede
+--  hacer.
+--
+--  Quién deriva «VENCIDA» lo discute el comentario de suscripcion.estado: la
+--  base, porque current_date del servidor es el único hoy confiable.
+--
+--  Devuelve CERO FILAS para un inquilino que el llamador no puede ver, porque la
+--  RLS de plataforma.tenant filtra el WHERE. Quien la consuma tiene que tratar
+--  la ausencia de fila como «sin acceso» y no como «al día»: fallar por ausencia
+--  es fallar cerrado, pero solo si el de arriba lo entiende así.
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION plataforma.fn_estado_suscripcion(p_tenant_id uuid)
+RETURNS TABLE (estado text, solo_lectura boolean, dias_restantes integer,
+               vence_el date, plan_codigo text)
+LANGUAGE sql STABLE AS $$
+    SELECT CASE
+             -- El orden es de afuera hacia adentro y no es casual: la suspensión
+             -- es del inquilino y tapa cualquier estado de su suscripción.
+             WHEN t.estado = 'SUSPENDIDO'            THEN 'SUSPENDIDA'
+             WHEN s.id IS NULL                       THEN 'SIN_SUSCRIPCION'
+             WHEN s.estado = 'CANCELADA'             THEN 'CANCELADA'
+             WHEN s.fecha_vencimiento < current_date THEN 'VENCIDA'
+             WHEN s.estado = 'EN_PRUEBA'             THEN 'EN_PRUEBA'
+             ELSE                                         'ACTIVA'
+           END,
+           NOT plataforma.fn_suscripcion_vigente(t.id),
+           (s.fecha_vencimiento - current_date)::integer,
+           s.fecha_vencimiento,
+           pl.codigo
+      FROM plataforma.tenant t
+      -- ux_suscripcion_activa garantiza UNA sola en EN_PRUEBA o ACTIVA, pero las
+      -- CANCELADA no tienen tope: un inquilino puede acumularlas. Sin este
+      -- LATERAL con LIMIT 1, el que acumuló dos cancelaciones recibía dos filas
+      -- y la API leía la primera que llegara. El ORDER BY pone la vigente
+      -- primero si existe y, si no, la cancelación más reciente.
+      LEFT JOIN LATERAL (
+               SELECT sx.* FROM plataforma.suscripcion sx
+                WHERE sx.tenant_id = t.id
+                ORDER BY (sx.estado IN ('EN_PRUEBA','ACTIVA')) DESC,
+                         sx.fecha_vencimiento DESC, sx.creado_en DESC, sx.id DESC
+                LIMIT 1) s ON true
+      LEFT JOIN plataforma.plan pl ON pl.id = s.plan_id
+     WHERE t.id = p_tenant_id;
+$$;
+COMMENT ON FUNCTION plataforma.fn_estado_suscripcion(uuid) IS
+  'D-65, 02 §3.4. Lo que el arranque de sesión necesita para elegir pantalla. '
+  'solo_lectura sale de fn_suscripcion_vigente, la misma que usa '
+  'fn_exigir_permiso, para que la pantalla y el rechazo no se contradigan. Cero '
+  'filas = sin acceso a ese inquilino, nunca «al día».';
 
 -- -----------------------------------------------------------------------------
 --  D-25 · Registro de un pago.
