@@ -1,7 +1,7 @@
 import ExcelJS from 'exceljs';
 import type { DocumentoExportable } from '../infraestructura/basedatos/exportacion.js';
-import { filasDeLaOferta } from './filas.js';
-import { formatearNumero, redondear } from './formatoNumerico.js';
+import { filasDeLaOferta, lineasDelPie } from './filas.js';
+import { redondear } from './formatoNumerico.js';
 
 /** Los bytes del logo y su formato: los trae el almacenamiento de objetos (D-30), no la base. */
 export interface Logo {
@@ -85,24 +85,12 @@ export async function generarExcel(documento: DocumentoExportable, logo: Logo | 
     for (const c of [4, 5, 6]) fila.getCell(c).numFmt = formatoNumero;
   }
 
-  // Pie financiero (D-28, 02 §8.6), en el orden de la mesa de trabajo.
-  const t = p.totales;
-  const pct = (valor: string) => `${formatearNumero(valor, formato)} %`;
+  // Pie financiero (D-28, 02 §8.6), del mismo sitio que el del PDF.
   hoja.addRow([]);
-  const pie: Array<[string, string]> = [
-    ['Total costo directo', t.costoDirecto],
-    [`Administración (${pct(p.aiu.a)})`, t.administracion],
-    [`Imprevistos (${pct(p.aiu.i)})`, t.imprevistos],
-    [`Utilidad (${pct(p.aiu.u)})`, t.utilidad],
-    ['AIU', t.aiu],
-    [`IVA sobre la utilidad (${pct(p.ivaUtilidadPct)})`, t.iva],
-    ['Total costo indirecto', t.costoIndirecto],
-    ['VALOR TOTAL', t.valorTotal],
-  ];
-  for (const [concepto, valor] of pie) {
-    const fila = hoja.addRow([concepto, '', '', '', '', celda(valor, d)]);
+  for (const linea of lineasDelPie(fotografia, formato)) {
+    const fila = hoja.addRow([linea.concepto, '', '', '', '', celda(linea.valor, d)]);
     fila.getCell(6).numFmt = formatoNumero;
-    if (concepto === 'VALOR TOTAL') fila.font = { bold: true };
+    if (linea.destacado) fila.font = { bold: true };
   }
 
   return Buffer.from(await libro.xlsx.writeBuffer());

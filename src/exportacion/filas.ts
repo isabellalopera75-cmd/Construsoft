@@ -1,4 +1,6 @@
+import type { FormatoNumerico } from '../infraestructura/basedatos/contextoTenant.js';
 import type { FotografiaPresupuesto } from '../infraestructura/basedatos/versiones.js';
+import { formatearNumero } from './formatoNumerico.js';
 
 /**
  * Una fila de la oferta tal como la imprimen el Excel y el PDF: un capítulo
@@ -63,4 +65,34 @@ export function filasDeLaOferta(fotografia: FotografiaPresupuesto): FilaOferta[]
     total: i.costoTotal,
   }));
   return [...capitulos, ...actividades].sort((a, b) => compararCodigos(a.codigo, b.codigo));
+}
+
+/** Una línea del pie financiero: el concepto, con su porcentaje visible cuando lo tiene, y el importe en texto. */
+export interface LineaDelPie {
+  concepto: string;
+  valor: string;
+  destacado: boolean;
+}
+
+/**
+ * El pie financiero en el orden de la mesa de trabajo (02 §8.6, RF-PRE-22/43):
+ * el AIU pegado al costo directo, el IVA debajo de la utilidad y el costo
+ * indirecto al final. Los importes son los de la fotografía; ninguno se
+ * calcula aquí. El Excel y el PDF lo toman de este único sitio, para que las
+ * dos exportaciones no digan nunca conceptos distintos.
+ */
+export function lineasDelPie(fotografia: FotografiaPresupuesto, formato: FormatoNumerico): LineaDelPie[] {
+  const p = fotografia.presupuesto;
+  const t = p.totales;
+  const pct = (valor: string) => `${formatearNumero(valor, formato)} %`;
+  return [
+    { concepto: 'Total costo directo', valor: t.costoDirecto, destacado: false },
+    { concepto: `Administración (${pct(p.aiu.a)})`, valor: t.administracion, destacado: false },
+    { concepto: `Imprevistos (${pct(p.aiu.i)})`, valor: t.imprevistos, destacado: false },
+    { concepto: `Utilidad (${pct(p.aiu.u)})`, valor: t.utilidad, destacado: false },
+    { concepto: 'AIU', valor: t.aiu, destacado: false },
+    { concepto: `IVA sobre la utilidad (${pct(p.ivaUtilidadPct)})`, valor: t.iva, destacado: false },
+    { concepto: 'Total costo indirecto', valor: t.costoIndirecto, destacado: false },
+    { concepto: 'VALOR TOTAL', valor: t.valorTotal, destacado: true },
+  ];
 }
