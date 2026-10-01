@@ -17,6 +17,7 @@ Antes de escribir una línea de código, lee estos archivos de `docs/`:
 | `docs/01 - Alcance del MVP.docx` | Alcance, reglas de negocio y los 150 requisitos (RF-*, RN-*, RNF-*). Su sección 14 da el porqué de cada decisión. | De qué entra en el MVP y qué no |
 | `docs/02 - Guia de comportamiento de interfaz.docx` | Cómo se comporta cada pantalla, módulo por módulo. | De la conducta de la interfaz |
 | `docs/06 - Formulas y calculos.docx` | AIU, IVA, incidencia y el presupuesto de referencia verificado a mano. | De los cálculos |
+| `docs/04 - Decisiones tecnicas y stack.docx` | Con qué se construye y qué trampas evitar. Su sección 8 recoge lo que decidió la fase 6: la sesión, los parámetros de Argon2id, los dos agrupadores de conexión y la tabla de SQLSTATE a HTTP. | Del stack y de las decisiones técnicas |
 
 La sección 14 del documento 01 explica **por qué** cada regla es como es. Léela
 antes de proponer un cambio: casi todo lo que parece una omisión está decidido a
