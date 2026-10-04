@@ -1,65 +1,25 @@
 import { after, before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
-import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
-import { ejecutarConPermiso, type ContextoTenant } from '../infraestructura/basedatos/contextoTenant.js';
+import type { FastifyInstance } from 'fastify';
+import { ejecutarConPermiso } from '../infraestructura/basedatos/contextoTenant.js';
 import { autenticar } from '../infraestructura/basedatos/autenticacion.js';
 import { crearPresupuesto } from '../infraestructura/basedatos/presupuesto.js';
 import { comoSuperusuario, vencerSuscripcion } from '../pruebas/superusuario.js';
+import {
+  VERSION_TERMINOS_DE_PRUEBA as VERSION_TERMINOS,
+  borraLaCookie,
+  clienteDePrueba,
+  cookieDe,
+  type Cuenta,
+} from '../pruebas/clienteHttp.js';
 import { hashearContrasena, parametrosDelHash, PARAMETROS_ARGON2 } from './contrasenas.js';
 import { NOMBRE_COOKIE } from './sesion.js';
 import { generarToken } from './tokens.js';
 import { construirServidor } from './servidor.js';
 
-const VERSION_TERMINOS = 'terminos-2026-10-01';
 let app: FastifyInstance;
-let ipSecuencia = 0;
-/** Cada prueba usa su propia IP: el límite por IP de una no contamina a otra. */
-const otraIp = () => `10.0.${Math.floor(ipSecuencia / 250)}.${(ipSecuencia++ % 250) + 1}`;
-
-function cookieDe(respuesta: LightMyRequestResponse): string | undefined {
-  const c = respuesta.cookies.find((x) => x.name === NOMBRE_COOKIE);
-  return c && c.value !== '' ? `${NOMBRE_COOKIE}=${c.value}` : undefined;
-}
-
-function borraLaCookie(respuesta: LightMyRequestResponse): boolean {
-  const c = respuesta.cookies.find((x) => x.name === NOMBRE_COOKIE);
-  return c !== undefined && (c.value === '' || (c.expires !== undefined && c.expires.getTime() <= Date.now()));
-}
-
-interface Cuenta {
-  email: string;
-  contrasena: string;
-  cookie: string;
-  contexto: ContextoTenant;
-}
-
-async function registrar(razonSocial: string, nit: string, email: string, contrasena = 'contrasena-segura-1'): Promise<Cuenta> {
-  const r = await app.inject({
-    method: 'POST',
-    url: '/api/registro',
-    remoteAddress: otraIp(),
-    payload: {
-      nombre: `Admin de ${razonSocial}`,
-      email,
-      contrasena,
-      razonSocial,
-      nit,
-      plan: 'EMPRESARIAL',
-      aceptaTerminos: true,
-      versionTerminos: VERSION_TERMINOS,
-    },
-  });
-  assert.equal(r.statusCode, 201, r.body);
-  const yo = (await autenticar(email))!;
-  return { email, contrasena, cookie: cookieDe(r)!, contexto: { tenantId: yo.tenantId, usuarioId: yo.usuarioId } };
-}
-
-const ingresar = (email: string, contrasena: string, ip = otraIp()) =>
-  app.inject({ method: 'POST', url: '/api/sesion', remoteAddress: ip, payload: { email, contrasena } });
-
-const pedir = (url: string, cookie?: string) =>
-  app.inject({ method: 'GET', url, remoteAddress: otraIp(), ...(cookie ? { headers: { cookie } } : {}) });
+const { otraIp, ingresar, pedir, registrar } = clienteDePrueba(() => app);
 
 before(async () => {
   app = await construirServidor({ secretoSesion: randomBytes(32).toString('hex'), versionTerminos: VERSION_TERMINOS });
