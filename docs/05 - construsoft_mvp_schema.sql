@@ -462,6 +462,33 @@
 --         de dos líneas más arriba: la fila se vuelve imposible de insertar y el
 --         olvido pasa de silencioso a ruidoso.
 --
+--   D-69  (posterior a la auditoría · corrige fn_renumerar_wbs) La renumeración
+--         de la EDT se calcula UNA sola vez para las dos tablas.
+--            Se calculaba dos: el bucle de capítulos reescribía «orden» y
+--         después el bloque de actividades volvía a correr row_number() sobre
+--         esos «orden» ya reescritos, o sea sobre un estado a medio escribir.
+--            Para verlo: bajo un capítulo, [subcapítulo S, actividad X,
+--         subcapítulo T]; se borra S. La primera pasada calcula bien —X al
+--         lugar 1, T al 2— pero solo ESCRIBE los capítulos, así que T baja a
+--         orden 2 y X se queda en 2. La segunda pasada recalcula sobre ese
+--         empate y X recibe otra vez orden 2: los dos quedan con el código
+--         «1.2». Ninguna restricción lo frena, porque las dos claves de
+--         unicidad del código son por tabla y uno vive en wbs_nodo y el otro en
+--         presupuesto_item.
+--            Lo peor no es el código repetido, que se ve: es que la
+--         renumeración siguiente lo tapa dejando los códigos distintos pero con
+--         T antes que X. La oferta se reordena sola y nadie se entera.
+--            El bucle de capítulos se queda, y no es cosmético:
+--         fn_wbs_sin_ciclos valida nivel = padre + 1 LEYENDO la tabla, así que
+--         los capítulos tienen que escribirse de padre a hijo. Lo que cambia es
+--         de dónde salen los números: una tabla temporal, como la z_orden de
+--         fn_mover_en_edt, y las dos tablas se actualizan desde esa misma foto.
+--            Lo encontró la prueba del invariante «los orden de los hermanos de
+--         un mismo padre son 1..n sin repetir», escrita el 4 de octubre de 2026
+--         para vigilar que el desempate del orden siguiera siendo inobservable.
+--         El desempate estaba bien; leerlo dos veces, no. La prueba está en
+--         docs/prueba-edt.sql y falla contra el esquema anterior.
+--
 --  ---------------------------------------------------------------------------
 --  LO QUE SIGUE ABIERTO, A PROPÓSITO
 --
@@ -4980,43 +5007,55 @@ BEGIN
     -- otra renumeración y el recálculo entero del presupuesto.
     PERFORM set_config('app.renumerando', p_presupuesto_id::text, true);
 
-    -- Capítulos y subcapítulos, de arriba hacia abajo: el padre ya tiene su
-    -- nivel nuevo cuando se comprueba el del hijo (fn_wbs_sin_ciclos exige
-    -- nivel = padre + 1).
-    FOR r IN
-        WITH RECURSIVE hijos AS (
-            SELECT n.id, n.padre_id AS padre, true AS es_nodo, n.orden
-              FROM app.wbs_nodo n WHERE n.presupuesto_id = p_presupuesto_id
-            UNION ALL
-            SELECT i.id, i.wbs_nodo_id, false, i.orden
-              FROM app.presupuesto_item i WHERE i.presupuesto_id = p_presupuesto_id
-        ), lugares AS (
-            SELECT h.*, row_number() OVER (PARTITION BY h.padre
-                        ORDER BY h.orden, h.es_nodo DESC, h.id) AS lugar
-              FROM hijos h
-        ), arbol AS (
-            SELECT l.id, l.es_nodo, l.lugar::integer AS orden,
-                   1::smallint AS nivel, l.lugar::text AS prefijo
-              FROM lugares l WHERE l.padre IS NULL
-            UNION ALL
-            SELECT c.id, c.es_nodo, c.lugar::integer, (a.nivel + 1)::smallint,
-                   a.prefijo || '.' || c.lugar
-              FROM lugares c JOIN arbol a ON c.padre = a.id AND a.es_nodo
-        )
-        SELECT id, orden, nivel,
-               CASE WHEN nivel = 1 THEN prefijo || '.0' ELSE prefijo END AS codigo
-          FROM arbol WHERE es_nodo ORDER BY nivel, orden
-    LOOP
-        UPDATE app.wbs_nodo
-           SET orden = r.orden, nivel = r.nivel, codigo_wbs = r.codigo
-         WHERE id = r.id
-           AND (orden, nivel, codigo_wbs) IS DISTINCT FROM (r.orden, r.nivel, r.codigo);
-        IF FOUND THEN
-            v_n := v_n + 1;
-        END IF;
-    END LOOP;
+    -- -------------------------------------------------------------------------
+    --  D-69 · UNA sola foto de los lugares, para las dos tablas.
+    --
+    --  Antes se calculaban dos veces: el bucle de nodos reescribía «orden» y
+    --  después el bloque de actividades volvía a correr row_number() leyendo
+    --  esos «orden» ya reescritos, o sea un estado a medio escribir. El
+    --  resultado era dos hermanos con el mismo código.
+    --
+    --  Para verlo: bajo un capítulo, [subcapítulo S, actividad X, subcapítulo
+    --  T]; se borra S. La primera pasada calcula bien —X va al lugar 1 y T al
+    --  2— pero solo ESCRIBE los nodos, así que T baja a orden 2 y X se queda
+    --  en 2. La segunda pasada recalcula sobre ese empate, el desempate
+    --  «es_nodo DESC» pone a T primero, y X recibe otra vez orden 2. Los dos
+    --  quedan con el código «1.2», y ninguna restricción lo frena porque uno
+    --  vive en wbs_nodo y el otro en presupuesto_item: las dos claves de
+    --  unicidad del código son por tabla.
+    --
+    --  Y la renumeración siguiente lo tapa sin arreglarlo: deja los códigos
+    --  distintos pero con T antes que X, invirtiendo el orden que la persona
+    --  había armado. Un reordenamiento silencioso de la oferta.
+    --
+    --  Lo encontró la prueba del invariante «los orden de los hermanos de un
+    --  mismo padre son 1..n sin repetir», escrita el 4 de octubre de 2026
+    --  justamente para vigilar que el desempate siguiera siendo inobservable.
+    --  El desempate seguía bien; lo que no estaba bien era leerlo dos veces.
+    --
+    --  El bucle de nodos se queda, y no es cosmético: fn_wbs_sin_ciclos valida
+    --  nivel = padre + 1 LEYENDO la tabla, así que los nodos tienen que
+    --  escribirse de padre a hijo. Lo que cambia es de dónde salen los
+    --  números: ahora los dos lados leen la misma foto.
+    -- -------------------------------------------------------------------------
+    -- Se pregunta por el catálogo en vez de usar CREATE IF NOT EXISTS: esta
+    -- función la dispara un trigger AFTER STATEMENT, así que corre varias veces
+    -- en una misma transacción. Un CREATE a secas moriría la segunda vez, y el
+    -- IF NOT EXISTS funciona pero deja un aviso en cada cambio de estructura:
+    -- ruido permanente en los registros a cambio de nada.
+    IF to_regclass('pg_temp.z_renumerar') IS NULL THEN
+        CREATE TEMP TABLE z_renumerar (
+            id      uuid     PRIMARY KEY,
+            es_nodo boolean  NOT NULL,
+            orden   integer  NOT NULL,
+            nivel   smallint NOT NULL,
+            codigo  text     NOT NULL
+        ) ON COMMIT DROP;
+    ELSE
+        DELETE FROM z_renumerar;
+    END IF;
 
-    -- Las actividades, en una sola sentencia.
+    INSERT INTO z_renumerar (id, es_nodo, orden, nivel, codigo)
     WITH RECURSIVE hijos AS (
         SELECT n.id, n.padre_id AS padre, true AS es_nodo, n.orden
           FROM app.wbs_nodo n WHERE n.presupuesto_id = p_presupuesto_id
@@ -5028,17 +5067,39 @@ BEGIN
                     ORDER BY h.orden, h.es_nodo DESC, h.id) AS lugar
           FROM hijos h
     ), arbol AS (
-        SELECT l.id, l.es_nodo, l.lugar::integer AS orden, l.lugar::text AS prefijo
+        SELECT l.id, l.es_nodo, l.lugar::integer AS orden,
+               1::smallint AS nivel, l.lugar::text AS prefijo
           FROM lugares l WHERE l.padre IS NULL
         UNION ALL
-        SELECT c.id, c.es_nodo, c.lugar::integer, a.prefijo || '.' || c.lugar
+        SELECT c.id, c.es_nodo, c.lugar::integer, (a.nivel + 1)::smallint,
+               a.prefijo || '.' || c.lugar
           FROM lugares c JOIN arbol a ON c.padre = a.id AND a.es_nodo
     )
+    SELECT id, es_nodo, orden, nivel,
+           CASE WHEN es_nodo AND nivel = 1 THEN prefijo || '.0' ELSE prefijo END
+      FROM arbol;
+
+    -- Los capítulos, de arriba hacia abajo por el motivo del comentario de
+    -- arriba. Los números salen de la foto, no de la tabla.
+    FOR r IN
+        SELECT z.id, z.orden, z.nivel, z.codigo
+          FROM z_renumerar z WHERE z.es_nodo ORDER BY z.nivel, z.orden
+    LOOP
+        UPDATE app.wbs_nodo
+           SET orden = r.orden, nivel = r.nivel, codigo_wbs = r.codigo
+         WHERE id = r.id
+           AND (orden, nivel, codigo_wbs) IS DISTINCT FROM (r.orden, r.nivel, r.codigo);
+        IF FOUND THEN
+            v_n := v_n + 1;
+        END IF;
+    END LOOP;
+
+    -- Las actividades, en una sola sentencia y desde la misma foto.
     UPDATE app.presupuesto_item i
-       SET orden = a.orden, codigo_item = a.prefijo
-      FROM arbol a
-     WHERE i.id = a.id AND NOT a.es_nodo
-       AND (i.orden, i.codigo_item) IS DISTINCT FROM (a.orden, a.prefijo);
+       SET orden = z.orden, codigo_item = z.codigo
+      FROM z_renumerar z
+     WHERE i.id = z.id AND NOT z.es_nodo
+       AND (i.orden, i.codigo_item) IS DISTINCT FROM (z.orden, z.codigo);
     GET DIAGNOSTICS v_i = ROW_COUNT;
 
     PERFORM set_config('app.renumerando', '', true);
