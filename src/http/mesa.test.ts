@@ -209,15 +209,14 @@ describe('GET /api/presupuestos/:id/mesa: la lectura única de la mesa de trabaj
     await exigirInvariante(p.id, 'eliminar una actividad del medio');
   });
 
-  // BUG DEL ESQUEMA, reportado al dueño del esquema: fn_renumerar_wbs numera
-  // en dos pasadas y la segunda (actividades) recalcula los lugares leyendo
-  // los orden que la primera (nodos) ya reescribió. Al borrar S de
-  // [S, X, T], T pasa de 3 a 2, empata con la actividad X (2), el desempate
-  // pone a T primero y X se queda en 2: dos hermanos con el código «1.2».
-  // Cuando se corrija, se quita el todo y esta prueba tiene que pasar.
+  // D-69. fn_renumerar_wbs numeraba en dos pasadas y la de actividades leía
+  // los orden que la de nodos ya había reescrito: al borrar S de [S, X, T],
+  // T y X quedaban con el mismo código. La precondición con dientes es un
+  // subárbol LIMPIO —nada movido antes— con [nodo, actividad, nodo]: un
+  // árbol ya movido deshace la configuración y la prueba pasaría también con
+  // el esquema roto.
   test(
-    'invariante al borrar un subcapítulo que tiene una actividad como hermana',
-    { todo: 'fn_renumerar_wbs: la pasada de actividades lee los orden ya reescritos por la de nodos' },
+    'invariante al borrar el primer nodo de un subárbol limpio [nodo, actividad, nodo] (D-69)',
     async () => {
       const p = await crearPresupuesto(duena.contexto, { codigo: 'MESA-INV2', nombre: 'Invariante 2', ubicacion: 'Sabaneta', modoEstructura: 'WBS' });
       const c = await agregarCapitulo(duena.contexto, p.id, { nombre: 'C', clasificacion: 'DIRECTO' });
