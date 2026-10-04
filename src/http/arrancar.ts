@@ -10,18 +10,25 @@
  *   VERSION_TERMINOS  la versión de los términos y de la política de
  *                     tratamiento de datos que se están publicando (04 §7).
  *                     Cambiarla obliga a aceptar de nuevo en el registro.
+ *                     Mientras el texto no exista: PROVISIONAL-<fecha>, y
+ *                     entonces la API solo arranca con TERMINOS_PROVISIONALES=si
+ *                     y CONTACTO_TERMINOS (a quién escribir).
+ *   PROXIES_DE_CONFIANZA  opcional; direcciones o subredes del proxy, separadas
+ *                     por comas. Nunca «true» (ver configuracion.ts).
  *   PUERTO            opcional; 3000 por defecto.
  *
  * Además, las de las dos conexiones a la base (APP_DB_* y AUTH_DB_*), que leen
  * los módulos de la capa de datos.
  */
-import { leerEnvObligatoria } from '../infraestructura/basedatos/env.js';
+import { leerConfiguracion } from './configuracion.js';
 import { construirServidor } from './servidor.js';
 
-const app = await construirServidor({
-  secretoSesion: leerEnvObligatoria('SESSION_SECRET'),
-  versionTerminos: leerEnvObligatoria('VERSION_TERMINOS'),
-});
+// Lo que falta o está mal se rechaza aquí, antes de escuchar.
+const configuracion = leerConfiguracion(process.env);
+const app = await construirServidor(configuracion);
+if (configuracion.terminosProvisionales) {
+  console.warn(`⚠ Términos PROVISIONALES (${configuracion.versionTerminos}): esta instalación no es para uso real.`);
+}
 const puerto = Number(process.env.PUERTO ?? 3000);
 await app.listen({ port: puerto, host: '127.0.0.1' });
 console.log(`→ API de Construsoft escuchando en http://127.0.0.1:${puerto}`);

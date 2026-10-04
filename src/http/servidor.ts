@@ -17,12 +17,20 @@ import { sesionInvalida, traducirError } from './errores.js';
 import { ContadorDeIntentos } from './limiteIntentos.js';
 import { ATRIBUTOS_COOKIE, NOMBRE_COOKIE, armarSesion, leerSesion } from './sesion.js';
 import { hashDeToken } from './tokens.js';
+import { textoProvisional } from './configuracion.js';
 
 export interface OpcionesServidor {
   /** La clave de firma de la cookie: SESSION_SECRET del .env, que escribe el dueño. */
   secretoSesion: string;
   /** La versión de los términos y la política que se están publicando hoy (Ley 1581, 04 §7). */
   versionTerminos: string;
+  /** A quién escribirle mientras los términos sean provisionales (PROVISIONAL-<fecha>). */
+  contactoTerminos?: string | null;
+  /**
+   * Direcciones o subredes del proxy cuyo X-Forwarded-For se cree. Nunca
+   * «true»: ver leerConfiguracion. Sin proxy, la IP es la de la conexión.
+   */
+  proxiesDeConfianza?: string[] | null;
   /** El reloj, inyectable para probar el vencimiento de la sesión. */
   ahora?: () => number;
 }
@@ -91,7 +99,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  */
 export async function construirServidor(opciones: OpcionesServidor): Promise<FastifyInstance> {
   const ahora = opciones.ahora ?? Date.now;
-  const app = Fastify({ logger: false });
+  const app = Fastify({ logger: false, trustProxy: opciones.proxiesDeConfianza ?? false });
   await app.register(cookie, { secret: opciones.secretoSesion });
 
   // Límite de intentos (04 §5). Por correo frena la serie contra una cuenta;
@@ -155,6 +163,22 @@ export async function construirServidor(opciones: OpcionesServidor): Promise<Fas
     const respuesta = traducirError(error);
     if (respuesta.borrarCookie) reply.clearCookie(NOMBRE_COOKIE, { path: '/' });
     return reply.code(respuesta.estado).send({ mensaje: respuesta.mensaje });
+  });
+
+  // --- 04 §7 · Los términos que se están publicando ---------------------------
+  // La pantalla de registro los enlaza y manda de vuelta esta versión al
+  // aceptar. Mientras sean provisionales, la página no lleva cláusulas: solo
+  // dice que el texto no existe y a quién escribir.
+  const terminosProvisionales = opciones.versionTerminos.startsWith('PROVISIONAL-');
+  app.get('/api/terminos', async (_request, reply) => {
+    if (!terminosProvisionales) {
+      return reply.send({ version: opciones.versionTerminos, provisional: false });
+    }
+    return reply.send({
+      version: opciones.versionTerminos,
+      provisional: true,
+      texto: textoProvisional(opciones.contactoTerminos ?? 'el administrador de esta instalación'),
+    });
   });
 
   // --- 02 §3.1 · Registro de una empresa nueva -------------------------------

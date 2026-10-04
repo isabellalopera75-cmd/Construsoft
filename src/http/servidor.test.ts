@@ -445,3 +445,63 @@ describe('restablecer la contraseña con un enlace (el procedimiento manual del 
     assert.equal(bloqueada.statusCode, 429);
   });
 });
+
+describe('proxy de confianza: el límite por IP no se elude escribiendo X-Forwarded-For (04 §8)', () => {
+  let detrasDelProxy: FastifyInstance;
+
+  before(async () => {
+    detrasDelProxy = await construirServidor({
+      secretoSesion: randomBytes(32).toString('hex'),
+      versionTerminos: VERSION_TERMINOS,
+      proxiesDeConfianza: ['10.250.0.1'],
+    });
+  });
+  after(async () => {
+    await detrasDelProxy.close();
+  });
+
+  const intento = (remoteAddress: string, xff: string) =>
+    detrasDelProxy.inject({
+      method: 'POST',
+      url: '/api/sesion',
+      remoteAddress,
+      headers: { 'x-forwarded-for': xff },
+      payload: { email: `proxy.${xff}@construsoft.test`, contrasena: 'mala-contrasena-1' },
+    });
+
+  test('un cliente que llega DIRECTO no cambia de IP inventando X-Forwarded-For: a los 20 fallos queda bloqueado', async () => {
+    for (let i = 0; i < 20; i += 1) assert.equal((await intento('10.250.0.77', `198.51.100.${i}`)).statusCode, 401);
+    assert.equal((await intento('10.250.0.77', '198.51.100.250')).statusCode, 429);
+  });
+
+  test('detrás del proxy de confianza, cada cliente cuenta por su propia IP', async () => {
+    for (let i = 0; i < 25; i += 1) assert.equal((await intento('10.250.0.1', `203.0.113.${i}`)).statusCode, 401);
+  });
+});
+
+describe('términos (04 §7)', () => {
+  test('con términos provisionales, la página dice que el texto no existe y a quién escribir; sin cláusulas', async () => {
+    const provisional = await construirServidor({
+      secretoSesion: randomBytes(32).toString('hex'),
+      versionTerminos: 'PROVISIONAL-2026-10-01',
+      contactoTerminos: 'legal@construsoft.test',
+    });
+    try {
+      const r = (await provisional.inject({ method: 'GET', url: '/api/terminos' })).json<{
+        version: string;
+        provisional: boolean;
+        texto: string;
+      }>();
+      assert.deepEqual({ version: r.version, provisional: r.provisional }, { version: 'PROVISIONAL-2026-10-01', provisional: true });
+      assert.match(r.texto, /todavía no existe/);
+      assert.match(r.texto, /legal@construsoft\.test/);
+    } finally {
+      await provisional.close();
+    }
+  });
+
+  test('con términos de verdad, la ruta dice la versión vigente: la que el registro exige', async () => {
+    const r = (await app.inject({ method: 'GET', url: '/api/terminos' })).json<{ version: string; provisional: boolean }>();
+    assert.deepEqual(r, { version: VERSION_TERMINOS, provisional: false });
+  });
+});
