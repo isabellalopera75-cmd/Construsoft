@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { leerConfiguracion, textoProvisional } from './configuracion.js';
+import { leerConfiguracion } from './configuracion.js';
 
 const base = { SESSION_SECRET: 'una-clave-de-pruebas-larga' };
 
@@ -59,15 +59,5 @@ describe('configuración del arranque: términos provisionales y proxy (04 §7, 
       ['10.0.0.5', '172.16.0.0/12'],
     );
     assert.throws(() => leerConfiguracion({ ...base, VERSION_TERMINOS: 'v', PROXIES_DE_CONFIANZA: 'true' }), /cualquier X-Forwarded-For/);
-  });
-
-  test('la página provisional no tiene cláusulas: ni numeración, ni encabezados, ni nada que parezca un borrador', () => {
-    const texto = textoProvisional('legal@construsoft.test');
-    assert.doesNotMatch(texto, /^\s*\d+[.)]/m);
-    assert.doesNotMatch(texto, /\b(Objeto|Cláusula|Artículo|Definiciones|Responsable del tratamiento)\b/i);
-    assert.match(texto, /todavía no existe/);
-    assert.match(texto, /no es para uso real/);
-    assert.match(texto, /legal@construsoft\.test/);
-    assert.ok(texto.split(/[.!?](\s|$)/).filter((f) => f.trim()).length <= 3, 'la página provisional es una o dos frases, no un documento');
   });
 });

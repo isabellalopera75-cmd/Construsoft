@@ -24,8 +24,8 @@ function obligatoria(entorno: Record<string, string | undefined>, nombre: string
 }
 
 /**
- * Términos provisionales (04 §7). Mientras el texto de los términos y de la
- * política de tratamiento no exista, la versión publicada se llama
+ * Términos provisionales (04 §7, §8.6). Mientras los términos y la política
+ * de tratamiento no pasen por un abogado, la versión publicada se llama
  * PROVISIONAL-<fecha>, para reconocerla después. La API se NIEGA a arrancar
  * con ella salvo que TERMINOS_PROVISIONALES=si esté escrito a mano: olvidarse
  * de configurar algo no arranca, y arrancar con términos de mentira exige que
@@ -33,8 +33,8 @@ function obligatoria(entorno: Record<string, string | undefined>, nombre: string
  *
  * Cuando se publiquen los de verdad, la provisional pasa a ser una versión
  * vieja, y el 409 «los términos cambiaron» del registro le pide a quien firmó
- * contra ella que acepte otra vez. Una firma contra un texto que no existía no
- * es un consentimiento; no hace falta tratarla aparte.
+ * contra ella que acepte otra vez. Una firma contra un borrador sin revisar no
+ * es un consentimiento válido; no hace falta tratarla aparte.
  *
  * Proxy (04 §8). trustProxy NUNCA es true: con true, Fastify cree cualquier
  * X-Forwarded-For, y si la aplicación es alcanzable sin pasar por el proxy,
@@ -54,7 +54,7 @@ export function leerConfiguracion(entorno: Record<string, string | undefined>): 
   if (esProvisional) {
     if (entorno.TERMINOS_PROVISIONALES !== 'si') {
       throw new Error(
-        `VERSION_TERMINOS=${versionTerminos} es provisional: el texto de los términos todavía no existe. ` +
+        `VERSION_TERMINOS=${versionTerminos} es provisional: los términos son un borrador que no pasó por revisión legal. ` +
           'La API no arranca así salvo que se autorice por escrito con TERMINOS_PROVISIONALES=si, ' +
           'y nunca en una instalación con clientes reales.',
       );
@@ -86,19 +86,4 @@ export function leerConfiguracion(entorno: Record<string, string | undefined>): 
     contactoTerminos,
     proxiesDeConfianza,
   };
-}
-
-/**
- * El texto de la página de términos mientras sea provisional. Sin cláusulas, a
- * propósito: ni numeración, ni encabezados, nada que se pueda leer como un
- * borrador. Un aviso encima de cláusulas plausibles se pasa de largo y el
- * texto queda; una página que solo dice que el texto no existe no se puede
- * confundir con unos términos.
- */
-export function textoProvisional(contacto: string): string {
-  return (
-    'El texto de los términos de uso y de la política de tratamiento de datos personales todavía no existe, ' +
-    'y esta instalación no es para uso real: no registre en ella datos de una empresa ni de personas. ' +
-    `Para cualquier consulta, escriba a ${contacto}.`
-  );
 }

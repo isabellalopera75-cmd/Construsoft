@@ -480,7 +480,7 @@ describe('proxy de confianza: el límite por IP no se elude escribiendo X-Forwar
 });
 
 describe('términos (04 §7)', () => {
-  test('con términos provisionales, la página dice que el texto no existe y a quién escribir; sin cláusulas', async () => {
+  test('con términos provisionales, la página sirve el borrador entero y cada documento empieza por el aviso', async () => {
     const provisional = await construirServidor({
       secretoSesion: randomBytes(32).toString('hex'),
       versionTerminos: 'PROVISIONAL-2026-10-01',
@@ -490,11 +490,13 @@ describe('términos (04 §7)', () => {
       const r = (await provisional.inject({ method: 'GET', url: '/api/terminos' })).json<{
         version: string;
         provisional: boolean;
-        texto: string;
+        documentos: { id: string; titulo: string; html: string }[];
       }>();
       assert.deepEqual({ version: r.version, provisional: r.provisional }, { version: 'PROVISIONAL-2026-10-01', provisional: true });
-      assert.match(r.texto, /todavía no existe/);
-      assert.match(r.texto, /legal@construsoft\.test/);
+      assert.deepEqual(r.documentos.map((d) => d.id), ['privacidad', 'terminos', 'cookies', 'reembolsos']);
+      for (const d of r.documentos) {
+        assert.match(d.html, /^<p class="aviso-borrador" role="note">.*no ha pasado por revisión legal.*legal@construsoft\.test/);
+      }
     } finally {
       await provisional.close();
     }

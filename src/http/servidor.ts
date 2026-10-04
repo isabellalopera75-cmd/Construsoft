@@ -17,7 +17,7 @@ import { sesionInvalida, traducirError } from './errores.js';
 import { ContadorDeIntentos } from './limiteIntentos.js';
 import { ATRIBUTOS_COOKIE, NOMBRE_COOKIE, armarSesion, leerSesion } from './sesion.js';
 import { hashDeToken } from './tokens.js';
-import { textoProvisional } from './configuracion.js';
+import { RUTA_BORRADOR, leerBorrador } from './terminos.js';
 
 export interface OpcionesServidor {
   /** La clave de firma de la cookie: SESSION_SECRET del .env, que escribe el dueño. */
@@ -167,18 +167,17 @@ export async function construirServidor(opciones: OpcionesServidor): Promise<Fas
 
   // --- 04 §7 · Los términos que se están publicando ---------------------------
   // La pantalla de registro los enlaza y manda de vuelta esta versión al
-  // aceptar. Mientras sean provisionales, la página no lleva cláusulas: solo
-  // dice que el texto no existe y a quién escribir.
-  const terminosProvisionales = opciones.versionTerminos.startsWith('PROVISIONAL-');
+  // aceptar. Mientras sean provisionales, la página sirve el borrador entero
+  // con el aviso de que no pasó por revisión legal dentro de cada documento
+  // (04 §8.6). El borrador se lee aquí, al construir: si falta, no arranca.
+  const borrador = opciones.versionTerminos.startsWith('PROVISIONAL-')
+    ? leerBorrador(RUTA_BORRADOR, opciones.contactoTerminos ?? 'el administrador de esta instalación')
+    : null;
   app.get('/api/terminos', async (_request, reply) => {
-    if (!terminosProvisionales) {
+    if (!borrador) {
       return reply.send({ version: opciones.versionTerminos, provisional: false });
     }
-    return reply.send({
-      version: opciones.versionTerminos,
-      provisional: true,
-      texto: textoProvisional(opciones.contactoTerminos ?? 'el administrador de esta instalación'),
-    });
+    return reply.send({ version: opciones.versionTerminos, provisional: true, documentos: borrador });
   });
 
   // --- 02 §3.1 · Registro de una empresa nueva -------------------------------

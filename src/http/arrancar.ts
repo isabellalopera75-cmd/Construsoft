@@ -10,9 +10,10 @@
  *   VERSION_TERMINOS  la versión de los términos y de la política de
  *                     tratamiento de datos que se están publicando (04 §7).
  *                     Cambiarla obliga a aceptar de nuevo en el registro.
- *                     Mientras el texto no exista: PROVISIONAL-<fecha>, y
- *                     entonces la API solo arranca con TERMINOS_PROVISIONALES=si
- *                     y CONTACTO_TERMINOS (a quién escribir).
+ *                     Mientras el texto no pase por un abogado:
+ *                     PROVISIONAL-<fecha>, y entonces la API solo arranca con
+ *                     TERMINOS_PROVISIONALES=si y CONTACTO_TERMINOS (a quién
+ *                     escribir), y sirve el borrador de prototipo/legal.html.
  *   PROXIES_DE_CONFIANZA  opcional; direcciones o subredes del proxy, separadas
  *                     por comas. Nunca «true» (ver configuracion.ts).
  *   PUERTO            opcional; 3000 por defecto.
