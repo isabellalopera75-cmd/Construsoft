@@ -79,11 +79,9 @@ export interface ActividadDeMesa {
  * función acepta. Con otro desempate, un nodo y una actividad que compartan
  * orden quedarían invertidos, y un «mover a la 2» caería una corrida.
  *
- * Hoy el desempate no se puede observar: fn_renumerar_wbs reescribe orden al
- * final de cada sentencia con esta misma expresión, así que en el estado
- * guardado orden ya vale de 1 a n entre hermanos y no hay empates. Se
- * calcula igual por si eso cambia: si la renumeración dejara de normalizar
- * orden, la posición seguiría siendo la que fn_mover_en_edt acepta.
+ * Mientras fn_renumerar_wbs normalice orden a 1..n al final de cada
+ * sentencia, no hay empates y el desempate no se ve; una prueba vigila ese
+ * invariante (mesa.test.ts) y falla el día que deje de cumplirse.
  */
 const POSICIONES = `
   WITH hermanos AS (

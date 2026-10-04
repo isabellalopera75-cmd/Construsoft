@@ -4,8 +4,8 @@ import { randomBytes } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { ejecutarConPermiso } from '../infraestructura/basedatos/contextoTenant.js';
 import { crearPresupuesto } from '../infraestructura/basedatos/presupuesto.js';
-import { agregarCapitulo, moverEnEdt } from '../infraestructura/basedatos/edt.js';
-import { agregarActividad } from '../infraestructura/basedatos/actividad.js';
+import { agregarCapitulo, agregarSubcapitulo, eliminarNivel, moverEnEdt } from '../infraestructura/basedatos/edt.js';
+import { agregarActividad, eliminarActividad } from '../infraestructura/basedatos/actividad.js';
 import { activarPresupuesto } from '../infraestructura/basedatos/cicloDeVida.js';
 import { armarPresupuestoDeReferencia, type PresupuestoDeReferencia } from '../pruebas/presupuestoDeReferencia.js';
 import { vencerSuscripcion } from '../pruebas/superusuario.js';
@@ -117,12 +117,6 @@ describe('GET /api/presupuestos/:id/mesa: la lectura única de la mesa de trabaj
     assert.deepEqual(numerosFueraDeLugar(cuerpo), []);
   });
 
-  // El empate de orden entre un nodo y una actividad no sobrevive a la
-  // sentencia que lo crea: fn_renumerar_wbs reescribe orden al final de cada
-  // una, con el mismo desempate (es_nodo DESC). Por eso el desempate de la
-  // mesa no se puede observar desde fuera —quitarlo no rompe esta prueba— y
-  // lo que se prueba es lo que importa: que posicion sea lo que
-  // fn_mover_en_edt acepta.
   test('posicion es la que acepta fn_mover_en_edt: mover cada hermano a su propia posición no cambia nada', async () => {
     const p = await crearPresupuesto(duena.contexto, { codigo: 'MESA-EMPATE', nombre: 'Empate', ubicacion: 'Rionegro', modoEstructura: 'WBS' });
     const capitulo = await agregarCapitulo(duena.contexto, p.id, { nombre: 'OBRA', clasificacion: 'DIRECTO' });
@@ -154,6 +148,87 @@ describe('GET /api/presupuestos/:id/mesa: la lectura única de la mesa de trabaj
     for (const x of [...cuerpo.nodos, ...cuerpo.actividades]) await moverEnEdt(duena.contexto, x.id, x.posicion);
     assert.deepEqual(codigos((await mesaDe(p.id, duena.cookie)).cuerpo), antes);
   });
+
+  // El desempate de posicion (es_nodo DESC) no se puede observar mientras se
+  // cumpla este invariante: después de cada sentencia, los orden de los hijos
+  // de un mismo padre —nodos y actividades juntos— son exactamente 1 a n, sin
+  // huecos ni repetidos, porque fn_renumerar_wbs los normaliza. Se prueba el
+  // invariante y no el desempate: el día que la renumeración deje de
+  // normalizar, esta prueba falla y señala ese lugar, y entonces el desempate
+  // de la mesa empieza a importar.
+  const ordenesPorPadre = (presupuestoId: string) =>
+    ejecutarConPermiso(duena.contexto, 'PRESUPUESTOS.VER', async (c) => {
+      const { rows } = await c.query<{ padre: string | null; ordenes: number[]; codigos: string[] }>(
+        `SELECT padre, array_agg(orden ORDER BY orden, codigo) AS ordenes, array_agg(codigo ORDER BY orden, codigo) AS codigos
+           FROM (SELECT n.padre_id AS padre, n.orden, n.codigo_wbs AS codigo FROM app.wbs_nodo n WHERE n.presupuesto_id = $1
+                 UNION ALL
+                 SELECT i.wbs_nodo_id, i.orden, i.codigo_item FROM app.presupuesto_item i WHERE i.presupuesto_id = $1) h
+          GROUP BY padre`,
+        [presupuestoId],
+      );
+      return rows;
+    });
+  const exigirInvariante = async (presupuestoId: string, despuesDe: string) => {
+    for (const { padre, ordenes, codigos } of await ordenesPorPadre(presupuestoId)) {
+      const esperado = Array.from({ length: ordenes.length }, (_, k) => k + 1);
+      assert.deepEqual(
+        ordenes,
+        esperado,
+        `después de ${despuesDe}, los hijos de ${padre ?? 'la raíz'} quedaron con orden ${ordenes.join(',')} y códigos ${codigos.join(' ')}`,
+      );
+    }
+  };
+
+  test('invariante: tras cada sentencia, los orden de los hermanos son exactamente 1 a n', async () => {
+    const p = await crearPresupuesto(duena.contexto, { codigo: 'MESA-INV', nombre: 'Invariante', ubicacion: 'Envigado', modoEstructura: 'WBS' });
+    const obra = await agregarCapitulo(duena.contexto, p.id, { nombre: 'OBRA', clasificacion: 'DIRECTO' });
+    const a1 = await agregarActividad(duena.contexto, obra.id, referencia.concreto.id, '1');
+    await agregarActividad(duena.contexto, obra.id, referencia.concreto.id, '2');
+    await agregarCapitulo(duena.contexto, p.id, { nombre: 'ADMINISTRACIÓN', clasificacion: 'INDIRECTO' });
+    await exigirInvariante(p.id, 'agregar al final');
+
+    // Un orden pedido explícitamente: uno empatado con a1 y otro con hueco.
+    const conOrden = (nombre: string, orden: number) =>
+      ejecutarConPermiso(duena.contexto, 'PRESUPUESTOS.EDITAR', (c) =>
+        c.query(`INSERT INTO app.wbs_nodo (tenant_id, presupuesto_id, padre_id, nombre, orden) VALUES ($1, $2, $3, $4, $5)`, [
+          duena.contexto.tenantId,
+          p.id,
+          obra.id,
+          nombre,
+          orden,
+        ]),
+      );
+    await conOrden('EMPATADO', 1);
+    await exigirInvariante(p.id, 'insertar con un orden repetido');
+    await conOrden('LEJANO', 40);
+    await exigirInvariante(p.id, 'insertar con un orden que deja hueco');
+
+    await moverEnEdt(duena.contexto, a1.id, 4);
+    await exigirInvariante(p.id, 'mover una actividad');
+    await eliminarActividad(duena.contexto, a1.id);
+    await exigirInvariante(p.id, 'eliminar una actividad del medio');
+  });
+
+  // BUG DEL ESQUEMA, reportado al dueño del esquema: fn_renumerar_wbs numera
+  // en dos pasadas y la segunda (actividades) recalcula los lugares leyendo
+  // los orden que la primera (nodos) ya reescribió. Al borrar S de
+  // [S, X, T], T pasa de 3 a 2, empata con la actividad X (2), el desempate
+  // pone a T primero y X se queda en 2: dos hermanos con el código «1.2».
+  // Cuando se corrija, se quita el todo y esta prueba tiene que pasar.
+  test(
+    'invariante al borrar un subcapítulo que tiene una actividad como hermana',
+    { todo: 'fn_renumerar_wbs: la pasada de actividades lee los orden ya reescritos por la de nodos' },
+    async () => {
+      const p = await crearPresupuesto(duena.contexto, { codigo: 'MESA-INV2', nombre: 'Invariante 2', ubicacion: 'Sabaneta', modoEstructura: 'WBS' });
+      const c = await agregarCapitulo(duena.contexto, p.id, { nombre: 'C', clasificacion: 'DIRECTO' });
+      const s = await agregarSubcapitulo(duena.contexto, c.id, { nombre: 'S' });
+      await agregarActividad(duena.contexto, c.id, referencia.concreto.id, '1');
+      await agregarSubcapitulo(duena.contexto, c.id, { nombre: 'T' });
+      await exigirInvariante(p.id, 'armar [S, X, T]');
+      await eliminarNivel(duena.contexto, s.id);
+      await exigirInvariante(p.id, 'borrar S de [S, X, T]');
+    },
+  );
 
   test('con solo PRESUPUESTOS.VER se lee entera, y editable es false', async () => {
     const cookie = await asistenteCon(duena, 'mesa.lector@construsoft.test', ['PRESUPUESTOS.VER']);
