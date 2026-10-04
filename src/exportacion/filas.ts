@@ -1,7 +1,7 @@
 import type { FormatoNumerico } from '../infraestructura/basedatos/contextoTenant.js';
 import type { DocumentoExportable } from '../infraestructura/basedatos/exportacion.js';
 import type { FotografiaPresupuesto } from '../infraestructura/basedatos/versiones.js';
-import { formatearNumero } from './formatoNumerico.js';
+import { formatearNumero } from '../comun/formatoNumerico.js';
 
 /**
  * Una fila de la oferta tal como la imprimen el Excel y el PDF: un capítulo

@@ -3,7 +3,7 @@ import PDFDocument from 'pdfkit';
 import type { DocumentoExportable } from '../infraestructura/basedatos/exportacion.js';
 import type { Logo } from './excel.js';
 import { etiquetaDeVersion, filasDeLaOferta, formatearFecha, lineasDelPie, type FilaOferta } from './filas.js';
-import { formatearNumero } from './formatoNumerico.js';
+import { formatearNumero } from '../comun/formatoNumerico.js';
 
 /*
  * Las fuentes VIAJAN dentro del PDF. Con las estándar (Helvetica), el

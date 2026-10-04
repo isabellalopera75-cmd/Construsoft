@@ -1,7 +1,13 @@
 import { before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { ejecutarConPermiso, registrarEmpresa, type ContextoTenant } from '../infraestructura/basedatos/contextoTenant.js';
 import { formatearNumero, redondear } from './formatoNumerico.js';
+
+test('el módulo compartido no importa nada: lo carga también el navegador (web/)', () => {
+  const fuente = readFileSync(new URL('./formatoNumerico.ts', import.meta.url), 'utf8');
+  assert.doesNotMatch(fuente, /^\s*import\s/m);
+});
 
 const COLOMBIA = { separadorMiles: '.', separadorDecimal: ',', decimalesVista: 2 };
 

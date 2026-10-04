@@ -209,12 +209,10 @@ export async function ejecutarConPermiso<T>(
   });
 }
 
-/** Lo que hace falta para puntuar cualquier número en cualquier pantalla (RF-CFG-14/15). */
-export interface FormatoNumerico {
-  separadorMiles: string;
-  separadorDecimal: string;
-  decimalesVista: number;
-}
+// Vive en src/comun/ porque también lo usa la interfaz; se reexporta aquí para
+// quien ya lo importaba de la capa de datos.
+import type { FormatoNumerico } from '../../comun/formatoNumerico.js';
+export type { FormatoNumerico };
 
 export type EstadoSuscripcion = 'EN_PRUEBA' | 'ACTIVA' | 'VENCIDA' | 'CANCELADA' | 'SUSPENDIDA' | 'SIN_SUSCRIPCION';
 

@@ -1,4 +1,15 @@
-import type { FormatoNumerico } from '../infraestructura/basedatos/contextoTenant.js';
+/*
+ * Este módulo lo importan el PDF, el Excel y la interfaz (web/, por un alias
+ * de Vite). Por eso no importa nada: ni la capa de datos ni Node. Lo que
+ * dependa de algo de eso no pertenece aquí.
+ */
+
+/** Lo que hace falta para puntuar cualquier número en cualquier pantalla (RF-CFG-14/15). */
+export interface FormatoNumerico {
+  separadorMiles: string;
+  separadorDecimal: string;
+  decimalesVista: number;
+}
 
 /*
  * El redondeo de presentación (06 §2.2): la base guarda seis decimales y se

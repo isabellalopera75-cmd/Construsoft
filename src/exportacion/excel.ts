@@ -1,7 +1,7 @@
 import ExcelJS from 'exceljs';
 import type { DocumentoExportable } from '../infraestructura/basedatos/exportacion.js';
 import { etiquetaDeVersion, filasDeLaOferta, formatearFecha, lineasDelPie } from './filas.js';
-import { redondear } from './formatoNumerico.js';
+import { redondear } from '../comun/formatoNumerico.js';
 
 /** Los bytes del logo y su formato: los trae el almacenamiento de objetos (D-30), no la base. */
 export interface Logo {
