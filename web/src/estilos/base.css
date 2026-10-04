@@ -1,0 +1,93 @@
+/* ==========================================================================
+   Base: lo que vale para todas las pantallas. Después de los tokens y antes
+   de cualquier componente.
+   ========================================================================== */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { color-scheme: dark light; }
+:root[data-tema='claro'] { color-scheme: light; }
+:root[data-tema='oscuro'] { color-scheme: dark; }
+
+body {
+  margin: 0;
+  background: var(--bg-app);
+  color: var(--texto);
+  font-family: var(--fuente-texto);
+  font-size: var(--letra-md);
+  line-height: var(--linea-normal);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  font-family: var(--fuente-titulo);
+  font-weight: var(--peso-fuerte);
+  line-height: var(--linea-apretada);
+  margin: 0;
+}
+h1 { font-size: var(--letra-2xl); }
+h2 { font-size: var(--letra-xl); }
+h3 { font-size: var(--letra-lg); }
+
+a { color: var(--terracota); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+
+/* El foco se ve siempre, y con dos píxeles de separación para que el anillo no
+   se coma el borde del control. Quitar el contorno sin reemplazarlo deja a
+   quien navega con teclado sin saber dónde está. */
+:focus-visible {
+  outline: 2px solid var(--terracota);
+  outline-offset: 2px;
+  border-radius: var(--radio-sm);
+}
+
+/* Cualquier cifra. La monoespaciada y las cifras tabulares son funcionales:
+   en una columna de dinero los dígitos tienen que caer uno debajo del otro,
+   y sin esto el 1 ocupa menos que el 8 y la columna se desalinea. */
+.cifra {
+  font-family: var(--fuente-cifra);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Un guion de «no se puede calcular» no es un cero, y tampoco es un dato:
+   se muestra apagado para que no se lea como una cifra. */
+.cifra[data-vacia='si'] { color: var(--texto-apagado); }
+
+button, input, select, textarea { font: inherit; color: inherit; }
+
+button {
+  cursor: pointer;
+  min-height: var(--toque-minimo);
+  border: 1px solid transparent;
+  border-radius: var(--radio-md);
+  padding: 0 var(--e4);
+  background: transparent;
+  transition: background var(--transicion), border-color var(--transicion);
+}
+button:disabled { cursor: not-allowed; opacity: 0.55; }
+
+input, select, textarea {
+  min-height: var(--toque-minimo);
+  padding: 0 var(--e3);
+  background: var(--bg-campo);
+  border: 1px solid var(--borde-campo);
+  border-radius: var(--radio-md);
+}
+input:focus, select:focus, textarea:focus { border-color: var(--borde-activo); }
+
+/* Para quien pide menos movimiento, nada de transiciones. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Texto que solo leen los lectores de pantalla: los anuncios de error y las
+   etiquetas que el diseño deja implícitas pero que alguien necesita oír. */
+.solo-lectores {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap; border: 0;
+}

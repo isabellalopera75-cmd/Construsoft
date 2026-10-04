@@ -1,0 +1,187 @@
+/* ==========================================================================
+   Tokens de ConstruSoft · la única fuente de color, tipografía y espaciado.
+   Ningún color, tamaño ni margen se escribe directo en un componente.
+
+   LOS COLORES SON LOS DE LA MAQUETA, Y NO SE TOCAN SIN VOLVER A MEDIR.
+   Salen de `prototipo/css/styles.css` tal como quedaron después de la revisión
+   de accesibilidad del 25 de septiembre de 2026, con su razón de contraste
+   anotada al lado. Los comentarios con cifras no son decoración: son la prueba
+   de que ese tono pasa, y si alguien cambia el tono tiene que volver a medir.
+
+   LAS ESCALAS DE TIPOGRAFÍA Y ESPACIADO SÍ SON NUEVAS. La maqueta usaba doce
+   tamaños de letra entre 0,70rem y 0,90rem —once a catorce píxeles— y siete
+   valores de espaciado sin relación entre sí. No era una escala: era retoque
+   acumulado, y además dejaba el cuerpo del texto por debajo de lo legible para
+   alguien que lee cifras todo el día. Acá hay seis pasos de tipografía con
+   piso en catorce píxeles y una escala de espaciado basada en cuatro.
+   ========================================================================== */
+
+:root {
+  /* --- Tema oscuro, el de la identidad ---------------------------------- */
+  --bg-app: #080b14;
+  --bg-barra: #0b0f1c;
+  --bg-tarjeta: #0f1420;
+  --bg-tarjeta-hover: #141928;
+  --bg-campo: #0b0f1c;
+
+  /* Separador decorativo. Da 1,27:1 contra el fondo: sirve para dividir
+     bloques, NO para decir dónde empieza un campo de texto. */
+  --borde-tenue: #1e2435;
+  /* El borde de un control sí tiene que distinguirse: la pauta 1.4.11 pide
+     3:1. Medido: 3,17:1. */
+  --borde-campo: #576284;
+  --borde-activo: #d96b43;
+
+  /* Acento de marca, para texto y enlaces: 5,38:1 sobre la tarjeta. */
+  --terracota: #d96b43;
+  /* Fondo de botón con texto blanco encima. El terracota de marca da 3,42:1
+     con blanco y el mínimo es 4,5:1, así que los botones llevan este tono,
+     medio paso más oscuro y del mismo matiz. Medido: 4,53:1. */
+  --terracota-boton: #c65228;
+  --terracota-claro: #e67d56;
+  --terracota-oscuro: #b8522b;
+  --terracota-halo: rgba(217, 107, 67, 0.18);
+  --terracota-velo: rgba(217, 107, 67, 0.08);
+
+  --texto: #f1f4fa;            /* 16,70:1 sobre la tarjeta */
+  --texto-segundo: #94a3b8;    /* 7,18:1 */
+  /* Era #64748b y daba 3,87:1, por debajo del mínimo para texto normal.
+     Este conserva el gris azulado y llega a 4,51:1. */
+  --texto-apagado: #6e7f97;
+
+  --exito: #10b981;
+  --peligro: #ef4444;
+  --aviso: #f59e0b;
+
+  --sombra-tarjeta: 0 4px 20px rgba(0, 0, 0, 0.2);
+  --sombra-flotante: 0 8px 30px rgba(0, 0, 0, 0.35);
+
+  /* --- Tipografía ------------------------------------------------------- */
+  /* Las tres fuentes viajan DENTRO de la aplicación, instaladas desde npm
+     (@fontsource-variable/*, licencia OFL). No se piden a Google en tiempo de
+     ejecución, por dos razones. La primera ya la aprendimos con el «m³» del
+     PDF: una fuente que depende del entorno es una fuente que algún día no
+     está, y una obra con mala señal es exactamente ese día. La segunda es
+     legal: pedírselas a Google manda la IP de cada usuario a un tercero en
+     cada carga, y eso en un producto sujeto a la Ley 1581 habría que
+     declararlo en la política de tratamiento.
+        Son fuentes variables, así que es un archivo por familia y no uno por
+     peso. El sufijo «Variable» es parte del nombre que declara el paquete. */
+  --fuente-texto: 'Plus Jakarta Sans Variable', system-ui, -apple-system, sans-serif;
+  --fuente-titulo: 'Newsreader Variable', Georgia, serif;
+  /* Las cifras van en monoespaciada por una razón funcional: en una columna de
+     dinero, los dígitos tienen que alinearse. */
+  --fuente-cifra: 'JetBrains Mono Variable', ui-monospace, monospace;
+
+  --letra-xs: 0.75rem;   /* 12px · solo etiquetas y marcas, nunca texto corrido */
+  --letra-sm: 0.875rem;  /* 14px · piso del texto secundario */
+  --letra-md: 1rem;      /* 16px · cuerpo */
+  --letra-lg: 1.125rem;  /* 18px */
+  --letra-xl: 1.5rem;    /* 24px */
+  --letra-2xl: 2rem;     /* 32px */
+
+  --peso-normal: 400;
+  --peso-medio: 500;
+  --peso-fuerte: 600;
+  --peso-titulo: 700;
+
+  --linea-apretada: 1.25;
+  --linea-normal: 1.55;
+
+  /* --- Espaciado, sobre una base de 4 ----------------------------------- */
+  --e1: 0.25rem;  /* 4px  */
+  --e2: 0.5rem;   /* 8px  */
+  --e3: 0.75rem;  /* 12px */
+  --e4: 1rem;     /* 16px */
+  --e5: 1.5rem;   /* 24px */
+  --e6: 2rem;     /* 32px */
+  --e7: 3rem;     /* 48px */
+
+  --radio-sm: 6px;
+  --radio-md: 10px;
+  --radio-lg: 14px;
+  --radio-redondo: 9999px;
+
+  --transicion: 150ms ease;
+
+  /* Alto mínimo de cualquier cosa que se pueda tocar. 44px es el mínimo que
+     pide la pauta 2.5.5 para un objetivo táctil. */
+  --toque-minimo: 44px;
+}
+
+/* --- Tema claro ---------------------------------------------------------- */
+:root[data-tema='claro'] {
+  --bg-app: #f4f5f8;
+  --bg-barra: #ffffff;
+  --bg-tarjeta: #ffffff;
+  --bg-tarjeta-hover: #f1f3f7;
+  --bg-campo: #ffffff;
+
+  --borde-tenue: #e2e6eb;
+  --borde-campo: #858f9d;       /* 3,27:1 sobre blanco */
+  --borde-activo: #c05630;
+
+  /* Dos correcciones encadenadas. La de septiembre: #c85a32 daba 4,23:1 sobre
+     blanco y se cambió por #c05630, que da 4,55:1. La del 4 de octubre: ese
+     #c05630 se midió solo sobre BLANCO, que es el fondo de las tarjetas, y
+     sobre el fondo de la aplicación —#f4f5f8, un paso más oscuro— daba 4,17:1 y
+     no pasaba. Cualquier enlace fuera de una tarjeta quedaba por debajo del
+     mínimo. Este tono pasa sobre los dos: 4,61:1 sobre el fondo de la
+     aplicación y 5,02:1 sobre blanco, y como fondo de botón da 5,02:1 con el
+     texto blanco encima. */
+  --terracota: #b5512d;
+  --terracota-boton: #b5512d;
+  --terracota-claro: #d96b43;
+  --terracota-oscuro: #a94420;
+  --terracota-halo: rgba(200, 90, 50, 0.15);
+  --terracota-velo: rgba(200, 90, 50, 0.08);
+
+  --texto: #111827;
+  --texto-segundo: #4b5563;
+  /* Mismo caso que el terracota: #6b7280 pasaba sobre blanco con 4,83:1 y
+     fallaba sobre el fondo de la aplicación con 4,43:1. Este da 4,63:1 y
+     5,05:1. */
+  --texto-apagado: #686f7d;
+
+  /* Los tres pasaban sobre blanco —4,53:1, 4,83:1 y 4,50:1— y ninguno pasaba
+     sobre el fondo de la aplicación: 4,15:1, 4,43:1 y 4,13:1. Mismo origen que
+     el terracota: en septiembre se midió un solo fondo y hay dos. Estos pasan
+     sobre los dos, con 4,60:1, 4,60:1 y 4,65:1 contra el fondo. */
+  --exito: #057f59;
+  --peligro: #d82323;
+  --aviso: #a75b05;
+
+  --sombra-tarjeta: 0 4px 20px rgba(0, 0, 0, 0.1);
+  --sombra-flotante: 0 8px 30px rgba(0, 0, 0, 0.15);
+}
+
+/* Quien tenga el sistema en claro y no haya elegido nada, arranca en claro.
+   La identidad es oscura, así que el oscuro es el valor por defecto; esto solo
+   respeta una preferencia ya expresada en el sistema operativo. Una elección
+   manual gana sobre las dos, porque pone data-tema en el <html>. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-tema='oscuro']) {
+    --bg-app: #f4f5f8;
+    --bg-barra: #ffffff;
+    --bg-tarjeta: #ffffff;
+    --bg-tarjeta-hover: #f1f3f7;
+    --bg-campo: #ffffff;
+    --borde-tenue: #e2e6eb;
+    --borde-campo: #858f9d;
+    --borde-activo: #c05630;
+    --terracota: #b5512d;
+    --terracota-boton: #b5512d;
+    --terracota-claro: #d96b43;
+    --terracota-oscuro: #a94420;
+    --terracota-halo: rgba(200, 90, 50, 0.15);
+    --terracota-velo: rgba(200, 90, 50, 0.08);
+    --texto: #111827;
+    --texto-segundo: #4b5563;
+    --texto-apagado: #686f7d;
+    --exito: #057f59;
+    --peligro: #d82323;
+    --aviso: #a75b05;
+    --sombra-tarjeta: 0 4px 20px rgba(0, 0, 0, 0.1);
+    --sombra-flotante: 0 8px 30px rgba(0, 0, 0, 0.15);
+  }
+}

@@ -1,0 +1,15 @@
+Cómo comprobar que la regla que prohíbe Number() de verdad salta.
+
+Una regla de lint que nadie rompió a propósito es una regla que puede estar
+apagada sin que se note. Para comprobarla, pegá esta línea en cualquier archivo
+de src/ y corré `npm run lint`:
+
+    const roto = Number('1.005');
+
+Tiene que salir un error que diga «El dinero viaja como texto y no se
+convierte». Si sale limpio, la regla no está corriendo: revisá que
+eslint.config.js tenga el parser de TypeScript, porque sin él ESLint no puede
+leer un .ts y falla con «Parsing error» en vez de aplicar las reglas —que es
+exactamente lo que pasaba el 4 de octubre de 2026 cuando se escribió esto—.
+
+Después borrá la línea.
