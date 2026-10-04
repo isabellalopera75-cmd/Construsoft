@@ -21,6 +21,7 @@ import { RUTA_BORRADOR, leerBorrador } from './terminos.js';
 import { Rechazo, UUID } from './rechazo.js';
 import { registrarRutasDeMesa } from './rutasMesa.js';
 import { registrarRutasDeRecursos } from './rutasRecursos.js';
+import { registrarRutasDeApu } from './rutasApu.js';
 
 export interface OpcionesServidor {
   /** La clave de firma de la cookie: SESSION_SECRET del .env, que escribe el dueño. */
@@ -300,6 +301,9 @@ export async function construirServidor(opciones: OpcionesServidor): Promise<Fas
 
   // --- 02 §5 · Recursos ---------------------------------------------------------
   registrarRutasDeRecursos(app, sesionDe);
+
+  // --- 02 §6 · APU ---------------------------------------------------------------
+  registrarRutasDeApu(app, sesionDe);
 
   // 02 §7.1 · «Crear Nuevo Presupuesto», desde la misma vista maestra.
   app.post('/api/presupuestos', async (request, reply) => {

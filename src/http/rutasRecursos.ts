@@ -14,6 +14,7 @@ import {
 import { ErrorParaElUsuario } from '../infraestructura/basedatos/errorParaElUsuario.js';
 import { UUID } from './rechazo.js';
 import { SIN_CAMPOS_DE_MAS, decimalComoTexto } from './validacion.js';
+import { unidadesExigiendo } from './unidades.js';
 
 /*
  * El módulo Recursos (02 §5). El precio complementario lo calcula la
@@ -72,36 +73,21 @@ export function registrarRutasDeRecursos(app: FastifyInstance, sesionDe: SesionD
     unidadSimbolo: unidades.find((u) => u.id === r.unidadId)?.simbolo ?? '',
   });
 
-  /**
-   * Las unidades de la empresa, y la elegida tiene que estar entre ellas. Una
-   * unidad que no está es un dato del formulario, con su campo: sin esto
-   * llegaría a la base como una llave foránea rota.
-   */
-  async function unidadesExigiendo(contexto: ContextoTenant, unidadId: string): Promise<UnidadMedida[]> {
-    const unidades = await listarUnidadesParaElegir(contexto, 'RECURSOS.VER');
-    if (!unidades.some((u) => u.id === unidadId)) {
-      throw new z.ZodError([
-        {
-          code: 'custom',
-          path: ['unidadId'],
-          message: 'Esa unidad de medida no existe en su empresa. Elija otra de la lista.',
-          input: unidadId,
-        },
-      ]);
-    }
-    return unidades;
-  }
-
   async function recursoExistente(contexto: ContextoTenant, id: string): Promise<Recurso> {
     const recurso = UUID.test(id) ? await leerRecurso(contexto, id) : null;
     if (!recurso) throw recursoNoExiste();
     return recurso;
   }
 
-  // --- Las unidades, para los selectores de Recursos ---------------------------
+  // --- Las unidades, para los selectores de Recursos y de APU -----------------
+  // ?para=APU las lee con APU.VER: quien arma un APU no necesariamente
+  // administra recursos. Sin el parámetro, con RECURSOS.VER.
   app.get('/api/unidades', async (request, reply) => {
     const contexto = await sesionDe(request, reply);
-    return reply.send({ unidades: await listarUnidadesParaElegir(contexto, 'RECURSOS.VER') });
+    const { para } = z.object({ para: z.enum(['RECURSOS', 'APU']).optional() }).parse(request.query);
+    return reply.send({
+      unidades: await listarUnidadesParaElegir(contexto, para === 'APU' ? 'APU.VER' : 'RECURSOS.VER'),
+    });
   });
 
   // --- 02 §5.1 · La vista maestra: pestañas, búsqueda y filtros ---------------
@@ -133,7 +119,7 @@ export function registrarRutasDeRecursos(app: FastifyInstance, sesionDe: SesionD
   app.post('/api/recursos', async (request, reply) => {
     const contexto = await sesionDe(request, reply);
     const datos = esquemaRecurso.parse(request.body);
-    const unidades = await unidadesExigiendo(contexto, datos.unidadId);
+    const unidades = await unidadesExigiendo(contexto, datos.unidadId, 'RECURSOS.VER');
     const recurso = await crearRecurso(contexto, { ...datos, ivaPct: datos.ivaPct ?? '0' });
     return reply.code(201).send(conSimbolo(recurso, unidades));
   });
@@ -150,7 +136,7 @@ export function registrarRutasDeRecursos(app: FastifyInstance, sesionDe: SesionD
     const contexto = await sesionDe(request, reply);
     const { presupuestosAReapuntar, ...datos } = esquemaEdicion.parse(request.body);
     if (!UUID.test(request.params.id)) throw recursoNoExiste();
-    const unidades = await unidadesExigiendo(contexto, datos.unidadId);
+    const unidades = await unidadesExigiendo(contexto, datos.unidadId, 'RECURSOS.VER');
     const { recurso, apusVersionados } = await actualizarRecurso(
       contexto,
       request.params.id,

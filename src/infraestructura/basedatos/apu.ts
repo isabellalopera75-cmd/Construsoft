@@ -357,3 +357,28 @@ export async function buscarApusParaActividad(
     return rows.map(filaAResumen);
   });
 }
+
+/**
+ * RF-APU-14, 02 §6.5 · Eliminar un APU sin uso, con sus versiones y sus
+ * líneas. app.fn_eliminar_apu cuenta el uso en cualquier presupuesto y
+ * cualquier estado, y si lo hay rechaza ofreciendo la salida real: marcarlo
+ * como inactivo. Un id de otra empresa recibe el mismo «no existe».
+ */
+export async function eliminarApu(contexto: ContextoTenant, id: string): Promise<void> {
+  await ejecutarConPermiso(contexto, 'APU.ELIMINAR', (cliente) => cliente.query('SELECT app.fn_eliminar_apu($1)', [id]));
+}
+
+/**
+ * 02 §6.5 · Un APU inactivo deja de ofrecerse en el buscador de la mesa
+ * (buscarApusParaActividad) y sigue en la vista maestra, donde se reactiva.
+ * Los presupuestos que ya lo usan no cambian. Devuelve null si el id no
+ * existe en esta empresa.
+ */
+export async function cambiarActivoApu(contexto: ContextoTenant, id: string, activo: boolean): Promise<ResumenApu | null> {
+  return ejecutarConPermiso(contexto, 'APU.EDITAR', async (cliente) => {
+    const { rows } = await cliente.query<{ id: string }>('UPDATE app.apu SET activo = $2 WHERE id = $1 RETURNING id', [id, activo]);
+    if (!rows[0]) return null;
+    const { rows: cabecera } = await cliente.query<FilaCabecera>(`${SELECT_CABECERA} WHERE a.id = $1`, [id]);
+    return filaAResumen(cabecera[0]!);
+  });
+}
