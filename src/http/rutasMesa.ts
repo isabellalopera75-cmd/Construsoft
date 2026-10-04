@@ -1,8 +1,15 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { ejecutarConPermiso, type ContextoTenant } from '../infraestructura/basedatos/contextoTenant.js';
-import { leerPresupuesto } from '../infraestructura/basedatos/presupuesto.js';
-import { leerMesa, type MesaDeTrabajo } from '../infraestructura/basedatos/mesa.js';
+import { editarPorcentajes, leerPresupuesto } from '../infraestructura/basedatos/presupuesto.js';
+import { leerMesa, pieDe, type MesaDeTrabajo } from '../infraestructura/basedatos/mesa.js';
+import {
+  agregarActividad,
+  cambiarCantidad,
+  eliminarActividad,
+  presupuestoDeLaActividad,
+} from '../infraestructura/basedatos/actividad.js';
+import { buscarApusParaActividad } from '../infraestructura/basedatos/apu.js';
 import {
   agregarCapitulo,
   agregarSubcapitulo,
@@ -50,6 +57,44 @@ const esquemaMover = z.strictObject({
 
 const esquemaBorrado = z.object({ confirmado: z.literal('si').optional() });
 
+/** Un campo que el pedido no lleva —un precio, una descripción— se rechaza nombrándolo. */
+const SIN_CAMPOS_DE_MAS = {
+  error: (problema: { code?: string; keys?: string[] }) =>
+    problema.code === 'unrecognized_keys'
+      ? `«${problema.keys?.[0] ?? ''}» no se envía: ese dato lo pone o lo calcula el servidor.`
+      : undefined,
+};
+
+/** app.cantidad es numeric(24,6) y no negativa. Viaja como texto: nunca pasa por Number (contrato §1.1). */
+const CANTIDAD = z
+  .string('La cantidad va como texto, con punto decimal: «12.5».')
+  .regex(/^\d{1,18}(\.\d{1,6})?$/, 'Escriba una cantidad mayor o igual a cero, con punto decimal y hasta seis decimales.');
+
+/** app.porcentaje es numeric(9,6) y no negativo; en puntos: 19 es 19 % (RNF-22). */
+const PORCENTAJE = z
+  .string('El porcentaje va como texto, en puntos: «10» o «10.5».')
+  .regex(/^\d{1,3}(\.\d{1,6})?$/, 'Escriba el porcentaje en puntos, con punto decimal: 10 o 10.5.');
+
+const esquemaBuscarApu = z.object({
+  q: z.string('Escriba qué APU busca.').trim().min(1, 'Escriba qué APU busca.'),
+  limite: z
+    .string()
+    .regex(/^(?:[1-9]|[1-4]\d|50)$/, 'El límite es un número entero de 1 a 50.')
+    .optional(),
+});
+
+const esquemaNuevaActividad = z.strictObject(
+  { apuId: z.string('Elija un APU de la lista.').regex(UUID, 'Elija un APU de la lista.'), cantidad: CANTIDAD },
+  SIN_CAMPOS_DE_MAS,
+);
+
+const esquemaCantidad = z.strictObject({ cantidad: CANTIDAD }, SIN_CAMPOS_DE_MAS);
+
+const esquemaPorcentajes = z.strictObject(
+  { a: PORCENTAJE, i: PORCENTAJE, u: PORCENTAJE, iva: PORCENTAJE },
+  SIN_CAMPOS_DE_MAS,
+);
+
 /**
  * La mesa con su «editable» (contrato §4.1): Abierto y, además, que
  * fn_exigir_permiso('PRESUPUESTOS.EDITAR') pase ahora mismo. Se le PREGUNTA a
@@ -96,6 +141,16 @@ export function registrarRutasDeMesa(app: FastifyInstance, sesionDe: SesionDe): 
     const mesa = await mesaConEditable(contexto, presupuestoId);
     if (!mesa) throw presupuestoNoExiste();
     return reply.code(estado).send(mesa);
+  }
+
+  const actividadNoExiste = () =>
+    new ErrorParaElUsuario('Esa actividad ya no existe. Recargue la mesa de trabajo.', 'NO_EXISTE');
+
+  /** El presupuesto de la actividad, o 404. */
+  async function presupuestoDeActividad(contexto: ContextoTenant, actividadId: string): Promise<string> {
+    const presupuestoId = UUID.test(actividadId) ? await presupuestoDeLaActividad(contexto, actividadId) : null;
+    if (!presupuestoId) throw actividadNoExiste();
+    return presupuestoId;
   }
 
   /** El presupuesto del nodo, o 404. */
@@ -171,5 +226,75 @@ export function registrarRutasDeMesa(app: FastifyInstance, sesionDe: SesionDe): 
     }
     await eliminarNivel(contexto, request.params.id);
     return responderMesa(reply, contexto, presupuestoId);
+  });
+
+  // --- 02 §8.3 · El autocompletado de APU ------------------------------------
+  // Lo que hace falta para elegir, no el APU entero; solo los activos.
+  app.get('/api/apu/buscar', async (request, reply) => {
+    const contexto = await sesionDe(request, reply);
+    const { q, limite } = esquemaBuscarApu.parse(request.query);
+    const apus = await buscarApusParaActividad(contexto, q, limite === undefined ? undefined : Number(limite));
+    return reply.send({
+      apus: apus.map((a) => ({
+        id: a.id,
+        codigo: a.codigo,
+        nombre: a.nombre,
+        unidadSimbolo: a.unidadSimbolo,
+        costoDirecto: a.costoDirecto,
+        activo: a.activo,
+      })),
+    });
+  });
+
+  // --- 02 §8.3 · Agregar una actividad al final de un capítulo o subcapítulo -
+  // El código, la descripción, la unidad y el precio los copia la base de la
+  // versión vigente del APU; la interfaz manda solo cuál y cuánto.
+  app.post<{ Params: { id: string } }>('/api/nodos/:id/actividades', async (request, reply) => {
+    const contexto = await sesionDe(request, reply);
+    const { apuId, cantidad } = esquemaNuevaActividad.parse(request.body);
+    const presupuestoId = await presupuestoDe(contexto, request.params.id);
+    await agregarActividad(contexto, request.params.id, apuId, cantidad);
+    return responderMesa(reply, contexto, presupuestoId, 201);
+  });
+
+  // --- La cantidad: lo único editable de una fila (02 §8.3) -------------------
+  app.patch<{ Params: { id: string } }>('/api/actividades/:id', async (request, reply) => {
+    const contexto = await sesionDe(request, reply);
+    const { cantidad } = esquemaCantidad.parse(request.body);
+    const presupuestoId = await presupuestoDeActividad(contexto, request.params.id);
+    await cambiarCantidad(contexto, request.params.id, cantidad);
+    return responderMesa(reply, contexto, presupuestoId);
+  });
+
+  // --- Mover una actividad: mismo contador que los nodos (D-42, D-56) ---------
+  app.post<{ Params: { id: string } }>('/api/actividades/:id/mover', async (request, reply) => {
+    const contexto = await sesionDe(request, reply);
+    const { posicion } = esquemaMover.parse(request.body);
+    const presupuestoId = await presupuestoDeActividad(contexto, request.params.id);
+    await moverEnEdt(contexto, request.params.id, posicion);
+    return responderMesa(reply, contexto, presupuestoId);
+  });
+
+  app.delete<{ Params: { id: string } }>('/api/actividades/:id', async (request, reply) => {
+    const contexto = await sesionDe(request, reply);
+    const presupuestoId = await presupuestoDeActividad(contexto, request.params.id);
+    await eliminarActividad(contexto, request.params.id);
+    return responderMesa(reply, contexto, presupuestoId);
+  });
+
+  // --- RF-PRE-23 · Los cuatro porcentajes, desde el panel del pie --------------
+  // Responde solo con el pie (contrato §4.4): la estructura no cambió.
+  app.patch<{ Params: { id: string } }>('/api/presupuestos/:id/porcentajes', async (request, reply) => {
+    const contexto = await sesionDe(request, reply);
+    const { a, i, u, iva } = esquemaPorcentajes.parse(request.body);
+    if (!UUID.test(request.params.id)) throw presupuestoNoExiste();
+    const presupuesto = await editarPorcentajes(contexto, request.params.id, {
+      aiuAdministracion: a,
+      aiuImprevistos: i,
+      aiuUtilidad: u,
+      ivaUtilidadPct: iva,
+    });
+    if (!presupuesto) throw presupuestoNoExiste();
+    return reply.send(pieDe(presupuesto));
   });
 }

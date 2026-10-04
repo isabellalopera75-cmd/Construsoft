@@ -1,6 +1,6 @@
 import { ejecutarConPermiso, type ContextoTenant } from './contextoTenant.js';
 import type { Clasificacion } from './edt.js';
-import { leerPresupuestoEnCliente, type EstadoPresupuesto, type ModoEstructura } from './presupuesto.js';
+import { leerPresupuestoEnCliente, type EstadoPresupuesto, type ModoEstructura, type Presupuesto } from './presupuesto.js';
 
 /*
  * La mesa de trabajo en una sola lectura (web/CONTRATO.md §4.1, 04 §4.3):
@@ -95,6 +95,23 @@ const POSICIONES = `
         FROM hermanos
   )`;
 
+/** El pie de la mesa (contrato §4.1): los totales y los porcentajes, con los nombres de la pantalla. */
+export function pieDe(p: Presupuesto): MesaDeTrabajo['pie'] {
+  return {
+    costoIndirecto: p.totalCostoIndirecto,
+    costoDirecto: p.totalCostoDirecto,
+    administracion: p.totalAdministracion,
+    imprevistos: p.totalImprevistos,
+    utilidad: p.totalUtilidad,
+    aiu: p.totalAiu,
+    iva: p.totalIva,
+    valorTotal: p.valorTotal,
+    porcentajes: { a: p.aiuAdministracion, i: p.aiuImprevistos, u: p.aiuUtilidad, iva: p.ivaUtilidadPct },
+    aiuEnCero: p.aiuEnCero,
+    sinBaseAiu: p.sinBaseAiu,
+  };
+}
+
 /** null si el presupuesto no existe o es de otra empresa: la RLS no deja distinguirlos. */
 export async function leerMesa(contexto: ContextoTenant, presupuestoId: string): Promise<MesaDeTrabajo | null> {
   return ejecutarConPermiso(contexto, 'PRESUPUESTOS.VER', async (cliente) => {
@@ -182,19 +199,7 @@ export async function leerMesa(contexto: ContextoTenant, presupuestoId: string):
         apuId: a.apu_id,
         apuVersionId: a.apu_version_id,
       })),
-      pie: {
-        costoIndirecto: p.totalCostoIndirecto,
-        costoDirecto: p.totalCostoDirecto,
-        administracion: p.totalAdministracion,
-        imprevistos: p.totalImprevistos,
-        utilidad: p.totalUtilidad,
-        aiu: p.totalAiu,
-        iva: p.totalIva,
-        valorTotal: p.valorTotal,
-        porcentajes: { a: p.aiuAdministracion, i: p.aiuImprevistos, u: p.aiuUtilidad, iva: p.ivaUtilidadPct },
-        aiuEnCero: p.aiuEnCero,
-        sinBaseAiu: p.sinBaseAiu,
-      },
+      pie: pieDe(p),
     };
   });
 }

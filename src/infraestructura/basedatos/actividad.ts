@@ -126,6 +126,21 @@ export async function cambiarCantidad(
   });
 }
 
+/**
+ * El presupuesto al que pertenece una actividad, o null si no existe en esta
+ * empresa: la RLS no deja distinguir una ajena de una que no existe. Un id de
+ * nodo también da null: no es una actividad.
+ */
+export async function presupuestoDeLaActividad(contexto: ContextoTenant, id: string): Promise<string | null> {
+  return ejecutarConPermiso(contexto, 'PRESUPUESTOS.VER', async (cliente) => {
+    const { rows } = await cliente.query<{ presupuesto_id: string }>(
+      'SELECT presupuesto_id FROM app.presupuesto_item WHERE id = $1',
+      [id],
+    );
+    return rows[0]?.presupuesto_id ?? null;
+  });
+}
+
 /** Renumeración y recálculo los disparan triggers por sentencia. Un id ajeno no borra nada. */
 export async function eliminarActividad(contexto: ContextoTenant, id: string): Promise<void> {
   await ejecutarConPermiso(contexto, 'PRESUPUESTOS.EDITAR', (cliente) =>
