@@ -1,0 +1,12 @@
+# Fines de línea fijos: LF en el repositorio y en el árbol de trabajo, en
+# cualquier sistema. Sin esto, el core.autocrlf=true que Git para Windows trae
+# en su configuración de sistema reescribe en CRLF cada archivo que toca un
+# checkout, un stash o un restore, y git diff los muestra enteros como cambiados.
+* text=auto eol=lf
+
+*.docx binary
+*.pdf  binary
+*.ttf  binary
+*.png  binary
+*.jpg  binary
+*.ico  binary
