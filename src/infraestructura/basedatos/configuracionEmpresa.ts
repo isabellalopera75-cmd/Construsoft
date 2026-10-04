@@ -182,6 +182,28 @@ export async function listarUnidades(contexto: ContextoTenant): Promise<UnidadMe
   });
 }
 
+/**
+ * Las unidades para los selectores de Recursos y APU. listarUnidades pide
+ * CONFIG.PREFERENCIAS porque es la pantalla que las administra; quien crea
+ * un recurso o un APU las necesita para elegir, sin poder administrarlas.
+ * El permiso lo nombra quien llama: el del módulo cuya pantalla las pide.
+ */
+export async function listarUnidadesParaElegir(
+  contexto: ContextoTenant,
+  permiso: 'RECURSOS.VER' | 'APU.VER',
+): Promise<UnidadMedida[]> {
+  return ejecutarConPermiso(contexto, permiso, async (cliente) => {
+    const { rows } = await cliente.query<UnidadMedida>(
+      `SELECT id, simbolo, descripcion
+         FROM app.unidad_medida
+        WHERE tenant_id = $1
+        ORDER BY simbolo`,
+      [contexto.tenantId],
+    );
+    return rows;
+  });
+}
+
 export interface DatosUnidadMedida {
   simbolo: string;
   descripcion: string;

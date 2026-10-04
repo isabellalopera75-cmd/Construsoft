@@ -23,6 +23,7 @@ import {
 import { ErrorParaElUsuario } from '../infraestructura/basedatos/errorParaElUsuario.js';
 import { esNegacionDePermiso } from './errores.js';
 import { Rechazo, UUID } from './rechazo.js';
+import { SIN_CAMPOS_DE_MAS, decimalComoTexto } from './validacion.js';
 
 /*
  * La mesa de trabajo (02 §8, web/CONTRATO.md §4). La lectura única y, desde
@@ -57,23 +58,15 @@ const esquemaMover = z.strictObject({
 
 const esquemaBorrado = z.object({ confirmado: z.literal('si').optional() });
 
-/** Un campo que el pedido no lleva —un precio, una descripción— se rechaza nombrándolo. */
-const SIN_CAMPOS_DE_MAS = {
-  error: (problema: { code?: string; keys?: string[] }) =>
-    problema.code === 'unrecognized_keys'
-      ? `«${problema.keys?.[0] ?? ''}» no se envía: ese dato lo pone o lo calcula el servidor.`
-      : undefined,
-};
-
 /** app.cantidad es numeric(24,6) y no negativa. Viaja como texto: nunca pasa por Number (contrato §1.1). */
-const CANTIDAD = z
-  .string('La cantidad va como texto, con punto decimal: «12.5».')
-  .regex(/^\d{1,18}(\.\d{1,6})?$/, 'Escriba una cantidad mayor o igual a cero, con punto decimal y hasta seis decimales.');
+const CANTIDAD = decimalComoTexto(
+  18,
+  'La cantidad',
+  'Escriba una cantidad mayor o igual a cero, con punto decimal y hasta seis decimales.',
+);
 
 /** app.porcentaje es numeric(9,6) y no negativo; en puntos: 19 es 19 % (RNF-22). */
-const PORCENTAJE = z
-  .string('El porcentaje va como texto, en puntos: «10» o «10.5».')
-  .regex(/^\d{1,3}(\.\d{1,6})?$/, 'Escriba el porcentaje en puntos, con punto decimal: 10 o 10.5.');
+const PORCENTAJE = decimalComoTexto(3, 'El porcentaje', 'Escriba el porcentaje en puntos, con punto decimal: 10 o 10.5.');
 
 const esquemaBuscarApu = z.object({
   q: z.string('Escriba qué APU busca.').trim().min(1, 'Escriba qué APU busca.'),

@@ -28,6 +28,8 @@ const MENSAJES_DE_RESTRICCION: Record<string, string> = {
   ux_tenant_nit: 'Ya hay una empresa registrada con ese NIT. Si es la suya, ingrese con su cuenta o recupere la contraseña.',
   usuario_email_key: 'Ese correo ya tiene una cuenta. Ingrese con él, o use otro correo para registrarse.',
   ck_presupuesto_texto_no_vacio: 'El código, el nombre y la ubicación del presupuesto son obligatorios.',
+  ck_recurso_precios_cuadran:
+    'El precio base y el precio total no cuadran con el IVA: el que se calcula es el otro multiplicado o dividido por (1 + IVA/100), redondeado a seis decimales.',
 };
 
 /** La sesión no sirve: no hay cookie, la firma no vale, venció, o el sello ya no es el de la base. */
@@ -114,6 +116,15 @@ export function traducirError(error: unknown): RespuestaDeError {
       return {
         estado: 409,
         mensaje: MENSAJES_DE_RESTRICCION[restriccionDe(error) ?? ''] ?? 'Ese dato ya existe y no puede repetirse.',
+        borrarCookie: false,
+      };
+    case '23503':
+      // Una llave foránea apunta a algo que no está. Las de inquilino son
+      // compuestas (tenant_id, id): lo ajeno y lo inexistente fallan igual,
+      // así que el mensaje no delata nada.
+      return {
+        estado: 422,
+        mensaje: 'Algo de lo que eligió ya no existe en su empresa. Recargue la pantalla y elija de nuevo.',
         borrarCookie: false,
       };
     case '23514':
