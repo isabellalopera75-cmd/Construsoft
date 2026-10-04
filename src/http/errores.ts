@@ -46,6 +46,18 @@ function restriccionDe(error: unknown): string | undefined {
 }
 
 /**
+ * ¿El rechazo dice «esta persona no puede hacer esto ahora»? Es el rol sin el
+ * permiso (CS004) o la suscripción que no deja escribir (CS005). Lo usa quien
+ * le PREGUNTA a fn_exigir_permiso para decidir qué mostrar —la mesa, para su
+ * «editable»— en vez de replicar sus reglas. Cualquier otro rechazo no es un
+ * «no», es un error, y se propaga.
+ */
+export function esNegacionDePermiso(error: unknown): boolean {
+  const codigo = codigoDe(error);
+  return codigo === 'CS004' || codigo === 'CS005';
+}
+
+/**
  * La traducción de un rechazo a HTTP, en UN solo lugar (documento 04 §8.4). Si
  * aparece un switch sobre SQLSTATE en otro archivo, ya se rompió: una prueba
  * lo vigila. El árbitro de la tabla es el COMMENT ON FUNCTION de

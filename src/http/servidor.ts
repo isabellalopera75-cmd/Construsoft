@@ -3,6 +3,7 @@ import cookie from '@fastify/cookie';
 import { z } from 'zod';
 import {
   actualizarHashAlIngresar,
+  ejecutarConPermiso,
   leerArranqueDeSesion,
   registrarEmpresa,
   selloVigente,
@@ -11,9 +12,10 @@ import {
 } from '../infraestructura/basedatos/contextoTenant.js';
 import { autenticar } from '../infraestructura/basedatos/autenticacion.js';
 import { crearPresupuesto, leerPresupuesto, listarPresupuestos } from '../infraestructura/basedatos/presupuesto.js';
+import { leerMesa, type MesaDeTrabajo } from '../infraestructura/basedatos/mesa.js';
 import { ErrorParaElUsuario } from '../infraestructura/basedatos/errorParaElUsuario.js';
 import { hashearContrasena, necesitaRehash, verificarContrasena } from './contrasenas.js';
-import { sesionInvalida, traducirError } from './errores.js';
+import { esNegacionDePermiso, sesionInvalida, traducirError } from './errores.js';
 import { ContadorDeIntentos } from './limiteIntentos.js';
 import { ATRIBUTOS_COOKIE, NOMBRE_COOKIE, armarSesion, leerSesion } from './sesion.js';
 import { hashDeToken } from './tokens.js';
@@ -97,6 +99,32 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * capa de datos, que usan los dos agrupadores (auth_login y app_login, 04
  * §8.3), y una regla de ESLint impide abrir un tercero.
  */
+/**
+ * La mesa con su «editable» (contrato §4.1): Abierto y, además, que
+ * fn_exigir_permiso('PRESUPUESTOS.EDITAR') pase ahora mismo. Se le PREGUNTA a
+ * la función que rechazaría la escritura —rol, cuenta, suscripción (D-65)—
+ * en vez de replicar sus reglas, así que la pantalla y el rechazo no pueden
+ * contradecirse. Es una cortesía para esconder controles: la base rechaza
+ * igual.
+ */
+async function mesaConEditable(
+  contexto: ContextoTenant,
+  presupuestoId: string,
+): Promise<(MesaDeTrabajo & { cabecera: { editable: boolean } }) | null> {
+  const mesa = await leerMesa(contexto, presupuestoId);
+  if (!mesa) return null;
+  let editable = mesa.cabecera.estado === 'ABIERTO';
+  if (editable) {
+    try {
+      await ejecutarConPermiso(contexto, 'PRESUPUESTOS.EDITAR', async () => undefined);
+    } catch (error) {
+      if (!esNegacionDePermiso(error)) throw error;
+      editable = false;
+    }
+  }
+  return { ...mesa, cabecera: { ...mesa.cabecera, editable } };
+}
+
 export async function construirServidor(opciones: OpcionesServidor): Promise<FastifyInstance> {
   const ahora = opciones.ahora ?? Date.now;
   const app = Fastify({ logger: false, trustProxy: opciones.proxiesDeConfianza ?? false });
@@ -289,6 +317,16 @@ export async function construirServidor(opciones: OpcionesServidor): Promise<Fas
     const presupuesto = await leerPresupuesto(contexto, request.params.id);
     if (!presupuesto) throw noExiste();
     return reply.send(presupuesto);
+  });
+
+  // --- 02 §8 · La mesa de trabajo en una sola lectura (contrato §4.1) --------
+  // Las mutaciones de estructura responden con esta misma lectura (02 §8.2).
+  app.get<{ Params: { id: string } }>('/api/presupuestos/:id/mesa', async (request, reply) => {
+    const contexto = await sesionDe(request, reply);
+    if (!UUID.test(request.params.id)) throw noExiste();
+    const mesa = await mesaConEditable(contexto, request.params.id);
+    if (!mesa) throw noExiste();
+    return reply.send(mesa);
   });
 
   // 02 §7.1 · «Crear Nuevo Presupuesto», desde la misma vista maestra.

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { ErrorParaElUsuario } from '../infraestructura/basedatos/errorParaElUsuario.js';
-import { traducirError } from './errores.js';
+import { esNegacionDePermiso, traducirError } from './errores.js';
 
 /** Un error como los que entrega el controlador pg: código SQLSTATE, mensaje y, a veces, la restricción. */
 function errorDeLaBase(code: string, message = 'mensaje de la base', constraint?: string) {
@@ -24,6 +24,24 @@ describe('traducirError: el único lugar donde un rechazo se vuelve HTTP (04 §8
       ['CS004', 403, false],
       ['CS005', 402, false],
     ]);
+  });
+
+  test('esNegacionDePermiso: «no puede» es el rol sin el permiso o la suscripción sin escritura; nada más', () => {
+    const clasificados = ['CS000', 'CS001', 'CS002', 'CS003', 'CS004', 'CS005', 'P0001', '23505'].map((codigo) => [
+      codigo,
+      esNegacionDePermiso(errorDeLaBase(codigo)),
+    ]);
+    assert.deepEqual(clasificados, [
+      ['CS000', false],
+      ['CS001', false],
+      ['CS002', false],
+      ['CS003', false],
+      ['CS004', true],
+      ['CS005', true],
+      ['P0001', false],
+      ['23505', false],
+    ]);
+    assert.equal(esNegacionDePermiso(new Error('sin código')), false);
   });
 
   test('CS000 es un error de programación: al usuario no le llega el texto de la base', () => {

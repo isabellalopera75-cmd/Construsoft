@@ -123,7 +123,7 @@ function filaAPresupuesto(fila: FilaPresupuesto): Presupuesto {
 }
 
 /** Lectura compartida por leerPresupuesto y crearPresupuesto: dentro de la transacción que ya abrió cada una. */
-async function leerConCliente(cliente: ClienteEnContexto, id: string): Promise<Presupuesto | null> {
+export async function leerPresupuestoEnCliente(cliente: ClienteEnContexto, id: string): Promise<Presupuesto | null> {
   const { rows } = await cliente.query<FilaPresupuesto>(`${SELECT_CABECERA} WHERE id = $1`, [id]);
   const fila = rows[0];
   return fila ? filaAPresupuesto(fila) : null;
@@ -153,13 +153,13 @@ export async function crearPresupuesto(
        RETURNING id`,
       [contexto.tenantId, datos.codigo, datos.nombre, datos.ubicacion, datos.modoEstructura, contexto.usuarioId],
     );
-    return (await leerConCliente(cliente, rows[0]!.id))!;
+    return (await leerPresupuestoEnCliente(cliente, rows[0]!.id))!;
   });
 }
 
 /** La cabecera del presupuesto, o null si no existe en esta empresa. */
 export async function leerPresupuesto(contexto: ContextoTenant, id: string): Promise<Presupuesto | null> {
-  return ejecutarConPermiso(contexto, 'PRESUPUESTOS.VER', (cliente) => leerConCliente(cliente, id));
+  return ejecutarConPermiso(contexto, 'PRESUPUESTOS.VER', (cliente) => leerPresupuestoEnCliente(cliente, id));
 }
 
 /**
@@ -234,7 +234,7 @@ async function actualizarCabecera(
       `UPDATE app.presupuesto SET ${asignaciones} WHERE id = $1 RETURNING id`,
       [id, ...valores],
     );
-    return rows[0] ? leerConCliente(cliente, id) : null;
+    return rows[0] ? leerPresupuestoEnCliente(cliente, id) : null;
   });
 }
 
