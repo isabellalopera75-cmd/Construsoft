@@ -8,6 +8,8 @@ import { ErrorParaElUsuario } from '../infraestructura/basedatos/errorParaElUsua
 export interface RespuestaDeError {
   estado: number;
   mensaje: string;
+  /** El dato del pedido al que se refiere el rechazo, cuando la base lo dice (contrato §2). */
+  campo?: string;
   borrarCookie: boolean;
 }
 
@@ -36,6 +38,17 @@ export function sesionInvalida(): RespuestaDeError {
 function codigoDe(error: unknown): string | undefined {
   return typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'string'
     ? error.code
+    : undefined;
+}
+
+/**
+ * La columna que el propio rechazo declara: RAISE … USING COLUMN = 'posicion'
+ * llega en error.column. Es la base la que dice de qué dato habla; aquí no se
+ * adivina nada leyendo el texto del mensaje.
+ */
+function columnaDe(error: unknown): string | undefined {
+  return typeof error === 'object' && error !== null && 'column' in error && typeof error.column === 'string'
+    ? error.column
     : undefined;
 }
 
@@ -91,8 +104,12 @@ export function traducirError(error: unknown): RespuestaDeError {
       return { estado: 402, mensaje: mensajeDeLaBase, borrarCookie: false };
     // Una regla de negocio levantada por un disparador: su texto está escrito
     // para la pantalla, que lo muestra tal cual (02 §2).
-    case 'P0001':
-      return { estado: 422, mensaje: mensajeDeLaBase, borrarCookie: false };
+    case 'P0001': {
+      const campo = columnaDe(error);
+      return campo
+        ? { estado: 422, mensaje: mensajeDeLaBase, campo, borrarCookie: false }
+        : { estado: 422, mensaje: mensajeDeLaBase, borrarCookie: false };
+    }
     case '23505':
       return {
         estado: 409,

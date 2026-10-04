@@ -44,6 +44,17 @@ describe('traducirError: el único lugar donde un rechazo se vuelve HTTP (04 §8
     assert.equal(esNegacionDePermiso(new Error('sin código')), false);
   });
 
+  test('un rechazo de la base que nombra su columna (RAISE … USING COLUMN) llega con campo; sin columna, sin campo', () => {
+    const conColumna = Object.assign(errorDeLaBase('P0001', 'La posicion 9 no existe'), { column: 'posicion' });
+    assert.deepEqual(traducirError(conColumna), {
+      estado: 422,
+      mensaje: 'La posicion 9 no existe',
+      campo: 'posicion',
+      borrarCookie: false,
+    });
+    assert.equal(traducirError(errorDeLaBase('P0001', 'otro rechazo')).campo, undefined);
+  });
+
   test('CS000 es un error de programación: al usuario no le llega el texto de la base', () => {
     const r = traducirError(errorDeLaBase('CS000', 'El permiso «X» no existe en el catálogo'));
     assert.doesNotMatch(r.mensaje, /catálogo/);

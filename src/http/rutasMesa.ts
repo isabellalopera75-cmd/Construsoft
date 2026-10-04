@@ -117,8 +117,10 @@ export function registrarRutasDeMesa(app: FastifyInstance, sesionDe: SesionDe): 
     const contexto = await sesionDe(request, reply);
     const datos = esquemaCapitulo.parse(request.body);
     const { id } = request.params;
-    // Se comprueba que exista ANTES de insertar: la llave foránea no mira la
-    // RLS, y un id ajeno llegaría a la base en vez de responder 404.
+    // Se comprueba que exista ANTES de insertar. No por aislamiento: la llave
+    // foránea es compuesta (tenant_id, presupuesto_id), así que un id ajeno y
+    // uno inexistente fallan igual. Es porque los dos fallarían con 23503, que
+    // es un 500, y lo que corresponde es el 404 de «no existe».
     if (!UUID.test(id) || !(await leerPresupuesto(contexto, id))) throw presupuestoNoExiste();
     await agregarCapitulo(contexto, id, datos);
     return responderMesa(reply, contexto, id, 201);

@@ -163,7 +163,9 @@ export async function construirServidor(opciones: OpcionesServidor): Promise<Fas
     }
     const respuesta = traducirError(error);
     if (respuesta.borrarCookie) reply.clearCookie(NOMBRE_COOKIE, { path: '/' });
-    return reply.code(respuesta.estado).send({ mensaje: respuesta.mensaje });
+    return reply
+      .code(respuesta.estado)
+      .send(respuesta.campo ? { mensaje: respuesta.mensaje, campo: respuesta.campo } : { mensaje: respuesta.mensaje });
   });
 
   // --- 04 §7 · Los términos que se están publicando ---------------------------
