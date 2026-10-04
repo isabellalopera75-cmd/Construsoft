@@ -194,6 +194,21 @@ export async function eliminarNivel(contexto: ContextoTenant, nodoId: string): P
   );
 }
 
+/**
+ * El presupuesto al que pertenece un capítulo o subcapítulo, o null si no
+ * existe en esta empresa: la RLS no deja distinguir uno ajeno de uno que no
+ * existe. Un id de actividad también da null: no es un nodo.
+ */
+export async function presupuestoDelNodo(contexto: ContextoTenant, nodoId: string): Promise<string | null> {
+  return ejecutarConPermiso(contexto, 'PRESUPUESTOS.VER', async (cliente) => {
+    const { rows } = await cliente.query<{ presupuesto_id: string }>(
+      'SELECT presupuesto_id FROM app.wbs_nodo WHERE id = $1',
+      [nodoId],
+    );
+    return rows[0]?.presupuesto_id ?? null;
+  });
+}
+
 /** RF-PRE-21 · La EDT completa, en orden de código, con monto e incidencia calculados por la base. */
 export async function leerEdt(contexto: ContextoTenant, presupuestoId: string): Promise<NodoEdt[]> {
   return ejecutarConPermiso(contexto, 'PRESUPUESTOS.VER', async (cliente) => {

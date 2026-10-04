@@ -3,7 +3,6 @@ import cookie from '@fastify/cookie';
 import { z } from 'zod';
 import {
   actualizarHashAlIngresar,
-  ejecutarConPermiso,
   leerArranqueDeSesion,
   registrarEmpresa,
   selloVigente,
@@ -12,14 +11,15 @@ import {
 } from '../infraestructura/basedatos/contextoTenant.js';
 import { autenticar } from '../infraestructura/basedatos/autenticacion.js';
 import { crearPresupuesto, leerPresupuesto, listarPresupuestos } from '../infraestructura/basedatos/presupuesto.js';
-import { leerMesa, type MesaDeTrabajo } from '../infraestructura/basedatos/mesa.js';
 import { ErrorParaElUsuario } from '../infraestructura/basedatos/errorParaElUsuario.js';
 import { hashearContrasena, necesitaRehash, verificarContrasena } from './contrasenas.js';
-import { esNegacionDePermiso, sesionInvalida, traducirError } from './errores.js';
+import { sesionInvalida, traducirError } from './errores.js';
 import { ContadorDeIntentos } from './limiteIntentos.js';
 import { ATRIBUTOS_COOKIE, NOMBRE_COOKIE, armarSesion, leerSesion } from './sesion.js';
 import { hashDeToken } from './tokens.js';
 import { RUTA_BORRADOR, leerBorrador } from './terminos.js';
+import { Rechazo, UUID } from './rechazo.js';
+import { registrarRutasDeMesa } from './rutasMesa.js';
 
 export interface OpcionesServidor {
   /** La clave de firma de la cookie: SESSION_SECRET del .env, que escribe el dueño. */
@@ -39,20 +39,21 @@ export interface OpcionesServidor {
 
 const QUINCE_MINUTOS = 15 * 60 * 1000;
 
-/** Una respuesta de rechazo que la API decide sin pasar por la base. */
-class Rechazo extends Error {
-  constructor(
-    readonly estado: number,
-    mensaje: string,
-    readonly cabeceras: Record<string, string> = {},
-  ) {
-    super(mensaje);
-  }
-}
-
-/** El primer problema de una validación, en palabras de la persona que llenó el formulario. */
-function mensajeDeValidacion(error: z.ZodError): string {
-  return error.issues[0]?.message ?? 'Revise los datos del formulario.';
+/**
+ * El primer problema de una validación, en palabras de la persona que llenó
+ * el formulario, y el campo al que se refiere. Con campo, la interfaz marca
+ * ese campo; sin campo, recarga la mesa (contrato §2).
+ */
+function respuestaDeValidacion(error: z.ZodError): { mensaje: string; campo?: string } {
+  const problema = error.issues[0];
+  const mensaje = problema?.message ?? 'Revise los datos del formulario.';
+  const campo =
+    problema && problema.path.length > 0
+      ? problema.path.join('.')
+      : problema?.code === 'unrecognized_keys'
+        ? problema.keys[0]
+        : undefined;
+  return campo ? { mensaje, campo } : { mensaje };
 }
 
 const esquemaRegistro = z.object({
@@ -89,8 +90,6 @@ const esquemaNuevoPresupuesto = z.object({
   modoEstructura: z.enum(['ITEMS', 'WBS'], 'Elija la estructura: por ítems o por EDT.'),
 });
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 /**
  * La API de la rebanada 6.1, derivada de las pantallas del documento 02:
  * registro (§3.1), ingreso (§3.2), inicio y arranque (§4, §3.4), la vista
@@ -99,32 +98,6 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * capa de datos, que usan los dos agrupadores (auth_login y app_login, 04
  * §8.3), y una regla de ESLint impide abrir un tercero.
  */
-/**
- * La mesa con su «editable» (contrato §4.1): Abierto y, además, que
- * fn_exigir_permiso('PRESUPUESTOS.EDITAR') pase ahora mismo. Se le PREGUNTA a
- * la función que rechazaría la escritura —rol, cuenta, suscripción (D-65)—
- * en vez de replicar sus reglas, así que la pantalla y el rechazo no pueden
- * contradecirse. Es una cortesía para esconder controles: la base rechaza
- * igual.
- */
-async function mesaConEditable(
-  contexto: ContextoTenant,
-  presupuestoId: string,
-): Promise<(MesaDeTrabajo & { cabecera: { editable: boolean } }) | null> {
-  const mesa = await leerMesa(contexto, presupuestoId);
-  if (!mesa) return null;
-  let editable = mesa.cabecera.estado === 'ABIERTO';
-  if (editable) {
-    try {
-      await ejecutarConPermiso(contexto, 'PRESUPUESTOS.EDITAR', async () => undefined);
-    } catch (error) {
-      if (!esNegacionDePermiso(error)) throw error;
-      editable = false;
-    }
-  }
-  return { ...mesa, cabecera: { ...mesa.cabecera, editable } };
-}
-
 export async function construirServidor(opciones: OpcionesServidor): Promise<FastifyInstance> {
   const ahora = opciones.ahora ?? Date.now;
   const app = Fastify({ logger: false, trustProxy: opciones.proxiesDeConfianza ?? false });
@@ -174,7 +147,7 @@ export async function construirServidor(opciones: OpcionesServidor): Promise<Fas
       return reply.code(error.estado).headers(error.cabeceras).send({ mensaje: error.message });
     }
     if (error instanceof z.ZodError) {
-      return reply.code(422).send({ mensaje: mensajeDeValidacion(error) });
+      return reply.code(422).send(respuestaDeValidacion(error));
     }
     // Errores del propio Fastify sobre la forma de la petición (JSON roto…).
     const deFastify =
@@ -319,15 +292,8 @@ export async function construirServidor(opciones: OpcionesServidor): Promise<Fas
     return reply.send(presupuesto);
   });
 
-  // --- 02 §8 · La mesa de trabajo en una sola lectura (contrato §4.1) --------
-  // Las mutaciones de estructura responden con esta misma lectura (02 §8.2).
-  app.get<{ Params: { id: string } }>('/api/presupuestos/:id/mesa', async (request, reply) => {
-    const contexto = await sesionDe(request, reply);
-    if (!UUID.test(request.params.id)) throw noExiste();
-    const mesa = await mesaConEditable(contexto, request.params.id);
-    if (!mesa) throw noExiste();
-    return reply.send(mesa);
-  });
+  // --- 02 §8 · La mesa de trabajo: la lectura única y la estructura ---------
+  registrarRutasDeMesa(app, sesionDe);
 
   // 02 §7.1 · «Crear Nuevo Presupuesto», desde la misma vista maestra.
   app.post('/api/presupuestos', async (request, reply) => {
