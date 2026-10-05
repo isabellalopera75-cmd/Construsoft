@@ -275,7 +275,7 @@ npm run verificar-demo
 
 ```
 ✓ Ingreso por HTTP como <DEMO_CORREO>
-✓ Vista maestra: DEMO-001 (ACTIVO), DEMO-002 (ABIERTO)
+✓ Vista maestra: DEMO-002 (ABIERTO), DEMO-001 (ACTIVO)
 ✓ Mesa de DEMO-001: 7 actividades, valor total 180590155.000000
 ✓ La demostración está lista.
 ```
