@@ -174,7 +174,13 @@ async function ejecutarComoTenant<T>(
  *   5. actualizarHashAlIngresar — autoservicio sobre la identidad propia, como
  *      el 2: corre justo después de que el ingreso verificó la contraseña, para
  *      rehacer un hash con parámetros viejos (04 §8.2). Ningún rol tiene que
- *      autorizar que alguien guarde su propia contraseña de otra forma.
+ *      autorizar que alguien guarde su propia contraseña de otra forma. La
+ *      usa también «Cambiar contraseña» de Mi cuenta (02 §11.1), después de
+ *      verificar la actual: es la misma operación sobre la misma identidad.
+ *   6. leerMiCuenta — autoservicio de lectura sobre la identidad propia (02
+ *      §11.1): nombre, correo y rol de quien está en sesión. Pedir un permiso
+ *      para ver los datos propios no protegería nada: el Asistente nace sin
+ *      ninguno (D-44) y aun así tiene una cuenta.
  */
 function ejecutarSinPermiso<T>(
   contexto: ContextoTenant,
@@ -316,6 +322,26 @@ export async function leerArranqueDeSesion(contexto: ContextoTenant): Promise<Ar
           }
         : null,
     };
+  });
+}
+
+/** 02 §11.1 · Mi cuenta: lo que se muestra de quien está en sesión. */
+export interface MiCuenta {
+  nombre: string;
+  email: string;
+  rol: string;
+}
+
+/** Ver la exención 6 de ejecutarSinPermiso. */
+export async function leerMiCuenta(contexto: ContextoTenant): Promise<MiCuenta> {
+  return ejecutarSinPermiso(contexto, async (cliente) => {
+    const { rows } = await cliente.query<MiCuenta>(
+      `SELECT u.nombre, u.email, r.nombre AS rol
+         FROM app.usuario u JOIN app.rol r ON r.id = u.rol_id
+        WHERE u.id = $1`,
+      [contexto.usuarioId],
+    );
+    return rows[0]!;
   });
 }
 

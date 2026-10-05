@@ -10,6 +10,7 @@ import {
   actualizarDatosEmpresa,
   actualizarPreferencias,
   crearUnidad,
+  actualizarUnidad,
   eliminarUnidad,
   leerDatosEmpresa,
   leerPreferencias,
@@ -17,6 +18,7 @@ import {
   listarUnidades,
 } from './configuracionEmpresa.js';
 import { comoSuperusuario, vencerSuscripcion } from '../../pruebas/superusuario.js';
+import { crearRecurso } from './recurso.js';
 
 /**
  * Mismo patrón de fixtures que contextoTenant.test.ts, repetido acá a
@@ -252,6 +254,25 @@ describe('CONFIG.PREFERENCIAS', () => {
       crearUnidad(contexto, { simbolo: 'pza', descripcion: 'pieza duplicada' }),
       /ux_unidad_simbolo/,
     );
+  });
+
+  test('editar una unidad: símbolo y descripción, con la misma validación de duplicado (02 §11.6)', async () => {
+    const contexto = { tenantId: empresaC.tenantId, usuarioId: empresaC.usuarioId };
+    const creada = await crearUnidad(contexto, { simbolo: 'cm', descripcion: 'Centimetro' });
+    const editada = await actualizarUnidad(contexto, creada.id, { simbolo: 'cm', descripcion: 'Centímetro' });
+    assert.deepEqual(editada, { id: creada.id, simbolo: 'cm', descripcion: 'Centímetro' });
+    await assert.rejects(actualizarUnidad(contexto, creada.id, { simbolo: 'KG', descripcion: 'x' }), /ux_unidad_simbolo/);
+    assert.equal(await actualizarUnidad(contexto, '01900000-0000-7000-8000-000000000000', { simbolo: 'z', descripcion: 'z' }), null);
+  });
+
+  test('una unidad en uso no se elimina, y el mensaje dice dónde: no es una llave foránea rota', async () => {
+    const contexto = { tenantId: empresaC.tenantId, usuarioId: empresaC.usuarioId };
+    const unidad = await crearUnidad(contexto, { simbolo: 'rollo', descripcion: 'Rollo' });
+    await crearRecurso(contexto, {
+      nombre: 'Malla', tipo: 'MATERIAL', unidadId: unidad.id, precioBase: '1', ivaPct: '0', precioTotal: '1', viaCaptura: 'BASE',
+    });
+    await assert.rejects(eliminarUnidad(contexto, unidad.id), /«rollo» está en uso en 1 recurso/);
+    assert.ok((await listarUnidades(contexto)).some((u) => u.id === unidad.id));
   });
 
   test('aislamiento: las preferencias y unidades de una empresa no se tocan desde otra', async () => {

@@ -27,9 +27,23 @@ const MENSAJES_DE_RESTRICCION: Record<string, string> = {
   presupuesto_tenant_id_codigo_key: 'Ya existe un presupuesto con ese código en esta empresa. Use otro código.',
   ux_tenant_nit: 'Ya hay una empresa registrada con ese NIT. Si es la suya, ingrese con su cuenta o recupere la contraseña.',
   usuario_email_key: 'Ese correo ya tiene una cuenta. Ingrese con él, o use otro correo para registrarse.',
+  ux_unidad_simbolo:
+    'Ya existe una unidad con ese símbolo en su empresa. «Kg» y «kg» son el mismo símbolo: use otro.',
   ck_presupuesto_texto_no_vacio: 'El código, el nombre y la ubicación del presupuesto son obligatorios.',
   ck_recurso_precios_cuadran:
     'El precio base y el precio total no cuadran con el IVA: el que se calcula es el otro multiplicado o dividido por (1 + IVA/100), redondeado a seis decimales.',
+};
+
+/**
+ * El campo del formulario al que corresponde una restricción de unicidad: con
+ * él, la pantalla marca el control en vez de recargar (contrato §2). Solo las
+ * que son de un único dato que la persona escribió.
+ */
+const CAMPO_DE_RESTRICCION: Record<string, string> = {
+  presupuesto_tenant_id_codigo_key: 'codigo',
+  ux_tenant_nit: 'nit',
+  usuario_email_key: 'email',
+  ux_unidad_simbolo: 'simbolo',
 };
 
 /** La sesión no sirve: no hay cookie, la firma no vale, venció, o el sello ya no es el de la base. */
@@ -112,12 +126,12 @@ export function traducirError(error: unknown): RespuestaDeError {
         ? { estado: 422, mensaje: mensajeDeLaBase, campo, borrarCookie: false }
         : { estado: 422, mensaje: mensajeDeLaBase, borrarCookie: false };
     }
-    case '23505':
-      return {
-        estado: 409,
-        mensaje: MENSAJES_DE_RESTRICCION[restriccionDe(error) ?? ''] ?? 'Ese dato ya existe y no puede repetirse.',
-        borrarCookie: false,
-      };
+    case '23505': {
+      const restriccion = restriccionDe(error) ?? '';
+      const mensaje = MENSAJES_DE_RESTRICCION[restriccion] ?? 'Ese dato ya existe y no puede repetirse.';
+      const campo = CAMPO_DE_RESTRICCION[restriccion];
+      return campo ? { estado: 409, mensaje, campo, borrarCookie: false } : { estado: 409, mensaje, borrarCookie: false };
+    }
     case '23503':
       // Una llave foránea apunta a algo que no está. Las de inquilino son
       // compuestas (tenant_id, id): lo ajeno y lo inexistente fallan igual,

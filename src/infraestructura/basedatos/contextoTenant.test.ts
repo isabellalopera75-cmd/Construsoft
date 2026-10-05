@@ -376,6 +376,7 @@ describe('el problema que este wrapper existe para evitar', () => {
         'consumirTokenRecuperacion',
         'ejecutarConPermiso',
         'leerArranqueDeSesion',
+        'leerMiCuenta',
         'registrarEmpresa',
         'selloVigente',
       ]);

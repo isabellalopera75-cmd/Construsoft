@@ -3,6 +3,7 @@ import cookie from '@fastify/cookie';
 import { z } from 'zod';
 import {
   actualizarHashAlIngresar,
+  leerMiCuenta,
   leerArranqueDeSesion,
   registrarEmpresa,
   selloVigente,
@@ -22,6 +23,7 @@ import { Rechazo, UUID } from './rechazo.js';
 import { registrarRutasDeMesa } from './rutasMesa.js';
 import { registrarRutasDeRecursos } from './rutasRecursos.js';
 import { registrarRutasDeApu } from './rutasApu.js';
+import { registrarRutasDeConfiguracion } from './rutasConfiguracion.js';
 
 export interface OpcionesServidor {
   /** La clave de firma de la cookie: SESSION_SECRET del .env, que escribe el dueño. */
@@ -74,6 +76,11 @@ const esquemaIngreso = z.object({
   contrasena: z.string().min(1, 'Escriba su contraseña.'),
 });
 
+const esquemaCambioDeContrasena = z.object({
+  actual: z.string('Escriba su contraseña actual.').min(1, 'Escriba su contraseña actual.'),
+  nueva: z.string('Escriba la contraseña nueva.').min(8, 'La contraseña necesita al menos 8 caracteres.'),
+});
+
 const esquemaRecuperacion = z.object({
   token: z.string().min(1, 'El enlace no es válido.'),
   contrasena: z.string().min(8, 'La contraseña necesita al menos 8 caracteres.'),
@@ -110,6 +117,8 @@ export async function construirServidor(opciones: OpcionesServidor): Promise<Fas
   const fallosPorCorreo = new ContadorDeIntentos({ maximo: 5, ventanaMs: QUINCE_MINUTOS, ahora });
   const fallosPorIp = new ContadorDeIntentos({ maximo: 20, ventanaMs: QUINCE_MINUTOS, ahora });
   const tokensFallidosPorIp = new ContadorDeIntentos({ maximo: 10, ventanaMs: QUINCE_MINUTOS, ahora });
+  // Mi cuenta: una sesión robada no sirve para adivinar la contraseña actual.
+  const cambiosFallidosPorUsuario = new ContadorDeIntentos({ maximo: 5, ventanaMs: QUINCE_MINUTOS, ahora });
 
   function exigirSinBloqueo(contador: ContadorDeIntentos, clave: string): void {
     const hasta = contador.bloqueadoHasta(clave);
@@ -304,6 +313,33 @@ export async function construirServidor(opciones: OpcionesServidor): Promise<Fas
 
   // --- 02 §6 · APU ---------------------------------------------------------------
   registrarRutasDeApu(app, sesionDe);
+
+  // --- 02 §11 · Configuración -----------------------------------------------------
+  registrarRutasDeConfiguracion(app, sesionDe);
+
+  // --- 02 §11.1 · Cambiar la contraseña desde Mi cuenta ---------------------------
+  // Verifica la actual, guarda la nueva y mueve el sello de credenciales
+  // (D-67): todas las OTRAS sesiones de esta persona quedan cerradas, y esta
+  // recibe una cookie con el sello nuevo. Una actual equivocada es un dato del
+  // formulario (422 en «actual»), no una sesión inválida: un 401 sacaría a la
+  // persona de la aplicación.
+  app.post('/api/configuracion/cuenta/contrasena', async (request, reply) => {
+    const contexto = await sesionDe(request, reply);
+    const { actual, nueva } = esquemaCambioDeContrasena.parse(request.body);
+    const clave = `usuario:${contexto.usuarioId}`;
+    exigirSinBloqueo(cambiosFallidosPorUsuario, clave);
+    const { email } = await leerMiCuenta(contexto);
+    const yo = await autenticar(email);
+    if (!yo || !(await verificarContrasena(yo.passwordHash, actual))) {
+      cambiosFallidosPorUsuario.registrarFallo(clave);
+      throw new z.ZodError([
+        { code: 'custom', path: ['actual'], message: 'La contraseña actual no es correcta.', input: actual },
+      ]);
+    }
+    cambiosFallidosPorUsuario.reiniciar(clave);
+    abrirSesion(reply, contexto, await actualizarHashAlIngresar(contexto, await hashearContrasena(nueva)));
+    return reply.code(204).send();
+  });
 
   // 02 §7.1 · «Crear Nuevo Presupuesto», desde la misma vista maestra.
   app.post('/api/presupuestos', async (request, reply) => {

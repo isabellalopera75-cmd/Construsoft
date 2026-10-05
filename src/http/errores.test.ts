@@ -55,6 +55,14 @@ describe('traducirError: el único lugar donde un rechazo se vuelve HTTP (04 §8
     assert.equal(traducirError(errorDeLaBase('P0001', 'otro rechazo')).campo, undefined);
   });
 
+  test('una restricción de unicidad que corresponde a un campo del formulario llega con ese campo', () => {
+    const r = traducirError(errorDeLaBase('23505', 'llave duplicada', 'ux_unidad_simbolo'));
+    assert.deepEqual([r.estado, r.campo], [409, 'simbolo']);
+    assert.match(r.mensaje, /símbolo/);
+    assert.equal(traducirError(errorDeLaBase('23505', 'llave duplicada', 'ux_tenant_nit')).campo, 'nit');
+    assert.equal(traducirError(errorDeLaBase('23505', 'llave duplicada', 'otra_restriccion')).campo, undefined);
+  });
+
   test('CS000 es un error de programación: al usuario no le llega el texto de la base', () => {
     const r = traducirError(errorDeLaBase('CS000', 'El permiso «X» no existe en el catálogo'));
     assert.doesNotMatch(r.mensaje, /catálogo/);

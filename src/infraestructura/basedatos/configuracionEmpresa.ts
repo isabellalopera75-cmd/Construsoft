@@ -227,15 +227,58 @@ export async function crearUnidad(
 }
 
 /**
- * Eliminar una unidad en uso lo rechaza la base (FK desde app.recurso/app.apu).
- * Un id de otra empresa, o inexistente, no borra nada: RLS lo esconde y el
- * DELETE afecta cero filas en silencio, el mismo modo de falla que el resto
- * del sistema.
+ * 02 §11.6 · Editar símbolo o descripción. El símbolo duplicado sin
+ * distinguir mayúsculas lo rechaza ux_unidad_simbolo, igual que al crear.
+ * Devuelve null si el id no existe en esta empresa.
+ */
+export async function actualizarUnidad(
+  contexto: ContextoTenant,
+  unidadId: string,
+  datos: DatosUnidadMedida,
+): Promise<UnidadMedida | null> {
+  return ejecutarConPermiso(contexto, 'CONFIG.PREFERENCIAS', async (cliente) => {
+    const { rows } = await cliente.query<UnidadMedida>(
+      `UPDATE app.unidad_medida SET simbolo = $2, descripcion = $3
+        WHERE id = $1
+      RETURNING id, simbolo, descripcion`,
+      [unidadId, datos.simbolo, datos.descripcion],
+    );
+    return rows[0] ?? null;
+  });
+}
+
+/**
+ * 02 §11.6 · Una unidad en uso en algún recurso o APU no se elimina, y el
+ * mensaje dice dónde. Las llaves foráneas desde app.recurso y app.apu la
+ * defienden igual, pero su rechazo es un 23503 que no dice nada útil: el
+ * conteo previo es para el mensaje, no para la regla. Un id de otra empresa,
+ * o inexistente, no borra nada: la RLS lo esconde.
  */
 export async function eliminarUnidad(contexto: ContextoTenant, unidadId: string): Promise<void> {
-  await ejecutarConPermiso(contexto, 'CONFIG.PREFERENCIAS', (cliente) =>
-    cliente.query('DELETE FROM app.unidad_medida WHERE id = $1', [unidadId]),
-  );
+  await ejecutarConPermiso(contexto, 'CONFIG.PREFERENCIAS', async (cliente) => {
+    const { rows } = await cliente.query<{ simbolo: string; recursos: string; apus: string }>(
+      `SELECT u.simbolo,
+              (SELECT count(*) FROM app.recurso r WHERE r.unidad_id = u.id) AS recursos,
+              (SELECT count(*) FROM app.apu a WHERE a.unidad_id = u.id) AS apus
+         FROM app.unidad_medida u
+        WHERE u.id = $1`,
+      [unidadId],
+    );
+    const uso = rows[0];
+    if (uso && (uso.recursos !== '0' || uso.apus !== '0')) {
+      const donde = [
+        uso.recursos !== '0' ? `${uso.recursos} ${uso.recursos === '1' ? 'recurso' : 'recursos'}` : null,
+        uso.apus !== '0' ? `${uso.apus} APU` : null,
+      ]
+        .filter(Boolean)
+        .join(' y ');
+      throw new ErrorParaElUsuario(
+        `La unidad «${uso.simbolo}» está en uso en ${donde}: no se puede eliminar mientras la usen.`,
+        'RECHAZADO',
+      );
+    }
+    await cliente.query('DELETE FROM app.unidad_medida WHERE id = $1', [unidadId]);
+  });
 }
 
 // -----------------------------------------------------------------------------
