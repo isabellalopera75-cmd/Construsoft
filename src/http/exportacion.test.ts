@@ -2,7 +2,12 @@ import { after, before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
+import ExcelJS from 'exceljs';
 import { activarPresupuesto } from '../infraestructura/basedatos/cicloDeVida.js';
+import { crearPresupuesto, editarPorcentajes } from '../infraestructura/basedatos/presupuesto.js';
+import { agregarCapitulo, agregarSubcapitulo } from '../infraestructura/basedatos/edt.js';
+import { agregarActividad } from '../infraestructura/basedatos/actividad.js';
+import { formatearNumero, redondear, type FormatoNumerico } from '../comun/formatoNumerico.js';
 import { armarPresupuestoDeReferencia, type PresupuestoDeReferencia } from '../pruebas/presupuestoDeReferencia.js';
 import { vencerSuscripcion } from '../pruebas/superusuario.js';
 import { textoDePdf } from '../pruebas/textoDePdf.js';
@@ -79,6 +84,82 @@ describe('exportar la oferta en PDF y Excel (02 §9.5, RF-PRE-29/30)', () => {
     const p = await armarPresupuestoDeReferencia(vencida.contexto, 'EXP-V');
     await vencerSuscripcion(vencida.contexto.tenantId);
     assert.equal((await pedir(`/api/presupuestos/${p.presupuestoId}/exportar?formato=pdf`, vencida.cookie)).statusCode, 200);
+  });
+});
+
+interface MesaLeida {
+  nodos: { codigoWbs: string; nombre: string; montoAcumulado: string }[];
+  actividades: { codigoItem: string; descripcion: string; unidadSimbolo: string; cantidad: string; precioUnitario: string; costoTotal: string }[];
+  pie: Record<'costoIndirecto' | 'costoDirecto' | 'administracion' | 'imprevistos' | 'utilidad' | 'aiu' | 'iva' | 'valorTotal', string> & {
+    porcentajes: { a: string; i: string; u: string; iva: string };
+  };
+}
+
+/** Las ocho líneas del pie como las rotulan el PDF y el Excel, con el valor que tiene la base. */
+function pieEsperado(m: MesaLeida, f: FormatoNumerico): [string, string][] {
+  const pct = (v: string) => `${formatearNumero(v, f)} %`;
+  return [
+    ['Total costo indirecto', m.pie.costoIndirecto],
+    ['Total costo directo', m.pie.costoDirecto],
+    [`Administración (${pct(m.pie.porcentajes.a)})`, m.pie.administracion],
+    [`Imprevistos (${pct(m.pie.porcentajes.i)})`, m.pie.imprevistos],
+    [`Utilidad (${pct(m.pie.porcentajes.u)})`, m.pie.utilidad],
+    ['AIU', m.pie.aiu],
+    [`IVA (${pct(m.pie.porcentajes.iva)})`, m.pie.iva],
+    ['VALOR TOTAL', m.pie.valorTotal],
+  ];
+}
+
+describe('las cifras de los archivos son las de la base, línea por línea (02 §9.5)', () => {
+  test('un presupuesto con decimales en cantidades y porcentajes: el PDF y el Excel dicen exactamente lo que dice la mesa', async () => {
+    const duena = await registrar('Constructora Cifras', '900000364-4', 'exporta.cifras@construsoft.test');
+    const ref = await armarPresupuestoDeReferencia(duena.contexto, 'EXP-REF2');
+    const apu = (d: string) => ref.actividades[d]!.apuId;
+    const p = await crearPresupuesto(duena.contexto, { codigo: 'EXP-CIFRAS', nombre: 'Cifras', ubicacion: 'Envigado', modoEstructura: 'WBS' });
+    const pre = await agregarCapitulo(duena.contexto, p.id, { nombre: 'PRELIMINARES', clasificacion: 'INDIRECTO' });
+    await agregarActividad(duena.contexto, pre.id, apu('Director de obra'), '2.5');
+    const obra = await agregarCapitulo(duena.contexto, p.id, { nombre: 'OBRA', clasificacion: 'DIRECTO' });
+    await agregarActividad(duena.contexto, obra.id, ref.concreto.id, '12.345');
+    const muros = await agregarSubcapitulo(duena.contexto, obra.id, { nombre: 'Muros' });
+    await agregarActividad(duena.contexto, muros.id, apu('Acero de refuerzo 60.000 PSI'), '1037.125');
+    await agregarActividad(duena.contexto, muros.id, apu('Formaleta metálica'), '0.5');
+    await editarPorcentajes(duena.contexto, p.id, { aiuAdministracion: '7.5', aiuImprevistos: '3.25', aiuUtilidad: '6', ivaUtilidadPct: '19' });
+
+    const mesa = (await pedir(`/api/presupuestos/${p.id}/mesa`, duena.cookie)).json<MesaLeida>();
+    const formato = (await pedir('/api/sesion', duena.cookie)).json<{ formatoNumerico: FormatoNumerico }>().formatoNumerico;
+    const f = (v: string) => formatearNumero(v, formato);
+
+    // El PDF: cada fila es una secuencia de textos en el orden de las columnas.
+    const pdf = textoDePdf((await pedir(`/api/presupuestos/${p.id}/exportar?formato=pdf`, duena.cookie)).rawPayload);
+    const desde = (primero: string, cuantos: number) => pdf.slice(pdf.indexOf(primero), pdf.indexOf(primero) + cuantos);
+    for (const n of mesa.nodos) assert.deepEqual(desde(n.codigoWbs, 3), [n.codigoWbs, n.nombre, f(n.montoAcumulado)]);
+    for (const a of mesa.actividades) {
+      assert.deepEqual(desde(a.codigoItem, 6), [a.codigoItem, a.descripcion, a.unidadSimbolo, f(a.cantidad), f(a.precioUnitario), f(a.costoTotal)]);
+    }
+    for (const [rotulo, valor] of pieEsperado(mesa, formato)) assert.deepEqual(desde(rotulo, 2), [rotulo, f(valor)]);
+
+    // El Excel: los valores son números en la columna del total, redondeados una vez a los decimales de la empresa.
+    const libro = new ExcelJS.Workbook();
+    await libro.xlsx.load((await pedir(`/api/presupuestos/${p.id}/exportar?formato=xlsx`, duena.cookie)).rawPayload as never);
+    const hoja = libro.worksheets[0]!;
+    const filaDe = (primeraColumna: string) => {
+      let encontrada: ExcelJS.Row | undefined;
+      hoja.eachRow((fila) => {
+        if (fila.getCell(1).value === primeraColumna) encontrada = fila;
+      });
+      assert.ok(encontrada, `el Excel no tiene la fila ${primeraColumna}`);
+      return encontrada!;
+    };
+    const numero = (v: string) => Number(redondear(v, formato.decimalesVista));
+    for (const a of mesa.actividades) {
+      const fila = filaDe(a.codigoItem);
+      assert.deepEqual(
+        [fila.getCell(2).value, fila.getCell(4).value, fila.getCell(5).value, fila.getCell(6).value],
+        [a.descripcion, numero(a.cantidad), numero(a.precioUnitario), numero(a.costoTotal)],
+      );
+    }
+    for (const n of mesa.nodos) assert.equal(filaDe(n.codigoWbs).getCell(6).value, numero(n.montoAcumulado));
+    for (const [rotulo, valor] of pieEsperado(mesa, formato)) assert.equal(filaDe(rotulo).getCell(6).value, numero(valor), rotulo);
   });
 });
 
