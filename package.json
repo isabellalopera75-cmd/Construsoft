@@ -14,7 +14,8 @@
     "lint": "eslint .",
     "muestras": "node --env-file=.env.test --import tsx src/pruebas/generarMuestras.ts",
     "api": "node --env-file=.env --import tsx src/http/arrancar.ts",
-    "demo": "node --env-file=.env --import tsx src/demo/sembrar.ts"
+    "demo": "node --env-file=.env --import tsx src/demo/sembrar.ts",
+    "enlace": "node --env-file=.env --import tsx src/dueno/enlace.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",

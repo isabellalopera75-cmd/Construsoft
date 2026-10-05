@@ -181,6 +181,11 @@ async function ejecutarComoTenant<T>(
  *      §11.1): nombre, correo y rol de quien está en sesión. Pedir un permiso
  *      para ver los datos propios no protegería nada: el Asistente nace sin
  *      ninguno (D-44) y aun así tiene una cuenta.
+ *   7. emitirTokenRecuperacion — el «olvidé mi contraseña» que hoy entrega el
+ *      dueño a mano (04 §8.5), mientras no hay correo (fase 8). Quien lo pide
+ *      no tiene sesión: es justo lo que perdió. La identidad la resuelve
+ *      autenticar por el correo, y el contexto es el del propio usuario, no
+ *      un tenantId recibido por fuera. Solo escribe un token suyo.
  */
 function ejecutarSinPermiso<T>(
   contexto: ContextoTenant,
@@ -553,4 +558,25 @@ export async function consumirTokenRecuperacion(
   });
 
   return contexto;
+}
+
+/**
+ * Emite un token de RECUPERACION para el usuario del contexto (exención 7 de
+ * ejecutarSinPermiso). Guarda solo el hash; vence a los 30 minutos (RF-AUT-07,
+ * ck_token_vigencia), y tg_token_anula_anteriores anula los que el usuario
+ * tuviera pendientes (RF-AUT-18): solo sirve el último enlace entregado.
+ */
+export async function emitirTokenRecuperacion(
+  contexto: ContextoTenant,
+  tokenHash: string,
+): Promise<{ expiraEn: string }> {
+  return ejecutarSinPermiso(contexto, async (cliente) => {
+    const { rows } = await cliente.query<{ expira_en: Date }>(
+      `INSERT INTO app.token_recuperacion (tenant_id, usuario_id, proposito, token_hash, expira_en)
+       VALUES ($1, $2, 'RECUPERACION', $3, now() + interval '30 minutes')
+       RETURNING expira_en`,
+      [contexto.tenantId, contexto.usuarioId, tokenHash],
+    );
+    return { expiraEn: rows[0]!.expira_en.toISOString() };
+  });
 }

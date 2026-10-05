@@ -8,6 +8,7 @@ import {
   actualizarHashAlIngresar,
   consumirTokenRecuperacion,
   ejecutarConPermiso,
+  emitirTokenRecuperacion,
   leerArranqueDeSesion,
   registrarEmpresa,
   selloVigente,
@@ -375,6 +376,7 @@ describe('el problema que este wrapper existe para evitar', () => {
         'actualizarHashAlIngresar',
         'consumirTokenRecuperacion',
         'ejecutarConPermiso',
+        'emitirTokenRecuperacion',
         'leerArranqueDeSesion',
         'leerMiCuenta',
         'registrarEmpresa',
@@ -819,5 +821,20 @@ describe('selloVigente y actualizarHashAlIngresar (D-67, 04 §8.1 y §8.2)', () 
     const otra = await registrarEmpresaDePrueba('Constructora Test Sello B', '900000017-7', 'sebastian@construsoft.test');
     const { credencialesEn } = (await autenticar(empresa.email))!;
     assert.equal(await selloVigente({ tenantId: otra.tenantId, usuarioId: empresa.usuarioId }, credencialesEn), false);
+  });
+});
+
+describe('emitirTokenRecuperacion: el enlace que entrega el dueño a mano (04 §8.5)', () => {
+  test('el token emitido lo consume la recuperación, vence en 30 minutos, y emitir otro anula el anterior', async () => {
+    const empresa = await registrarEmpresaDePrueba('Constructora Test Emitir', '900000019-9', 'emitir.token@construsoft.test');
+    const contexto = { tenantId: empresa.tenantId, usuarioId: empresa.usuarioId };
+
+    const primero = await emitirTokenRecuperacion(contexto, 'a'.repeat(64));
+    const minutos = (Date.parse(primero.expiraEn) - Date.now()) / 60000;
+    assert.ok(minutos > 29 && minutos <= 30, `vence en ${minutos} minutos`);
+
+    await emitirTokenRecuperacion(contexto, 'b'.repeat(64));
+    await assert.rejects(consumirTokenRecuperacion('a'.repeat(64), 'hash_nuevo_no_real'));
+    await consumirTokenRecuperacion('b'.repeat(64), 'hash_nuevo_no_real');
   });
 });
