@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# La batería entera antes de cada commit que toque la API. Mecánico y no
+# voluntario: 1c12118 entró en rojo porque el comando siguió aunque la
+# batería falló, y un hábito se olvida; un hook no.
+#
+# Se activa una vez por clon:   git config core.hooksPath scripts/hooks
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+
+# Lo que puede cambiar el resultado de la batería. Un commit que solo toca
+# web/, bitácoras o documentos de lectura no la corre.
+RELEVANTE='^(src/|scripts/|legal/|prototipo/legal\.html$|package(-lock)?\.json$|tsconfig\.json$|eslint\.config\.js$|docs/05 )'
+
+if ! git diff --cached --name-only | grep -qE "$RELEVANTE"; then
+    echo "pre-commit: nada que afecte la API; no corre la batería."
+    exit 0
+fi
+
+# La batería corre sobre el árbol de trabajo. Si hay cambios relevantes fuera
+# del índice, lo probado no sería lo commiteado: mejor negarse que mentir.
+pendientes=$( { git diff --name-only; git ls-files --others --exclude-standard; } | grep -E "$RELEVANTE" || true)
+if [[ -n "$pendientes" ]]; then
+    echo "pre-commit: hay cambios que afectan la API y no están en el índice:" >&2
+    echo "$pendientes" | sed 's/^/    /' >&2
+    echo "Agréguelos con git add o descártelos: la batería probaría otra cosa que la commiteada." >&2
+    exit 1
+fi
+
+echo "pre-commit: tsc, eslint y la batería contra construsoft_test…"
+npx tsc --noEmit -p .
+npx eslint src
+bash scripts/resetear-base-pruebas.sh > /dev/null
+npm test --silent > /tmp/construsoft-precommit.log 2>&1 || {
+    grep -E '^not ok|^    not ok|^# (pass|fail)' /tmp/construsoft-precommit.log >&2
+    echo "pre-commit: la batería falló; no se commitea. Detalle en /tmp/construsoft-precommit.log" >&2
+    exit 1
+}
+grep -E '^# (pass|fail)' /tmp/construsoft-precommit.log
