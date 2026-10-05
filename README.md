@@ -214,6 +214,79 @@ Ese error es el resultado correcto.
 
 ---
 
+## La demostración, de punta a punta
+
+Desde una base vacía hasta el presupuesto de referencia cerrando en
+**$180.590.155**, leído por la API. Es la prueba de que el sistema arranca en
+una máquina que no es la de quien lo escribió.
+
+**0. La base.** Los pasos 1 a 4 de arriba: base nueva, esquema y los tres roles
+de conexión. Si los roles ya existían de una instalación anterior, sirven: son
+del servidor, no de la base.
+
+**1. Las dependencias**, desde la raíz del proyecto (Node 20 o superior):
+
+```
+npm ci
+```
+
+**2. El `.env`** en la raíz. Lo escribe el dueño del proyecto; los valores no
+van en ningún otro lado. Estas variables, todas obligatorias:
+
+| Variable | Para qué |
+|---|---|
+| `APP_DB_HOST`, `APP_DB_PORT`, `APP_DB_NAME`, `APP_DB_USER`, `APP_DB_PASSWORD` | La conexión de la aplicación: `app_login` sobre la base del paso 0 |
+| `AUTH_DB_HOST`, `AUTH_DB_PORT`, `AUTH_DB_NAME`, `AUTH_DB_USER`, `AUTH_DB_PASSWORD` | La de autenticación: `auth_login` sobre la misma base |
+| `SESSION_SECRET` | Firma la cookie de sesión. Larga y aleatoria |
+| `VERSION_TERMINOS` | `PROVISIONAL-2026-09-25`: el nombre de la carpeta de `legal/` con el texto que se publica |
+| `TERMINOS_PROVISIONALES` | `si`, escrito así: autoriza publicar un borrador sin revisión legal |
+| `CONTACTO_TERMINOS` | A quién escribir mientras los términos sean provisionales |
+| `DEMO_CORREO`, `DEMO_CONTRASENA` | Con qué se ingresará a la empresa de demostración (la contraseña, de 8 caracteres o más) |
+
+**3. Sembrar la empresa de demostración:**
+
+```
+npm run demo
+```
+
+```
+→ Empresa de demostración sembrada. Ingrese con <DEMO_CORREO>.
+  DEMO-001 Casa campestre El Retiro (activo, versión 1) · DEMO-002 Bodega industrial Rionegro (abierto)
+```
+
+Correrlo dos veces no duplica nada: la segunda se niega y lo dice.
+
+**4. Levantar la API**, en otra ventana:
+
+```
+npm run api
+```
+
+```
+⚠ Términos PROVISIONALES (PROVISIONAL-2026-09-25): esta instalación no es para uso real.
+→ API de Construsoft escuchando en http://127.0.0.1:3000
+```
+
+**5. Comprobar por HTTP**, en la primera ventana:
+
+```
+npm run verificar-demo
+```
+
+```
+✓ Ingreso por HTTP como <DEMO_CORREO>
+✓ Vista maestra: DEMO-001 (ACTIVO), DEMO-002 (ABIERTO)
+✓ Mesa de DEMO-001: 7 actividades, valor total 180590155.000000
+✓ La demostración está lista.
+```
+
+Ingresa con la cookie de sesión, lee la vista maestra y la mesa: la cifra
+atraviesa la sesión, el aislamiento y la lectura de la API, no una consulta SQL.
+Si cierra en otra cifra, hay una fórmula mal y nada más importa hasta
+encontrarla.
+
+---
+
 ## Si el paso 2 se detuvo a mitad de camino
 
 El archivo corre de principio a fin o no corre: trae `ON_ERROR_STOP` adentro y se
@@ -238,7 +311,17 @@ que borrarlos ni preocuparse por ellos: repetir el paso 2 funciona igual.
 
 ```
 docs/       El esquema y la documentación. Es la fuente de verdad.
+legal/      Los términos y la política de datos, una carpeta por versión publicada.
+src/        La API y sus pruebas.
+web/        La interfaz.
 prototipo/  La maqueta de interfaz. Referencia visual, no código de producción.
+```
+
+Antes de commitear, active una vez el pre-commit, que corre la batería
+completa sobre cada commit que toque la API:
+
+```
+git config core.hooksPath scripts/hooks
 ```
 
 ## Antes de tocar nada
