@@ -1,4 +1,5 @@
 import { ejecutarConPermiso, type ContextoTenant } from './contextoTenant.js';
+import { ErrorParaElUsuario } from './errorParaElUsuario.js';
 
 /**
  * Este módulo no abre ningún pool propio: compone ejecutarConPermiso, la
@@ -244,6 +245,7 @@ export async function eliminarUnidad(contexto: ContextoTenant, unidadId: string)
 
 export interface PagoRealizado {
   id: string;
+  /** Texto aaaa-mm-dd: un date de Postgres convertido a Date cae en la medianoche local y puede retroceder un día. */
   fecha: string;
   concepto: string;
   /** app.dinero llega como texto (node-postgres no convierte NUMERIC): se muestra, no se calcula (CLAUDE.md, regla 2). */
@@ -254,21 +256,21 @@ export interface PagoRealizado {
   facturaNumero: string | null;
 }
 
+/**
+ * La pestaña Suscripción (02 §11.3). El estado, los días restantes y el
+ * vencimiento salen de plataforma.fn_estado_suscripcion, la MISMA función
+ * que usan el arranque de sesión y fn_exigir_permiso: la pestaña no puede
+ * decir «activa» mientras el rechazo dice «vencida». Y cubre todos los
+ * estados —VENCIDA, CANCELADA, SUSPENDIDA, SIN_SUSCRIPCION—, no solo los
+ * vigentes: es justo cuando no está vigente que la persona viene a mirarla.
+ */
 export interface Suscripcion {
-  plan: string;
   estado: string;
-  fechaInicio: string;
-  fechaVencimiento: string;
-  renovacionAutomatica: boolean;
+  plan: string | null;
+  /** Texto aaaa-mm-dd; null sin suscripción. */
+  venceEl: string | null;
+  diasRestantes: number | null;
   pagos: PagoRealizado[];
-}
-
-interface FilaSuscripcion {
-  plan: string;
-  estado: string;
-  fecha_inicio: string;
-  fecha_vencimiento: string;
-  renovacion_automatica: boolean;
 }
 
 interface FilaPago {
@@ -284,19 +286,24 @@ interface FilaPago {
 
 export async function leerSuscripcion(contexto: ContextoTenant): Promise<Suscripcion> {
   return ejecutarConPermiso(contexto, 'CONFIG.SUSCRIPCION', async (cliente) => {
-    const { rows: filasSuscripcion } = await cliente.query<FilaSuscripcion>(
-      `SELECT p.codigo AS plan, s.estado, s.fecha_inicio, s.fecha_vencimiento,
-              s.renovacion_automatica
-         FROM plataforma.suscripcion s
-         JOIN plataforma.plan p ON p.id = s.plan_id
-        WHERE s.tenant_id = $1
-          AND s.estado IN ('EN_PRUEBA', 'ACTIVA')`,
+    const { rows: filasEstado } = await cliente.query<{
+      estado: string;
+      plan_codigo: string | null;
+      vence_el: string | null;
+      dias_restantes: number | null;
+    }>(
+      `SELECT estado, plan_codigo, vence_el::text AS vence_el, dias_restantes
+         FROM plataforma.fn_estado_suscripcion($1)`,
       [contexto.tenantId],
     );
-    const filaSuscripcion = filasSuscripcion[0]!;
+    const estado = filasEstado[0];
+    if (!estado) {
+      // Cero filas es «sin acceso a ese inquilino», nunca «al día».
+      throw new ErrorParaElUsuario('La empresa no existe en esta instalación.', 'NO_EXISTE');
+    }
 
     const { rows: filasPago } = await cliente.query<FilaPago>(
-      `SELECT pg.id, pg.fecha, pg.concepto, pg.monto, pg.moneda, pg.metodo,
+      `SELECT pg.id, pg.fecha::text AS fecha, pg.concepto, pg.monto, pg.moneda, pg.metodo,
               pg.estado, pg.factura_numero
          FROM plataforma.pago pg
          JOIN plataforma.suscripcion s ON s.id = pg.suscripcion_id
@@ -306,11 +313,10 @@ export async function leerSuscripcion(contexto: ContextoTenant): Promise<Suscrip
     );
 
     return {
-      plan: filaSuscripcion.plan,
-      estado: filaSuscripcion.estado,
-      fechaInicio: filaSuscripcion.fecha_inicio,
-      fechaVencimiento: filaSuscripcion.fecha_vencimiento,
-      renovacionAutomatica: filaSuscripcion.renovacion_automatica,
+      estado: estado.estado,
+      plan: estado.plan_codigo,
+      venceEl: estado.vence_el,
+      diasRestantes: estado.dias_restantes,
       pagos: filasPago.map((fila) => ({
         id: fila.id,
         fecha: fila.fecha,

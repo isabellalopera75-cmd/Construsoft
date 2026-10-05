@@ -16,6 +16,7 @@ import {
   leerSuscripcion,
   listarUnidades,
 } from './configuracionEmpresa.js';
+import { comoSuperusuario, vencerSuscripcion } from '../../pruebas/superusuario.js';
 
 /**
  * Mismo patrón de fixtures que contextoTenant.test.ts, repetido acá a
@@ -300,6 +301,27 @@ describe('CONFIG.SUSCRIPCION', () => {
     assert.equal(suscripcion.plan, 'EMPRESARIAL');
     assert.equal(suscripcion.estado, 'EN_PRUEBA');
     assert.deepEqual(suscripcion.pagos, []);
+  });
+
+  test('la fecha de vencimiento viaja como texto aaaa-mm-dd, y los días restantes los calcula la base', async () => {
+    const s = await leerSuscripcion({ tenantId: empresaE.tenantId, usuarioId: empresaE.usuarioId });
+    assert.match(s.venceEl!, /^\d{4}-\d{2}-\d{2}$/);
+    assert.equal(typeof s.diasRestantes, 'number');
+  });
+
+  test('una suscripción vencida se consulta: estado VENCIDA, no un error (02 §11.3)', async () => {
+    const vencida = await registrarEmpresaDePrueba('Constructora Config Vencida', '900000027-7', 'vencida.config@construsoft.test');
+    await vencerSuscripcion(vencida.tenantId);
+    const s = await leerSuscripcion({ tenantId: vencida.tenantId, usuarioId: vencida.usuarioId });
+    assert.deepEqual([s.estado, s.plan], ['VENCIDA', 'EMPRESARIAL']);
+    assert.ok(s.diasRestantes! < 0);
+  });
+
+  test('una suscripción cancelada se consulta: estado CANCELADA, no un error', async () => {
+    const cancelada = await registrarEmpresaDePrueba('Constructora Config Cancelada', '900000028-8', 'cancelada.config@construsoft.test');
+    await comoSuperusuario((c) => c.query(`UPDATE plataforma.suscripcion SET estado = 'CANCELADA', cancelada_en = now() WHERE tenant_id = $1`, [cancelada.tenantId]));
+    const s = await leerSuscripcion({ tenantId: cancelada.tenantId, usuarioId: cancelada.usuarioId });
+    assert.equal(s.estado, 'CANCELADA');
   });
 
   test('sin CONFIG.SUSCRIPCION: no puede consultarla', async () => {
