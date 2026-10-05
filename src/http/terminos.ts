@@ -1,18 +1,26 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /*
- * Términos provisionales (04 §8.6). Mientras los textos no hayan pasado por un
- * abogado, la página de términos sirve el BORRADOR de prototipo/legal.html,
- * con un aviso que va DENTRO de cada documento, como su primer elemento: la
+ * Los términos y la política de datos que acepta quien registra una empresa
+ * (04 §7, §8.6). Viven en legal/<VERSION_TERMINOS>/legal.html: la carpeta se
+ * llama EXACTAMENTE como la versión que publica la API, y la API no arranca
+ * si esa carpeta o su archivo no existen. Es registro legal: la Ley 1581 pide
+ * poder reconstruir el texto exacto que una persona aceptó, y la base guarda
+ * la versión aceptada, así que la carpeta de una versión no se edita nunca;
+ * un texto nuevo es una carpeta nueva.
+ *
+ * Mientras la versión sea PROVISIONAL-<fecha> —un borrador que no pasó por un
+ * abogado—, cada documento lleva un aviso como su PRIMER elemento: la
  * pantalla que muestre uno solo muestra también el aviso, y no hay un campo
  * aparte que se pueda olvidar de pintar.
- *
- * El borrador se lee del prototipo y no se copia: dos copias del mismo texto
- * legal terminan diciendo cosas distintas. Si le falta un documento, la API
- * no arranca.
  */
 
-export const RUTA_BORRADOR = new URL('../../prototipo/legal.html', import.meta.url);
+export const CARPETA_LEGAL = new URL('../../legal/', import.meta.url);
+
+/** Un nombre de carpeta y nada más: ni barras, ni «..», ni ocultos. */
+const NOMBRE_DE_VERSION = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 /** Los cuatro documentos, en el orden en que los presenta el borrador. */
 const DOCUMENTOS = ['privacidad', 'terminos', 'cookies', 'reembolsos'] as const;
@@ -20,7 +28,7 @@ const DOCUMENTOS = ['privacidad', 'terminos', 'cookies', 'reembolsos'] as const;
 export interface DocumentoLegal {
   id: (typeof DOCUMENTOS)[number];
   titulo: string;
-  /** HTML del documento sin su título; empieza siempre por el aviso. */
+  /** HTML del documento sin su título; si la versión es provisional, empieza por el aviso. */
   html: string;
 }
 
@@ -37,18 +45,37 @@ function aviso(contacto: string): string {
   );
 }
 
-export function leerBorrador(ruta: URL | string, contacto: string): DocumentoLegal[] {
+/**
+ * Los cuatro documentos de una versión. Con `contactoProvisional` —solo para
+ * una versión PROVISIONAL-— cada uno empieza por el aviso de borrador.
+ */
+export function leerTerminos(
+  version: string,
+  contactoProvisional: string | null,
+  carpeta: URL | string = CARPETA_LEGAL,
+): DocumentoLegal[] {
+  if (!NOMBRE_DE_VERSION.test(version) || version.includes('..')) {
+    throw new Error(`VERSION_TERMINOS=«${version}» no sirve como nombre de carpeta de legal/: use letras, números, puntos y guiones.`);
+  }
+  const ruta = join(typeof carpeta === 'string' ? carpeta : fileURLToPath(carpeta), version, 'legal.html');
+  if (!existsSync(ruta)) {
+    throw new Error(
+      `No existe ${ruta}: la versión de los términos que nombra VERSION_TERMINOS no tiene su texto. ` +
+        'La API no arranca publicando una versión que nadie puede leer.',
+    );
+  }
   const fuente = readFileSync(ruta, 'utf8');
   return DOCUMENTOS.map((id) => {
-    const articulo = new RegExp(`<article class="legal-doc" id="${id}">([\\s\\S]*?)</article>`).exec(fuente);
+    const articulo = new RegExp(String.raw`<article class="legal-doc" id="${id}">([\s\S]*?)</article>`).exec(fuente);
     const titulo = articulo && /<h2>([\s\S]*?)<\/h2>/.exec(articulo[1]!);
     if (!articulo || !titulo) {
-      throw new Error(
-        `El borrador de los términos (${String(ruta)}) no trae el documento «${id}». ` +
-          'La API no arranca con una página de términos a medias.',
-      );
+      throw new Error(`Los términos de ${ruta} no traen el documento «${id}». La API no arranca con una página de términos a medias.`);
     }
     const cuerpo = articulo[1]!.replace(titulo[0], '').trim();
-    return { id, titulo: titulo[1]!.trim(), html: `${aviso(contacto)}\n${cuerpo}` };
+    return {
+      id,
+      titulo: titulo[1]!.trim(),
+      html: contactoProvisional === null ? cuerpo : `${aviso(contactoProvisional)}\n${cuerpo}`,
+    };
   });
 }

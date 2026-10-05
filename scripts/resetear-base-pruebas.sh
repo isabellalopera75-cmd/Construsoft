@@ -15,7 +15,9 @@ set -euo pipefail
 
 DIR_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RAIZ="$(cd "$DIR_SCRIPT/.." && pwd)"
-ESQUEMA="$RAIZ/docs/05 - construsoft_mvp_schema.sql"
+# ESQUEMA se puede pasar desde afuera: el pre-commit carga el del índice, no
+# el del árbol de trabajo, que puede traer cambios en curso de otro autor.
+ESQUEMA="${ESQUEMA:-$RAIZ/docs/05 - construsoft_mvp_schema.sql}"
 
 # ARCHIVO_ENV es overridable (por ejemplo, para correr este mismo script
 # contra un .env de verificación distinto sin tocar .env.test).

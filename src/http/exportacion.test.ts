@@ -6,14 +6,14 @@ import { activarPresupuesto } from '../infraestructura/basedatos/cicloDeVida.js'
 import { armarPresupuestoDeReferencia, type PresupuestoDeReferencia } from '../pruebas/presupuestoDeReferencia.js';
 import { vencerSuscripcion } from '../pruebas/superusuario.js';
 import { textoDePdf } from '../pruebas/textoDePdf.js';
-import { VERSION_TERMINOS_DE_PRUEBA, clienteDePrueba, type Cuenta } from '../pruebas/clienteHttp.js';
+import { VERSION_TERMINOS_DE_PRUEBA, clienteDePrueba, type Cuenta, CARPETA_LEGAL_DE_PRUEBA } from '../pruebas/clienteHttp.js';
 import { construirServidor } from './servidor.js';
 
 let app: FastifyInstance;
 const { pedir, registrar, asistenteCon } = clienteDePrueba(() => app);
 
 before(async () => {
-  app = await construirServidor({ secretoSesion: randomBytes(32).toString('hex'), versionTerminos: VERSION_TERMINOS_DE_PRUEBA });
+  app = await construirServidor({ carpetaLegal: CARPETA_LEGAL_DE_PRUEBA, secretoSesion: randomBytes(32).toString('hex'), versionTerminos: VERSION_TERMINOS_DE_PRUEBA });
 });
 after(async () => {
   await app.close();

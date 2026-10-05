@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Información legal | ConstruSoft</title>
+  <meta name="description" content="Política de tratamiento de datos personales, términos y condiciones, política de cookies y política de reembolsos de ConstruSoft.">
+  <link rel="stylesheet" href="css/styles.css">
+  <script>
+    (function() {
+      const savedTheme = localStorage.getItem('contrusoft_theme');
+      if (savedTheme === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+  <style>
+    /* Estilos propios de esta página: es un documento largo para leer, no una
+       pantalla de trabajo, así que necesita medida de línea y ritmo de lectura. */
+    .legal-wrap { max-width: 760px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+    .legal-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+    .legal-nav { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1.5rem 0 2.5rem; }
+    .legal-nav a {
+      font-size: 0.8rem; padding: 0.4rem 0.85rem; border-radius: 30px;
+      border: 1px solid var(--border-input); color: var(--text-secondary); text-decoration: none;
+    }
+    .legal-nav a:hover { border-color: var(--terracota); color: var(--terracota); }
+    .legal-doc { margin-bottom: 3.5rem; scroll-margin-top: 1.5rem; }
+    .legal-doc h2 { font-family: var(--font-serif); font-size: 1.55rem; color: var(--text-primary); margin: 0 0 0.35rem; }
+    .legal-doc h3 { font-size: 1rem; color: var(--text-primary); margin: 1.75rem 0 0.5rem; }
+    .legal-doc p, .legal-doc li { font-size: 0.88rem; line-height: 1.7; color: var(--text-secondary); }
+    .legal-doc ul { padding-left: 1.2rem; margin: 0.5rem 0; }
+    .legal-doc li { margin-bottom: 0.4rem; }
+    .legal-doc strong { color: var(--text-primary); }
+    .legal-fecha { font-size: 0.76rem; color: var(--text-muted); margin-bottom: 1.25rem; }
+    .legal-aviso {
+      border: 1px solid var(--terracota);
+      background: var(--terracota-subtle);
+      border-radius: var(--radius-md);
+      padding: 1rem 1.15rem;
+      margin-bottom: 2.5rem;
+    }
+    .legal-aviso p { color: var(--text-primary); margin: 0; font-size: 0.84rem; }
+    .legal-datos {
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 1rem 1.15rem;
+      background: var(--bg-card);
+      margin: 1rem 0 0;
+    }
+    .legal-datos dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 0.4rem 1rem; }
+    .legal-datos dt { font-size: 0.78rem; color: var(--text-muted); }
+    .legal-datos dd { font-size: 0.82rem; color: var(--text-primary); margin: 0; }
+    .volver { font-size: 0.82rem; color: var(--terracota); text-decoration: none; }
+    @media (max-width: 520px) { .legal-datos dl { grid-template-columns: 1fr; gap: 0.15rem; } }
+  </style>
+</head>
+<body class="auth-page">
+
+  <a href="#contenido" class="sr-only">Saltar al contenido</a>
+
+  <div class="legal-wrap">
+
+    <header class="legal-head">
+      <a href="index.html" class="volver">&larr; Volver al acceso</a>
+      <button type="button" id="theme-toggle-btn" class="theme-toggle-btn" aria-pressed="false">
+        <svg class="icon-theme-dark" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+        <svg class="icon-theme-light" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+        </svg>
+        <span id="theme-toggle-label">Modo oscuro</span>
+      </button>
+    </header>
+
+    <main id="contenido">
+      <h1 style="font-family:var(--font-serif); font-size:2rem; color:var(--text-primary); margin:0 0 0.5rem;">Información legal</h1>
+      <p style="color:var(--text-secondary); font-size:0.9rem; margin:0;">
+        Los cuatro documentos que rigen el uso de ConstruSoft.
+      </p>
+
+      <!-- ==============================================================
+           ⚠ ESTE AVISO SE BORRA CUANDO UN ABOGADO REVISE LOS TEXTOS.
+           Mientras esté visible, el sitio no debería estar cobrando.
+           ============================================================== -->
+      <div class="legal-aviso" role="note">
+        <p>
+          <strong>Borrador pendiente de revisión legal.</strong> Estos textos fueron
+          redactados como base de trabajo y no han sido revisados por un abogado.
+          Los campos entre corchetes están sin llenar. No publique este sitio ni
+          cobre una suscripción hasta que un profesional los revise y estos
+          corchetes desaparezcan.
+        </p>
+      </div>
+
+      <nav class="legal-nav" aria-label="Documentos legales">
+        <a href="#privacidad">Tratamiento de datos</a>
+        <a href="#terminos">Términos y condiciones</a>
+        <a href="#cookies">Cookies</a>
+        <a href="#reembolsos">Reembolsos</a>
+      </nav>
+
+      <!-- ==================================================================
+           1 · POLÍTICA DE TRATAMIENTO DE DATOS PERSONALES
+           Ley 1581 de 2012 · Decreto 1377 de 2013, artículo 13
+           ================================================================== -->
+      <article class="legal-doc" id="privacidad">
+        <h2>Política de Tratamiento de Datos Personales</h2>
+        <p class="legal-fecha">Versión del 25 de septiembre de 2026 · Colombia</p>
+
+        <h3>1. Quién responde por sus datos</h3>
+        <p>
+          El responsable del tratamiento de los datos personales recogidos en
+          ConstruSoft es:
+        </p>
+        <div class="legal-datos">
+          <dl>
+            <dt>Responsable</dt><dd>Juan Sebastián Lopera Ayala, persona natural</dd>
+            <dt>NIT</dt><dd>[NIT DEL RUT]</dd>
+            <dt>Dirección</dt><dd>[DIRECCIÓN], [CIUDAD], Colombia</dd>
+            <dt>Correo</dt><dd>[CORREO DE CONTACTO]</dd>
+            <dt>Teléfono</dt><dd>[TELÉFONO]</dd>
+          </dl>
+        </div>
+
+        <h3>2. Qué datos recogemos y para qué</h3>
+        <p>
+          Solo pedimos lo que el servicio necesita para funcionar. No recogemos
+          datos «por si acaso».
+        </p>
+        <ul>
+          <li>
+            <strong>De quien registra la cuenta:</strong> nombre completo y correo
+            electrónico, para identificarlo, permitirle iniciar sesión y
+            comunicarnos con él sobre su cuenta. La contraseña se guarda cifrada y
+            nadie, tampoco nosotros, puede leerla.
+          </li>
+          <li>
+            <strong>De la empresa:</strong> razón social, NIT y logotipo, para
+            identificar la cuenta, emitir la factura y encabezar los presupuestos
+            que usted exporta.
+          </li>
+          <li>
+            <strong>De los usuarios que usted crea:</strong> nombre, correo y rol.
+            Los ingresa usted, y por eso usted es responsable de haber obtenido su
+            autorización antes de hacerlo.
+          </li>
+          <li>
+            <strong>Registro de actividad:</strong> qué usuario hizo qué cambio y
+            cuándo, dentro de sus propios proyectos. Es lo que permite reconstruir
+            la historia de un presupuesto, y no se usa para ningún otro fin.
+          </li>
+        </ul>
+        <p>
+          <strong>Los datos de sus obras son suyos.</strong> Los recursos, análisis
+          de precios y presupuestos que usted carga no se consultan, no se analizan
+          ni se comparten con nadie. Los usamos únicamente para prestarle el
+          servicio a usted.
+        </p>
+
+        <h3>3. Con quién los compartimos</h3>
+        <p>
+          Con nadie, salvo dos casos: el proveedor de infraestructura donde corre
+          el servicio —[PROVEEDOR DE ALOJAMIENTO], que actúa como encargado y no
+          puede usar los datos para fines propios— y las autoridades colombianas
+          que los soliciten en ejercicio de sus funciones legales. No vendemos
+          datos personales ni los cedemos con fines comerciales.
+        </p>
+
+        <h3>4. Sus derechos como titular</h3>
+        <p>La Ley 1581 de 2012 le reconoce el derecho a:</p>
+        <ul>
+          <li>Conocer qué datos suyos tenemos y cómo los usamos, gratuitamente.</li>
+          <li>Actualizarlos o corregirlos cuando estén incompletos o equivocados.</li>
+          <li>Solicitar prueba de la autorización que usted nos dio.</li>
+          <li>Revocar la autorización y pedir la supresión de sus datos, cuando no exista un deber legal o contractual de conservarlos.</li>
+          <li>Presentar quejas ante la Superintendencia de Industria y Comercio.</li>
+        </ul>
+
+        <h3>5. Cómo ejercerlos</h3>
+        <p>
+          Escriba a <strong>[CORREO DE CONTACTO]</strong> indicando su nombre, el
+          correo con el que se registró y qué solicita. Respondemos las consultas
+          en un máximo de <strong>diez días hábiles</strong> y los reclamos en un
+          máximo de <strong>quince días hábiles</strong>, los plazos que fija la
+          ley. Si necesitamos más tiempo se lo informaremos antes de que venzan,
+          explicando por qué.
+        </p>
+
+        <h3>6. Cuánto tiempo los conservamos</h3>
+        <p>
+          Mientras su cuenta esté activa, y después mientras exista una obligación
+          legal, contable o tributaria que nos obligue a conservarlos. Cumplido ese
+          plazo se eliminan. Si usted cancela su suscripción, sus proyectos se
+          conservan [PLAZO A DEFINIR] días para que pueda exportarlos, y luego se
+          eliminan.
+        </p>
+
+        <h3>7. Seguridad</h3>
+        <p>
+          Cada empresa está aislada de las demás en la base de datos, de modo que
+          ninguna puede ver información de otra. Las contraseñas se almacenan
+          cifradas con un algoritmo diseñado para eso. Las conexiones al servicio
+          viajan cifradas.
+        </p>
+
+        <h3>8. Cambios</h3>
+        <p>
+          Si esta política cambia de fondo, se lo avisaremos al correo registrado
+          antes de que entre en vigencia. La versión y la fecha aparecen siempre al
+          comienzo del documento.
+        </p>
+      </article>
+
+      <!-- ==================================================================
+           2 · TÉRMINOS Y CONDICIONES
+           Ley 1480 de 2011, artículos 50 y siguientes
+           ================================================================== -->
+      <article class="legal-doc" id="terminos">
+        <h2>Términos y Condiciones</h2>
+        <p class="legal-fecha">Versión del 25 de septiembre de 2026 · Colombia</p>
+
+        <h3>1. Quién le presta el servicio</h3>
+        <p>
+          ConstruSoft es un servicio prestado por <strong>Juan Sebastián Lopera
+          Ayala</strong>, persona natural, NIT [NIT DEL RUT], con dirección en
+          [DIRECCIÓN], [CIUDAD], Colombia, correo [CORREO DE CONTACTO] y teléfono
+          [TELÉFONO]. Al crear una cuenta usted acepta estos términos.
+        </p>
+
+        <h3>2. Qué es el servicio</h3>
+        <p>
+          Una aplicación web para elaborar presupuestos de obra: catálogo de
+          recursos, análisis de precios unitarios, presupuestos con AIU e IVA,
+          versiones e historial, y exportación a PDF y Excel.
+        </p>
+        <p>
+          <strong>Lo que el servicio no hace, dicho de frente:</strong> no lleva
+          control de obra, ni inventario, ni compras, ni contratos, ni avance
+          físico, ni reportes de valor ganado. Esas funciones están planeadas para
+          etapas posteriores y no se venden hoy. Si alguna publicación nuestra le
+          hizo entender otra cosa, este documento manda sobre ella.
+        </p>
+
+        <h3>3. Planes, precios y facturación</h3>
+        <ul>
+          <li>Plan Personal: $120.000 COP al mes, impuestos incluidos. El administrador más un asistente, sin límite de proyectos.</li>
+          <li>Plan Empresarial: $380.000 COP al mes, impuestos incluidos. Usuarios ilimitados con roles personalizados, sin límite de proyectos.</li>
+          <li>Ambos planes empiezan con <strong>15 días de prueba gratuita</strong>. Durante la prueba no se cobra nada y no se pide medio de pago.</li>
+          <li>
+            <strong>No hay cobro automático.</strong> El pago se hace por
+            transferencia o consignación, y la suscripción se activa cuando lo
+            confirmamos. Nunca se le debitará una tarjeta sin que usted actúe.
+          </li>
+          <li>Los precios pueden cambiar. Si cambian, se lo avisaremos al correo registrado con [PLAZO A DEFINIR] días de anticipación y el nuevo precio solo aplicará a períodos posteriores.</li>
+        </ul>
+
+        <h3>4. Sus obligaciones</h3>
+        <ul>
+          <li>Dar información veraz al registrarse, en particular el NIT.</li>
+          <li>Cuidar su contraseña. Lo que se haga desde su cuenta se entiende hecho por usted.</li>
+          <li>Haber obtenido autorización de las personas cuyos datos cargue en la plataforma: usuarios que cree, contactos, terceros.</li>
+          <li>No usar el servicio para fines ilícitos ni intentar vulnerar la seguridad de la plataforma o el aislamiento entre empresas.</li>
+        </ul>
+
+        <h3>5. Disponibilidad</h3>
+        <p>
+          Hacemos lo razonable para que el servicio esté disponible, pero no
+          garantizamos operación ininterrumpida: puede haber mantenimientos, fallas
+          del proveedor de infraestructura o causas fuera de nuestro control. Los
+          mantenimientos programados se avisarán con anticipación cuando sea posible.
+        </p>
+
+        <h3>6. Sus datos y su contenido</h3>
+        <p>
+          Los presupuestos, análisis y catálogos que usted carga <strong>son
+          suyos</strong>. Puede exportarlos a PDF y Excel en cualquier momento. Si
+          cancela, conserva el derecho a exportarlos durante [PLAZO A DEFINIR] días.
+          No adquirimos ningún derecho sobre ellos.
+        </p>
+
+        <h3>7. Responsabilidad</h3>
+        <p>
+          ConstruSoft es una herramienta de cálculo: las cifras que produce dependen
+          de los datos que usted ingresa. La decisión técnica y comercial sobre un
+          presupuesto —y la responsabilidad profesional que conlleva— es suya. No
+          respondemos por pérdidas derivadas de datos mal ingresados, de decisiones
+          tomadas con base en un presupuesto, ni por lucro cesante.
+        </p>
+        <p>
+          Nada en este documento limita los derechos que la ley colombiana le
+          reconoce como consumidor, ni nuestra responsabilidad por dolo o culpa
+          grave.
+        </p>
+
+        <h3>8. Terminación</h3>
+        <p>
+          Usted puede cancelar cuando quiera escribiendo a [CORREO DE CONTACTO], sin
+          penalidad. Podemos suspender una cuenta que incumpla estos términos,
+          avisando primero salvo que la gravedad lo impida. La suspensión no borra
+          sus datos.
+        </p>
+
+        <h3>9. Ley aplicable y controversias</h3>
+        <p>
+          Estos términos se rigen por la ley colombiana. Las controversias se
+          someten a los jueces competentes de Colombia. Usted puede acudir también a
+          la Superintendencia de Industria y Comercio en ejercicio de sus derechos
+          como consumidor.
+        </p>
+      </article>
+
+      <!-- ==================================================================
+           3 · POLÍTICA DE COOKIES
+           Corta porque es la verdad: el sitio no usa cookies.
+           ================================================================== -->
+      <article class="legal-doc" id="cookies">
+        <h2>Política de Cookies</h2>
+        <p class="legal-fecha">Versión del 25 de septiembre de 2026 · Colombia</p>
+
+        <h3>1. Este sitio no usa cookies</h3>
+        <p>
+          ConstruSoft <strong>no instala cookies</strong> en su navegador. Tampoco
+          usa herramientas de analítica, píxeles de redes sociales, publicidad ni
+          rastreadores de terceros. No hay nada que aceptar ni que rechazar, y por
+          eso no verá un aviso de cookies: ponerlo sería pedirle permiso para algo
+          que no hacemos.
+        </p>
+
+        <h3>2. Lo que sí guarda su navegador</h3>
+        <p>
+          Para funcionar, la aplicación guarda dos cosas en el almacenamiento local
+          de su propio navegador. No son cookies, no viajan a ningún servidor y
+          nadie más puede leerlas:
+        </p>
+        <ul>
+          <li><strong>Su sesión iniciada</strong>, para no pedirle la contraseña en cada pantalla.</li>
+          <li><strong>Si prefiere modo claro u oscuro</strong>, para abrirle la aplicación como la dejó.</li>
+        </ul>
+        <p>
+          Las dos se borran si usted limpia los datos del sitio en su navegador.
+          Ninguna sirve para perfilarlo ni para seguirlo por otros sitios.
+        </p>
+
+        <h3>3. Contenido servido desde otros dominios</h3>
+        <p>
+          La aplicación carga dos archivos desde servidores ajenos: la tipografía
+          desde Google Fonts y una librería de gráficas desde jsDelivr. Al pedirlos,
+          esos servidores reciben la dirección IP de su navegador, como ocurre con
+          cualquier archivo que se solicita a un servidor. No se les envía ningún
+          dato suyo de la cuenta ni de sus proyectos, y ninguno de los dos instala
+          cookies. Quien prefiera evitar incluso ese contacto puede bloquearlos en
+          su navegador: la aplicación sigue funcionando, solo cambia la tipografía.
+        </p>
+
+        <h3>4. Si esto cambia</h3>
+        <p>
+          El día que incorporemos analítica o cualquier cookie que no sea
+          estrictamente necesaria, este documento cambiará y aparecerá un aviso de
+          consentimiento previo antes de instalar nada. No al revés.
+        </p>
+      </article>
+
+      <!-- ==================================================================
+           4 · POLÍTICA DE REEMBOLSOS
+           Ley 1480 de 2011, artículos 47 (retracto) y 45 (reversión del pago)
+           ================================================================== -->
+      <article class="legal-doc" id="reembolsos">
+        <h2>Política de Reembolsos</h2>
+        <p class="legal-fecha">Versión del 25 de septiembre de 2026 · Colombia</p>
+
+        <h3>1. Primero, la prueba gratuita</h3>
+        <p>
+          Todo plan empieza con <strong>15 días de prueba sin costo y sin medio de
+          pago</strong>. La idea es que usted decida con el producto en la mano y no
+          tenga que pedir un reembolso para empezar.
+        </p>
+
+        <h3>2. Derecho de retracto</h3>
+        <p>
+          Como la contratación es a distancia, le asiste el <strong>derecho de
+          retracto</strong> del artículo 47 de la Ley 1480 de 2011: puede deshacer
+          el contrato dentro de los <strong>cinco días hábiles</strong> siguientes a
+          su celebración, sin explicar por qué, y le devolvemos el dinero.
+        </p>
+        <p>
+          La ley exceptúa del retracto los servicios que ya empezaron a prestarse
+          con acuerdo del consumidor. Nosotros <strong>renunciamos a invocar esa
+          excepción</strong> durante esos primeros cinco días hábiles: aunque usted
+          ya haya usado la plataforma, si se retracta dentro del plazo, le
+          devolvemos lo pagado. Es una decisión comercial y no un deber legal, y
+          está escrita aquí para que pueda exigirla.
+        </p>
+
+        <h3>3. Cómo se pide</h3>
+        <p>
+          Escriba a <strong>[CORREO DE CONTACTO]</strong> desde el correo con el que
+          se registró, diciendo que se retracta. No hay formato ni trámite.
+          Devolvemos el dinero por el mismo medio por el que lo recibimos, dentro de
+          los <strong>treinta días calendario</strong> siguientes, que es el plazo
+          que fija la ley.
+        </p>
+
+        <h3>4. Fuera del plazo de retracto</h3>
+        <ul>
+          <li>
+            <strong>Si el servicio falla por causa nuestra</strong> y no podemos
+            resolverlo en un plazo razonable, le devolvemos la parte proporcional
+            del período que no pudo usar. Esto no tiene fecha de vencimiento.
+          </li>
+          <li>
+            <strong>Si simplemente decide no seguir</strong>, la suscripción se
+            cancela y no se le vuelve a cobrar —recuerde que no hay cobro
+            automático—, pero el período ya pagado no se reembolsa proporcionalmente.
+            Puede seguir usando el servicio hasta que termine.
+          </li>
+          <li>
+            <strong>Si hubo un cobro equivocado</strong> —un pago duplicado, un valor
+            que no corresponde—, se devuelve completo apenas lo verifiquemos.
+          </li>
+        </ul>
+
+        <h3>5. Reversión del pago</h3>
+        <p>
+          Si en el futuro habilitamos pago con tarjeta o pasarela, le asistirá
+          además el derecho a solicitar la <strong>reversión del pago</strong> en los
+          casos del artículo 51 de la Ley 1480 de 2011. Hoy, como el pago es por
+          transferencia y lo confirmamos manualmente, la devolución se tramita
+          directamente con nosotros.
+        </p>
+
+        <h3>6. Y si no está de acuerdo</h3>
+        <p>
+          Puede presentar su reclamo ante la Superintendencia de Industria y
+          Comercio. Preferimos resolverlo antes de que llegue ahí, pero el derecho
+          es suyo y no hace falta que nos pida permiso.
+        </p>
+      </article>
+
+    </main>
+
+    <footer class="auth-footer">
+      <p class="auth-footer-datos">
+        ConstruSoft es un servicio de <strong>Juan Sebastián Lopera Ayala</strong>,
+        persona natural · NIT [PENDIENTE] · [DIRECCIÓN], Colombia ·
+        <a href="mailto:[CORREO DE CONTACTO]">[CORREO DE CONTACTO]</a>
+      </p>
+      <p class="auth-footer-datos"><a href="index.html">Volver al acceso</a></p>
+    </footer>
+  </div>
+
+  <script>
+    // Interruptor de tema, igual que en la pantalla de acceso.
+    (function() {
+      const btn = document.getElementById('theme-toggle-btn');
+      const label = document.getElementById('theme-toggle-label');
+      function leer() {
+        try { return localStorage.getItem('contrusoft_theme') || 'dark'; }
+        catch (e) { return 'dark'; }
+      }
+      function aplicar(tema) {
+        const claro = tema === 'light';
+        if (claro) document.documentElement.setAttribute('data-theme', 'light');
+        else document.documentElement.removeAttribute('data-theme');
+        btn.setAttribute('aria-pressed', String(claro));
+        btn.setAttribute('aria-label', claro
+          ? 'Modo claro activo. Cambiar a modo oscuro.'
+          : 'Modo oscuro activo. Cambiar a modo claro.');
+        label.textContent = claro ? 'Modo claro' : 'Modo oscuro';
+      }
+      aplicar(leer());
+      btn.addEventListener('click', () => {
+        const siguiente = leer() === 'dark' ? 'light' : 'dark';
+        try { localStorage.setItem('contrusoft_theme', siguiente); } catch (e) {}
+        aplicar(siguiente);
+      });
+    })();
+  </script>
+</body>
+</html>

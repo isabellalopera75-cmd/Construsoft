@@ -3,14 +3,14 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { vencerSuscripcion } from '../pruebas/superusuario.js';
-import { VERSION_TERMINOS_DE_PRUEBA, clienteDePrueba, cookieDe, type Cuenta } from '../pruebas/clienteHttp.js';
+import { VERSION_TERMINOS_DE_PRUEBA, clienteDePrueba, cookieDe, type Cuenta, CARPETA_LEGAL_DE_PRUEBA } from '../pruebas/clienteHttp.js';
 import { construirServidor } from './servidor.js';
 
 let app: FastifyInstance;
 const { otraIp, ingresar, registrar, asistenteCon } = clienteDePrueba(() => app);
 
 before(async () => {
-  app = await construirServidor({ secretoSesion: randomBytes(32).toString('hex'), versionTerminos: VERSION_TERMINOS_DE_PRUEBA });
+  app = await construirServidor({ carpetaLegal: CARPETA_LEGAL_DE_PRUEBA, secretoSesion: randomBytes(32).toString('hex'), versionTerminos: VERSION_TERMINOS_DE_PRUEBA });
 });
 after(async () => {
   await app.close();

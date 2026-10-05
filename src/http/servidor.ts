@@ -18,7 +18,7 @@ import { sesionInvalida, traducirError } from './errores.js';
 import { ContadorDeIntentos } from './limiteIntentos.js';
 import { ATRIBUTOS_COOKIE, NOMBRE_COOKIE, armarSesion, leerSesion } from './sesion.js';
 import { hashDeToken } from './tokens.js';
-import { RUTA_BORRADOR, leerBorrador } from './terminos.js';
+import { leerTerminos } from './terminos.js';
 import { Rechazo, UUID } from './rechazo.js';
 import { registrarRutasDeMesa } from './rutasMesa.js';
 import { registrarRutasDeRecursos } from './rutasRecursos.js';
@@ -38,6 +38,8 @@ export interface OpcionesServidor {
    * «true»: ver leerConfiguracion. Sin proxy, la IP es la de la conexión.
    */
   proxiesDeConfianza?: string[] | null;
+  /** Dónde están las carpetas de los términos; por defecto legal/ del repositorio. Las pruebas usan textos sintéticos. */
+  carpetaLegal?: string;
   /** El reloj, inyectable para probar el vencimiento de la sesión. */
   ahora?: () => number;
 }
@@ -181,18 +183,18 @@ export async function construirServidor(opciones: OpcionesServidor): Promise<Fas
   });
 
   // --- 04 §7 · Los términos que se están publicando ---------------------------
-  // La pantalla de registro los enlaza y manda de vuelta esta versión al
-  // aceptar. Mientras sean provisionales, la página sirve el borrador entero
-  // con el aviso de que no pasó por revisión legal dentro de cada documento
-  // (04 §8.6). El borrador se lee aquí, al construir: si falta, no arranca.
-  const borrador = opciones.versionTerminos.startsWith('PROVISIONAL-')
-    ? leerBorrador(RUTA_BORRADOR, opciones.contactoTerminos ?? 'el administrador de esta instalación')
-    : null;
+  // La pantalla de registro los muestra y manda de vuelta esta versión al
+  // aceptar. Se leen aquí, al construir, de legal/<versión>/legal.html: si la
+  // carpeta falta o le falta un documento, no arranca (04 §8.6). Una versión
+  // PROVISIONAL- lleva el aviso de borrador dentro de cada documento.
+  const provisional = opciones.versionTerminos.startsWith('PROVISIONAL-');
+  const documentosLegales = leerTerminos(
+    opciones.versionTerminos,
+    provisional ? (opciones.contactoTerminos ?? 'el administrador de esta instalación') : null,
+    ...(opciones.carpetaLegal ? [opciones.carpetaLegal] : []),
+  );
   app.get('/api/terminos', async (_request, reply) => {
-    if (!borrador) {
-      return reply.send({ version: opciones.versionTerminos, provisional: false });
-    }
-    return reply.send({ version: opciones.versionTerminos, provisional: true, documentos: borrador });
+    return reply.send({ version: opciones.versionTerminos, provisional, documentos: documentosLegales });
   });
 
   // --- 02 §3.1 · Registro de una empresa nueva -------------------------------

@@ -9,7 +9,7 @@ cd "$(git rev-parse --show-toplevel)"
 
 # Lo que puede cambiar el resultado de la batería. Un commit que solo toca
 # web/, bitácoras o documentos de lectura no la corre.
-RELEVANTE='^(src/|scripts/|legal/|prototipo/legal\.html$|package(-lock)?\.json$|tsconfig\.json$|eslint\.config\.js$|docs/05 )'
+RELEVANTE='^(src/|scripts/|legal/|package(-lock)?\.json$|tsconfig\.json$|eslint\.config\.js$|docs/05 )'
 
 if ! git diff --cached --name-only | grep -qE "$RELEVANTE"; then
     echo "pre-commit: nada que afecte la API; no corre la batería."
@@ -18,7 +18,9 @@ fi
 
 # La batería corre sobre el árbol de trabajo. Si hay cambios relevantes fuera
 # del índice, lo probado no sería lo commiteado: mejor negarse que mentir.
-pendientes=$( { git diff --name-only; git ls-files --others --exclude-standard; } | grep -E "$RELEVANTE" || true)
+# El esquema es la excepción: es de otro autor y puede estar a medio
+# escribir, así que no se mira el del árbol sino el del índice (abajo).
+pendientes=$( { git diff --name-only; git ls-files --others --exclude-standard; } | grep -E "$RELEVANTE" | grep -v '^docs/05 ' || true)
 if [[ -n "$pendientes" ]]; then
     echo "pre-commit: hay cambios que afectan la API y no están en el índice:" >&2
     echo "$pendientes" | sed 's/^/    /' >&2
@@ -29,7 +31,10 @@ fi
 echo "pre-commit: tsc, eslint y la batería contra construsoft_test…"
 npx tsc --noEmit -p .
 npx eslint src
-bash scripts/resetear-base-pruebas.sh > /dev/null
+ESQUEMA_DEL_INDICE=$(mktemp)
+trap 'rm -f "$ESQUEMA_DEL_INDICE"' EXIT
+git show ":docs/05 - construsoft_mvp_schema.sql" > "$ESQUEMA_DEL_INDICE"
+ESQUEMA="$ESQUEMA_DEL_INDICE" bash scripts/resetear-base-pruebas.sh > /dev/null 2>&1
 npm test --silent > /tmp/construsoft-precommit.log 2>&1 || {
     grep -E '^not ok|^    not ok|^# (pass|fail)' /tmp/construsoft-precommit.log >&2
     echo "pre-commit: la batería falló; no se commitea. Detalle en /tmp/construsoft-precommit.log" >&2

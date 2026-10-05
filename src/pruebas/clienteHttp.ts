@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { fileURLToPath } from 'node:url';
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import { ejecutarConPermiso, type ContextoTenant } from '../infraestructura/basedatos/contextoTenant.js';
 import { autenticar } from '../infraestructura/basedatos/autenticacion.js';
@@ -12,6 +13,13 @@ import { NOMBRE_COOKIE } from '../http/sesion.js';
  */
 
 export const VERSION_TERMINOS_DE_PRUEBA = 'terminos-2026-10-01';
+
+/**
+ * La carpeta legal de las pruebas: textos SINTÉTICOS, una carpeta por
+ * versión que usan las pruebas. El registro legal de verdad (legal/) no lleva
+ * versiones inventadas para probar.
+ */
+export const CARPETA_LEGAL_DE_PRUEBA = fileURLToPath(new URL('./legal/', import.meta.url));
 
 export interface Cuenta {
   email: string;

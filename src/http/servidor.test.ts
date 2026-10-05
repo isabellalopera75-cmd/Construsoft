@@ -11,8 +11,7 @@ import {
   borraLaCookie,
   clienteDePrueba,
   cookieDe,
-  type Cuenta,
-} from '../pruebas/clienteHttp.js';
+  type Cuenta, CARPETA_LEGAL_DE_PRUEBA } from '../pruebas/clienteHttp.js';
 import { hashearContrasena, parametrosDelHash, PARAMETROS_ARGON2 } from './contrasenas.js';
 import { NOMBRE_COOKIE } from './sesion.js';
 import { generarToken } from './tokens.js';
@@ -22,7 +21,7 @@ let app: FastifyInstance;
 const { otraIp, ingresar, pedir, registrar } = clienteDePrueba(() => app);
 
 before(async () => {
-  app = await construirServidor({ secretoSesion: randomBytes(32).toString('hex'), versionTerminos: VERSION_TERMINOS });
+  app = await construirServidor({ carpetaLegal: CARPETA_LEGAL_DE_PRUEBA, secretoSesion: randomBytes(32).toString('hex'), versionTerminos: VERSION_TERMINOS });
 });
 after(async () => {
   await app.close();
@@ -231,7 +230,7 @@ describe('la sesión: sello, vencimiento, firma y cierre (04 §8.1, D-67)', () =
     const manipulada = `${nombre}=${valor.slice(0, -2)}${valor.endsWith('AA') ? 'BB' : 'AA'}`;
     assert.equal((await pedir('/api/sesion', manipulada)).statusCode, 401);
 
-    const futuro = await construirServidor({
+    const futuro = await construirServidor({ carpetaLegal: CARPETA_LEGAL_DE_PRUEBA,
       secretoSesion: randomBytes(32).toString('hex'),
       versionTerminos: VERSION_TERMINOS,
       ahora: () => Date.now() + 9 * 60 * 60 * 1000,
@@ -410,7 +409,7 @@ describe('proxy de confianza: el límite por IP no se elude escribiendo X-Forwar
   let detrasDelProxy: FastifyInstance;
 
   before(async () => {
-    detrasDelProxy = await construirServidor({
+    detrasDelProxy = await construirServidor({ carpetaLegal: CARPETA_LEGAL_DE_PRUEBA,
       secretoSesion: randomBytes(32).toString('hex'),
       versionTerminos: VERSION_TERMINOS,
       proxiesDeConfianza: ['10.250.0.1'],
@@ -441,7 +440,7 @@ describe('proxy de confianza: el límite por IP no se elude escribiendo X-Forwar
 
 describe('términos (04 §7)', () => {
   test('con términos provisionales, la página sirve el borrador entero y cada documento empieza por el aviso', async () => {
-    const provisional = await construirServidor({
+    const provisional = await construirServidor({ carpetaLegal: CARPETA_LEGAL_DE_PRUEBA,
       secretoSesion: randomBytes(32).toString('hex'),
       versionTerminos: 'PROVISIONAL-2026-10-01',
       contactoTerminos: 'legal@construsoft.test',
@@ -462,8 +461,21 @@ describe('términos (04 §7)', () => {
     }
   });
 
-  test('con términos de verdad, la ruta dice la versión vigente: la que el registro exige', async () => {
-    const r = (await app.inject({ method: 'GET', url: '/api/terminos' })).json<{ version: string; provisional: boolean }>();
-    assert.deepEqual(r, { version: VERSION_TERMINOS, provisional: false });
+  test('con términos de verdad, la ruta dice la versión vigente y sirve su texto, sin aviso de borrador', async () => {
+    const r = (await app.inject({ method: 'GET', url: '/api/terminos' })).json<{
+      version: string;
+      provisional: boolean;
+      documentos: { id: string; html: string }[];
+    }>();
+    assert.deepEqual([r.version, r.provisional], [VERSION_TERMINOS, false]);
+    assert.deepEqual(r.documentos.map((d) => d.id), ['privacidad', 'terminos', 'cookies', 'reembolsos']);
+    for (const d of r.documentos) assert.doesNotMatch(d.html, /aviso-borrador/);
+  });
+
+  test('una versión sin su carpeta en legal/ no arranca', async () => {
+    await assert.rejects(
+      construirServidor({ carpetaLegal: CARPETA_LEGAL_DE_PRUEBA, secretoSesion: randomBytes(32).toString('hex'), versionTerminos: 'terminos-que-no-existen' }),
+      /terminos-que-no-existen[\\/]legal\.html/,
+    );
   });
 });
