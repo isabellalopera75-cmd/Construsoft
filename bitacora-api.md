@@ -15,6 +15,64 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-05 · lunes, segunda entrada
+
+**Hecho** (411/411; todo pasó por el pre-commit)
+
+- **Pre-commit versionado** (`4aa6386`, `b90577c`): `scripts/hooks/pre-commit`
+  corre tsc, eslint y la batería completa en cada commit que toque `src/`,
+  `scripts/`, `legal/`, `package*.json` o `docs/05`.
+  - Se activa una vez por clon con `git config core.hooksPath scripts/hooks`.
+    En este clon ya está activo.
+  - Prueba el esquema **del índice**, no el del árbol de trabajo: tu
+    `docs/05` a medio escribir no bloquea mis commits ni se prueba por error.
+  - Tus commits que toquen `docs/05` también corren la batería. Tarda unos
+    minutos.
+  - Un commit que solo toca `web/`, documentos o bitácoras no la corre.
+- **`legal/<VERSION_TERMINOS>/legal.html`** (`b90577c`):
+  - Está en `legal/PROVISIONAL-2026-09-25/legal.html`. El nombre sale del
+    propio texto («Versión del 25 de septiembre de 2026»). Es una copia de
+    `prototipo/legal.html`, más `legal/LEEME.md` con la regla de no editar una
+    versión publicada.
+  - La carpeta se exige **siempre**, no solo en provisional.
+  - **El `.env` del dueño tiene que decir
+    `VERSION_TERMINOS=PROVISIONAL-2026-09-25`**, o la API no arranca.
+  - Un nombre con barras o con `..` se rechaza.
+- **Demostración de punta a punta** (`ff512a6`, `7251f18`): sección nueva en
+  el README, y `npm run verificar-demo` ingresa por HTTP y exige
+  180590155.000000 en DEMO-001.
+  - Comprobada desde un clon limpio, con `npm ci`, contra una base recién
+    creada (`construsoft_test`: la de desarrollo no la toco).
+  - Las conexiones salieron de `.env.test` en vez del `.env`. Nada más cambió.
+- **Exportaciones abiertas** (`44f9222`): un presupuesto con cantidades y
+  porcentajes con decimales, exportado por la API.
+  - Del PDF y del Excel se lee cada fila y cada línea del pie, y se comparan
+    contra la mesa que lee la base.
+  - Comprobado quitando defensas: cambiar el valor de una línea del pie y
+    redondear el Excel a cero decimales hacen caer la prueba.
+- **`posicion` con `campo`** (`2bcd53b`): fuera de rango al mover, la API
+  cuenta los hermanos con el mismo predicado de `fn_mover_en_edt` y responde
+  422 con `campo: "posicion"`. La base sigue siendo el respaldo.
+  - Ya no hace falta `USING COLUMN` en el esquema para este caso.
+- **Llave foránea contra aislamiento** (`1ed568c`): en Recursos y APU, cada
+  referencia del pedido —unidad al crear y al editar, recurso de una línea,
+  presupuestos a reapuntar— responde igual con un id de otra empresa que con
+  uno inexistente. Los presupuestos de la otra empresa no se tocan.
+
+**Cambios de forma, para el contrato**
+
+- `GET /api/terminos` devuelve **siempre** `{ version, provisional, documentos }`.
+  Antes, una versión no provisional no traía `documentos`. Es un agregado.
+- `POST /api/nodos/:id/mover` y `POST /api/actividades/:id/mover`: la
+  posición fuera de rango ahora trae `campo: "posicion"`.
+
+**Lo que conviene que sepas**
+
+- Los 7 commits del domingo y del lunes temprano están subidos. **Los de esta
+  entrada no**: el dueño pidió subir esos 7, no los siguientes.
+
+---
+
 ## 2026-10-05 · lunes
 
 **Hecho** (la batería da 398/399; la falla es la de abajo, «prototipo/ borrado»)
