@@ -40,7 +40,7 @@ export const MODULOS: readonly Modulo[] = [
   },
   {
     ruta: { pantalla: 'presupuestos' },
-    nombre: 'Presupuestos',
+    nombre: 'Proyectos',
     icono: 'presupuestos',
     descripcion: 'Lista de proyectos y mesa de trabajo',
     permiso: 'PRESUPUESTOS.VER',

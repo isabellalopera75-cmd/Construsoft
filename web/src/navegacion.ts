@@ -34,8 +34,11 @@ export function leerRuta(hash: string): Ruta {
   const [primera, segunda] = partes;
 
   if (partes.length === 0) return { pantalla: 'inicio' };
-  if (primera === 'presupuestos' && partes.length === 1) return { pantalla: 'presupuestos' };
-  if (primera === 'presupuestos' && segunda !== undefined && partes.length === 2) {
+  // «Proyectos» desde el 6 de octubre de 2026; «presupuestos» sigue abriendo,
+  // para que un enlace guardado antes no quede roto.
+  const esProyectos = primera === 'proyectos' || primera === 'presupuestos';
+  if (esProyectos && partes.length === 1) return { pantalla: 'presupuestos' };
+  if (esProyectos && segunda !== undefined && partes.length === 2) {
     return { pantalla: 'mesa', id: decodeURIComponent(segunda) };
   }
   if (primera === 'recursos' && partes.length === 1) return { pantalla: 'recursos' };
@@ -54,8 +57,8 @@ export function leerRuta(hash: string): Ruta {
 export function enlaceA(ruta: Ruta): string {
   switch (ruta.pantalla) {
     case 'inicio': return '#/';
-    case 'presupuestos': return '#/presupuestos';
-    case 'mesa': return `#/presupuestos/${encodeURIComponent(ruta.id)}`;
+    case 'presupuestos': return '#/proyectos';
+    case 'mesa': return `#/proyectos/${encodeURIComponent(ruta.id)}`;
     case 'recursos': return '#/recursos';
     case 'apu': return '#/apu';
     case 'configuracion': return ruta.pestana ? `#/configuracion/${ruta.pestana}` : '#/configuracion';

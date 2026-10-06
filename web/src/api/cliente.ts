@@ -3,10 +3,20 @@
  * así el manejo de un 401 o de un 429 vive en un solo lugar y no en veinte.
  */
 
+/** Un error de una fila de un archivo importado (CONTRATO §10). */
+export interface ErrorDeFila {
+  hoja: string;
+  fila: number;
+  columna: string | null;
+  mensaje: string;
+}
+
 /** Un rechazo de la API, con el estado que la pantalla necesita para decidir. */
 export class ErrorDeApi extends Error {
   readonly estado: number;
   readonly campo: string | undefined;
+  /** Solo en una importación rechazada: el informe fila por fila. */
+  errores: ErrorDeFila[] | undefined;
   /** Segundos que pide esperar un 429, si los dijo (cabecera Retry-After). */
   readonly reintentarEn: number | undefined;
 
@@ -42,6 +52,8 @@ export function cuandoSePierdaLaSesion(accion: () => void): void {
 interface Opciones {
   metodo?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   cuerpo?: unknown;
+  /** Un archivo que viaja tal cual, sin JSON: la importación desde Excel. */
+  archivo?: File;
   /**
    * El 401 del ingreso no es «se perdió la sesión»: es «la contraseña no es
    * esa», y la pantalla de ingreso lo muestra ella misma.
@@ -50,7 +62,7 @@ interface Opciones {
 }
 
 export async function pedir<T>(ruta: string, opciones: Opciones = {}): Promise<T> {
-  const { metodo = 'GET', cuerpo, el401EsDeLaPantalla = false } = opciones;
+  const { metodo = 'GET', cuerpo, archivo, el401EsDeLaPantalla = false } = opciones;
   let respuesta: Response;
   try {
     respuesta = await fetch(ruta, {
@@ -59,8 +71,12 @@ export async function pedir<T>(ruta: string, opciones: Opciones = {}): Promise<T
       // la interfaz y la API compartan origen, que es lo que garantizan el
       // proxy en desarrollo y el despliegue en producción.
       credentials: 'same-origin',
-      headers: cuerpo === undefined ? {} : { 'content-type': 'application/json' },
-      body: cuerpo === undefined ? null : JSON.stringify(cuerpo),
+      headers: archivo
+        ? { 'content-type': archivo.type || 'application/octet-stream' }
+        : cuerpo === undefined
+          ? {}
+          : { 'content-type': 'application/json' },
+      body: archivo ?? (cuerpo === undefined ? null : JSON.stringify(cuerpo)),
     });
   } catch {
     // Una red caída no es un rechazo del servidor y no debe parecerlo: el
@@ -89,7 +105,7 @@ export async function pedir<T>(ruta: string, opciones: Opciones = {}): Promise<T
   // borrador 1 del contrato lo envolvía en { error: { … } } y este archivo se
   // escribió contra ese borrador: con el sobre, todo rechazo se habría
   // mostrado como «no se pudo hablar con el servidor».
-  const error = cuerpoLeido as { mensaje?: unknown; campo?: unknown } | null;
+  const error = cuerpoLeido as { mensaje?: unknown; campo?: unknown; errores?: unknown } | null;
   const mensaje =
     respuesta.status >= 500
       ? FALLA_DEL_SERVIDOR
@@ -100,7 +116,9 @@ export async function pedir<T>(ruta: string, opciones: Opciones = {}): Promise<T
 
   if (respuesta.status === 401 && !el401EsDeLaPantalla) alPerderLaSesion?.();
 
-  throw new ErrorDeApi(respuesta.status, mensaje, campo, segundosDeEspera(respuesta));
+  const rechazo = new ErrorDeApi(respuesta.status, mensaje, campo, segundosDeEspera(respuesta));
+  if (Array.isArray(error?.errores)) rechazo.errores = error.errores as ErrorDeFila[];
+  throw rechazo;
 }
 
 /** Retry-After en segundos. Es un entero del protocolo, no dinero. */

@@ -33,8 +33,10 @@ export function Configuracion({ pestana }: { pestana: PestanaDeConfiguracion | u
   ].filter((p) => p.visible);
   const actual = disponibles.find((p) => p.id === pestana)?.id ?? 'cuenta';
 
+  // Centrada y con ancho de lectura (decisión del dueño, 6 de octubre de
+  // 2026): son formularios y datos sueltos, no una tabla que necesite ancho.
   return (
-    <>
+    <div className="pantalla-centrada">
       <div className="encabezado-de-pantalla">
         <div className="encabezado-con-volver">
           <BotonVolver a={{ pantalla: 'inicio' }} nombre="Inicio" />
@@ -54,7 +56,7 @@ export function Configuracion({ pestana }: { pestana: PestanaDeConfiguracion | u
         {actual === 'preferencias' ? <PreferenciasPestana /> : null}
         {actual === 'suscripcion' ? <SuscripcionPestana /> : null}
       </div>
-    </>
+    </div>
   );
 }
 
@@ -330,7 +332,7 @@ function PreferenciasPestana() {
           {errorGeneral ? <p className="aviso-error" role="alert"><Icono nombre="aviso" /><span>{errorGeneral}</span></p> : null}
           <fieldset className="grupo-sin-borde" disabled={soloLectura}>
             <div className="fila-de-campos fila-de-tres">
-              <Campo etiqueta="Moneda base" ayuda="Se puede cambiar solo mientras no haya recursos, APU ni presupuestos.">
+              <Campo etiqueta="Moneda base" ayuda="Se puede cambiar solo mientras no haya recursos, APU ni proyectos.">
                 {(a) => (
                   <select {...a} value={form.monedaBase} onChange={(e) => setForm({ ...form, monedaBase: e.target.value })}>
                     <option value="COP">COP · Peso colombiano</option>

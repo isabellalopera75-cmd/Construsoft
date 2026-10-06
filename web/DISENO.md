@@ -467,6 +467,35 @@ presupuestos y abrir uno para consultarlo.
 - **Todo lo que se pulsa mide 44 px**, también los botones de las filas de la
   mesa. Las filas quedan un poco más altas, y se aceptó.
 
+- **Correcciones del dueño, 6 de octubre de 2026 (tarde):**
+  - **«Proyectos», no «Presupuestos».** Proyecto es la cosa que se crea, se
+    abre, se duplica, se archiva y se activa; «presupuesto» se queda solo
+    donde se habla de sus cifras («Desglose del presupuesto») y en el texto
+    textual de activar del 02 §9.1. La dirección es `#/proyectos`, y
+    `#/presupuestos` sigue abriendo.
+  - **Los proyectos se muestran en tarjetas** por defecto, con un conmutador
+    a lista que se recuerda en el navegador. La tarjeta entera es el enlace a
+    la mesa; el estado va en la insignia con palabra, y la franja de color de
+    arriba es solo apoyo.
+  - **Configuración va centrada**, con `--ancho-lectura` (960 px): son
+    formularios y datos sueltos.
+  - **Un campo de cifra no deja escribir letras** (`soloCifra` en
+    `src/entrada.ts`): pasan dígitos y el separador decimal de la empresa; el
+    de miles se descarta al escribir, así «1.500» es mil quinientos.
+  - **Agregar un ítem en cualquier nivel** tiene dos caminos que no se
+    confunden: un botón en la fila del capítulo o subcapítulo, con un icono
+    distinto del de agregar subcapítulo, y la fila de agregar, que dice a qué
+    nivel pertenece («Agregar actividad en 1.2 Vigas de amarre»). Antes un
+    subcapítulo con hijos dejaba su fila pegada a la del capítulo de arriba y
+    no se sabía cuál era cuál.
+  - **La mesa se compacta según su propio ancho**: por debajo de 1250 px de
+    tabla, el código del APU va junto a la descripción y sin columna propia.
+    Cabe sin desplazarse de lado desde 1280 px de ventana con la barra
+    lateral abierta, sin achicar los botones de 44 px.
+  - **Importar desde Excel** en Recursos y APU: descargar la plantilla,
+    llenarla, subirla; todo o nada, con el informe fila por fila
+    (`modulos/comun/ImportarExcel.tsx`, CONTRATO §10).
+
 ## 12. Lo que todavía no está decidido
 
 Para que nadie lo lea creyendo que está completo:

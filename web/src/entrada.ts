@@ -55,3 +55,23 @@ export function paraEditar(canonico: string, formato: FormatoNumerico): string {
 function mayuscula(texto: string): string {
   return texto.charAt(0).toUpperCase() + texto.slice(1);
 }
+
+/**
+ * Lo que un campo de cifra deja escribir: dígitos y UN separador decimal, el
+ * de la empresa. Una letra no llega a aparecer en el campo, en vez de aparecer
+ * y rechazarse al guardar. El separador de miles se descarta al escribir: con
+ * la coma como decimal, «1.500» es mil quinientos y no uno coma cinco. Pegar
+ * «$ 1.500,25» deja «1500,25».
+ */
+export function soloCifra(texto: string, separadorDecimal: string): string {
+  let visto = false;
+  let salida = '';
+  for (const c of texto) {
+    if (c >= '0' && c <= '9') salida += c;
+    else if (c === separadorDecimal && !visto) {
+      salida += c;
+      visto = true;
+    }
+  }
+  return salida;
+}

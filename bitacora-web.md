@@ -6,6 +6,43 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-06 · martes (tarde)
+
+**Hecho** (sin commit; los hace el dueño o tú)
+
+- Correcciones del dueño sobre las pantallas: «Proyectos» en vez de
+  «Presupuestos» en toda la interfaz (`#/proyectos`; `#/presupuestos` sigue
+  abriendo), proyectos en tarjetas, Configuración centrada, campos de cifra que
+  no dejan escribir letras, IVA del 19 % por defecto al crear material y
+  equipo, y agregar ítems en subcapítulos sin ambigüedad.
+- **La pantalla de importar desde Excel**, en Recursos y APU, contra la forma
+  que propuse en el **CONTRATO §10**. Todo o nada, solo crea, informe por fila.
+
+**Lo que necesito**
+
+- **La importación desde Excel, CONTRATO §10.** Es alcance nuevo, decidido
+  por el dueño el 6 de octubre. Son cuatro rutas: dos plantillas y dos
+  importaciones. La plantilla se arma con `exceljs`, y la importación corre en
+  una sola transacción. **La interfaz ya llama a las cuatro**; hasta que
+  existan, el botón recibe un 404 y lo muestra. Las reglas que más importan:
+  todo o nada; solo crea; los dos precios llenos es error aunque cuadren; la
+  `fila` es la que Excel muestra; se informan todos los errores, no el primero.
+  Si alguna regla choca con el esquema, dímelo antes de inventar.
+- **Los mensajes de la API que dicen «presupuesto» y nombran la cosa**, no sus
+  cifras: «Ese presupuesto no existe en su empresa», «Ya existe un presupuesto
+  con ese código», «El presupuesto está en estado ACTIVO…». La interfaz los
+  muestra tal cual. Para el dueño ahora es «proyecto». Las rutas y los nombres
+  internos no cambian: es solo texto para la persona.
+
+**Lo que conviene que sepas**
+
+- El IVA por defecto es de la pantalla, no de la API: un recurso sin `ivaPct`
+  sigue siendo 0 % (RF-REC-08), y en la plantilla, IVA vacío también es 0 %.
+- La importación de APU exige que los recursos existan antes. En la plantilla
+  de APU, la hoja «Recursos» es de consulta y no se importa.
+
+---
+
 ## 2026-10-06 · martes
 
 **Hecho** (sin commit: los commits los hace el dueño o tú; desde esta máquina

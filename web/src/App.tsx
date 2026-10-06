@@ -134,14 +134,14 @@ function Adentro({ ruta }: { ruta: Ruta }) {
     case 'presupuestos':
       if (!permitido('PRESUPUESTOS.VER')) break;
       return (
-        <Cascaron ruta={ruta} migas={[INICIO, { nombre: 'Presupuestos' }]}>
+        <Cascaron ruta={ruta} migas={[INICIO, { nombre: 'Proyectos' }]}>
           <Presupuestos />
         </Cascaron>
       );
     case 'mesa':
       if (!permitido('PRESUPUESTOS.VER')) break;
       return (
-        <Cascaron ruta={ruta} migas={[INICIO, { nombre: 'Presupuestos', ruta: { pantalla: 'presupuestos' } }, { nombre: 'Mesa de trabajo' }]}>
+        <Cascaron ruta={ruta} migas={[INICIO, { nombre: 'Proyectos', ruta: { pantalla: 'presupuestos' } }, { nombre: 'Mesa de trabajo' }]}>
           {/* key: abrir otro presupuesto (al duplicar) empieza una mesa nueva. */}
           <Mesa key={ruta.id} id={ruta.id} />
         </Cascaron>

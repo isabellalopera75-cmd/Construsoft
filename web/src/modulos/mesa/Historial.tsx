@@ -114,7 +114,7 @@ export function Historial({ presupuestoId, alCerrar, version }: { presupuestoId:
       {error ? <p className="aviso-error" role="alert"><span>{error}</span></p> : null}
       {eventos === null && !error ? <p className="campo-ayuda">Cargando el historial…</p> : null}
       {eventos && eventos.length === 0 ? (
-        <p className="campo-ayuda">{hayFiltros ? 'Ningún evento coincide con los filtros.' : 'Todavía no hay eventos en este presupuesto.'}</p>
+        <p className="campo-ayuda">{hayFiltros ? 'Ningún evento coincide con los filtros.' : 'Todavía no hay eventos en este proyecto.'}</p>
       ) : null}
       {eventos && eventos.length > 0 ? (
         <ol className="lista-de-eventos">

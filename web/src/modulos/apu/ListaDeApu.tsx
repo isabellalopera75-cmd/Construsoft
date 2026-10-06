@@ -6,6 +6,7 @@ import { BotonVolver } from '../../cascaron/Cascaron.tsx';
 import { Icono } from '../../componentes/Icono.tsx';
 import { formatearNumero } from '../../formato.ts';
 import { useSesion } from '../../sesion.tsx';
+import { ImportarExcel } from '../comun/ImportarExcel.tsx';
 import { TablaEsqueleto } from '../comun/TablaEsqueleto.tsx';
 import { FormularioDeApu } from './FormularioDeApu.tsx';
 
@@ -30,6 +31,7 @@ export function ListaDeApu() {
   const [error, setError] = useState<string | null>(null);
   const [intento, setIntento] = useState(0);
   const [abierto, setAbierto] = useState<{ id?: string } | null>(null);
+  const [importando, setImportando] = useState(false);
 
   useEffect(() => {
     pedir<{ unidades: Unidad[] }>(conConsulta('/api/unidades', { para: 'APU' }))
@@ -71,12 +73,20 @@ export function ListaDeApu() {
           <h1>APU</h1>
           <p className="bajada">Análisis de precios unitarios: cuánto cuesta ejecutar una unidad de cada actividad</p>
         </div>
-        {puedeEscribir('APU.CREAR') ? (
-          <button type="button" className="boton boton-principal" onClick={() => setAbierto({})}>
-            <Icono nombre="mas" />
-            Crear Nuevo APU
-          </button>
-        ) : null}
+        <div className="acciones-de-encabezado">
+          {puedeEscribir('APU.CREAR') ? (
+            <button type="button" className="boton boton-secundario" onClick={() => setImportando(true)}>
+              <Icono nombre="subirArchivo" />
+              Importar desde Excel
+            </button>
+          ) : null}
+          {puedeEscribir('APU.CREAR') ? (
+            <button type="button" className="boton boton-principal" onClick={() => setAbierto({})}>
+              <Icono nombre="mas" />
+              Crear Nuevo APU
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <div className="barra-de-filtros" role="search">
@@ -156,6 +166,29 @@ export function ListaDeApu() {
           </table>
         </div>
       )}
+
+      {importando ? (
+        <ImportarExcel
+          titulo="Importar APU desde Excel"
+          que="APU"
+          rutaPlantilla="/api/apus/plantilla"
+          rutaImportar="/api/apus/importar"
+          instrucciones={
+            <>
+              Dos hojas. En <strong>APU</strong>, una fila por APU con una clave suya (A1, A2…), el nombre y la unidad. En{' '}
+              <strong>Composición</strong>, una fila por recurso de cada APU: su clave, el código del recurso (la hoja
+              Recursos trae el catálogo), cantidad, rendimiento y, si es material, el desperdicio. Cantidad y rendimiento
+              no admiten cero. Los recursos tienen que existir antes: impórtelos primero.
+            </>
+          }
+          alCerrar={() => setImportando(false)}
+          alImportar={(n) => {
+            setImportando(false);
+            avisar(n === 1 ? 'Se importó 1 APU.' : `Se importaron ${n} APU.`);
+            releer();
+          }}
+        />
+      ) : null}
 
       {abierto ? (
         <FormularioDeApu

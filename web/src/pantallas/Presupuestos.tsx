@@ -37,6 +37,7 @@ export function Presupuestos() {
   const [carga, setCarga] = useState<Carga>({ fase: 'cargando', anteriores: null });
   const [intento, setIntento] = useState(0);
   const [creando, setCreando] = useState(false);
+  const [vista, setVista] = useState<Vista>(vistaGuardada);
 
   // Escribir no dispara una petición por tecla: espera a que la persona pare.
   useEffect(() => {
@@ -83,12 +84,12 @@ export function Presupuestos() {
       <div className="encabezado-de-pantalla">
         <div className="encabezado-con-volver">
           <BotonVolver a={{ pantalla: 'inicio' }} nombre="Inicio" />
-          <h1>Presupuestos</h1>
+          <h1>Proyectos</h1>
         </div>
         {puedeCrear ? (
           <button type="button" className="boton boton-principal" onClick={() => setCreando(true)}>
             <Icono nombre="mas" />
-            Crear Nuevo Presupuesto
+            Crear Nuevo Proyecto
           </button>
         ) : null}
       </div>
@@ -122,6 +123,16 @@ export function Presupuestos() {
         </label>
       </div>
 
+      <div className="conmutador-de-vista" role="group" aria-label="Cómo mostrar los proyectos">
+        {(['tarjetas', 'lista'] as const).map((v) => (
+          <button key={v} type="button" className="boton boton-secundario boton-chico-texto" aria-pressed={vista === v}
+                  onClick={() => { setVista(v); guardarVista(v); }}>
+            <Icono nombre={v === 'tarjetas' ? 'rejilla' : 'menu'} tamano={16} />
+            {v === 'tarjetas' ? 'Tarjetas' : 'Lista'}
+          </button>
+        ))}
+      </div>
+
       {/* Anuncia el resultado a quien usa lector, sin robarle el foco. */}
       <p className="solo-lectores" role="status" aria-live="polite">
         {carga.fase === 'lista' ? describirResultado(carga.filas.length, archivados) : ''}
@@ -139,11 +150,15 @@ export function Presupuestos() {
         <TablaEsqueleto />
       ) : filas.length === 0 && carga.fase === 'lista' ? (
         <Vacio archivados={archivados} hayFiltros={hayFiltros} puedeCrear={puedeCrear} alLimpiar={limpiarFiltros} />
+      ) : vista === 'tarjetas' ? (
+        <ul className="rejilla-de-proyectos" aria-busy={carga.fase === 'cargando'} aria-label={archivados ? 'Proyectos archivados' : 'Proyectos'}>
+          {filas.map((p) => <TarjetaDeProyecto key={p.id} proyecto={p} />)}
+        </ul>
       ) : (
         <div className="tarjeta tarjeta-tabla" aria-busy={carga.fase === 'cargando'}>
           <table className="tabla tabla-presupuestos">
             <caption className="solo-lectores">
-              {archivados ? 'Presupuestos archivados' : 'Presupuestos'}
+              {archivados ? 'Proyectos archivados' : 'Proyectos'}
             </caption>
             <thead>
               <tr>
@@ -211,9 +226,67 @@ export function Presupuestos() {
   );
 }
 
+/*
+ * Tarjetas por defecto (decisión del dueño, 6 de octubre de 2026): con muchos
+ * proyectos, una lista de filas iguales cansa. La lista sigue a un clic para
+ * quien quiera comparar cifras en columna. La elección se recuerda en este
+ * navegador; si el almacenamiento no está, vuelve a tarjetas.
+ */
+type Vista = 'tarjetas' | 'lista';
+const CLAVE_VISTA = 'construsoft.vistaProyectos';
+
+function vistaGuardada(): Vista {
+  try {
+    return window.localStorage.getItem(CLAVE_VISTA) === 'lista' ? 'lista' : 'tarjetas';
+  } catch {
+    return 'tarjetas';
+  }
+}
+
+function guardarVista(v: Vista) {
+  try {
+    window.localStorage.setItem(CLAVE_VISTA, v);
+  } catch {
+    // Sin almacenamiento, la elección dura lo que dure la pestaña.
+  }
+}
+
+/** Un proyecto como tarjeta: la tarjeta entera es el enlace a su mesa. */
+function TarjetaDeProyecto({ proyecto: p }: { proyecto: FilaDePresupuesto }) {
+  const { arranque } = useSesion();
+  return (
+    <li>
+      <a className="tarjeta-de-proyecto" href={enlaceA({ pantalla: 'mesa', id: p.id })} data-estado={p.estado}>
+        <span className="tarjeta-de-proyecto-arriba">
+          <span className="cifra-codigo">{p.codigo}</span>
+          <InsigniaDeEstado estado={p.estado} />
+        </span>
+        <span className="tarjeta-de-proyecto-nombre">{p.nombre}</span>
+        <span className="tarjeta-de-proyecto-lugar">{p.ubicacion}</span>
+        <span className="tarjeta-de-proyecto-valor">
+          <span className="etiqueta-chica">Valor total</span>
+          <span className="cifra">{p.moneda} {formatearNumero(p.valorTotal, arranque.formatoNumerico)}</span>
+        </span>
+        <span className="tarjeta-de-proyecto-pie">
+          <span>
+            Modificado el <time dateTime={paraAtributo(p.fechaModificacion)}>{formatearFecha(p.fechaModificacion)}</time>
+          </span>
+          {p.archivadoEn ? (
+            <span>
+              Archivado el <time dateTime={paraAtributo(p.archivadoEn)}>{formatearFecha(p.archivadoEn)}</time>
+            </span>
+          ) : (
+            <span>{p.modoEstructura === 'WBS' ? 'Por EDT' : 'Por ítems'}</span>
+          )}
+        </span>
+      </a>
+    </li>
+  );
+}
+
 function describirResultado(n: number, archivados: boolean): string {
-  const que = archivados ? (n === 1 ? 'presupuesto archivado' : 'presupuestos archivados') : n === 1 ? 'presupuesto' : 'presupuestos';
-  return n === 0 ? `Ningún ${archivados ? 'presupuesto archivado' : 'presupuesto'}.` : `${n} ${que}.`;
+  const que = archivados ? (n === 1 ? 'proyecto archivado' : 'proyectos archivados') : n === 1 ? 'proyecto' : 'proyectos';
+  return n === 0 ? `Ningún ${archivados ? 'proyecto archivado' : 'proyecto'}.` : `${n} ${que}.`;
 }
 
 function Vacio({
@@ -231,7 +304,7 @@ function Vacio({
   if (hayFiltros) {
     return (
       <div className="vacio">
-        <p className="vacio-titulo">Ningún presupuesto coincide con la búsqueda.</p>
+        <p className="vacio-titulo">Ningún proyecto coincide con la búsqueda.</p>
         <p>Pruebe con otra parte del nombre o del código, o quite el filtro de estado.</p>
         <button type="button" className="boton boton-secundario" onClick={alLimpiar}>
           Quitar la búsqueda y los filtros
@@ -242,17 +315,17 @@ function Vacio({
   if (archivados) {
     return (
       <div className="vacio">
-        <p className="vacio-titulo">No hay presupuestos archivados.</p>
-        <p>Un presupuesto se archiva desde su mesa de trabajo, con «Archivar proyecto».</p>
+        <p className="vacio-titulo">No hay proyectos archivados.</p>
+        <p>Un proyecto se archiva desde su mesa de trabajo, con «Archivar proyecto».</p>
       </div>
     );
   }
   return (
     <div className="vacio">
-      <p className="vacio-titulo">Todavía no hay presupuestos.</p>
+      <p className="vacio-titulo">Todavía no hay proyectos.</p>
       <p>
         {puedeCrear
-          ? 'Empiece el primero con «Crear Nuevo Presupuesto», arriba a la derecha.'
+          ? 'Empiece el primero con «Crear Nuevo Proyecto», arriba a la derecha.'
           : 'Cuando alguien de su empresa cree uno, aparecerá aquí.'}
       </p>
     </div>
@@ -263,7 +336,7 @@ function Vacio({
 function TablaEsqueleto() {
   return (
     <div className="tarjeta tarjeta-tabla" aria-busy="true">
-      <p className="solo-lectores">Cargando los presupuestos…</p>
+      <p className="solo-lectores">Cargando los proyectos…</p>
       <div className="esqueleto" aria-hidden="true">
         {Array.from({ length: 6 }, (_, i) => (
           <div key={i} className="esqueleto-fila">

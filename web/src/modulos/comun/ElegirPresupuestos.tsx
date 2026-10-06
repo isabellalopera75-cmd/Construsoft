@@ -60,7 +60,7 @@ export function ElegirPresupuestos({ titulo, pregunta, explicacion, presupuestos
     >
       <p className="texto-de-dialogo"><strong>{pregunta}</strong></p>
       <fieldset className="grupo-sin-borde">
-        <legend className="solo-lectores">Presupuestos abiertos que lo usan</legend>
+        <legend className="solo-lectores">Proyectos abiertos que lo usan</legend>
         <ul className="lista-de-casillas">
           {presupuestos.map((p) => (
             <li key={p.id}>

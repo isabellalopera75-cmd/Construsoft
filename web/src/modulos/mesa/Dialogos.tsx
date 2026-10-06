@@ -141,7 +141,7 @@ export function EditarDatos({
   async function enviar() {
     if (enviando) return;
     const faltan: typeof errores = {};
-    if (datos.codigo.trim() === '') faltan.codigo = 'Escriba el código del presupuesto.';
+    if (datos.codigo.trim() === '') faltan.codigo = 'Escriba el código del proyecto.';
     if (datos.nombre.trim() === '') faltan.nombre = 'Escriba el nombre del proyecto.';
     if (datos.ubicacion.trim() === '') faltan.ubicacion = 'Escriba la ubicación.';
     setErrores(faltan);
@@ -168,7 +168,7 @@ export function EditarDatos({
 
   return (
     <Capa
-      titulo="Datos del presupuesto"
+      titulo="Datos del proyecto"
       alCerrar={alCerrar}
       hayCambios={hayCambios}
       error={error}
@@ -180,7 +180,7 @@ export function EditarDatos({
         </>
       )}
     >
-      <Campo etiqueta="Código del presupuesto" error={errores.codigo}>
+      <Campo etiqueta="Código del proyecto" error={errores.codigo}>
         {(a) => <input {...a} autoComplete="off" spellCheck={false} value={datos.codigo} onChange={(e) => cambiar('codigo', e.target.value)} />}
       </Campo>
       <Campo etiqueta="Nombre del proyecto" error={errores.nombre}>
@@ -197,7 +197,7 @@ export function EditarDatos({
             <span className="opcion-titulo">Por ítems</span>
             <span className="opcion-detalle">
               {tieneSubniveles && cabecera.modoEstructura === 'WBS'
-                ? 'No disponible: el presupuesto ya tiene subcapítulos.'
+                ? 'No disponible: el proyecto ya tiene subcapítulos.'
                 : 'Capítulo → actividad'}
             </span>
           </span>
@@ -247,7 +247,7 @@ export function Duplicar({
   async function enviar() {
     if (enviando || !info) return;
     const faltan: typeof errores = {};
-    if (codigo.trim() === '') faltan.codigo = 'Escriba el código del presupuesto nuevo.';
+    if (codigo.trim() === '') faltan.codigo = 'Escriba el código del proyecto nuevo.';
     if (nombre.trim() === '') faltan.nombre = 'Escriba el nombre del proyecto.';
     setErrores(faltan);
     if (faltan.codigo || faltan.nombre) return;
@@ -262,7 +262,7 @@ export function Duplicar({
     } catch (e) {
       setEnviando(false);
       if (e instanceof ErrorDeApi && (e.campo === 'codigo' || e.campo === 'nombre')) setErrores({ [e.campo]: e.message });
-      else setError(e instanceof ErrorDeApi ? e.message : 'No se duplicó el presupuesto. Intente de nuevo.');
+      else setError(e instanceof ErrorDeApi ? e.message : 'No se duplicó el proyecto. Intente de nuevo.');
     }
   }
 
@@ -277,7 +277,7 @@ export function Duplicar({
         <>
           <button type="button" className="boton boton-secundario" onClick={cerrar} disabled={enviando}>Cancelar</button>
           <button type="submit" className="boton boton-principal" disabled={enviando || !info}>
-            {enviando ? 'Duplicando…' : 'Duplicar Presupuesto'}
+            {enviando ? 'Duplicando…' : 'Duplicar Proyecto'}
           </button>
         </>
       )}
@@ -285,7 +285,7 @@ export function Duplicar({
       <p className="texto-de-dialogo">
         La copia nace Abierta, con toda la estructura, las cantidades y los cuatro porcentajes del original.
       </p>
-      <Campo etiqueta="Código del presupuesto nuevo" error={errores.codigo}>
+      <Campo etiqueta="Código del proyecto nuevo" error={errores.codigo}>
         {(a) => <input {...a} autoComplete="off" spellCheck={false} value={codigo} onChange={(e) => {
           setCodigo(e.target.value);
           if (errores.codigo) setErrores((x) => ({ ...x, codigo: undefined }));
@@ -300,7 +300,7 @@ export function Duplicar({
 
       {info === null && !error ? <p className="campo-ayuda">Revisando los precios de los APU…</p> : null}
       {info && desactualizados.length === 0 ? (
-        <p className="campo-ayuda">Todos los APU de este presupuesto están en su versión vigente: la copia sale con los precios de hoy.</p>
+        <p className="campo-ayuda">Todos los APU de este proyecto están en su versión vigente: la copia sale con los precios de hoy.</p>
       ) : null}
       {info && desactualizados.length > 0 ? (
         <div className="bloque-de-composicion">

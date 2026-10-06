@@ -637,7 +637,7 @@ textarea { min-height: 88px; padding: var(--e2) var(--e3); resize: vertical; wid
 
 .tarjeta-mesa { overflow-x: auto; }
 .tabla-mesa { font-size: var(--letra-sm); }
-.tabla-mesa td, .tabla-mesa th { padding: var(--e2) var(--e3); vertical-align: middle; }
+.tabla-mesa td, .tabla-mesa th { padding: var(--e2); vertical-align: middle; }
 .tabla-mesa .col-item { white-space: nowrap; width: 1%; }
 .tabla-mesa .col-apu { white-space: nowrap; width: 1%; }
 .tabla-mesa .col-und { width: 1%; white-space: nowrap; color: var(--texto-segundo); }
@@ -777,3 +777,57 @@ textarea { min-height: 88px; padding: var(--e2) var(--e3); resize: vertical; wid
 .campo .casilla input, .campo .opcion input { width: 18px; min-height: 0; }
 .tabla .col-acciones { width: 1%; white-space: nowrap; }
 .tabla-composicion td:first-child { min-width: 12rem; }
+
+/* --- Proyectos en tarjetas (6 de octubre de 2026) ------------------------ */
+.conmutador-de-vista { display: flex; justify-content: flex-end; gap: var(--e2); margin-bottom: var(--e3); }
+.conmutador-de-vista .boton[aria-pressed='true'] { background: var(--terracota-velo); border-color: var(--borde-activo); }
+.rejilla-de-proyectos {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; gap: var(--e4);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+}
+.rejilla-de-proyectos[aria-busy='true'] { opacity: 0.6; transition: opacity var(--transicion); }
+.tarjeta-de-proyecto {
+  display: grid; gap: var(--e2); height: 100%;
+  padding: var(--e4) var(--e5) var(--e4);
+  background: var(--bg-tarjeta); color: var(--texto); text-decoration: none;
+  border: 1px solid var(--borde-tenue); border-radius: var(--radio-lg);
+  box-shadow: var(--sombra-tarjeta);
+  /* El estado también va en la palabra de la insignia: esta franja es apoyo. */
+  border-top: 3px solid var(--texto-apagado);
+  transition: border-color var(--transicion), background var(--transicion);
+}
+.tarjeta-de-proyecto[data-estado='ABIERTO'] { border-top-color: var(--terracota); }
+.tarjeta-de-proyecto[data-estado='ACTIVO'] { border-top-color: var(--exito); }
+.tarjeta-de-proyecto:hover { background: var(--bg-tarjeta-hover); border-color: var(--borde-campo); }
+.tarjeta-de-proyecto-arriba { display: flex; align-items: center; justify-content: space-between; gap: var(--e2); }
+.tarjeta-de-proyecto-arriba .cifra-codigo { color: var(--terracota); }
+.tarjeta-de-proyecto-nombre { font-family: var(--fuente-titulo); font-size: var(--letra-lg); font-weight: var(--peso-fuerte); line-height: var(--linea-apretada); }
+.tarjeta-de-proyecto-lugar { font-size: var(--letra-sm); color: var(--texto-segundo); }
+.tarjeta-de-proyecto-valor { display: grid; gap: 2px; margin-top: var(--e2); padding-top: var(--e3); border-top: 1px solid var(--borde-tenue); }
+.tarjeta-de-proyecto-valor .cifra { text-align: left; font-size: var(--letra-lg); font-weight: var(--peso-fuerte); }
+.etiqueta-chica { font-size: var(--letra-xs); color: var(--texto-segundo); text-transform: uppercase; letter-spacing: 0.04em; }
+.tarjeta-de-proyecto-pie { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--e1) var(--e3); font-size: var(--letra-sm); color: var(--texto-segundo); }
+
+/* --- Pantalla centrada (Configuración) ------------------------------------ */
+.pantalla-centrada { max-width: var(--ancho-lectura); margin: 0 auto; }
+
+/* --- Importar desde Excel ------------------------------------------------- */
+.acciones-de-encabezado { display: flex; flex-wrap: wrap; gap: var(--e2); }
+.pasos-de-importacion { margin: 0; padding-left: var(--e5); display: grid; gap: var(--e4); }
+.pasos-de-importacion li { display: grid; gap: var(--e2); justify-items: start; }
+.pasos-de-importacion li::marker { font-weight: var(--peso-titulo); color: var(--terracota); }
+.paso-titulo { font-weight: var(--peso-fuerte); }
+.campo-archivo { min-height: var(--toque-minimo); padding: var(--e2); width: 100%; }
+.informe-de-importacion { display: grid; gap: var(--e2); }
+@media (max-width: 640px) {
+  .acciones-de-encabezado { flex-direction: column-reverse; }
+  .acciones-de-encabezado .boton { width: 100%; }
+}
+.codigo-en-descripcion { display: block; margin-bottom: 2px; }
+/* La mesa en un portátil de 1280: la descripción y la cantidad ceden lo que
+   haga falta para que no haya que desplazarse de lado. */
+@container (max-width: 1100px) {
+  .tabla-mesa .fila-actividad .col-descripcion { min-width: 10rem; }
+  .tabla-mesa .campo-compacto { width: 6rem; }
+}

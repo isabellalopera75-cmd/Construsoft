@@ -133,6 +133,10 @@
   /* El panel lateral no modal (desglose del pie, historial): ocho renglones
      con su cifra y su porcentaje, sin tapar más de un tercio de la mesa. */
   --ancho-panel: 400px;
+  /* Una pantalla de formularios y datos sueltos —Configuración—: centrada y
+     angosta, porque una línea de 1280px no se lee y un formulario a lo ancho
+     deja los botones lejos de los campos. */
+  --ancho-lectura: 960px;
 }
 
 /* --- Tema claro ---------------------------------------------------------- */

@@ -12,7 +12,7 @@ import { Campo } from '../../componentes/Campo.tsx';
 import { Capa } from '../../componentes/Capa.tsx';
 import { Confirmacion } from '../../componentes/Confirmacion.tsx';
 import { baseDesdeTotal, totalDesdeBase } from '../../decimal.ts';
-import { leerCifra, paraEditar } from '../../entrada.ts';
+import { leerCifra, paraEditar, soloCifra } from '../../entrada.ts';
 import { formatearNumero } from '../../formato.ts';
 import { useSesion } from '../../sesion.tsx';
 import { ElegirPresupuestos } from '../comun/ElegirPresupuestos.tsx';
@@ -40,6 +40,16 @@ export const NOMBRES_DE_TIPO: Record<TipoRecurso, string> = {
   ACTIVIDAD_TODO_COSTO: 'Actividad a todo costo',
 };
 
+/*
+ * El IVA con el que nace un recurso nuevo (decisión del dueño, 6 de octubre de
+ * 2026): 19 % en material y equipo, que es la tarifa general; vacío —0 %— en
+ * personal y actividad a todo costo, porque un jornal no lleva IVA. Se puede
+ * cambiar siempre. Mientras la persona no lo haya tocado, sigue al tipo.
+ */
+function ivaPorDefecto(tipo: TipoRecurso | ''): string {
+  return tipo === 'MATERIAL' || tipo === 'EQUIPO' ? '19' : '';
+}
+
 type Campos = 'nombre' | 'tipo' | 'unidadId' | 'precioBase' | 'ivaPct' | 'precioTotal';
 
 interface Props {
@@ -66,11 +76,14 @@ export function FormularioDeRecurso({ recurso, tipoInicial, nombreInicial, alCer
     unidadId: recurso?.unidadId ?? '',
     // Al editar, el campo de la vía muestra lo capturado; el otro se calcula.
     precioBase: recurso ? paraEditar(recurso.precioBase, formato) : '',
-    ivaPct: recurso && recurso.ivaPct !== '0' && !/^0(\.0+)?$/.test(recurso.ivaPct) ? paraEditar(recurso.ivaPct, formato) : '',
+    ivaPct: recurso
+      ? /^0(\.0+)?$/.test(recurso.ivaPct) ? '' : paraEditar(recurso.ivaPct, formato)
+      : ivaPorDefecto(tipoInicial ?? ''),
     precioTotal: recurso ? paraEditar(recurso.precioTotal, formato) : '',
   };
   const [datos, setDatos] = useState(inicial);
   const [via, setVia] = useState<ViaCaptura | null>(recurso?.viaCaptura ?? null);
+  const [ivaTocado, setIvaTocado] = useState(editando);
   const [unidades, setUnidades] = useState<Unidad[] | null>(null);
   const [errores, setErrores] = useState<Partial<Record<Campos, string>>>({});
   const [error, setError] = useState<string | null>(null);
@@ -111,6 +124,8 @@ export function FormularioDeRecurso({ recurso, tipoInicial, nombreInicial, alCer
       else if (via === null) nuevaVia = esta;
     }
     let nuevos = { ...datos, [campo]: valor };
+    if (campo === 'ivaPct') setIvaTocado(true);
+    if (campo === 'tipo' && !ivaTocado) nuevos = { ...nuevos, ivaPct: ivaPorDefecto(valor as TipoRecurso) };
     if (nuevaVia === null && (campo === 'precioBase' || campo === 'precioTotal')) {
       // Borró lo escrito: los dos se desbloquean y quedan vacíos (02 §5.2).
       nuevos = { ...nuevos, precioBase: '', precioTotal: '' };
@@ -197,7 +212,7 @@ export function FormularioDeRecurso({ recurso, tipoInicial, nombreInicial, alCer
       alGuardar(
         r.recurso,
         n > 0
-          ? `Recurso ${r.recurso.codigo} guardado y actualizado en ${n} ${n === 1 ? 'presupuesto' : 'presupuestos'}.`
+          ? `Recurso ${r.recurso.codigo} guardado y actualizado en ${n} ${n === 1 ? 'proyecto' : 'proyectos'}.`
           : `Recurso ${r.recurso.codigo} guardado.`,
       );
     } catch (e) {
@@ -293,13 +308,13 @@ export function FormularioDeRecurso({ recurso, tipoInicial, nombreInicial, alCer
                 {(a) => (
                   <input {...a} data-campo="precioBase" inputMode="decimal" className="cifra-editable" autoComplete="off"
                          value={datos.precioBase} readOnly={bloqueadoBase} aria-readonly={bloqueadoBase}
-                         onChange={(e) => cambiar('precioBase', e.target.value)} />
+                         onChange={(e) => cambiar('precioBase', soloCifra(e.target.value, formato.separadorDecimal))} />
                 )}
               </Campo>
-              <Campo etiqueta="IVA %" ayuda="Opcional: vacío es 0 %." error={errores.ivaPct}>
+              <Campo etiqueta="IVA %" ayuda="19 % en material y equipo; vacío es 0 %." error={errores.ivaPct}>
                 {(a) => (
                   <input {...a} data-campo="ivaPct" inputMode="decimal" className="cifra-editable" autoComplete="off"
-                         value={datos.ivaPct} onChange={(e) => cambiar('ivaPct', e.target.value)} />
+                         value={datos.ivaPct} onChange={(e) => cambiar('ivaPct', soloCifra(e.target.value, formato.separadorDecimal))} />
                 )}
               </Campo>
               <Campo
@@ -310,7 +325,7 @@ export function FormularioDeRecurso({ recurso, tipoInicial, nombreInicial, alCer
                 {(a) => (
                   <input {...a} data-campo="precioTotal" inputMode="decimal" className="cifra-editable" autoComplete="off"
                          value={datos.precioTotal} readOnly={bloqueadoTotal} aria-readonly={bloqueadoTotal}
-                         onChange={(e) => cambiar('precioTotal', e.target.value)} />
+                         onChange={(e) => cambiar('precioTotal', soloCifra(e.target.value, formato.separadorDecimal))} />
                 )}
               </Campo>
             </div>
@@ -325,11 +340,11 @@ export function FormularioDeRecurso({ recurso, tipoInicial, nombreInicial, alCer
 
       {preguntando ? (
         <ElegirPresupuestos
-          titulo="Actualizar presupuestos abiertos"
+          titulo="Actualizar proyectos abiertos"
           pregunta={`Este recurso se usa en ${preguntando.presupuestos.length} ${
-            preguntando.presupuestos.length === 1 ? 'presupuesto abierto' : 'presupuestos abiertos'
+            preguntando.presupuestos.length === 1 ? 'proyecto abierto' : 'proyectos abiertos'
           }. ¿Desea actualizar su precio en ellos?`}
-          explicacion="Los que no marque quedan exactamente como estaban. El catálogo queda con el precio nuevo de todas formas, y los presupuestos activos y cerrados no se tocan."
+          explicacion="Los que no marque quedan exactamente como estaban. El catálogo queda con el precio nuevo de todas formas, y los proyectos activos y cerrados no se tocan."
           presupuestos={preguntando.presupuestos}
           alResponder={(elegidos) => guardarEdicion(preguntando.cuerpo, elegidos)}
           alCerrar={() => setPreguntando(null)}

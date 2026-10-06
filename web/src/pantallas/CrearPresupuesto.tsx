@@ -41,7 +41,7 @@ export function CrearPresupuesto({ alCerrar, alCrear }: { alCerrar: () => void; 
   async function enviar() {
     if (enviando) return;
     const faltan: Partial<Record<Campos, string>> = {};
-    if (datos.codigo.trim() === '') faltan.codigo = 'Escriba el código del presupuesto, por ejemplo PRE-2026-001.';
+    if (datos.codigo.trim() === '') faltan.codigo = 'Escriba el código del proyecto, por ejemplo PRE-2026-001.';
     if (datos.nombre.trim() === '') faltan.nombre = 'Escriba el nombre del proyecto.';
     if (datos.ubicacion.trim() === '') faltan.ubicacion = 'Escriba la ciudad o región de la obra.';
     if (datos.modoEstructura === '') faltan.modoEstructura = 'Elija la estructura: por ítems o por EDT.';
@@ -66,7 +66,7 @@ export function CrearPresupuesto({ alCerrar, alCrear }: { alCerrar: () => void; 
     } catch (e) {
       setEnviando(false);
       if (!(e instanceof ErrorDeApi)) {
-        setError('Algo falló en esta pantalla y no se creó el presupuesto. Intente de nuevo.');
+        setError('Algo falló en esta pantalla y no se creó el proyecto. Intente de nuevo.');
         return;
       }
       // Con campo, se marca el campo y el formulario sigue abierto (CONTRATO §2).
@@ -81,7 +81,7 @@ export function CrearPresupuesto({ alCerrar, alCrear }: { alCerrar: () => void; 
 
   return (
     <Capa
-      titulo="Crear Nuevo Presupuesto"
+      titulo="Crear Nuevo Proyecto"
       alCerrar={alCerrar}
       hayCambios={hayCambios}
       error={error}
@@ -92,12 +92,12 @@ export function CrearPresupuesto({ alCerrar, alCrear }: { alCerrar: () => void; 
             Cancelar
           </button>
           <button type="submit" className="boton boton-principal" disabled={enviando}>
-            {enviando ? 'Creando…' : 'Iniciar Presupuesto'}
+            {enviando ? 'Creando…' : 'Iniciar Proyecto'}
           </button>
         </>
       )}
     >
-      <Campo etiqueta="Código del presupuesto" ayuda="Lo elige usted y no se puede repetir en su empresa. Ejemplo: PRE-2026-001." error={errores.codigo}>
+      <Campo etiqueta="Código del proyecto" ayuda="Lo elige usted y no se puede repetir en su empresa. Ejemplo: PRE-2026-001." error={errores.codigo}>
         {(a) => (
           <input {...a} data-campo="codigo" autoComplete="off" spellCheck={false} value={datos.codigo}
                  onChange={(e) => cambiar('codigo', e.target.value)} />
@@ -143,7 +143,7 @@ export function CrearPresupuesto({ alCerrar, alCrear }: { alCerrar: () => void; 
             <span className="opcion-detalle">Capítulo → subcapítulo → actividad, con actividades también bajo el capítulo</span>
           </span>
         </label>
-        <p className="campo-ayuda">Se puede cambiar mientras el presupuesto esté Abierto.</p>
+        <p className="campo-ayuda">Se puede cambiar mientras el proyecto esté Abierto.</p>
         {errores.modoEstructura ? (
           <p id="error-estructura" className="campo-error" role="alert">{errores.modoEstructura}</p>
         ) : null}

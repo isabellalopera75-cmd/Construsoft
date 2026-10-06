@@ -7,7 +7,7 @@ import { Capa } from '../../componentes/Capa.tsx';
 import { Confirmacion } from '../../componentes/Confirmacion.tsx';
 import { Icono } from '../../componentes/Icono.tsx';
 import { aTexto, factorDePorcentaje, leer, multiplicar, sumar } from '../../decimal.ts';
-import { leerCifra, paraEditar } from '../../entrada.ts';
+import { leerCifra, paraEditar, soloCifra } from '../../entrada.ts';
 import { formatearNumero } from '../../formato.ts';
 import { useSesion } from '../../sesion.tsx';
 import { ElegirPresupuestos } from '../comun/ElegirPresupuestos.tsx';
@@ -152,7 +152,7 @@ export function FormularioDeApu({ apuId, nombreInicial, alCerrar, alGuardar, alC
     const faltan: Record<string, string> = {};
     if (nombre.trim() === '') faltan['nombre'] = 'Escriba el nombre de la actividad.';
     if (unidadId === '') faltan['unidadId'] = 'Elija la unidad de medida.';
-    if (lineas.length === 0) faltan['lineas'] = 'Agregue al menos un recurso: un APU sin composición no tiene costo y no puede entrar en un presupuesto.';
+    if (lineas.length === 0) faltan['lineas'] = 'Agregue al menos un recurso: un APU sin composición no tiene costo y no puede entrar en un proyecto.';
     const cuerpoLineas = lineas.map((l, i) => {
       const c = leerCifra(l.cantidad, { nombre: 'la cantidad', permitirCero: false });
       const r = leerCifra(l.rendimiento, { nombre: 'el rendimiento', permitirCero: false });
@@ -216,7 +216,7 @@ export function FormularioDeApu({ apuId, nombreInicial, alCerrar, alGuardar, alC
       alGuardar(
         r.apu,
         n > 0
-          ? `${r.apu.codigo} guardado y actualizado en ${n} ${n === 1 ? 'presupuesto' : 'presupuestos'}.`
+          ? `${r.apu.codigo} guardado y actualizado en ${n} ${n === 1 ? 'proyecto' : 'proyectos'}.`
           : `${r.apu.codigo} guardado.`,
       );
     } catch (e) {
@@ -242,7 +242,7 @@ export function FormularioDeApu({ apuId, nombreInicial, alCerrar, alGuardar, alC
       await pedir(`/api/apus/${encodeURIComponent(apu.id)}`, { metodo: 'PATCH', cuerpo: { activo } });
       setApu({ ...apu, activo });
       setBloqueoDeBorrado(null);
-      alCambiar?.(activo ? `${apu.codigo} activado.` : `${apu.codigo} marcado como inactivo: ya no se ofrece al armar presupuestos.`);
+      alCambiar?.(activo ? `${apu.codigo} activado.` : `${apu.codigo} marcado como inactivo: ya no se ofrece al armar proyectos.`);
     } catch (e) {
       setError(e instanceof ErrorDeApi ? e.message : 'No se pudo cambiar el estado del APU.');
     } finally {
@@ -425,9 +425,9 @@ export function FormularioDeApu({ apuId, nombreInicial, alCerrar, alGuardar, alC
 
       {preguntando ? (
         <ElegirPresupuestos
-          titulo="APU en uso en presupuestos abiertos"
-          pregunta="Este APU está en uso en presupuestos abiertos. ¿Desea actualizar su valor en dichos presupuestos?"
-          explicacion="Los que no marque quedan exactamente como estaban. La versión nueva del APU queda vigente de todas formas para los proyectos futuros, y los presupuestos activos y cerrados no se tocan."
+          titulo="APU en uso en proyectos abiertos"
+          pregunta="Este APU está en uso en proyectos abiertos. ¿Desea actualizar su valor en dichos proyectos?"
+          explicacion="Los que no marque quedan exactamente como estaban. La versión nueva del APU queda vigente de todas formas para los proyectos futuros, y los proyectos activos y cerrados no se tocan."
           presupuestos={preguntando.presupuestos}
           alResponder={(elegidos) => guardarEdicion(preguntando.cuerpo, elegidos)}
           alCerrar={() => setPreguntando(null)}
@@ -458,7 +458,7 @@ export function FormularioDeApu({ apuId, nombreInicial, alCerrar, alGuardar, alC
             }
           }}
         >
-          <p>Se eliminará «{apu.nombre}» con todas sus versiones. Si alguna actividad de algún presupuesto lo usa, el sistema no lo permitirá.</p>
+          <p>Se eliminará «{apu.nombre}» con todas sus versiones. Si alguna actividad de algún proyecto lo usa, el sistema no lo permitirá.</p>
         </Confirmacion>
       ) : null}
     </>
@@ -575,6 +575,7 @@ function TablaDeComposicion({
 }
 
 function CifraDeLinea({ etiqueta, valor, error, alCambiar }: { etiqueta: string; valor: string; error: string | undefined; alCambiar: (v: string) => void }) {
+  const decimal = useSesion().arranque.formatoNumerico.separadorDecimal;
   return (
     <span className="cifra-de-linea">
       <input
@@ -583,7 +584,7 @@ function CifraDeLinea({ etiqueta, valor, error, alCambiar }: { etiqueta: string;
         className="cifra-editable campo-compacto"
         value={valor}
         aria-invalid={Boolean(error)}
-        onChange={(e) => alCambiar(e.target.value)}
+        onChange={(e) => alCambiar(soloCifra(e.target.value, decimal))}
       />
       {error ? <span className="campo-error" role="alert">{error}</span> : null}
     </span>

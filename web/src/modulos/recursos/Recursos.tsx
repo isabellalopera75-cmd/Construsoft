@@ -5,10 +5,11 @@ import { useAvisos } from '../../componentes/Avisos.tsx';
 import { BotonVolver } from '../../cascaron/Cascaron.tsx';
 import { Icono } from '../../componentes/Icono.tsx';
 import { Pestanas } from '../../componentes/Pestanas.tsx';
-import { leerCifra } from '../../entrada.ts';
+import { leerCifra, soloCifra } from '../../entrada.ts';
 import { formatearNumero } from '../../formato.ts';
 import { useSesion } from '../../sesion.tsx';
 import { FormularioDeRecurso, NOMBRES_DE_TIPO } from './FormularioDeRecurso.tsx';
+import { ImportarExcel } from '../comun/ImportarExcel.tsx';
 import { TablaEsqueleto } from '../comun/TablaEsqueleto.tsx';
 
 /*
@@ -52,6 +53,7 @@ export function Recursos() {
   const [error, setError] = useState<string | null>(null);
   const [intento, setIntento] = useState(0);
   const [capa, setCapa] = useState<Capa>(null);
+  const [importando, setImportando] = useState(false);
 
   useEffect(() => {
     pedir<{ unidades: Unidad[] }>('/api/unidades').then((r) => setUnidades(r.unidades)).catch(() => setUnidades([]));
@@ -117,12 +119,20 @@ export function Recursos() {
           <h1>Recursos</h1>
           <p className="bajada">Catálogo maestro de materiales, equipos, personal y actividades a todo costo</p>
         </div>
-        {puedeCrear ? (
-          <button type="button" className="boton boton-principal" onClick={() => setCapa({ tipo: 'crear' })}>
-            <Icono nombre="mas" />
-            Crear Nuevo Recurso
-          </button>
-        ) : null}
+        <div className="acciones-de-encabezado">
+          {puedeCrear ? (
+            <button type="button" className="boton boton-secundario" onClick={() => setImportando(true)}>
+              <Icono nombre="subirArchivo" />
+              Importar desde Excel
+            </button>
+          ) : null}
+          {puedeCrear ? (
+            <button type="button" className="boton boton-principal" onClick={() => setCapa({ tipo: 'crear' })}>
+              <Icono nombre="mas" />
+              Crear Nuevo Recurso
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <div className="barra-de-filtros" role="search">
@@ -145,11 +155,11 @@ export function Recursos() {
           <div className="control-rango" role="group" aria-labelledby="etiqueta-rango">
             <label className="etiqueta-en-linea">
               Desde
-              <input inputMode="decimal" value={precioMin} onChange={(e) => setPrecioMin(e.target.value)} />
+              <input inputMode="decimal" value={precioMin} onChange={(e) => setPrecioMin(soloCifra(e.target.value, formato.separadorDecimal))} />
             </label>
             <label className="etiqueta-en-linea">
               hasta
-              <input inputMode="decimal" value={precioMax} onChange={(e) => setPrecioMax(e.target.value)} />
+              <input inputMode="decimal" value={precioMax} onChange={(e) => setPrecioMax(soloCifra(e.target.value, formato.separadorDecimal))} />
             </label>
           </div>
           {rango.error ? <p className="campo-error" role="alert">{rango.error}</p> : null}
@@ -254,6 +264,28 @@ export function Recursos() {
           </div>
         )}
       </div>
+
+      {importando ? (
+        <ImportarExcel
+          titulo="Importar recursos desde Excel"
+          que="recursos"
+          rutaPlantilla="/api/recursos/plantilla"
+          rutaImportar="/api/recursos/importar"
+          instrucciones={
+            <>
+              Una fila por recurso: nombre, tipo y unidad (de las listas desplegables) y <strong>uno solo</strong> de los dos
+              precios —sin IVA o con IVA—; el otro lo calcula el sistema. IVA vacío es 0 %. El código no se escribe: lo
+              asigna el sistema.
+            </>
+          }
+          alCerrar={() => setImportando(false)}
+          alImportar={(n) => {
+            setImportando(false);
+            avisar(n === 1 ? 'Se importó 1 recurso.' : `Se importaron ${n} recursos.`);
+            setIntento((x) => x + 1);
+          }}
+        />
+      ) : null}
 
       {capa ? (
         <FormularioDeRecurso

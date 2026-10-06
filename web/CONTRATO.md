@@ -536,3 +536,109 @@ Para que nadie lo lea creyendo que está completo: no están el cambio de estado
 —activar, cerrar, reabrir—, duplicar, archivar, eliminar, el historial, el alta
 de usuarios (02 §11.4), el logotipo (02 §11.2) ni la superadministración. Entran
 cuando les toque.
+
+---
+
+## 10. Importación desde Excel (PROPUESTO el 6 de octubre de 2026, sin construir)
+
+Decisión del dueño, 6 de octubre de 2026: el ingeniero descarga una plantilla,
+la llena en Excel y la sube para crear recursos o APU en bloque. Esta sección
+**propone** la forma: la interfaz ya la consume (`web/src/modulos/comun/
+ImportarExcel.tsx`) y la API todavía no la tiene. Hasta que exista, el botón
+«Importar desde Excel» recibe un 404 y lo muestra.
+
+### 10.1 Las cuatro rutas
+
+| Método y ruta | Qué hace | Permiso |
+|---|---|---|
+| `GET /api/recursos/plantilla` | La plantilla de recursos, como adjunto `.xlsx` | `RECURSOS.CREAR` |
+| `POST /api/recursos/importar` | Crea los recursos del archivo | `RECURSOS.CREAR` |
+| `GET /api/apus/plantilla` | La plantilla de APU, como adjunto `.xlsx` | `APU.CREAR` |
+| `POST /api/apus/importar` | Crea los APU del archivo | `APU.CREAR` |
+
+La plantilla la arma la API con `exceljs`, que ya usa para exportar. El cuerpo
+del `POST` es **el archivo tal cual**, con `content-type:
+application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`: ni JSON
+ni `multipart`. Tope de 2 MB y de 2000 filas por hoja; por encima, 413 con un
+mensaje que pide dividir el archivo.
+
+### 10.2 Las reglas que no se negocian
+
+- **Todo o nada.** El archivo entero se valida y se inserta en **una sola
+  transacción**. Si una fila falla, no entra ninguna. Así un archivo a medio
+  corregir nunca deja el catálogo a medias, y volver a subirlo no duplica lo
+  que sí había entrado. Es la respuesta del dueño a «qué pasa con las filas
+  malas».
+- **Solo crea; nunca actualiza.** El código lo asigna la base, como en el
+  formulario. Editar por Excel se saltaría la pregunta de qué proyectos
+  abiertos se actualizan (02 §5.3 y §6.4). Un archivo que repite un recurso o
+  un APU que ya existe es un error de esa fila, no una edición.
+- **Las cifras no pasan por coma flotante al guardarse.** Excel guarda los
+  números como dobles; la API lee el valor de la celda, lo convierte a texto
+  decimal con hasta seis decimales y redondeo a la mitad alejándose del cero,
+  y desde ahí sigue como cualquier otra cifra (regla 1.1). Una celda con texto
+  que no es una cifra («doce mil») es un error de esa fila.
+- **Las mismas validaciones que el formulario**, con los mismos mensajes. La
+  base sigue siendo el respaldo: un rechazo suyo dentro de la transacción se
+  traduce a la fila que lo causó.
+
+### 10.3 La plantilla de recursos
+
+Hoja **Instrucciones**, primero, con lo de abajo en palabras. Hoja
+**Recursos**, una fila por recurso:
+
+| Columna | Regla |
+|---|---|
+| Nombre | Obligatorio. |
+| Tipo | Lista desplegable: Material, Equipo, Personal, Actividad a todo costo. |
+| Unidad | Lista desplegable con los símbolos de la empresa, leídos al descargar. |
+| Precio base (sin IVA) | **Uno solo** de los dos precios. |
+| IVA % | Vacío es 0 %. |
+| Precio total (con IVA) | **Uno solo** de los dos precios. |
+
+La vía de captura se deduce de cuál precio se llenó, y el otro se calcula con
+la misma igualdad de `ck_recurso_precios_cuadran`. Los dos llenos es un error
+de la fila, aunque cuadren: no hay forma de saber cuál capturó la persona. Una
+hoja oculta **Listas** sostiene las listas desplegables.
+
+### 10.4 La plantilla de APU
+
+- **Instrucciones**, primero.
+- **APU**: una fila por APU con Clave (la pone el ingeniero: A1, A2…; solo une
+  las dos hojas y no se guarda), Nombre de la actividad y Unidad (lista
+  desplegable).
+- **Composición**: una fila por línea con Clave del APU, Código del recurso,
+  Cantidad, Rendimiento y Desperdicio %.
+- **Recursos**: el catálogo vigente de la empresa —código, nombre, tipo,
+  unidad, precio total—, de solo consulta, para buscar los códigos.
+
+Errores de fila propios de esta plantilla: una clave repetida en APU; una línea
+cuya clave no está en APU; un APU sin líneas (D-21); un código de recurso que
+no existe o que es de otra empresa —el mismo error para los dos, RN-01—;
+cantidad o rendimiento en cero o con más de seis decimales; desperdicio en un
+recurso que no es material.
+
+### 10.5 Las respuestas
+
+Bien: **201** `{ creados: n }`.
+
+Rechazado: **422** con la forma plana de siempre más una lista:
+
+```json
+{
+  "mensaje": "El archivo tiene 3 errores y no se importó nada. Corríjalos y vuelva a subirlo.",
+  "errores": [
+    { "hoja": "Recursos", "fila": 4, "columna": "Unidad",
+      "mensaje": "La unidad «mts» no existe en su empresa. Elija una de la lista desplegable." },
+    { "hoja": "Recursos", "fila": 9, "columna": null,
+      "mensaje": "Escriba uno solo de los dos precios, no los dos." }
+  ]
+}
+```
+
+`fila` es el número que Excel muestra a la izquierda, contando el encabezado:
+la persona tiene que poder ir directo a ella. `columna` es el título de la
+columna como sale en la plantilla, o `null` si el error es de la fila entera.
+Se informan **todos** los errores del archivo, no solo el primero. Un archivo
+que no es un `.xlsx` o que no trae la hoja esperada es un 422 sin `errores`,
+con un mensaje que lo dice.

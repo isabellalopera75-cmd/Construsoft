@@ -4,7 +4,7 @@ import type { Pie, Porcentajes } from '../../api/tipos.ts';
 import { Icono } from '../../componentes/Icono.tsx';
 import { PanelLateral } from '../../componentes/PanelLateral.tsx';
 import { aTexto, leer, porcentajeDe, sumar } from '../../decimal.ts';
-import { leerCifra, paraEditar } from '../../entrada.ts';
+import { leerCifra, paraEditar, soloCifra } from '../../entrada.ts';
 import { formatearNumero } from '../../formato.ts';
 import { useSesion } from '../../sesion.tsx';
 
@@ -23,7 +23,7 @@ import { useSesion } from '../../sesion.tsx';
 
 /** El texto lo fija el 02 §8.6. Se usa tal cual. */
 const AVISO_SIN_BASE =
-  'Este presupuesto no tiene capítulos de costo directo, así que el AIU da cero aunque esté configurado. ' +
+  'Este proyecto no tiene capítulos de costo directo, así que el AIU da cero aunque esté configurado. ' +
   'Si lo que estás presupuestando es un servicio, esos costos son el costo directo de ese contrato y deberían clasificarse así.';
 
 export function BarraDelPie({ pie, panelAbierto, alAlternarPanel }: { pie: Pie; panelAbierto: boolean; alAlternarPanel: () => void }) {
@@ -151,7 +151,7 @@ export function PanelDeDesglose({
           value={textos[k]}
           aria-invalid={Boolean(errores[k])}
           onChange={(e) => {
-            setTextos((t) => ({ ...t, [k]: e.target.value }));
+            setTextos((t) => ({ ...t, [k]: soloCifra(e.target.value, formato.separadorDecimal) }));
             if (errores[k]) setErrores((x) => ({ ...x, [k]: undefined }));
           }}
           onKeyDown={(e) => {
@@ -204,7 +204,7 @@ export function PanelDeDesglose({
             </div>
           </div>
         ) : (
-          <p className="campo-ayuda">Los porcentajes se editan con el presupuesto Abierto.</p>
+          <p className="campo-ayuda">Los porcentajes se editan con el proyecto Abierto.</p>
         )}
       </div>
     </PanelLateral>

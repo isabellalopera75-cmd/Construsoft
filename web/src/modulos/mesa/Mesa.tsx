@@ -159,8 +159,8 @@ export function Mesa({ id }: { id: string }) {
       <>
         <div className="encabezado-de-pantalla">
           <div className="encabezado-con-volver">
-            <BotonVolver a={{ pantalla: 'presupuestos' }} nombre="Presupuestos" />
-            <h1>{fallo.noExiste ? 'Ese presupuesto no existe' : 'No se pudo abrir la mesa'}</h1>
+            <BotonVolver a={{ pantalla: 'presupuestos' }} nombre="Proyectos" />
+            <h1>{fallo.noExiste ? 'Ese proyecto no existe' : 'No se pudo abrir la mesa'}</h1>
           </div>
         </div>
         <div className="aviso-error" role="alert">
@@ -194,12 +194,12 @@ export function Mesa({ id }: { id: string }) {
   const motivoDeSoloLectura = editable
     ? null
     : cabecera.estado === 'ACTIVO'
-      ? 'Este presupuesto está Activo: es la línea base contractual y no se edita. Para corregirlo, un Administrador tiene que reabrirlo con una justificación.'
+      ? 'Este proyecto está Activo: es la línea base contractual y no se edita. Para corregirlo, un Administrador tiene que reabrirlo con una justificación.'
       : cabecera.estado === 'CERRADO'
-        ? 'Este presupuesto está Cerrado: la obra terminó y no admite cambios. Para retomarlo, duplíquelo; la copia nace Abierta.'
+        ? 'Este proyecto está Cerrado: la obra terminó y no admite cambios. Para retomarlo, duplíquelo; la copia nace Abierta.'
         : soloLectura
-          ? 'La suscripción de su empresa no está vigente: puede consultar y exportar este presupuesto, pero no editarlo.'
-          : 'Puede consultar este presupuesto, pero su rol no tiene permiso para editarlo.';
+          ? 'La suscripción de su empresa no está vigente: puede consultar y exportar este proyecto, pero no editarlo.'
+          : 'Puede consultar este proyecto, pero su rol no tiene permiso para editarlo.';
 
   const cerrarDialogo = () => setDialogo(null);
   const conMesa = async (ruta: string, cuerpo?: unknown) => {
@@ -215,7 +215,7 @@ export function Mesa({ id }: { id: string }) {
       const p = await pedir<Presupuesto>(`${base}/${si ? 'archivar' : 'desarchivar'}`, { metodo: 'POST' });
       setPresupuesto(p);
       setCambios((n) => n + 1);
-      avisar(si ? 'Presupuesto archivado: ya no aparece en la lista, salvo con «Ver archivados».' : 'Presupuesto desarchivado: vuelve a la lista.');
+      avisar(si ? 'Proyecto archivado: ya no aparece en la lista, salvo con «Ver archivados».' : 'Proyecto desarchivado: vuelve a la lista.');
     } catch (e) {
       if (!(e instanceof ErrorDeApi && e.estado === 401)) setAviso(e instanceof ErrorDeApi ? e.message : 'No se pudo archivar.');
     } finally {
@@ -227,7 +227,7 @@ export function Mesa({ id }: { id: string }) {
     <div className="mesa" data-panel={panel ? 'abierto' : 'cerrado'}>
       <header className="tarjeta encabezado-de-mesa">
         <div className="encabezado-de-mesa-arriba">
-          <BotonVolver a={{ pantalla: 'presupuestos' }} nombre="Presupuestos" />
+          <BotonVolver a={{ pantalla: 'presupuestos' }} nombre="Proyectos" />
           <span className="codigo-de-mesa">{cabecera.codigo}</span>
           <InsigniaDeEstado estado={cabecera.estado} />
           {archivado ? <span className="insignia insignia-archivado">Archivado</span> : null}
@@ -254,7 +254,7 @@ export function Mesa({ id }: { id: string }) {
             ) : null}
             {cabecera.estado === 'ACTIVO' && esAdmin ? (
               <button type="button" className="boton boton-secundario" disabled={ocupado} onClick={() => setDialogo({ tipo: 'reabrir' })}>
-                Reabrir Presupuesto
+                Reabrir Proyecto
               </button>
             ) : null}
             {editable ? (
@@ -264,7 +264,7 @@ export function Mesa({ id }: { id: string }) {
               </button>
             ) : null}
             {puede('PRESUPUESTOS.EXPORTAR') ? (
-              <span className="grupo-exportar" role="group" aria-label="Exportar Presupuesto">
+              <span className="grupo-exportar" role="group" aria-label="Exportar Proyecto">
                 <a className="boton boton-secundario" href={enlaceDeExportacion('presupuestos', cabecera.id, 'pdf')} download>
                   <Icono nombre="descargar" />
                   PDF
@@ -293,7 +293,7 @@ export function Mesa({ id }: { id: string }) {
             {puedeEscribir('PRESUPUESTOS.DUPLICAR') ? (
               <button type="button" className="boton boton-secundario" disabled={ocupado} onClick={() => setDialogo({ tipo: 'duplicar' })}>
                 <Icono nombre="copiar" />
-                Duplicar Presupuesto
+                Duplicar Proyecto
               </button>
             ) : null}
             {puedeEscribir('PRESUPUESTOS.EDITAR') ? (
@@ -349,7 +349,7 @@ export function Mesa({ id }: { id: string }) {
 
       {vacia ? (
         <div className="vacio">
-          <p className="vacio-titulo">Este presupuesto todavía no tiene capítulos.</p>
+          <p className="vacio-titulo">Este proyecto todavía no tiene capítulos.</p>
           <p>
             {editable
               ? 'Empiece con «Agregar Capítulo». Cada capítulo de primer nivel es de costo directo o indirecto, y lo que cuelga de él hereda esa naturaleza.'
@@ -424,7 +424,7 @@ export function Mesa({ id }: { id: string }) {
       {dialogo?.tipo === 'eliminar-actividad' ? (
         <Confirmacion
           titulo="Quitar actividad"
-          textoConfirmar="Quitar del presupuesto"
+          textoConfirmar="Quitar del proyecto"
           textoEnviando="Quitando…"
           peligroso
           alCerrar={cerrarDialogo}
@@ -436,7 +436,7 @@ export function Mesa({ id }: { id: string }) {
         >
           <p>
             Se quitará <strong>{dialogo.actividad.codigoItem} {dialogo.actividad.descripcion}</strong> ({dialogo.actividad.codigoApu}) de este
-            presupuesto. El APU sigue en el catálogo.
+            proyecto. El APU sigue en el catálogo.
           </p>
         </Confirmacion>
       ) : null}
@@ -450,7 +450,7 @@ export function Mesa({ id }: { id: string }) {
             const cambioDatos = datos.codigo !== cabecera.codigo || datos.nombre !== cabecera.nombre || datos.ubicacion !== cabecera.ubicacion;
             if (cambioDatos) aplicar(await pedir<DatosDeMesa>(`${base}/cabecera`, { metodo: 'PUT', cuerpo: datos }));
             if (modo) aplicar(await pedir<DatosDeMesa>(`${base}/estructura`, { metodo: 'PUT', cuerpo: { modoEstructura: modo } }));
-            avisar('Datos del presupuesto guardados.');
+            avisar('Datos del proyecto guardados.');
             cerrarDialogo();
           }}
         />
@@ -509,19 +509,19 @@ export function Mesa({ id }: { id: string }) {
 
       {dialogo?.tipo === 'reabrir' ? (
         <Confirmacion
-          titulo="Reabrir el presupuesto"
-          textoConfirmar="Reabrir presupuesto"
+          titulo="Reabrir el proyecto"
+          textoConfirmar="Reabrir proyecto"
           textoEnviando="Reabriendo…"
           pideTexto={{ etiqueta: 'Justificación', ayuda: 'Queda en el historial con su nombre, la fecha y la hora, y nadie puede borrarla.', campo: 'justificacion', vacio: 'Escriba la justificación: sin ella no se puede reabrir.' }}
           alCerrar={cerrarDialogo}
           alConfirmar={async (justificacion) => {
             await conMesa(`${base}/reabrir`, { justificacion });
-            avisar('Presupuesto reabierto. La línea base anterior quedó guardada como versión.');
+            avisar('Proyecto reabierto. La línea base anterior quedó guardada como versión.');
             cerrarDialogo();
           }}
         >
           <p>
-            El presupuesto vuelve a Abierto y se puede editar. Antes se guarda una versión con su estado actual, para que la
+            El proyecto vuelve a Abierto y se puede editar. Antes se guarda una versión con su estado actual, para que la
             línea base anterior quede consultable. Al volver a activarlo, la nueva versión pasa a ser la línea base vigente.
           </p>
         </Confirmacion>
@@ -541,7 +541,7 @@ export function Mesa({ id }: { id: string }) {
             cerrarDialogo();
           }}
         >
-          <p>Se guarda una fotografía completa del presupuesto tal como está ahora. Se puede consultar y exportar después, pero no se edita.</p>
+          <p>Se guarda una fotografía completa del proyecto tal como está ahora. Se puede consultar y exportar después, pero no se edita.</p>
         </Confirmacion>
       ) : null}
 
@@ -553,7 +553,7 @@ export function Mesa({ id }: { id: string }) {
           alCerrar={cerrarDialogo}
           alDuplicar={(nuevoId) => {
             cerrarDialogo();
-            avisar('Presupuesto duplicado. Está viendo la copia, que nace Abierta.');
+            avisar('Proyecto duplicado. Está viendo la copia, que nace Abierta.');
             ir({ pantalla: 'mesa', id: nuevoId });
           }}
         />
@@ -561,20 +561,20 @@ export function Mesa({ id }: { id: string }) {
 
       {dialogo?.tipo === 'eliminar' ? (
         <Confirmacion
-          titulo={`Eliminar el presupuesto ${cabecera.codigo}`}
-          textoConfirmar="Eliminar presupuesto"
+          titulo={`Eliminar el proyecto ${cabecera.codigo}`}
+          textoConfirmar="Eliminar proyecto"
           textoEnviando="Eliminando…"
           peligroso
-          pideTexto={{ etiqueta: 'Motivo', ayuda: 'Es lo único que queda del presupuesto en el registro.', campo: 'motivo', vacio: 'Escriba por qué se elimina: es lo único que queda del presupuesto.' }}
+          pideTexto={{ etiqueta: 'Motivo', ayuda: 'Es lo único que queda del proyecto en el registro.', campo: 'motivo', vacio: 'Escriba por qué se elimina: es lo único que queda del proyecto.' }}
           alCerrar={cerrarDialogo}
           alConfirmar={async (motivo) => {
             await pedir<void>(`${base}/eliminar`, { metodo: 'POST', cuerpo: { motivo } });
-            avisar(`Presupuesto ${cabecera.codigo} eliminado.`);
+            avisar(`Proyecto ${cabecera.codigo} eliminado.`);
             ir({ pantalla: 'presupuestos' });
           }}
         >
           <p>
-            Se borra el presupuesto con todo lo suyo: su estructura, sus versiones y su historial. Esto no se deshace. Queda
+            Se borra el proyecto con todo lo suyo: su estructura, sus versiones y su historial. Esto no se deshace. Queda
             solo la constancia de que existió y el motivo que escriba.
           </p>
           <p className="campo-ayuda">Si es una licitación que no se ganó, considere archivarlo: se conserva y sale de la lista.</p>
