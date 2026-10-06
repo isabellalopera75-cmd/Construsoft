@@ -182,6 +182,88 @@ El presupuesto de ejemplo de la sección 18 debe cerrar exactamente en
 
 ---
 
+## Quién hace qué, desde el 4 de octubre de 2026
+
+Dos asistentes trabajan en este repositorio y **no comparten ningún archivo**.
+Dos autores no se pisan si no tocan los mismos archivos.
+
+| Dueño | Qué le pertenece |
+|---|---|
+| **El asistente de la API** (Claude Code, en esta terminal) | Todo `src/`, `scripts/`, las pruebas, `package.json` de la raíz, el guion de datos de demostración |
+| **El asistente del producto** (en el chat del dueño) | Todo `web/`, `docs/05 - …schema.sql`, y los documentos 01, 02, 04 y 06 |
+
+La frontera es la API, y está escrita en **`web/CONTRATO.md`**. El esquema manda
+sobre el contrato; el contrato manda sobre las dos implementaciones; el 02 manda
+sobre lo que la pantalla tiene que hacer.
+
+**Nunca toques `web/`, `docs/` ni el esquema.** Si necesitás un cambio ahí,
+pedilo por la bitácora.
+
+### Las dos bitácoras
+
+El dueño no reenvía mensajes entre los dos asistentes: cuesta demasiado. El
+canal es el repositorio.
+
+- **`bitacora-api.md`** la escribís vos. El otro asistente la lee.
+- **`bitacora-web.md`** la escribe el otro. Vos la leés.
+
+**Las dos se leen al empezar cada sesión y se escriben al terminarla.** Son de
+solo-agregar: entradas nuevas al principio, con la fecha, y nunca se borra ni se
+reescribe lo de arriba. Cada entrada dice, en pocas líneas:
+
+1. **Qué quedó hecho**, con el commit.
+2. **Qué divergió del contrato**, si algo divergió, y en qué dirección se
+   resolvió.
+3. **Qué necesito del otro lado**, si necesito algo, y si me bloquea o no.
+4. **Qué encontré que el otro debería saber** aunque no me bloquee.
+
+Nada de narrar el proceso: lo que el otro necesita para seguir, y nada más.
+
+### Cuándo seguís solo y cuándo te detenés
+
+**Seguí sin preguntar** cuando la respuesta está en el esquema, en los
+documentos o en el contrato; cuando es una ruta, una prueba o un refactor de lo
+tuyo; cuando el contrato describe mal lo que la API ya devuelve —ahí corregís el
+contrato por la bitácora y seguís—; y cuando el camino obvio es uno solo.
+Trabajá con confianza: la mayor parte del tiempo no hay nada que preguntar.
+
+**Detenete y escribilo en la bitácora** en estos casos, y solo en estos:
+
+- **Hace falta un cambio de esquema.** El esquema no es tuyo. Describí el
+  problema, no lo arregles.
+- **Es una decisión de producto que ningún documento cubre** y que un usuario
+  notaría: un texto que lee una persona, un comportamiento de pantalla, una
+  regla de negocio nueva.
+- **Dos árbitros se contradicen.** Decilo, no elijas en silencio.
+- **Cambiaría la forma de una respuesta que la interfaz ya consume.** Primero se
+  cambia el contrato, después el código.
+- **Haría falta un secreto, una contraseña o una credencial.** Nunca. Ni
+  generarla, ni proponerla, ni escribirla en un archivo. Es la regla 8.
+
+Si algo te detiene, **no te quedes esperando**: anotalo y seguí con lo
+siguiente de tu lista. Avisale al dueño en una línea solo si te bloquea del
+todo.
+
+### Lo que nunca es autónomo
+
+- **La base de desarrollo `construsoft` no se toca**, y las credenciales
+  `TEST_SUPERUSER_*` no se usan contra ella. Tu base es `construsoft_test`.
+- **Nada de borrar ni reescribir datos** fuera de `construsoft_test`.
+- **Nada de barridos de formato** —fines de línea, comillas, sangrías— mezclados
+  con un cambio de verdad. Si hace falta uno, va en su propio commit y con ese
+  nombre.
+- **El esquema no se edita ni se parchea**, ni «solo para probar».
+
+### Dos hábitos que ya pagaron
+
+- **Mutá una defensa a la vez.** Con varias quitadas, unas tapan a otras y el
+  rojo no demuestra nada sobre cada una.
+- **Antes de confiar en una prueba, comprobá que falle.** Una prueba del
+  invariante de la EDT pasaba también con el esquema roto; el defecto apareció
+  recién cuando se armó el caso con la precondición exacta.
+
+---
+
 ## Cómo trabajar conmigo
 
 - Si algo de la documentación no resuelve un caso, **pregunta. No lo inventes.**

@@ -242,6 +242,55 @@ un botón de 24 no.
 
 ---
 
+## 7 bis. El mapa de navegación
+
+**El flujo está en el documento 02 y no se repite acá.** Cada sección suya dice
+de dónde se entra y a dónde se sale, y volver a escribirlo en este documento
+crearía dos fuentes que algún día se contradicen. Lo que sigue es un índice para
+encontrarlo, con el número de sección donde está la conducta.
+
+```
+  Registro (§3.1) ─┐
+                   ├─► Ingreso (§3.2) ──► redirige según rol y plan
+  Recuperación (§3.3)                     │
+                                          ▼
+                              PANTALLA DE INICIO (§4)
+                       menú de módulos, solo los que el rol permite
+                                          │
+        ┌───────────────┬─────────────────┼──────────────────┐
+        ▼               ▼                 ▼                  ▼
+   Recursos (§5.1)  APU (§6.1)   Presupuestos (§7)   Configuración (§11)
+        │               │                 │            engranaje, pestañas
+   pop-out de      pop-out de        «Crear» (§7.1)         │
+   crear/editar    consulta, con     redirige a la      ┌───┴───┐
+   (§5.2, §5.3)    «Editar» dentro        ▼            Mi cuenta (§11.1)
+        │          (§6.2, §6.3)    MESA DE TRABAJO      Empresa (§11.2)
+        │               │               (§8)           Suscripción (§11.3)
+        │               │                 │             Usuarios (§11.4)
+        │               │           estados, duplicar,  Preferencias (§11.5)
+        │               │           exportar (§9)       Parametrización (§11.6)
+        │               │           versiones (§10)     Notificaciones (§11.7)
+        │               │                 │
+        └───────────────┴─────────────────┘
+              las capas se anidan hasta tres:
+              mesa → APU (§8.3) → recurso (§6.2)
+
+  Suscripción no vigente (§3.4): se entra igual y queda en SOLO LECTURA.
+  Superadministración (§3.5): URL propia, no comparte el ingreso.
+```
+
+Dos cosas que el mapa deja ver y conviene tener presentes:
+
+- **El menú de inicio es la única bifurcación.** Todo lo demás es entrar a un
+  módulo y volver. Por eso el **botón Volver** aparece en el 02 en §6.1, §7 y
+  §11: es parte de la navegación y no un adorno, y en este producto siempre
+  lleva al inicio o al nivel de arriba, nunca al historial del navegador.
+- **Casi nada redirige.** Solo el ingreso y el «Iniciar Presupuesto» del §7.1
+  cambian de pantalla; todo el resto de crear, consultar y editar ocurre en una
+  capa encima de donde estabas.
+
+---
+
 ## 8. Los componentes
 
 **Botones.** Tres y nada más:
@@ -295,12 +344,31 @@ que la capa no es un adorno, es la estructura, y tiene reglas:
   de la capa**, con `role="alert"`, para que se anuncie y no haya que buscarlo.
 - **En pantalla angosta la capa ocupa todo** y se comporta como una hoja.
 
-**Se anidan, y solo hasta dos.** Desde la mesa de trabajo, cuando una actividad
-no existe, «+ Crear Nuevo APU» abre el formulario de APU **encima** del
-formulario de actividad, y al guardarlo el APU nuevo queda asignado al capítulo
-sin perder lo que se había escrito (02 §8.3). Ese es el único anidamiento que
-existe y **el límite es dos niveles**: el escape cierra la de arriba y nunca las
-dos, y una tercera capa significa que el flujo está mal planteado.
+**Se anidan, y hay que contarlas bien.** El 02 especifica dos saltos, no uno:
+
+- Desde la mesa de trabajo, cuando una actividad no existe, «+ Crear Nuevo APU»
+  abre el formulario de APU encima del de actividad, y al guardarlo el APU queda
+  asignado al capítulo sin perder lo escrito (§8.3).
+- Desde el formulario de un APU, cuando un recurso no existe, un acceso directo
+  abre el de crear recursos, y al guardarlo el recurso queda asignado al APU
+  «sin perder lo que ya se había» armado (§6.2).
+
+Los dos juntos dan **tres niveles**: mesa → APU → recurso. Este documento decía
+antes que el anidamiento era uno solo y que el límite eran dos, y era falso: el
+02 manda sobre la conducta de la interfaz y especifica los dos saltos. Corregido
+el 4 de octubre de 2026.
+
+Las reglas con tres niveles:
+
+- **Escape cierra solo la de arriba**, nunca la pila.
+- **Cada capa guarda sus propios cambios sin guardar** y pregunta por los suyos.
+  Perder el APU a medio armar por cerrar el de recursos sería exactamente lo que
+  el §6.2 promete que no pasa.
+- **Al guardar una capa, lo creado se asigna a la de abajo y el foco vuelve
+  ahí**, al control que la abrió.
+- **Tres es el techo**, y no por elegancia: no hay en el 02 ningún cuarto salto.
+  Si aparece uno, es una pregunta para el dueño, no una decisión de quien
+  programa.
 
 **Diálogos.** Para confirmar algo que no se deshace, y el texto dice qué va a
 pasar, no «¿está seguro?». El de activar un proyecto ya está escrito en el 02
@@ -338,3 +406,43 @@ pasar, no «¿está seguro?». El de activar un proyecto ya está escrito en el 
 - Un `placeholder` en lugar de una etiqueta.
 - Más de un botón principal por pantalla.
 - Una animación que no se pueda apagar con `prefers-reduced-motion`.
+
+---
+
+## 11. Iconos y anchos, que no estaban decididos
+
+**Iconos: trazo, 1,5 px, 24×24 de caja.** La maqueta usa iconos de trazo
+embebidos como SVG, de la familia de Lucide, y se sigue con eso: se copian al
+repositorio los que se usen, en vez de instalar una librería entera para
+veinte iconos. Un icono nunca va solo cuando es la única forma de entender un
+control: lleva texto al lado, o un `aria-label` si de verdad no cabe.
+
+**Los anchos.** Tres, y el tercero es una renuncia explícita:
+
+| | Qué pasa |
+|---|---|
+| Hasta 640 px | La barra lateral se vuelve un cajón. Funcionan ingresar, ver la lista de presupuestos y consultar; las capas ocupan toda la pantalla. |
+| 641 a 1024 px | Barra lateral colapsada a iconos. La mesa se puede leer; editarla es incómodo y se acepta. |
+| Más de 1024 px | Todo. El contenido se centra con 1280 px de ancho máximo. |
+
+**La mesa de trabajo no se pretende usable en un teléfono**, y es una decisión,
+no una falta: armar una EDT de cien actividades con el pulgar no es un caso real.
+Lo que sí tiene que funcionar en un teléfono es entrar, mirar la lista de
+presupuestos y abrir uno para consultarlo.
+
+---
+
+## 12. Lo que todavía no está decidido
+
+Para que nadie lo lea creyendo que está completo:
+
+- **El logotipo.** No existe: la maqueta solo trae iconos, y los `logo-*` del
+  tablero son para el logo del *cliente* que va en el PDF. Mientras no haya, la
+  marca es la palabra «ConstruSoft» compuesta en Newsreader. Es el punto 3 del
+  01 §17.
+- **Los textos exactos de las pantallas** están en el 02 cuando el 02 los fija
+  —el diálogo de activar, por ejemplo— y se usan textual. Donde no los fija, los
+  escribe quien construye la pantalla y quedan a revisión del dueño.
+- **El tablero del inicio.** El 02 §4 dice que el inicio es un menú. El dueño
+  pidió además cifras reales, que son alcance nuevo y dependen de un endpoint
+  que todavía no existe.

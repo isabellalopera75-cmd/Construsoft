@@ -335,8 +335,9 @@
 --         moviera, desarchivar una licitación de hace un año la pondría arriba
 --         de la lista como si se acabara de trabajar en ella.
 --   D-59  (posterior a la auditoría · amplía un disparador) Editar presupuestos
---         exige también Ver APU. Es el único prerrequisito ENTRE módulos, y por
---         eso se escribe aparte en vez de generalizarlo: no es que todos
+--         exige también Ver APU. Es uno de los dos prerrequisitos ENTRE
+--         módulos —el otro es D-70, de la misma forma— y por eso se escribe
+--         aparte en vez de generalizarlo: no es que todos
 --         dependan de todos, es que una actividad de la mesa de trabajo ES un
 --         APU con una cantidad, así que sin el catálogo la pantalla se abre y el
 --         buscador no ofrece nada. Decisión del dueño del proyecto, 30 de
@@ -488,6 +489,24 @@
 --         para vigilar que el desempate del orden siguiera siendo inobservable.
 --         El desempate estaba bien; leerlo dos veces, no. La prueba está en
 --         docs/prueba-edt.sql y falla contra el esquema anterior.
+--
+--   D-70  (posterior a la auditoría · amplía el mismo disparador que D-59)
+--         Crear o editar un APU exige también Ver recursos. Lo encontró el
+--         asistente de la API el 5 de octubre de 2026, construyendo la
+--         pantalla de APU: un rol con APU.CREAR y sin RECURSOS.VER abre el
+--         formulario y el buscador de recursos no devuelve nada.
+--            Es el gemelo de D-59 y se escribe igual —aparte, sin
+--         generalizar—, y con él la lista de prerrequisitos entre módulos
+--         queda cerrada en dos: son los dos eslabones de la cadena
+--         recurso → APU → presupuesto, no el principio de una regla
+--         general. Si algún día aparece un tercero, quien lo escriba tiene
+--         que poder nombrar el eslabón; si no puede, lo que falta es un
+--         permiso DENTRO de un módulo y eso ya lo cubre la regla de
+--         RF-CFG-25.
+--            Alcanza a CREAR y a EDITAR y no a ELIMINAR: borrar un APU sin
+--         uso no obliga a componer sus líneas. Y como sus hermanas cubre el
+--         DELETE, así que quitarle RECURSOS.VER a un rol que arma APU se
+--         rechaza al confirmar la transacción.
 --
 --  ---------------------------------------------------------------------------
 --  LO QUE SIGUE ABIERTO, A PROPÓSITO
@@ -3397,7 +3416,7 @@ BEGIN
           v_modulos;
     END IF;
 
-    -- D-59 · El unico prerrequisito ENTRE modulos: editar un presupuesto exige
+    -- D-59 · Primer prerrequisito ENTRE modulos: editar un presupuesto exige
     -- ver el catalogo de APU.
     --
     -- La regla de arriba es dentro de un modulo; esta cruza dos, y por eso se
@@ -3422,6 +3441,36 @@ BEGIN
           'Un rol que edita presupuestos necesita tambien Ver APU: una actividad '
           'de la mesa de trabajo es un APU con una cantidad, y sin el catalogo '
           'la pantalla se abre vacia. Marque Ver en el modulo APU (D-59).';
+    END IF;
+
+    -- D-70 · Segundo prerrequisito ENTRE modulos: crear o editar un APU
+    -- exige ver el catalogo de recursos.
+    --
+    -- Es el gemelo exacto de D-59 y se escribe igual, aparte y sin
+    -- generalizar: una linea de un APU ES un recurso con una cantidad y un
+    -- rendimiento, asi que sin ver el catalogo el formulario se abre y el
+    -- buscador de recursos no ofrece nada. Dos prerrequisitos entre modulos no
+    -- son el principio de una regla general: son los dos eslabones de la
+    -- cadena recurso -> APU -> presupuesto, y la cadena tiene exactamente dos.
+    --
+    -- Alcanza a CREAR y a EDITAR, no a ELIMINAR: borrar un APU sin uso no
+    -- obliga a componer sus lineas. Y cubre el DELETE como sus hermanas:
+    -- quitarle RECURSOS.VER a un rol que arma APU se rechaza al confirmar la
+    -- transaccion.
+    --
+    -- Sin ERRCODE y sin USING COLUMN, igual que su hermana: las dos son la
+    -- misma clase de rechazo y la API ya las trata juntas.
+    IF EXISTS (SELECT 1 FROM app.rol_permiso rp
+                WHERE rp.rol_id = v_rol
+                  AND rp.permiso_codigo IN ('APU.CREAR','APU.EDITAR'))
+       AND NOT EXISTS (SELECT 1 FROM app.rol_permiso rp
+                        WHERE rp.rol_id = v_rol
+                          AND rp.permiso_codigo = 'RECURSOS.VER')
+    THEN
+        RAISE EXCEPTION
+          'Un rol que crea o edita APU necesita tambien Ver recursos: una linea '
+          'de un APU es un recurso con una cantidad, y sin el catalogo el '
+          'buscador no ofrece nada. Marque Ver en el modulo RECURSOS (D-70).';
     END IF;
     RETURN NULL;
 END $$;

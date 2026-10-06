@@ -10,7 +10,7 @@ manda sobre lo que la pantalla tiene que hacer. Si la API y este archivo
 discrepan, no se arregla el código en silencio: se dice, y se corrige el que
 esté equivocado.
 
-**Versión:** borrador 4, 4 de octubre de 2026. Derivado del 02 §7 y §8 y de las
+**Versión:** borrador 5, 4 de octubre de 2026. Derivado del 02 §7 y §8 y de las
 funciones de lectura que ya existen en el esquema.
 
 ---
@@ -100,6 +100,32 @@ traduce. La interfaz solo ve el estado HTTP y el mensaje:
 `campo` solo cuando el error es de un dato concreto. Los errores de programación
 responden 500 y **nunca** muestran su texto.
 
+**Qué hace la interfaz con `campo`, y por qué importa.** Con `campo`, marca ese
+campo y deja el formulario abierto: el usuario corrige y reintenta. Sin `campo`,
+muestra el mensaje y **recarga la mesa**, porque el rechazo no es de un dato sino
+del estado del mundo. Esta es la lista de hoy:
+
+| Rechazo | `campo` |
+|---|---|
+| `nombre` vacío o ausente | `nombre` |
+| `clasificacion` ausente, inválida, o enviada a un subnivel | `clasificacion` |
+| `posicion` que no es un entero, o menor que 1 | `posicion` |
+| PATCH con `nombre` y `clasificacion` a la vez, o sin ninguno | — |
+| Subnivel en un presupuesto en modo `ITEMS` | — |
+| Reclasificar un subnivel | — |
+| Posición fuera de rango | — |
+| El presupuesto ya no está Abierto | — |
+
+Los cuatro últimos los levanta la base, y por eso llegan sin campo.
+
+**Hay una inconsistencia conocida en esa tabla, y está anotada a propósito:**
+`posicion` llega con campo cuando la valida la API —no es entero, es menor que
+1— y sin campo cuando la rechaza la base por estar fuera de rango. Es el mismo
+campo y la misma corrección, y la pantalla reacciona distinto: en un caso marca
+el control, en el otro recarga toda la mesa. Recargar no está mal —la mesa nueva
+trae el conteo real de hermanos— pero es desproporcionado para un número que el
+usuario puede corregir ahí mismo.
+
 **Por qué «ya no está Abierto» llega como 422 y no como 409.** Todos los rechazos
 de negocio de la base salen con el mismo SQLSTATE, así que hoy la API no puede
 distinguir «el dato que mandaste no sirve» de «el mundo cambió debajo tuyo».
@@ -116,7 +142,7 @@ pruebas para no ganar nada. **Manda la forma plana.**
 
 ---
 
-## 3. Lo que ya existe (rebanada 6.1)
+## 3. Sesión, registro y vista maestra (rebanada 6.1)
 
 | Método y ruta | Para qué |
 |---|---|
@@ -125,7 +151,7 @@ pruebas para no ganar nada. **Manda la forma plana.**
 | `DELETE /api/sesion` | Salir |
 | `GET /api/sesion` | El arranque: usuario, permisos, estado de la suscripción |
 | `GET /api/terminos` | Los documentos legales de la versión vigente |
-| `POST /api/recuperacion` | Pide un enlace de recuperación |
+| `POST /api/recuperacion` | Consume un enlace y fija la contraseña nueva |
 | `GET /api/presupuestos` | Vista maestra |
 | `POST /api/presupuestos` | Crear un presupuesto (02 §7.1) |
 | `GET /api/presupuestos/:id` | Cabecera de un presupuesto |
@@ -226,7 +252,7 @@ Parámetros: `?texto=` (nombre o código), `?estado=` (`ABIERTO`, `ACTIVO`,
 `CERRADO`) y `?archivados=true`, que muestra **solo** los archivados —es el
 interruptor «ver archivados» de la pantalla, no un «incluirlos también»—.
 
-## 4. Lo que falta: la mesa de trabajo
+## 4. La mesa de trabajo
 
 ### 4.1 `GET /api/presupuestos/:id/mesa`
 
@@ -317,11 +343,11 @@ Notas que no son opcionales:
 
 | Método y ruta | Cuerpo | Notas |
 |---|---|---|
-| `POST /api/presupuestos/:id/capitulos` | `{ nombre, clasificacion }` | Primer nivel. `clasificacion` es obligatoria y sin valor por defecto (02 §8.4) |
+| `POST /api/presupuestos/:id/capitulos` | `{ nombre, clasificacion }` | Primer nivel. `clasificacion` es obligatoria y sin valor por defecto (02 §8.4). Comprueba primero que el presupuesto exista: la llave foránea no mira el aislamiento por filas, así que sin esa comprobación el id de otra empresa llegaría como 422 en vez de 404 y delataría que existe |
 | `POST /api/nodos/:nodoId/subniveles` | `{ nombre }` | Hereda la clasificación; no la acepta. En un presupuesto en modo `ITEMS` la base lo rechaza con 422, así que la interfaz esconde el botón mirando `modoEstructura` |
 | `PATCH /api/nodos/:id` | `{ nombre }` o `{ clasificacion }` | Reclasificar solo donde `padreId === null`, que es la definición de capítulo de primer nivel |
-| `POST /api/nodos/:id/mover` | `{ posicion }` | Absoluta, entre sus hermanos (sección 1.4) |
-| `DELETE /api/nodos/:id` | — | 409 si tiene contenido y no llega `?confirmado=si`. Los conteos van **dentro del `mensaje`** («tiene 2 subniveles y 7 actividades…»), así que el cuerpo sigue siendo `{ mensaje }` |
+| `POST /api/nodos/:id/mover` | `{ posicion }` | Absoluta, entre sus hermanos (sección 1.4). **Con el id de una actividad responde 404**: las actividades se mueven por su propia ruta. La interfaz sabe de qué tipo es cada fila porque vienen en arreglos distintos, así que tiene una sola función `mover(id, tipo, posicion)` que elige la ruta |
+| `DELETE /api/nodos/:id` | — | 409 si tiene contenido y no llega `?confirmado=si`; un nivel vacío se borra sin preguntar. Los conteos van **dentro del `mensaje`**, así que el cuerpo sigue siendo `{ mensaje }`: «Este nivel tiene 1 subnivel y 2 actividades. Si lo elimina, se elimina todo lo que contiene. Confirme para continuar.» La interfaz muestra ese texto tal cual en el diálogo —ya está escrito para la persona— y reintenta con `?confirmado=si` |
 
 ### 4.3 Actividades
 
@@ -356,9 +382,144 @@ Se editan en el panel del pie y solo con el presupuesto Abierto. Responde con el
 
 ---
 
-## 5. Lo que este contrato todavía no cubre
+## 5. Recursos (02 §5)
 
-Para que nadie lo lea creyendo que está completo: no están el alta de
-presupuesto, el cambio de estado —activar, cerrar, reabrir—, duplicar, archivar,
-eliminar, las exportaciones, los módulos de Recursos y APU completos, el
-historial ni la configuración. Entran cuando les toque su rebanada.
+| Ruta | Qué hace | Permiso |
+|---|---|---|
+| `GET /api/unidades[?para=APU]` | Las unidades de un desplegable | `RECURSOS.VER`, o `APU.VER` con `?para=APU` |
+| `GET /api/recursos` | Catálogo filtrado | `RECURSOS.VER` |
+| `POST /api/recursos` | Crear | `RECURSOS.CREAR` |
+| `GET /api/recursos/:id` | Uno | `RECURSOS.VER` |
+| `PUT /api/recursos/:id` | Editar | `RECURSOS.EDITAR` |
+| `DELETE /api/recursos/:id` | Eliminar · 204 | `RECURSOS.ELIMINAR` |
+| `GET /api/recursos/:id/presupuestos-afectados` | Los ABIERTOS que lo usan | `RECURSOS.VER` |
+
+`GET /api/unidades` **no** pide `CONFIG.PREFERENCIAS`: esa es la pestaña que
+administra las unidades, y elegir una en un formulario solo pide ver el módulo.
+`?para=APU` existe para que la pantalla de APU no necesite el permiso de
+Recursos solo para llenar un desplegable.
+
+```
+Unidad  = { id, simbolo, descripcion }
+Recurso = { id, codigo, nombre, tipo, unidadId, unidadSimbolo,
+            precioBase, ivaPct, precioTotal, viaCaptura, activo }
+```
+
+Filtros de `GET /api/recursos`: `tipo`, `texto`, `unidadId`, `precioMin`,
+`precioMax`. Con `tipo` y `texto` a la vez filtra por los dos a la vez. Si una
+pestaña «se rompe» al escribir en el buscador, el síntoma es ese: la pantalla
+dejó de mandar `tipo`.
+
+Cuerpo de `POST` y `PUT`:
+`{ nombre, tipo, unidadId, precioBase, ivaPct?, precioTotal, viaCaptura }`.
+Sin `ivaPct` vale 0 (RF-REC-08). El `PUT` lleva además
+`presupuestosAReapuntar?: id[]` y responde `{ recurso, apusVersionados }`.
+
+**La única excepción a la regla 1.1**, y está escrita acá para que no parezca un
+descuido: el precio complementario lo calcula la pantalla (RF-REC-09), porque el
+usuario lo ve cambiar mientras escribe. La base exige `round(…, 6)` con redondeo
+a la mitad alejándose del cero, igual que `round()` de PostgreSQL, así que la
+pantalla tiene que redondear igual o el servidor la rechaza. Confirmar contra
+RF-REC-09 antes de ampliar esta excepción a cualquier otra cifra.
+
+## 6. APU (02 §6)
+
+| Ruta | Qué hace | Permiso |
+|---|---|---|
+| `GET /api/apus` | Catálogo, incluidos los inactivos | `APU.VER` |
+| `POST /api/apus` | Crear | `APU.CREAR` |
+| `GET /api/apus/:id` | Uno, con sus líneas | `APU.VER` |
+| `PUT /api/apus/:id` | Editar | `APU.EDITAR` |
+| `PATCH /api/apus/:id` | `{ activo }` | `APU.EDITAR` |
+| `DELETE /api/apus/:id` | Eliminar · 204 | `APU.ELIMINAR` |
+| `GET /api/apus/:id/presupuestos` | Los presupuestos que lo usan | `APU.VER` |
+
+Filtros de `GET /api/apus`: `texto`, `unidadId`. Trae los inactivos a propósito;
+las versiones no viajan en el listado (02 §6.4).
+
+```
+ApuDeLista = { id, codigo, nombre, unidadId, unidadSimbolo, activo, costoDirecto }
+Linea      = { recursoId, recursoCodigo, recursoNombre, recursoTipo,
+               unidadSimbolo, precioUnitario, cantidad, rendimiento,
+               desperdicioPct, subtotal }
+```
+
+Cuerpo de `POST` y `PUT`:
+`{ nombre, unidadId, lineas: [{ recursoId, cantidad, rendimiento, desperdicioPct? }] }`.
+Un 422 de una línea marca su posición en `campo`, por ejemplo
+`"lineas.0.cantidad"`. El `PUT` lleva `presupuestosAReapuntar?` y responde
+`{ apu, itemsReapuntados }`. Un `DELETE` de un APU en uso es 422 con el mensaje
+que ofrece desactivarlo, no un 409.
+
+`GET /api/apus/:id/presupuestos` trae **todos** los estados; la pregunta del
+02 §6.4 es solo por los ABIERTOS, así que la pantalla filtra. Está así para que
+el listado sirva también de «dónde se usa esto».
+
+**Permisos (D-70):** un rol con `APU.CREAR` o `APU.EDITAR` tiene por fuerza
+`RECURSOS.VER` — la base rechaza la configuración contraria al confirmar la
+transacción. La pantalla de APU puede dar por hecho que el buscador de recursos
+responde; si no responde, es una falla, no una configuración posible.
+
+## 7. Configuración (02 §11)
+
+| Ruta | Qué hace | Permiso |
+|---|---|---|
+| `GET /api/configuracion/cuenta` | `{ nombre, email, rol }` | ninguno |
+| `POST /api/configuracion/cuenta/contrasena` | `{ actual, nueva }` · 204 | ninguno |
+| `GET|PUT /api/configuracion/empresa` | Datos de la empresa | `CONFIG.EMPRESA` |
+| `GET|PUT /api/configuracion/preferencias` | Formato y avisos | `CONFIG.PREFERENCIAS` |
+| `GET /api/configuracion/suscripcion` | Estado y pagos | `CONFIG.SUSCRIPCION` |
+| `GET|POST /api/configuracion/unidades` | Unidades propias | `CONFIG.PREFERENCIAS` |
+| `PUT|DELETE /api/configuracion/unidades/:id` | Editar y borrar | `CONFIG.PREFERENCIAS` |
+
+Mi cuenta no pide permiso: nadie necesita autorización para ver su propio
+nombre ni para cambiar su propia contraseña.
+
+El cambio de contraseña responde 204 **y una cookie nueva**, porque mueve el
+sello de credenciales (D-67) y con eso cierra todas las demás sesiones de esa
+persona. Sin la cookie nueva, quien cambia la contraseña se queda afuera él
+mismo. Una `actual` equivocada es **422 con `campo: "actual"`, no 401**: la
+sesión es válida, lo que está mal es un campo del formulario; un 401 haría que
+la interfaz lo mande a la pantalla de ingreso. Cinco equivocadas dan 429.
+
+```
+Empresa       = { razonSocial, nit, direccion, telefono, emailRecuperacion }
+Preferencias  = { monedaBase, separadorMiles, separadorDecimal, decimalesVista,
+                  notifVencimiento, notifCambioEstado }
+Suscripcion   = { estado, plan, venceEl, diasRestantes,
+                  pagos: [{ id, fecha, concepto, monto, moneda, metodo,
+                            estado, facturaNumero }] }
+```
+
+`Empresa` **no trae el logotipo**: todavía no tiene dónde guardarse (D-30), y el
+campo aparecerá cuando exista. El estado de la suscripción sale de
+`fn_estado_suscripcion`, la misma del arranque, así que la pestaña y la barra
+superior no pueden discrepar. Una suscripción VENCIDA o CANCELADA se consulta
+igual: es justo cuando hace falta.
+
+Una unidad en uso no se borra: 422 que dice **dónde** está en uso («está en uso
+en 1 recurso…»), no «algo de lo que eligió ya no existe».
+
+## 8. Exportación y versiones
+
+| Ruta | Qué hace | Permiso |
+|---|---|---|
+| `GET /api/presupuestos/:id/exportar?formato=pdf\|xlsx` | El archivo, como adjunto | `PRESUPUESTOS.EXPORTAR` |
+| `GET /api/versiones/:id/exportar?formato=pdf\|xlsx` | Una versión congelada | `PRESUPUESTOS.EXPORTAR` |
+| `GET /api/presupuestos/:id/versiones` | El historial de versiones | `PRESUPUESTOS.VER` |
+
+El nombre del adjunto es el del presupuesto: `PRE-001.pdf`,
+`PRE-001 - Versión 1.pdf`. Exportar funciona con la suscripción vencida (D-65):
+los datos son del cliente.
+
+```
+Version = { id, numero, tipo, disparador, estado, motivo, valorTotal,
+            creadaEn, autor }
+```
+
+## 9. Lo que este contrato todavía no cubre
+
+Para que nadie lo lea creyendo que está completo: no están el cambio de estado
+—activar, cerrar, reabrir—, duplicar, archivar, eliminar, el historial, el alta
+de usuarios (02 §11.4), el logotipo (02 §11.2) ni la superadministración. Entran
+cuando les toque.
