@@ -38,6 +38,9 @@
      con blanco y el mínimo es 4,5:1, así que los botones llevan este tono,
      medio paso más oscuro y del mismo matiz. Medido: 4,53:1. */
   --terracota-boton: #c65228;
+  /* El texto que va encima de --terracota-boton. Blanco en los dos temas: los
+     dos pares están medidos en DISENO §3 (4,53:1 y 5,02:1). */
+  --texto-sobre-boton: #ffffff;
   --terracota-claro: #e67d56;
   --terracota-oscuro: #b8522b;
   --terracota-halo: rgba(217, 107, 67, 0.18);
@@ -107,6 +110,29 @@
   /* Alto mínimo de cualquier cosa que se pueda tocar. 44px es el mínimo que
      pide la pauta 2.5.5 para un objetivo táctil. */
   --toque-minimo: 44px;
+
+  /* --- Medidas del marco (DISENO §7 y §11) ------------------------------ */
+  /* Ancho máximo del contenido: una tabla de presupuesto necesita ancho, pero
+     una línea de texto de 1900px no se lee. */
+  --ancho-contenido: 1280px;
+  /* La barra lateral abierta cabe «Configuración» con su icono sin cortar. */
+  --ancho-barra: 232px;
+  /* Colapsada a iconos, entre 641 y 1024px: el icono de 24 y su toque de 44,
+     con aire a los lados. */
+  --ancho-barra-iconos: 72px;
+  /* La barra superior: un toque mínimo y su margen. */
+  --alto-barra: 64px;
+  /* La capa de crear y editar: un formulario de una columna, no una pantalla.
+     El 02 §2 la pide «pequeña». */
+  --ancho-capa: 560px;
+  /* La tarjeta de ingreso: un formulario corto de dos campos. */
+  --ancho-tarjeta-suelta: 420px;
+  /* La capa con una tabla adentro —la composición de un APU, las versiones—:
+     seis columnas de cifras no caben en la capa de un formulario. */
+  --ancho-capa-ancha: 960px;
+  /* El panel lateral no modal (desglose del pie, historial): ocho renglones
+     con su cifra y su porcentaje, sin tapar más de un tercio de la mesa. */
+  --ancho-panel: 400px;
 }
 
 /* --- Tema claro ---------------------------------------------------------- */

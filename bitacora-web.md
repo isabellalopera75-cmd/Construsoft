@@ -6,6 +6,126 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-06 · martes
+
+**Hecho** (sin commit: los commits los hace el dueño o tú; desde esta máquina
+virtual git no puede borrar su propio `index.lock` y deja el repositorio
+trabado)
+
+- **Todas las pantallas del MVP** en `web/src/modulos/`, contra las rutas que
+  ya existen, con las formas leídas del código y no solo del contrato:
+  - **Mesa** (`mesa/`): árbol por `padreId`/`nodoId` ordenado por `posicion`;
+    capítulo con clasificación sin valor por defecto, subnivel, renombrar,
+    reclasificar, subir, bajar y eliminar (409 → confirmación con tu mensaje →
+    `?confirmado=si`); actividades con buscador de APU, «+ Crear Nuevo APU»
+    encima, cantidad editable y quitar; pie de dos renglones con el aviso de
+    `sinBaseAiu` en la barra; panel lateral no modal con el desglose y los
+    cuatro porcentajes; historial con filtros; versiones con consulta en solo
+    lectura y exportación; activar (texto textual del 02 §9.1 y aviso de
+    `aiuEnCero`), cerrar, reabrir con justificación, guardar versión, editar
+    cabecera y estructura, duplicar con APU desactualizados, archivar y
+    eliminar.
+  - **Recursos** (`recursos/`): cuatro pestañas y «Todos»; con texto no se
+    manda `tipo`; doble vía de precio con bloqueo cruzado; la pregunta de
+    presupuestos afectados.
+  - **APU** (`apu/`): lista con inactivos; consultar y «Editar» en la misma
+    capa; composición con recurso creado al vuelo encima; la pregunta del 02
+    §6.4 con su texto; 422 al eliminar → «Marcar como inactivo».
+  - **Configuración** (`configuracion/`): mi cuenta y cambio de contraseña,
+    empresa, preferencias con unidades (mismo permiso) y suscripción. Usuarios
+    no, como quedó decidido.
+- `tsc` y `eslint` limpios en la máquina del dueño. Recorrido completo en
+  Chromium contra una API simulada, en los dos temas, como Administrador, como
+  rol de solo consulta y con la suscripción vencida, y de 390 a 1920 px.
+
+**Divergió, y lo resolví en el contrato**
+
+- **La regla 1.1 tiene ahora dos excepciones** (CONTRATO §5): el precio
+  complementario del recurso, que se envía, y las vistas previas del 02 §2,
+  que no se envían nunca. Las dos en `web/src/decimal.ts`, con aritmética
+  exacta. El complementario coincide con `round(…, 6)` en 4000 casos.
+
+**Lo que necesito, nada me bloquea**
+
+- **Una prueba contra la base real.** Yo pruebo contra una simulada: no
+  alcanzo tu PostgreSQL. Si puedes, recorre por HTTP lo que la interfaz manda
+  y que tus pruebas quizá no cubren: `PATCH /api/nodos/:id` dos veces seguidas
+  (primero `nombre`, después `clasificacion`, nunca juntos); `DELETE
+  /api/nodos/:id?confirmado=si`; `POST /api/nodos/:id/actividades` con
+  cantidad `"0"`; `PUT /api/recursos/:id` con `presupuestosAReapuntar: []`.
+- **`URL_RECUPERACION=http://localhost:5173/#/recuperar?token=`** en el
+  `.env.example`, cuando el dueño te dé permiso para editarlo.
+
+**Lo que conviene que sepas**
+
+- **Qué decide si un botón se ve**: `editable` de la cabecera para todo lo
+  que edita la mesa; `PRESUPUESTOS.ESTADO` y el estado para activar, cerrar y
+  reabrir; para eliminar, además, que no haya una versión con disparador
+  `ABIERTO_A_ACTIVO`. Si eso no basta para saber si «alguna vez se activó»,
+  dime y lo cambio.
+- **Las fechas del historial** viajan como instantes ISO: «desde» es la
+  medianoche local del día elegido y «hasta» su último milisegundo.
+- **Un rechazo sin `campo` relee la mesa entera**, como dice el contrato. Si
+  un rechazo de dato llega sin `campo`, la pantalla lo trata como cambio del
+  mundo: avísame cuáles quedan.
+
+---
+
+## 2026-10-05 · lunes (noche)
+
+**Hecho** (sin commit todavía: lo hace el dueño, ver abajo)
+
+- **Cascarón, ingreso, inicio y vista maestra de presupuestos** en `web/src/`:
+  barra lateral por permisos (cajón en teléfono, iconos entre 641 y 1024),
+  barra superior con migas, quién soy, tema y salir; la franja de suscripción
+  para prueba, vencida, cancelada, suspendida y nula; el ingreso con 401, 403 y
+  429 (respeta `Retry-After`); el menú de inicio; la vista maestra con búsqueda,
+  filtro de estado, «Ver archivados» y la capa de crear presupuesto, que
+  redirige a la mesa. Recursos, APU, Configuración y la mesa tienen por ahora
+  un lugar «todavía no disponible».
+- **La capa** (`componentes/Capa.tsx`) está hecha sobre `<dialog>` con
+  `showModal()`: foco atrapado, Escape solo cierra la de arriba y pregunta si
+  hay cambios. Es la que van a usar Recursos, APU y la mesa.
+- **Pantalla de recuperación** en `#/recuperar?token=…`: consume el enlace
+  (`POST /api/recuperacion`).
+- `tsc`, `eslint` y `vite build` limpios. Recorrido completo probado en
+  Chromium contra una API simulada con las formas del contrato, en los dos
+  temas y en diez anchos, de 390 a 1920.
+
+**Divergió, y era mío**
+
+- **`web/src/api/cliente.ts` leía el error envuelto en `{ error: { … } }`**,
+  del borrador 1 del contrato. La API responde plano, como dice el contrato
+  hoy: con el sobre, todo rechazo se habría mostrado como «no se pudo hablar
+  con el servidor». Corregido. También `App.tsx` esperaba
+  `{ presupuestos: [...] }` y la lista llega como arreglo suelto, y `tipos.ts`
+  tenía `archivado: boolean` en vez de `archivadoEn`. Las tres eran del
+  andamio; la API estaba bien.
+
+**Lo que necesito, nada me bloquea**
+
+- **`URL_RECUPERACION=http://localhost:5173/#/recuperar?token=`** en el
+  `.env.example` (sin valor secreto: es una dirección). El token va después del
+  `#` a propósito: no sale del navegador, ni al servidor ni en el `Referer`.
+- **La moneda en el arranque.** El 02 §7.1 la muestra como dato fijo en el
+  formulario de crear; leerla de preferencias pide `CONFIG.PREFERENCIAS`, que
+  quien crea presupuestos puede no tener. Pido `monedaBase` en
+  `GET /api/sesion`. Mientras tanto la tomo de cualquier fila de la lista
+  (D-6: una sola moneda por empresa); con la lista vacía dice «La de su
+  empresa». Lo agrego al §3.1 del contrato como pedido.
+
+**Lo que conviene que sepas**
+
+- **Las direcciones van con `#`** (`#/presupuestos`, `#/presupuestos/:id`). El
+  servidor de producción no necesita devolver `index.html` para rutas
+  desconocidas.
+- Cualquier 401 después del arranque lleva al ingreso con «Su sesión
+  terminó…» y conserva la dirección. El 401 del propio ingreso no.
+- Los textos de la franja de suscripción y de los vacíos no los fija el 02: los
+  escribí yo y quedan a revisión del dueño (DISENO §12).
+
+---
+
 ## 2026-10-05 · lunes (tarde)
 
 **Hecho**

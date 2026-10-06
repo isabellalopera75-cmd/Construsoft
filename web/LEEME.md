@@ -41,3 +41,14 @@ respondería 401. En producción se sirven del mismo origen por la misma razón.
   y ordenar por el texto del código es incorrecto: pone el capítulo 10 entre el
   1 y el 2.
 - **Ningún color escrito directo en un componente.** Todo sale de los tokens.
+
+## El enlace de restablecimiento
+
+`npm run enlace -- correo` imprime el enlace completo si el `.env` de la raíz
+tiene:
+
+```
+URL_RECUPERACION=http://localhost:5173/#/recuperar?token=
+```
+
+El token va después del «#» a propósito: no sale del navegador.

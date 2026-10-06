@@ -415,12 +415,25 @@ Cuerpo de `POST` y `PUT`:
 Sin `ivaPct` vale 0 (RF-REC-08). El `PUT` lleva además
 `presupuestosAReapuntar?: id[]` y responde `{ recurso, apusVersionados }`.
 
-**La única excepción a la regla 1.1**, y está escrita acá para que no parezca un
-descuido: el precio complementario lo calcula la pantalla (RF-REC-09), porque el
-usuario lo ve cambiar mientras escribe. La base exige `round(…, 6)` con redondeo
-a la mitad alejándose del cero, igual que `round()` de PostgreSQL, así que la
-pantalla tiene que redondear igual o el servidor la rechaza. Confirmar contra
-RF-REC-09 antes de ampliar esta excepción a cualquier otra cifra.
+**Las dos excepciones a la regla 1.1**, escritas acá para que no parezcan un
+descuido. Las dos viven en `web/src/decimal.ts`, con aritmética decimal exacta
+sobre enteros grandes, y ninguna otra parte de la interfaz hace cuentas.
+
+1. **El precio complementario del recurso** lo calcula la pantalla (RF-REC-09),
+   porque el usuario lo ve cambiar mientras escribe, y **es la única cifra
+   calculada que se envía**. La base exige `round(…, 6)` con redondeo a la mitad
+   alejándose del cero, igual que `round()` de PostgreSQL, así que la pantalla
+   tiene que redondear igual o el servidor la rechaza. Comprobado contra el
+   `Decimal` de Python en 4000 casos al azar, con cero diferencias.
+2. **Las vistas previas que el 02 §2 pide «en tiempo real»**: el subtotal de
+   una línea de APU y su costo directo, el costo de una actividad mientras se
+   escribe la cantidad, y el pie mientras se escriben los cuatro porcentajes.
+   **No se envían nunca**, se muestran en cursiva con el aviso «vista previa»
+   y desaparecen cuando llega la cifra del servidor. Es lo que dice el 02 §2:
+   «la cifra que vale es la que confirma el servidor al guardar».
+
+Ampliar cualquiera de las dos es una decisión de este contrato, no de una
+pantalla.
 
 ## 6. APU (02 §6)
 

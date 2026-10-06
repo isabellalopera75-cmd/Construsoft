@@ -1,141 +1,174 @@
-import { useEffect, useState } from 'react';
-import { pedir, ErrorDeApi } from './api/cliente.ts';
-import { formatearNumero } from './formato.ts';
-import type { Arranque, FilaDePresupuesto } from './api/tipos.ts';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { cuandoSePierdaLaSesion, ErrorDeApi, pedir } from './api/cliente.ts';
+import type { Arranque, Permiso } from './api/tipos.ts';
+import { Cascaron } from './cascaron/Cascaron.tsx';
+import { useRuta, type Ruta } from './navegacion.ts';
+import { Inicio } from './pantallas/Inicio.tsx';
+import { Ingreso, PantallaSuelta } from './pantallas/Ingreso.tsx';
+import { NoExiste } from './pantallas/Pendiente.tsx';
+import { ProveedorDeAvisos } from './componentes/Avisos.tsx';
+import { ListaDeApu } from './modulos/apu/ListaDeApu.tsx';
+import { Configuracion } from './modulos/configuracion/Configuracion.tsx';
+import { Mesa } from './modulos/mesa/Mesa.tsx';
+import { Recursos } from './modulos/recursos/Recursos.tsx';
+import { Presupuestos } from './pantallas/Presupuestos.tsx';
+import { Recuperacion } from './pantallas/Recuperacion.tsx';
+import { ContextoDeSesion, crearSesion, useSesion } from './sesion.tsx';
 
 /*
- * Andamio de la rebanada 6.1. No es la pantalla final: existe para comprobar,
- * de punta a punta y contra el servidor de verdad, las cuatro cosas que todo lo
- * demás da por sentadas.
- *
- *   1. La cookie de sesión viaja (SameSite=Strict + el proxy de Vite).
- *   2. El arranque llega con su formato numérico y su estado de suscripción.
- *   3. El formateador compartido con el PDF produce las mismas cifras acá.
- *   4. Un rechazo de la API llega con su estado y su mensaje, no como «algo falló».
- *
- * Los estilos vienen después, con el sistema de tokens.
+ * La aplicación es una máquina de cuatro estados: averiguando si hay sesión,
+ * sin sesión (ingreso), adentro, o sin poder hablar con el servidor. Todo lo
+ * que decide qué mostrar adentro sale del arranque (CONTRATO §3.1).
  */
 
 type Estado =
   | { fase: 'cargando' }
-  | { fase: 'sin-sesion'; mensaje?: string }
-  | { fase: 'dentro'; arranque: Arranque; presupuestos: FilaDePresupuesto[] }
+  | { fase: 'sin-sesion'; aviso: string | null }
+  | { fase: 'dentro'; arranque: Arranque }
   | { fase: 'error'; mensaje: string };
+
+const SESION_VENCIDA = 'Su sesión terminó. Ingrese de nuevo para seguir; lo que ya estaba guardado sigue ahí.';
 
 export function App() {
   const [estado, setEstado] = useState<Estado>({ fase: 'cargando' });
+  const ruta = useRuta();
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const arranque = await pedir<Arranque>('/api/sesion');
-        const { presupuestos } = await pedir<{ presupuestos: FilaDePresupuesto[] }>(
-          '/api/presupuestos',
-        );
-        setEstado({ fase: 'dentro', arranque, presupuestos });
-      } catch (error) {
-        if (error instanceof ErrorDeApi && error.estado === 401) {
-          setEstado({ fase: 'sin-sesion' });
-          return;
-        }
-        setEstado({
-          fase: 'error',
-          mensaje: error instanceof ErrorDeApi ? error.message : 'Error inesperado.',
-        });
-      }
-    })();
+  const leerArranque = useCallback(async () => {
+    setEstado({ fase: 'cargando' });
+    try {
+      const arranque = await pedir<Arranque>('/api/sesion', { el401EsDeLaPantalla: true });
+      setEstado({ fase: 'dentro', arranque });
+    } catch (e) {
+      if (e instanceof ErrorDeApi && e.estado === 401) setEstado({ fase: 'sin-sesion', aviso: null });
+      else setEstado({ fase: 'error', mensaje: e instanceof ErrorDeApi ? e.message : 'Algo falló al abrir la aplicación.' });
+    }
   }, []);
 
-  if (estado.fase === 'cargando') return <p>Cargando…</p>;
-  if (estado.fase === 'error') return <p role="alert">{estado.mensaje}</p>;
-  if (estado.fase === 'sin-sesion') return <Ingreso alAbrir={() => setEstado({ fase: 'cargando' })} aviso={estado.mensaje} />;
+  useEffect(() => {
+    // Cualquier 401 de cualquier pantalla, después del arranque, es una sesión
+    // que terminó: vencida, cerrada en otro lado o con la contraseña cambiada
+    // (D-67). Se vuelve al ingreso y la dirección se conserva, así que al
+    // volver a entrar se llega a donde se estaba.
+    cuandoSePierdaLaSesion(() => setEstado({ fase: 'sin-sesion', aviso: SESION_VENCIDA }));
+    void leerArranque();
+  }, [leerArranque]);
 
-  const { arranque, presupuestos } = estado;
-  const formato = arranque.formatoNumerico;
-  const suscripcion = arranque.suscripcion;
-
-  return (
-    <main>
-      <h1>{arranque.razonSocial}</h1>
-      <p>
-        {arranque.usuarioNombre} · {arranque.permisos.length} permisos
-      </p>
-      {/* Null es «sin acceso», nunca «al día»: se trata como el peor caso. */}
-      {suscripcion === null ? (
-        <p role="alert">No se pudo leer el estado de la suscripción. No hay acceso.</p>
-      ) : (
-        <p>
-          Suscripción {suscripcion.estado}
-          {suscripcion.estado === 'EN_PRUEBA' ? ` · ${suscripcion.diasRestantes} días` : ''}
-          {suscripcion.soloLectura ? ' · SOLO LECTURA' : ''}
-        </p>
-      )}
-
-      <h2>Presupuestos ({presupuestos.length})</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Código</th>
-            <th>Nombre</th>
-            <th>Estado</th>
-            <th>Valor total</th>
-          </tr>
-        </thead>
-        <tbody>
-          {presupuestos.map((p) => (
-            <tr key={p.id}>
-              <td>{p.codigo}</td>
-              <td>{p.nombre}</td>
-              <td>{p.estado}</td>
-              {/* La cifra sale del formateador compartido con el PDF. */}
-              <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                {formatearNumero(p.valorTotal, formato)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {presupuestos.length === 0 ? <p>Todavía no hay presupuestos.</p> : null}
-    </main>
-  );
-}
-
-// `aviso: string | undefined` y no `aviso?: string`: con
-// exactOptionalPropertyTypes, pasar explícitamente undefined a una propiedad
-// opcional es un error. La distinción es real —«no se pasó» contra «se pasó
-// nada»— y acá la que corresponde es la segunda.
-function Ingreso({ alAbrir, aviso }: { alAbrir: () => void; aviso: string | undefined }) {
-  const [email, setEmail] = useState('');
-  const [contrasena, setContrasena] = useState('');
-  const [error, setError] = useState<string | null>(aviso ?? null);
-  const [enviando, setEnviando] = useState(false);
-
-  async function enviar(evento: React.FormEvent) {
-    evento.preventDefault();
-    setEnviando(true);
-    setError(null);
+  const salir = useCallback(async () => {
     try {
-      await pedir('/api/sesion', { metodo: 'POST', cuerpo: { email, contrasena } });
-      alAbrir();
-    } catch (e) {
-      // El mensaje lo escribe el servidor: «el correo o la contraseña no son
-      // correctos» es uno solo a propósito, para no delatar qué correos existen.
-      setError(e instanceof ErrorDeApi ? e.message : 'Error inesperado.');
-      setEnviando(false);
+      await pedir<void>('/api/sesion', { metodo: 'DELETE' });
+    } catch {
+      // Salir no puede fallar desde el punto de vista de la persona: la cookie
+      // es HttpOnly y no se puede borrar desde acá, pero la pantalla sí se
+      // cierra. Si la red estaba caída, el próximo arranque lo resuelve.
     }
+    window.location.hash = '#/';
+    setEstado({ fase: 'sin-sesion', aviso: null });
+  }, []);
+
+  const recargar = useCallback(async () => {
+    try {
+      const arranque = await pedir<Arranque>('/api/sesion');
+      setEstado({ fase: 'dentro', arranque });
+    } catch {
+      // Un 401 ya lo atiende el cliente. Otro error deja el arranque que había:
+      // la pantalla sigue funcionando con el formato anterior.
+    }
+  }, []);
+
+  const sesion = useMemo(
+    () => (estado.fase === 'dentro' ? crearSesion(estado.arranque, salir, recargar) : null),
+    [estado, salir, recargar],
+  );
+
+  // El enlace de restablecimiento se abre sin sesión, y con sesión también:
+  // quien lo pidió para otra cuenta no tiene por qué salir primero.
+  if (ruta.pantalla === 'recuperar') {
+    return (
+      <Recuperacion
+        token={ruta.token}
+        alTerminar={(aviso) => setEstado({ fase: 'sin-sesion', aviso })}
+      />
+    );
   }
 
-  return (
-    <form onSubmit={enviar}>
-      <h1>Ingresar</h1>
-      <label htmlFor="email">Correo</label>
-      <input id="email" type="email" autoComplete="username" required value={email}
-             onChange={(e) => setEmail(e.target.value)} />
-      <label htmlFor="contrasena">Contraseña</label>
-      <input id="contrasena" type="password" autoComplete="current-password" required
-             value={contrasena} onChange={(e) => setContrasena(e.target.value)} />
-      <button type="submit" disabled={enviando}>{enviando ? 'Entrando…' : 'Entrar'}</button>
-      {error === null ? null : <p role="alert">{error}</p>}
-    </form>
-  );
+  switch (estado.fase) {
+    case 'cargando':
+      // Nada de reloj centrado: la marca, mientras el arranque responde.
+      return <div className="cargando-aplicacion" aria-busy="true"><span className="marca-palabra">ConstruSoft</span></div>;
+    case 'error':
+      return (
+        <PantallaSuelta>
+          <h1>No pudimos abrir ConstruSoft</h1>
+          <p className="aviso-error" role="alert">{estado.mensaje}</p>
+          <button type="button" className="boton boton-principal boton-ancho" onClick={() => void leerArranque()}>
+            Intentar de nuevo
+          </button>
+        </PantallaSuelta>
+      );
+    case 'sin-sesion':
+      return <Ingreso aviso={estado.aviso} alEntrar={(arranque) => setEstado({ fase: 'dentro', arranque })} />;
+    case 'dentro':
+      return (
+        <ContextoDeSesion.Provider value={sesion}>
+          <ProveedorDeAvisos>
+            <Adentro ruta={ruta} />
+          </ProveedorDeAvisos>
+        </ContextoDeSesion.Provider>
+      );
+  }
+}
+
+const INICIO = { nombre: 'Inicio', ruta: { pantalla: 'inicio' } as Ruta };
+
+/** Qué pantalla corresponde a la dirección, y con qué migas. */
+function Adentro({ ruta }: { ruta: Ruta }) {
+  const { puede } = useSesion();
+
+  // Una dirección a un módulo que el rol no permite responde como una que no
+  // existe: el menú no lo muestra y la dirección escrita a mano tampoco lo abre.
+  const permitido = (permiso: Permiso) => puede(permiso);
+
+  switch (ruta.pantalla) {
+    case 'inicio':
+      return <Cascaron ruta={ruta} migas={[{ nombre: 'Inicio' }]}><Inicio /></Cascaron>;
+    case 'presupuestos':
+      if (!permitido('PRESUPUESTOS.VER')) break;
+      return (
+        <Cascaron ruta={ruta} migas={[INICIO, { nombre: 'Presupuestos' }]}>
+          <Presupuestos />
+        </Cascaron>
+      );
+    case 'mesa':
+      if (!permitido('PRESUPUESTOS.VER')) break;
+      return (
+        <Cascaron ruta={ruta} migas={[INICIO, { nombre: 'Presupuestos', ruta: { pantalla: 'presupuestos' } }, { nombre: 'Mesa de trabajo' }]}>
+          {/* key: abrir otro presupuesto (al duplicar) empieza una mesa nueva. */}
+          <Mesa key={ruta.id} id={ruta.id} />
+        </Cascaron>
+      );
+    case 'recursos':
+      if (!permitido('RECURSOS.VER')) break;
+      return (
+        <Cascaron ruta={ruta} migas={[INICIO, { nombre: 'Recursos' }]}>
+          <Recursos />
+        </Cascaron>
+      );
+    case 'apu':
+      if (!permitido('APU.VER')) break;
+      return (
+        <Cascaron ruta={ruta} migas={[INICIO, { nombre: 'APU' }]}>
+          <ListaDeApu />
+        </Cascaron>
+      );
+    case 'configuracion':
+      return (
+        <Cascaron ruta={ruta} migas={[INICIO, { nombre: 'Configuración' }]}>
+          <Configuracion pestana={ruta.pestana} />
+        </Cascaron>
+      );
+    case 'recuperar':
+    case 'no-existe':
+      break;
+  }
+  return <Cascaron ruta={ruta} migas={[INICIO, { nombre: 'No existe' }]}><NoExiste /></Cascaron>;
 }

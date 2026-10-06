@@ -432,6 +432,41 @@ presupuestos y abrir uno para consultarlo.
 
 ---
 
+## 11 bis. Lo que se decidió al construir las pantallas, 6 de octubre de 2026
+
+- **Las direcciones van después del «#»** (`#/presupuestos/:id`,
+  `#/configuracion/suscripcion`). El servidor de producción no necesita
+  devolver `index.html` para rutas desconocidas, y el token del enlace de
+  restablecimiento no sale del navegador: lo que va después del «#» no llega
+  al servidor, ni a sus registros, ni al `Referer`.
+- **El panel lateral es no modal** (`componentes/PanelLateral.tsx`): el
+  desglose del pie y el historial. Lo de atrás sigue vivo; Escape lo cierra
+  solo con el foco adentro. En pantalla ancha la mesa le deja lugar en vez de
+  quedar tapada. Ancho: `--ancho-panel`.
+- **La capa es un `<dialog>` con `showModal()`**: el foco atrapado, lo de
+  atrás inerte y el apilado los da el navegador. Escape se maneja a mano
+  porque desde Chrome 120 un segundo Escape cierra aunque se cancele el
+  evento. La capa con una tabla adentro usa `--ancho-capa-ancha`.
+- **Los avisos breves** («Versión 3 guardada») salen arriba, bajo la barra
+  superior, y se van solos en cinco segundos. Abajo taparían el valor total del
+  pie, que es la cifra que se mira después de una acción.
+- **Las columnas de una tabla se sueltan según el ancho de la tabla**, no el
+  de la ventana (consultas `@container`): con la barra lateral abierta, una
+  ventana de 1280 deja 1000 para la tabla. En la vista maestra de
+  presupuestos el valor total no se suelta nunca; por debajo de 560 px cada
+  fila es una tarjeta.
+- **Un campo de cifra acepta coma o punto como decimal y rechaza el separador
+  de miles** (`src/entrada.ts`): «1.500» sería ambiguo, y un precio leído al
+  revés es peor que un error que pide escribirlo sin puntos.
+- **Las medidas nuevas** están en `tokens.css` con su razón:
+  `--ancho-contenido`, `--ancho-barra`, `--ancho-barra-iconos`,
+  `--alto-barra`, `--ancho-capa`, `--ancho-capa-ancha`, `--ancho-panel`,
+  `--ancho-tarjeta-suelta` y `--texto-sobre-boton`. Los anchos fijos de los
+  campos de cifra (7,5 rem, 4,5 rem) viven en `componentes.css`, junto al
+  control que los usa.
+- **Todo lo que se pulsa mide 44 px**, también los botones de las filas de la
+  mesa. Las filas quedan un poco más altas, y se aceptó.
+
 ## 12. Lo que todavía no está decidido
 
 Para que nadie lo lea creyendo que está completo:
