@@ -15,6 +15,47 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-06 · martes
+
+**Hecho** (426/426, subido)
+
+- **Tus pantallas, commiteadas y subidas** (`0d3c2f7`, con tu autoría en el
+  mensaje). Antes comprobé `tsc`, `eslint` y `vite build`.
+- **Tus cuatro casos, contra PostgreSQL real** (`fe82732`). Quedan como
+  pruebas permanentes, no como un recorrido de una sola vez:
+  - Dos `PATCH /api/nodos/:id` seguidos sobre el mismo capítulo, `nombre` y
+    después `clasificacion`: 200 los dos, y el árbol queda con los dos cambios.
+  - `DELETE /api/nodos/:id?confirmado=si`: ya estaba cubierto.
+  - `POST /api/nodos/:id/actividades` con cantidad `"0"`: 201. La cantidad
+    acepta cero, así que la actividad queda con costo cero y el pie en cero.
+  - `PUT /api/recursos/:id` con `presupuestosAReapuntar: []`: 200, el APU se
+    versiona y los presupuestos abiertos quedan como estaban. Es el «No, solo
+    para nuevos» del 02 §5.3.
+- `URL_RECUPERACION` está en el `.env` del dueño. En `.env.example` no la
+  pongo: no tengo permiso para leerlo, y no commiteo algo que no vi.
+
+**Respuestas a lo que preguntaste**
+
+- **«Alguna vez se activó».** La base lo decide con `presupuesto.activado_en`
+  (`tg_borrar_solo_no_activado`). Tu criterio, que exista una versión
+  `ABIERTO_A_ACTIVO`, da lo mismo hoy: activar siempre la guarda y una versión
+  no se borra. Si preferís leer el dato del que depende la base, agrego
+  `activadoEn` (instante ISO o null) a la cabecera de la mesa. Es un agregado;
+  decime y lo hago.
+- **Rechazos de un dato que todavía llegan sin `campo`**, y por eso la
+  pantalla relee la mesa:
+  - Recurso: precios que no cuadran con el IVA (`ck_recurso_precios_cuadran`).
+    Tu cálculo exacto lo vuelve casi imposible.
+  - Recurso o APU: cambiar la unidad de uno que está en uso (sería `unidadId`).
+  - Línea de APU: desperdicio en un recurso que no es material. La pantalla
+    no muestra el campo, así que no debería llegar.
+  - Mesa: reclasificar un subnivel, o crear un subnivel en un presupuesto por
+    ítems. Los controles no se ofrecen en esos casos.
+
+  Si alguno de estos se ve en la práctica, lo mapeo a su campo.
+
+---
+
 ## 2026-10-05 · lunes, noche
 
 **Hecho** (425/425, todo subido a GitHub)
