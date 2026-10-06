@@ -15,6 +15,63 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-05 · lunes, noche
+
+**Hecho** (425/425, todo subido a GitHub)
+
+- **D-70 cargado y comprobado**: en `construsoft_test` y en la base de
+  desarrollo `construsoft`, rehecha con la secuencia del README.
+  - Fase 0 da sus tres rechazos, D-65 a D-68 da 49 casos y la EDT 15.
+  - Los tres verificadores dan cero filas.
+  - El inventario es de 18 tablas, 69 disparadores y 95 funciones.
+  - Commiteé tu trabajo pendiente en `a3d1b67`, con tu autoría en el mensaje.
+- **`monedaBase` en `GET /api/sesion`** (`3a4ed39`), como pediste: texto,
+  por ejemplo `"COP"`.
+- **Rebanada 6.4 por HTTP** (`e43d118`). Todas comprueban primero que el
+  presupuesto exista, así que uno ajeno da el mismo 404 que uno inexistente:
+  - `POST /api/presupuestos/:id/activar` y `POST /api/presupuestos/:id/cerrar`
+    responden con la mesa (`editable` ya es false).
+  - `POST /api/presupuestos/:id/reabrir` con `{ justificacion }` responde con
+    la mesa; sin justificación, 422 con `campo: "justificacion"`.
+  - `PUT /api/presupuestos/:id/cabecera` con `{ codigo, nombre, ubicacion }`
+    responde con la mesa; un código repetido da 409 con `campo: "codigo"`.
+  - `PUT /api/presupuestos/:id/estructura` con `{ modoEstructura }` responde
+    con la mesa.
+  - `POST /api/presupuestos/:id/versiones` con `{ motivo }` → 201 con el
+    resumen de la versión (`id, numero, tipo, disparador, estado, motivo,
+    valorTotal, creadaEn, autor`).
+  - `GET /api/versiones/:id` → el resumen más `fotografia` (la versión en
+    solo lectura).
+  - `POST /api/presupuestos/:id/archivar` y `.../desarchivar` → el
+    presupuesto, como `GET /api/presupuestos/:id`.
+  - `GET /api/presupuestos/:id/duplicacion` → `{ apusDesactualizados:
+    [{ itemId, apuId, codigo, descripcion, cantidad, precioEnElPresupuesto,
+    precioVigente }], valorTotalActual, valorTotalConApuVigentes }`: el
+    diálogo del 02 §9.4.
+  - `POST /api/presupuestos/:id/duplicar` con `{ codigo, nombre?,
+    actualizarApu }` → 201 `{ id }`. La copia nace ABIERTA.
+  - `POST /api/presupuestos/:id/eliminar` con `{ motivo }` → 204. Si alguna
+    vez se activó, 422 con el mensaje de la base que ofrece archivar.
+  - `GET /api/presupuestos/:id/historial?desde&hasta&tipo&usuarioId` →
+    `{ eventos: [{ id, tipoEvento, descripcion, valorAnterior, valorNuevo,
+    justificacion, usuarioId, usuarioNombre, ocurridoEn }] }`. Las fechas van
+    como instante ISO.
+  - Activar, cerrar, reabrir y eliminar piden `PRESUPUESTOS.ESTADO`, que solo
+    tiene el Administrador. Duplicar pide `PRESUPUESTOS.DUPLICAR`. El resto,
+    `PRESUPUESTOS.EDITAR`, y el historial y las versiones, `PRESUPUESTOS.VER`.
+- **Prueba de correos y NIT únicos entre archivos de prueba**: dos veces
+  choqué con un correo que ya usaba otra prueba, y ahora una prueba lo
+  impide.
+
+**Lo que necesito, nada me bloquea**
+
+- `URL_RECUPERACION` en `.env.example`: el permiso para editarlo me fue
+  denegado, así que la agrega el dueño. En el `.env` agregué `VERSION_TERMINOS`
+  y `TERMINOS_PROVISIONALES=si`; faltan `SESSION_SECRET`, `DEMO_CONTRASENA`,
+  `DEMO_CORREO` y `CONTACTO_TERMINOS`, que escribe el dueño.
+
+---
+
 ## 2026-10-05 · lunes, segunda entrada
 
 **Hecho** (411/411; todo pasó por el pre-commit)
