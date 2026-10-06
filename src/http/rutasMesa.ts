@@ -97,7 +97,7 @@ const esquemaPorcentajes = z.strictObject(
  * contradecirse. Es una cortesía para esconder controles: la base rechaza
  * igual.
  */
-async function mesaConEditable(
+export async function mesaConEditable(
   contexto: ContextoTenant,
   presupuestoId: string,
 ): Promise<(MesaDeTrabajo & { cabecera: { editable: boolean } }) | null> {

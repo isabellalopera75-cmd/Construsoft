@@ -18,7 +18,7 @@ describe('el enlace de recuperación del dueño (04 §8.5)', () => {
   });
 
   test('un correo sin cuenta, una cuenta pendiente o una revocada: no hay enlace, y el motivo dice qué hacer', async () => {
-    await assert.rejects(prepararEnlaceDeRecuperacion('nadie@construsoft.test'), /No hay ninguna cuenta/);
+    await assert.rejects(prepararEnlaceDeRecuperacion('nadie.enlace@construsoft.test'), /No hay ninguna cuenta/);
     const empresa = await registrarEmpresa({
       razonSocial: 'Constructora Enlace B', nit: '900000371-1', plan: 'EMPRESARIAL', adminNombre: 'Beto',
       adminEmail: 'enlace.beto@construsoft.test', adminHash: 'hash_de_prueba_no_real', versionTerminos: 'v',

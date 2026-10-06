@@ -25,6 +25,7 @@ import { registrarRutasDeRecursos } from './rutasRecursos.js';
 import { registrarRutasDeApu } from './rutasApu.js';
 import { registrarRutasDeConfiguracion } from './rutasConfiguracion.js';
 import { registrarRutasDeExportacion } from './rutasExportacion.js';
+import { registrarRutasDeCicloDeVida } from './rutasCicloDeVida.js';
 
 export interface OpcionesServidor {
   /** La clave de firma de la cookie: SESSION_SECRET del .env, que escribe el dueño. */
@@ -322,6 +323,9 @@ export async function construirServidor(opciones: OpcionesServidor): Promise<Fas
 
   // --- 02 §9.5 y §10.1 · Exportación y versiones ----------------------------------
   registrarRutasDeExportacion(app, sesionDe);
+
+  // --- 02 §9 y §10 · Ciclo de vida, cabecera, versiones, duplicar, historial -----
+  registrarRutasDeCicloDeVida(app, sesionDe);
 
   // --- 02 §11.1 · Cambiar la contraseña desde Mi cuenta ---------------------------
   // Verifica la actual, guarda la nueva y mueve el sello de credenciales
