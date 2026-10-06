@@ -115,6 +115,13 @@ describe('estructura de la mesa: cada mutación responde con la mesa completa re
     const sobreSub = await enviar('PATCH', `/api/nodos/${sub.id}`, duena.cookie, { clasificacion: 'DIRECTO' });
     assert.deepEqual([sobreSub.estado, sobreSub.cuerpo.campo], [422, undefined]);
 
+    // Lo que manda la interfaz: dos PATCH seguidos sobre el MISMO capítulo,
+    // primero el nombre y después la clasificación, nunca juntos.
+    await enviar('PATCH', `/api/nodos/${cap.id}`, duena.cookie, { nombre: 'OBRA GRIS' });
+    const dosVeces = await enviar('PATCH', `/api/nodos/${cap.id}`, duena.cookie, { clasificacion: 'DIRECTO' });
+    assert.equal(dosVeces.estado, 200, dosVeces.crudo);
+    assert.deepEqual(arbol(dosVeces.cuerpo), ['1.0 OBRA GRIS (DIRECTO)', '1.1 Muros de carga (DIRECTO)']);
+
     for (const cuerpo of [{}, { nombre: 'A', clasificacion: 'DIRECTO' }]) {
       assert.equal((await enviar('PATCH', `/api/nodos/${cap.id}`, duena.cookie, cuerpo)).estado, 422);
     }

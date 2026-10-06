@@ -180,6 +180,15 @@ describe('Recursos (02 §5): catálogo, crear, editar con la pregunta de los pre
     assert.equal(await precioEn(abiertos[0]!), '600000.000000');
     assert.equal(await precioEn(abiertos[1]!), '500000.000000');
 
+    // Una lista VACÍA es «no reapuntar ninguno» —02 §5.3, «No, solo para
+    // nuevos»—: el catálogo cambia, los abiertos quedan como estaban.
+    const ninguno = await enviar('PUT', `/api/recursos/${creado.id}`, duena.cookie, {
+      ...nuevo(u['m³']!, { nombre: 'Concreto 3000', precioBase: '650000', ivaPct: '0', precioTotal: '650000' }),
+      presupuestosAReapuntar: [],
+    });
+    assert.deepEqual([ninguno.estado, (ninguno.cuerpo.recurso as Recurso).precioTotal, ninguno.cuerpo.apusVersionados], [200, '650000.000000', 1], ninguno.crudo);
+    assert.deepEqual([await precioEn(abiertos[0]!), await precioEn(abiertos[1]!)], ['600000.000000', '500000.000000']);
+
     // En uso en un APU: no se elimina, y el mensaje dice dónde.
     const borrar = await enviar('DELETE', `/api/recursos/${creado.id}`, duena.cookie);
     assert.equal(borrar.estado, 422);

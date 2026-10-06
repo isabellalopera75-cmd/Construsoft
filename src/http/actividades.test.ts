@@ -152,6 +152,15 @@ describe('actividades de la mesa: cada mutación responde con la mesa completa (
     assert.equal(r.cuerpo.nodos.find((n) => n.id === capitulo)!.montoAcumulado, '1273500.000000');
   });
 
+  test('cantidad cero es válida (app.cantidad admite 0): la actividad queda con costo cero', async () => {
+    const p = (await crearPresupuesto(duena.contexto, { codigo: 'ACT-CERO', nombre: 'Cero', ubicacion: 'Bello', modoEstructura: 'WBS' })).id;
+    const c = (await agregarCapitulo(duena.contexto, p, { nombre: 'OBRA', clasificacion: 'DIRECTO' })).id;
+    const r = await enviar('POST', `/api/nodos/${c}/actividades`, duena.cookie, { apuId: referencia.concreto.id, cantidad: '0' });
+    assert.equal(r.estado, 201, r.crudo);
+    const [a] = r.cuerpo.actividades;
+    assert.deepEqual([a!.cantidad, a!.costoTotal, r.cuerpo.pie.valorTotal], ['0.000000', '0.000000', '0.000000']);
+  });
+
   test('la interfaz no manda precio ni descripción: un campo de más es 422 que lo nombra', async () => {
     const r = await enviar('POST', `/api/nodos/${capitulo}/actividades`, duena.cookie, {
       apuId: referencia.concreto.id,
