@@ -132,9 +132,14 @@ describe('estructura de la mesa: cada mutación responde con la mesa completa re
     const r2 = await enviar('POST', `/api/nodos/${c.id}/mover`, duena.cookie, { posicion: 1 });
     assert.deepEqual(arbol(r2.cuerpo), arbol(r1.cuerpo));
 
-    const fuera = await enviar('POST', `/api/nodos/${c.id}/mover`, duena.cookie, { posicion: 9 });
-    assert.equal(fuera.estado, 422);
+    const fuera = await enviar('POST', `/api/nodos/${c.id}/mover`, duena.cookie, { posicion: 4 });
+    // Fuera de rango es el mismo dato y la misma corrección que «no es un
+    // entero»: los dos marcan el campo, y la pantalla no recarga la mesa.
+    assert.deepEqual([fuera.estado, fuera.cuerpo.campo], [422, 'posicion']);
     assert.match(fuera.cuerpo.mensaje!, /1 a 3/);
+    // El borde: la última posición existe.
+    const alFinal = await enviar('POST', `/api/nodos/${c.id}/mover`, duena.cookie, { posicion: 3 });
+    assert.deepEqual([alFinal.estado, arbol(alFinal.cuerpo)], [200, ['1.0 A (DIRECTO)', '2.0 B (DIRECTO)', '3.0 C (INDIRECTO)']]);
     const noEntero = await enviar('POST', `/api/nodos/${c.id}/mover`, duena.cookie, { posicion: 1.5 });
     assert.deepEqual([noEntero.estado, noEntero.cuerpo.campo], [422, 'posicion']);
   });

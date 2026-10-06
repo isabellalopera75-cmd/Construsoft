@@ -202,6 +202,10 @@ describe('actividades de la mesa: cada mutación responde con la mesa completa (
     // El mismo pedido otra vez no la corre más.
     assert.deepEqual(filasDe((await enviar('POST', `/api/actividades/${a3.id}/mover`, duena.cookie, { posicion: 1 })).cuerpo, c), esperado);
 
+    const fuera = await enviar('POST', `/api/actividades/${a3.id}/mover`, duena.cookie, { posicion: 4 });
+    assert.deepEqual([fuera.estado, fuera.cuerpo.campo], [422, 'posicion']);
+    assert.match(fuera.cuerpo.mensaje!, /1 a 3/);
+
     const borrada = await enviar('DELETE', `/api/actividades/${a1.id}`, duena.cookie);
     assert.equal(borrada.estado, 200, borrada.crudo);
     assert.deepEqual(filasDe(borrada.cuerpo, c), ['1.1 Concreto 3000 PSI para zapatas x3.000000', '1.2 Concreto 3000 PSI para zapatas x2.000000']);

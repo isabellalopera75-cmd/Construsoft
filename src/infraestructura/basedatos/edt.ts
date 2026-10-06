@@ -155,6 +155,33 @@ export async function moverEnEdt(contexto: ContextoTenant, id: string, posicion:
   );
 }
 
+/**
+ * Cuántos hermanos tiene un nodo o una actividad, contándose: el rango de
+ * posiciones que acepta fn_mover_en_edt (1 a n). Es su MISMO predicado —nodos
+ * y actividades bajo el mismo padre del mismo presupuesto— para que la API
+ * rechace un fuera de rango como dato del formulario, con su campo, antes de
+ * llegar a la base. La base lo rechaza igual. null si el id no existe en esta
+ * empresa.
+ */
+export async function cantidadDeHermanos(contexto: ContextoTenant, id: string): Promise<number | null> {
+  return ejecutarConPermiso(contexto, 'PRESUPUESTOS.VER', async (cliente) => {
+    const { rows } = await cliente.query<{ n: string | null }>(
+      `WITH elemento AS (
+           SELECT presupuesto_id, padre_id AS padre FROM app.wbs_nodo WHERE id = $1
+           UNION ALL
+           SELECT presupuesto_id, wbs_nodo_id FROM app.presupuesto_item WHERE id = $1
+       )
+       SELECT (SELECT count(*) FROM app.wbs_nodo n
+                WHERE n.presupuesto_id = e.presupuesto_id AND n.padre_id IS NOT DISTINCT FROM e.padre)
+            + (SELECT count(*) FROM app.presupuesto_item i
+                WHERE i.presupuesto_id = e.presupuesto_id AND i.wbs_nodo_id IS NOT DISTINCT FROM e.padre) AS n
+         FROM elemento e`,
+      [id],
+    );
+    return rows[0]?.n == null ? null : Number(rows[0].n);
+  });
+}
+
 /** Lo que se perdería al eliminar un nivel: todo lo que cuelga de él, a cualquier profundidad. */
 export interface ContenidoDelNivel {
   subniveles: number;

@@ -13,6 +13,7 @@ import { buscarApusParaActividad } from '../infraestructura/basedatos/apu.js';
 import {
   agregarCapitulo,
   agregarSubcapitulo,
+  cantidadDeHermanos,
   eliminarNivel,
   leerContenidoDelNivel,
   moverEnEdt,
@@ -139,6 +140,25 @@ export function registrarRutasDeMesa(app: FastifyInstance, sesionDe: SesionDe): 
   const actividadNoExiste = () =>
     new ErrorParaElUsuario('Esa actividad ya no existe. Recargue la mesa de trabajo.', 'NO_EXISTE');
 
+  /**
+   * La posición fuera de rango es un dato del formulario, como «no es un
+   * entero»: llega con campo y la pantalla marca el control en vez de recargar
+   * la mesa. La base la rechaza igual si llegara.
+   */
+  async function exigirPosicionEnRango(contexto: ContextoTenant, id: string, posicion: number): Promise<void> {
+    const hermanos = await cantidadDeHermanos(contexto, id);
+    if (hermanos !== null && posicion > hermanos) {
+      throw new z.ZodError([
+        {
+          code: 'custom',
+          path: ['posicion'],
+          message: `La posición ${posicion} no existe: este nivel tiene ${hermanos} elementos, así que va de 1 a ${hermanos}.`,
+          input: posicion,
+        },
+      ]);
+    }
+  }
+
   /** El presupuesto de la actividad, o 404. */
   async function presupuestoDeActividad(contexto: ContextoTenant, actividadId: string): Promise<string> {
     const presupuestoId = UUID.test(actividadId) ? await presupuestoDeLaActividad(contexto, actividadId) : null;
@@ -198,6 +218,7 @@ export function registrarRutasDeMesa(app: FastifyInstance, sesionDe: SesionDe): 
     const contexto = await sesionDe(request, reply);
     const { posicion } = esquemaMover.parse(request.body);
     const presupuestoId = await presupuestoDe(contexto, request.params.id);
+    await exigirPosicionEnRango(contexto, request.params.id, posicion);
     await moverEnEdt(contexto, request.params.id, posicion);
     return responderMesa(reply, contexto, presupuestoId);
   });
@@ -264,6 +285,7 @@ export function registrarRutasDeMesa(app: FastifyInstance, sesionDe: SesionDe): 
     const contexto = await sesionDe(request, reply);
     const { posicion } = esquemaMover.parse(request.body);
     const presupuestoId = await presupuestoDeActividad(contexto, request.params.id);
+    await exigirPosicionEnRango(contexto, request.params.id, posicion);
     await moverEnEdt(contexto, request.params.id, posicion);
     return responderMesa(reply, contexto, presupuestoId);
   });
