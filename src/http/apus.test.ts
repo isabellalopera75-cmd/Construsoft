@@ -223,4 +223,46 @@ describe('aislamiento: los APU de otra empresa no existen (RN-01)', () => {
     const deBDespues = (await llamar('GET', `/api/apus/${deB.id}`, b.cookie)).cuerpo;
     assert.deepEqual(deBDespues, deB);
   });
+
+  test('cada referencia de un pedido —unidad, recurso de una línea, presupuestos a reapuntar— no distingue lo de B de lo inexistente', async () => {
+    const a = await registrar('Constructora APU FK A', '900000345-5', 'apu.fk.a@construsoft.test');
+    const b = await registrar('Constructora APU FK B', '900000346-6', 'apu.fk.b@construsoft.test');
+    const da = await empresaConRecursos(a);
+    const db = await empresaConRecursos(b);
+    const inexistente = '01900000-0000-7000-8000-000000000000';
+    const propio = (await llamar('POST', '/api/apus', a.cookie, da.concreto)).cuerpo;
+    const igualQueInexistente = async (metodo: 'POST' | 'PUT', url: string, deB: object, noExiste: object, campo?: string) => {
+      const r1 = await llamar(metodo, url, a.cookie, deB);
+      const r2 = await llamar(metodo, url, a.cookie, noExiste);
+      assert.equal(r1.estado, 422, `${metodo} ${url}: ${r1.crudo}`);
+      if (campo) assert.equal(r1.cuerpo.campo, campo);
+      assert.deepEqual([r1.estado, r1.crudo], [r2.estado, r2.crudo], `${metodo} ${url}`);
+    };
+
+    await igualQueInexistente('POST', '/api/apus', { ...da.concreto, unidadId: db.u['m³'] }, { ...da.concreto, unidadId: inexistente }, 'unidadId');
+    await igualQueInexistente('PUT', `/api/apus/${propio.id}`, { ...da.concreto, unidadId: db.u['m³'] }, { ...da.concreto, unidadId: inexistente }, 'unidadId');
+    await igualQueInexistente(
+      'PUT',
+      `/api/apus/${propio.id}`,
+      { ...da.concreto, lineas: [{ ...da.concreto.lineas[0], recursoId: db.premezclado.id }] },
+      { ...da.concreto, lineas: [{ ...da.concreto.lineas[0], recursoId: inexistente }] },
+    );
+
+    // Un presupuesto de B en la lista de los que hay que reapuntar: se ignora
+    // igual que uno que no existe, y el de B no se toca.
+    const deB = await crearPresupuesto(b.contexto, { codigo: 'APU-FK-B', nombre: 'De B', ubicacion: 'Cali', modoEstructura: 'WBS' });
+    const capB = await agregarCapitulo(b.contexto, deB.id, { nombre: 'OBRA', clasificacion: 'DIRECTO' });
+    const apuDeB = (await llamar('POST', '/api/apus', b.cookie, db.concreto)).cuerpo;
+    await agregarActividad(b.contexto, capB.id, apuDeB.id, '1');
+    const mesaDeB = async () => (await llamar('GET', `/api/presupuestos/${deB.id}/mesa`, b.cookie)).crudo;
+    const antes = await mesaDeB();
+    const respuestas = [];
+    for (const lista of [[deB.id], [inexistente]]) {
+      const r = await llamar('PUT', `/api/apus/${propio.id}`, a.cookie, { ...da.concreto, presupuestosAReapuntar: lista });
+      respuestas.push([r.estado, r.cuerpo.itemsReapuntados]);
+    }
+    assert.deepEqual(respuestas[0], [200, 0]);
+    assert.deepEqual(respuestas[1], respuestas[0]);
+    assert.equal(await mesaDeB(), antes);
+  });
 });

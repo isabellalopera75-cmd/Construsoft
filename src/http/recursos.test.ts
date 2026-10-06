@@ -7,6 +7,7 @@ import { crearPresupuesto } from '../infraestructura/basedatos/presupuesto.js';
 import { agregarCapitulo } from '../infraestructura/basedatos/edt.js';
 import { agregarActividad } from '../infraestructura/basedatos/actividad.js';
 import { vencerSuscripcion } from '../pruebas/superusuario.js';
+import { armarPresupuestoDeReferencia } from '../pruebas/presupuestoDeReferencia.js';
 import { VERSION_TERMINOS_DE_PRUEBA, clienteDePrueba, type Cuenta, CARPETA_LEGAL_DE_PRUEBA } from '../pruebas/clienteHttp.js';
 import { construirServidor } from './servidor.js';
 
@@ -262,5 +263,36 @@ describe('aislamiento: los recursos y las unidades de otra empresa no existen (R
 
     const deBDespues = (await pedir(`/api/recursos/${deB.id}`, b.cookie)).json<Recurso>();
     assert.deepEqual(deBDespues, deB);
+  });
+
+  test('cada referencia de un pedido —unidad al editar, presupuestos a reapuntar— no distingue lo de B de lo inexistente', async () => {
+    const a = await registrar('Constructora Recursos FK A', '900000335-5', 'recursos.fk.a@construsoft.test');
+    const b = await registrar('Constructora Recursos FK B', '900000336-6', 'recursos.fk.b@construsoft.test');
+    const ua = await unidadesDe(a.cookie);
+    const ub = await unidadesDe(b.cookie);
+    const inexistente = '01900000-0000-7000-8000-000000000000';
+    const propio = (await enviar('POST', '/api/recursos', a.cookie, nuevo(ua['Kg']!))).cuerpo as unknown as Recurso;
+
+    const conUnidadDeB = await enviar('PUT', `/api/recursos/${propio.id}`, a.cookie, nuevo(ub['Kg']!));
+    const conUnidadInexistente = await enviar('PUT', `/api/recursos/${propio.id}`, a.cookie, nuevo(inexistente));
+    assert.deepEqual([conUnidadDeB.estado, conUnidadDeB.cuerpo.campo], [422, 'unidadId']);
+    assert.deepEqual([conUnidadDeB.estado, conUnidadDeB.crudo], [conUnidadInexistente.estado, conUnidadInexistente.crudo]);
+
+    // Un presupuesto de B en la lista de los que hay que reapuntar: se ignora
+    // igual que uno que no existe, y el de B no se toca.
+    const deB = await armarPresupuestoDeReferencia(b.contexto, 'REC-FK-B');
+    const mesaDeB = async () => (await pedir(`/api/presupuestos/${deB.presupuestoId}/mesa`, b.cookie)).body;
+    const antes = await mesaDeB();
+    const respuestas = [];
+    for (const [k, lista] of [[1, [deB.presupuestoId]], [2, [inexistente]]] as const) {
+      const r = await enviar('PUT', `/api/recursos/${propio.id}`, a.cookie, {
+        ...nuevo(ua['Kg']!, { precioBase: `${40000 + k}`, ivaPct: '0', precioTotal: `${40000 + k}` }),
+        presupuestosAReapuntar: lista,
+      });
+      respuestas.push([r.estado, r.cuerpo.apusVersionados]);
+    }
+    assert.deepEqual(respuestas[0], [200, 0]);
+    assert.deepEqual(respuestas[1], respuestas[0]);
+    assert.equal(await mesaDeB(), antes);
   });
 });
