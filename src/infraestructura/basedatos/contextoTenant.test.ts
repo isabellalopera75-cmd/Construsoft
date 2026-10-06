@@ -678,6 +678,11 @@ describe('leerArranqueDeSesion', () => {
     );
   });
 
+  test('la moneda de la empresa viaja en el arranque: la necesita quien crea un presupuesto sin ver las preferencias (D-6)', async () => {
+    const delAsistente = await leerArranqueDeSesion({ tenantId: empresaR.tenantId, usuarioId: asistenteId });
+    assert.equal(delAsistente.monedaBase, 'COP');
+  });
+
   test('trae el estado de la suscripción tal como lo da la base: en prueba, con sus días (D-65)', async () => {
     const { suscripcion } = await leerArranqueDeSesion({ tenantId: empresaR.tenantId, usuarioId: empresaR.usuarioId });
     assert.ok(suscripcion);

@@ -249,6 +249,12 @@ export interface ArranqueDeSesion {
   permisos: CodigoPermiso[];
   formatoNumerico: FormatoNumerico;
   /**
+   * La moneda de la empresa (D-6: una sola). Es el mismo tipo de dato que el
+   * formato numérico: hace falta para mostrar una cifra o crear un
+   * presupuesto, y no puede exigir CONFIG.PREFERENCIAS.
+   */
+  monedaBase: string;
+  /**
    * Null cuando la base no devuelve fila: es «sin acceso», nunca «al día»
    * (fn_estado_suscripcion devuelve cero filas para un inquilino que el
    * llamador no puede ver).
@@ -279,8 +285,9 @@ export async function leerArranqueDeSesion(contexto: ContextoTenant): Promise<Ar
       separador_miles: string;
       separador_decimal: string;
       decimales_vista: number;
+      moneda_base: string;
     }>(
-      `SELECT separador_miles, separador_decimal, decimales_vista
+      `SELECT separador_miles, separador_decimal, decimales_vista, moneda_base
          FROM app.configuracion_empresa
         WHERE tenant_id = $1`,
       [contexto.tenantId],
@@ -317,6 +324,7 @@ export async function leerArranqueDeSesion(contexto: ContextoTenant): Promise<Ar
         separadorDecimal: filaFormato.separador_decimal,
         decimalesVista: filaFormato.decimales_vista,
       },
+      monedaBase: filaFormato.moneda_base,
       suscripcion: fila
         ? {
             estado: fila.estado,
