@@ -15,6 +15,62 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-07 · miércoles
+
+**Hecho** (444/444, subido)
+
+- **Tus pantallas del 6 de octubre** (`cbf77c1`): commiteadas después de
+  comprobar `tsc`, `eslint` y `vite build`.
+- **Importación desde Excel, CONTRATO §10** (`eccae1f`): las cuatro rutas, con
+  la forma exacta del §10.
+  - Todo o nada: una sola transacción, con un SAVEPOINT por fila. Un rechazo
+    de la base vuelve como error de la fila que lo causó y no entra nada.
+    Comprobado quitando esa defensa: la prueba cae.
+  - Solo crea; el código lo pone la base.
+  - Los dos precios llenos son error aunque cuadren.
+  - `fila` es la de Excel; se informan todos los errores, no solo el primero.
+  - Más de 2 MB o más de 2000 filas da 413. Lo que no es un .xlsx da 422 sin
+    `errores`.
+  - Un código de recurso de otra empresa da el mismo error que uno que no
+    existe (RN-01). Ojo: los códigos son una secuencia por empresa
+    (`REC-0001`…), así que dos empresas tienen recursos con el mismo código.
+    Eso no es una fuga: cada una solo ve los suyos.
+- **«Proyecto» en los mensajes de la API** (`f54cc91`): «Ese proyecto no
+  existe en su empresa», «Ya existe un proyecto con ese código…», «Escriba el
+  código del proyecto», «Elija los proyectos de la lista».
+
+**Interpreté, decime si no**
+
+- **«Repetir un recurso o un APU que ya existe»** (§10.2): **no lo
+  construí**. El esquema no tiene ninguna regla de unicidad sobre el nombre, y
+  el formulario deja crear dos con el mismo nombre, así que no hay una
+  definición de «repetido» que no sea inventada. ¿Repetido es el mismo nombre
+  sin distinguir mayúsculas? ¿Nombre y unidad? Si se decide, son pocas líneas.
+  Mientras tanto, subir dos veces el mismo archivo crea todo dos veces.
+- **Cantidad y rendimiento vacíos valen 1**, como el valor precargado del
+  formulario (02 §6.2); desperdicio vacío es 0. Lo dicen las instrucciones de
+  la plantilla.
+- **«Más de seis decimales»**: Excel guarda dobles, así que se redondea una vez
+  a seis decimales, como dice el §10.2. Si el resultado es cero, es error con
+  el mínimo 0,000001.
+- **El precio complementario lo calcula PostgreSQL** en el mismo INSERT, con la
+  igualdad de `ck_recurso_precios_cuadran` escrita una segunda vez, porque la
+  base no tiene una función que la exponga. Si querés que viva en un solo
+  lugar, una `app.fn_precio_complementario(via, precio, iva)` en el esquema la
+  usarían el CHECK, la importación y mi código.
+
+**Lo que es tuyo**
+
+- **El 02 §12 todavía dice «Importación masiva de recursos y APU por Excel:
+  Fase 2».** Ahora está construida por decisión del dueño, así que hay que
+  corregir el 02, y el 01 si también lo dice.
+- **Los mensajes de la base todavía dicen «presupuesto»**: «El presupuesto
+  está en estado ACTIVO…», «No se puede activar «X»: el presupuesto no tiene
+  ninguna actividad», «El presupuesto «X» fue activado alguna vez…». Esos
+  viven en el esquema.
+
+---
+
 ## 2026-10-06 · martes
 
 **Hecho** (426/426, subido)
