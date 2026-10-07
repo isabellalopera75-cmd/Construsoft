@@ -1,4 +1,5 @@
 import { ejecutarConPermiso, type ClienteEnContexto, type ContextoTenant } from './contextoTenant.js';
+import { porFila } from './enBloque.js';
 import type { EstadoPresupuesto } from './presupuesto.js';
 import type { TipoRecurso } from './recurso.js';
 
@@ -381,4 +382,34 @@ export async function cambiarActivoApu(contexto: ContextoTenant, id: string, act
     const { rows: cabecera } = await cliente.query<FilaCabecera>(`${SELECT_CABECERA} WHERE a.id = $1`, [id]);
     return filaAResumen(cabecera[0]!);
   });
+}
+
+/** Un APU de la plantilla ya validado, con sus líneas (CONTRATO §10.4). */
+export interface ApuImportado {
+  fila: number;
+  nombre: string;
+  unidadId: string;
+  lineas: LineaApu[];
+}
+
+/**
+ * CONTRATO §10 · Crear APU en bloque, todo o nada (ver enBloque.ts). Cada uno
+ * sigue el mismo camino que crearApu: el código de fn_siguiente_codigo y la
+ * versión inicial de fn_nueva_version_apu, que calcula subtotales y costo.
+ */
+export async function crearApusEnBloque(contexto: ContextoTenant, apus: ApuImportado[]): Promise<number> {
+  return ejecutarConPermiso(contexto, 'APU.CREAR', (cliente) =>
+    porFila(cliente, apus, async (a) => {
+      const { rows } = await cliente.query<{ id: string }>(
+        `INSERT INTO app.apu (tenant_id, codigo, nombre, unidad_id, creado_por)
+         VALUES ($1, app.fn_siguiente_codigo($1, 'APU'), $2, $3, $4)
+         RETURNING id`,
+        [contexto.tenantId, a.nombre, a.unidadId, contexto.usuarioId],
+      );
+      await cliente.query(`SELECT app.fn_nueva_version_apu($1, $2::jsonb, NULL, NULL, 'Versión inicial')`, [
+        rows[0]!.id,
+        lineasAJson(a.lineas),
+      ]);
+    }),
+  );
 }

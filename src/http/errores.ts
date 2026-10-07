@@ -132,6 +132,14 @@ export function traducirError(error: unknown): RespuestaDeError {
       const campo = CAMPO_DE_RESTRICCION[restriccion];
       return campo ? { estado: 409, mensaje, campo, borrarCookie: false } : { estado: 409, mensaje, borrarCookie: false };
     }
+    case '22003':
+      // numeric_value_out_of_range: una cifra que no cabe en su columna —un
+      // precio con IVA que desborda numeric(24,6)—. Es un dato, no un fallo.
+      return {
+        estado: 422,
+        mensaje: 'Una de las cifras es demasiado grande para guardarse. Revísela.',
+        borrarCookie: false,
+      };
     case '23503':
       // Una llave foránea apunta a algo que no está. Las de inquilino son
       // compuestas (tenant_id, id): lo ajeno y lo inexistente fallan igual,

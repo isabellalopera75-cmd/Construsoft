@@ -1,5 +1,6 @@
 import { ejecutarConPermiso, type ContextoTenant } from './contextoTenant.js';
 import { ErrorParaElUsuario } from './errorParaElUsuario.js';
+import { porFila } from './enBloque.js';
 
 /** Los cuatro tipos de app.recurso.tipo (RF-REC-01), y ningún otro string. */
 export type TipoRecurso = 'MATERIAL' | 'EQUIPO' | 'PERSONAL' | 'ACTIVIDAD_TODO_COSTO';
@@ -335,4 +336,45 @@ export async function actualizarRecurso(
 
     return { recurso: filaARecurso(fila), apusVersionados };
   });
+}
+
+/** Una fila de la plantilla de recursos ya validada (CONTRATO §10.3). */
+export interface RecursoImportado {
+  fila: number;
+  nombre: string;
+  tipo: TipoRecurso;
+  unidadId: string;
+  /** El precio que escribió la persona; el otro lo calcula la base. */
+  viaCaptura: ViaCaptura;
+  precio: string;
+  ivaPct: string;
+}
+
+/**
+ * CONTRATO §10 · Crear recursos en bloque, todo o nada (ver enBloque.ts). El
+ * código lo asigna fn_siguiente_codigo, como en el formulario.
+ *
+ * El precio complementario lo calcula PostgreSQL en el mismo INSERT, con la
+ * misma igualdad de ck_recurso_precios_cuadran escrita una segunda vez: la
+ * base no tiene una función que la exponga. Si alguna vez se separan, el
+ * CHECK rechaza la fila en vez de guardar dos precios que no cuadran.
+ */
+export async function crearRecursosEnBloque(contexto: ContextoTenant, recursos: RecursoImportado[]): Promise<number> {
+  return ejecutarConPermiso(contexto, 'RECURSOS.CREAR', (cliente) =>
+    porFila(cliente, recursos, async (r) => {
+      await cliente.query(
+        `INSERT INTO app.recurso
+               (tenant_id, codigo, nombre, tipo, unidad_id, precio_base, iva_pct,
+                precio_total, via_captura, creado_por)
+         VALUES ($1, app.fn_siguiente_codigo($1, 'RECURSO'), $2, $3, $4,
+                 CASE WHEN $5 = 'BASE' THEN $6::numeric
+                      ELSE round($6::numeric / (1 + $7::numeric / 100), 6) END,
+                 $7::numeric,
+                 CASE WHEN $5 = 'TOTAL' THEN $6::numeric
+                      ELSE round($6::numeric * (1 + $7::numeric / 100), 6) END,
+                 $5, $8)`,
+        [contexto.tenantId, r.nombre, r.tipo, r.unidadId, r.viaCaptura, r.precio, r.ivaPct, contexto.usuarioId],
+      );
+    }),
+  );
 }

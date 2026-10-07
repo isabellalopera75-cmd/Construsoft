@@ -63,6 +63,10 @@ describe('traducirError: el único lugar donde un rechazo se vuelve HTTP (04 §8
     assert.equal(traducirError(errorDeLaBase('23505', 'llave duplicada', 'otra_restriccion')).campo, undefined);
   });
 
+  test('una cifra que no cabe en su columna (22003) es un dato del formulario: 422, no 500', () => {
+    assert.deepEqual([traducirError(errorDeLaBase('22003', 'numeric field overflow')).estado], [422]);
+  });
+
   test('CS000 es un error de programación: al usuario no le llega el texto de la base', () => {
     const r = traducirError(errorDeLaBase('CS000', 'El permiso «X» no existe en el catálogo'));
     assert.doesNotMatch(r.mensaje, /catálogo/);

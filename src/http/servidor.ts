@@ -26,6 +26,7 @@ import { registrarRutasDeApu } from './rutasApu.js';
 import { registrarRutasDeConfiguracion } from './rutasConfiguracion.js';
 import { registrarRutasDeExportacion } from './rutasExportacion.js';
 import { registrarRutasDeCicloDeVida } from './rutasCicloDeVida.js';
+import { registrarRutasDeImportacion } from './rutasImportacion.js';
 
 export interface OpcionesServidor {
   /** La clave de firma de la cookie: SESSION_SECRET del .env, que escribe el dueño. */
@@ -173,6 +174,9 @@ export async function construirServidor(opciones: OpcionesServidor): Promise<Fas
       error.statusCode < 500 &&
       'code' in error &&
       String(error.code).startsWith('FST_');
+    if (deFastify && error.statusCode === 413) {
+      return reply.code(413).send({ mensaje: 'El archivo pasa de 2 MB. Divídalo en varios y súbalos por separado.' });
+    }
     if (deFastify) {
       return reply.code(400).send({ mensaje: 'La petición no tiene la forma esperada.' });
     }
@@ -326,6 +330,9 @@ export async function construirServidor(opciones: OpcionesServidor): Promise<Fas
 
   // --- 02 §9 y §10 · Ciclo de vida, cabecera, versiones, duplicar, historial -----
   registrarRutasDeCicloDeVida(app, sesionDe);
+
+  // --- CONTRATO §10 · Importar recursos y APU desde Excel ------------------------
+  registrarRutasDeImportacion(app, sesionDe);
 
   // --- 02 §11.1 · Cambiar la contraseña desde Mi cuenta ---------------------------
   // Verifica la actual, guarda la nueva y mueve el sello de credenciales
