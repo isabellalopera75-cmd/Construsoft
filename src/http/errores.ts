@@ -24,12 +24,12 @@ const SESION_INVALIDA = 'Su sesión ya no es válida. Ingrese de nuevo.';
  * mensaje genérico de su clase.
  */
 const MENSAJES_DE_RESTRICCION: Record<string, string> = {
-  presupuesto_tenant_id_codigo_key: 'Ya existe un presupuesto con ese código en esta empresa. Use otro código.',
+  presupuesto_tenant_id_codigo_key: 'Ya existe un proyecto con ese código en esta empresa. Use otro código.',
   ux_tenant_nit: 'Ya hay una empresa registrada con ese NIT. Si es la suya, ingrese con su cuenta o recupere la contraseña.',
   usuario_email_key: 'Ese correo ya tiene una cuenta. Ingrese con él, o use otro correo para registrarse.',
   ux_unidad_simbolo:
     'Ya existe una unidad con ese símbolo en su empresa. «Kg» y «kg» son el mismo símbolo: use otro.',
-  ck_presupuesto_texto_no_vacio: 'El código, el nombre y la ubicación del presupuesto son obligatorios.',
+  ck_presupuesto_texto_no_vacio: 'El código, el nombre y la ubicación del proyecto son obligatorios.',
   ck_recurso_precios_cuadran:
     'El precio base y el precio total no cuadran con el IVA: el que se calcula es el otro multiplicado o dividido por (1 + IVA/100), redondeado a seis decimales.',
 };

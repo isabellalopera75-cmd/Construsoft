@@ -47,7 +47,7 @@ function adjunto(nombre: string): string {
 }
 
 export function registrarRutasDeExportacion(app: FastifyInstance, sesionDe: SesionDe): void {
-  const presupuestoNoExiste = () => new ErrorParaElUsuario('Ese presupuesto no existe en su empresa.', 'NO_EXISTE');
+  const presupuestoNoExiste = () => new ErrorParaElUsuario('Ese proyecto no existe en su empresa.', 'NO_EXISTE');
   const versionNoExiste = () => new ErrorParaElUsuario('Esa versión no existe en su empresa.', 'NO_EXISTE');
 
   async function enviarArchivo(reply: FastifyReply, documento: DocumentoExportable, formato: 'pdf' | 'xlsx') {

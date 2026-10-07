@@ -303,7 +303,7 @@ export async function construirServidor(opciones: OpcionesServidor): Promise<Fas
 
   // Un id ajeno, uno inexistente y algo que ni es un id responden IGUAL: un
   // 404 que se distinga de otro ya dice que el presupuesto existe (RN-01).
-  const noExiste = () => new ErrorParaElUsuario('Ese presupuesto no existe en su empresa.', 'NO_EXISTE');
+  const noExiste = () => new ErrorParaElUsuario('Ese proyecto no existe en su empresa.', 'NO_EXISTE');
 
   app.get<{ Params: { id: string } }>('/api/presupuestos/:id', async (request, reply) => {
     const contexto = await sesionDe(request, reply);

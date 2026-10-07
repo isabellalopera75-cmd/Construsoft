@@ -90,7 +90,7 @@ describe('traducirError: el único lugar donde un rechazo se vuelve HTTP (04 §8
       errorDeLaBase('23505', 'llave duplicada viola restricción de unicidad «presupuesto_tenant_id_codigo_key»', 'presupuesto_tenant_id_codigo_key'),
     );
     assert.equal(r.estado, 409);
-    assert.match(r.mensaje, /Ya existe un presupuesto con ese código/);
+    assert.match(r.mensaje, /Ya existe un proyecto con ese código/);
   });
 
   test('los errores para el usuario de la capa de datos: NO_EXISTE es 404, RECHAZADO es 422, con su mensaje', () => {

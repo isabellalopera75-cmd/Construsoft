@@ -127,7 +127,7 @@ function describirContenido(subniveles: number, actividades: number): string {
 export function registrarRutasDeMesa(app: FastifyInstance, sesionDe: SesionDe): void {
   // Un id ajeno, uno inexistente y algo que ni es un id responden IGUAL: un
   // 404 que se distinga de otro ya dice que el dato existe (RN-01).
-  const presupuestoNoExiste = () => new ErrorParaElUsuario('Ese presupuesto no existe en su empresa.', 'NO_EXISTE');
+  const presupuestoNoExiste = () => new ErrorParaElUsuario('Ese proyecto no existe en su empresa.', 'NO_EXISTE');
   const nivelNoExiste = () =>
     new ErrorParaElUsuario('Ese capítulo o subcapítulo ya no existe. Recargue la mesa de trabajo.', 'NO_EXISTE');
 

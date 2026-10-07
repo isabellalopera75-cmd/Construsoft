@@ -49,7 +49,7 @@ const esquemaEdicion = z.strictObject(
   {
     ...camposDelRecurso,
     // 02 §5.3: los presupuestos abiertos que la persona eligió actualizar.
-    presupuestosAReapuntar: z.array(z.string().regex(UUID, 'Elija los presupuestos de la lista.')).optional(),
+    presupuestosAReapuntar: z.array(z.string().regex(UUID, 'Elija los proyectos de la lista.')).optional(),
   },
   SIN_CAMPOS_DE_MAS,
 );

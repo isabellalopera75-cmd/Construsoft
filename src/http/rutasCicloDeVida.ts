@@ -43,12 +43,12 @@ const esquemaJustificacion = z.strictObject(
 );
 const esquemaMotivoVersion = z.strictObject({ motivo: texto('Escriba el motivo de la versión.') }, SIN_CAMPOS_DE_MAS);
 const esquemaMotivoBorrado = z.strictObject(
-  { motivo: texto('Escriba por qué se elimina: es lo único que queda del presupuesto.') },
+  { motivo: texto('Escriba por qué se elimina: es lo único que queda del proyecto.') },
   SIN_CAMPOS_DE_MAS,
 );
 const esquemaCabecera = z.strictObject(
   {
-    codigo: texto('Escriba el código del presupuesto.'),
+    codigo: texto('Escriba el código del proyecto.'),
     nombre: texto('Escriba el nombre del proyecto.'),
     ubicacion: texto('Escriba la ubicación.'),
   },
@@ -60,7 +60,7 @@ const esquemaEstructura = z.strictObject(
 );
 const esquemaDuplicado = z.strictObject(
   {
-    codigo: texto('Escriba el código del presupuesto nuevo.'),
+    codigo: texto('Escriba el código del proyecto nuevo.'),
     nombre: z.string().trim().min(1, 'Escriba el nombre del proyecto.').optional(),
     actualizarApu: z.boolean('Indique si se actualizan los APU desactualizados.'),
   },
@@ -74,7 +74,7 @@ const esquemaFiltrosHistorial = z.object({
 });
 
 export function registrarRutasDeCicloDeVida(app: FastifyInstance, sesionDe: SesionDe): void {
-  const presupuestoNoExiste = () => new ErrorParaElUsuario('Ese presupuesto no existe en su empresa.', 'NO_EXISTE');
+  const presupuestoNoExiste = () => new ErrorParaElUsuario('Ese proyecto no existe en su empresa.', 'NO_EXISTE');
   const versionNoExiste = () => new ErrorParaElUsuario('Esa versión no existe en su empresa.', 'NO_EXISTE');
 
   async function exigirPresupuesto(contexto: ContextoTenant, id: string): Promise<void> {
