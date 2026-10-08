@@ -10,6 +10,8 @@
  *   URL_RECUPERACION  opcional: el comienzo del enlace de la pantalla de
  *                     recuperación, al que se le pega el token. Sin ella, se
  *                     imprime solo el token.
+ *                   Va ENTRE COMILLAS en el .env: sin ellas, el «#» de la
+ *                   dirección empieza un comentario y la corta.
  */
 import { prepararEnlaceDeRecuperacion } from './enlaceDeRecuperacion.js';
 
@@ -22,6 +24,15 @@ if (!correo) {
 try {
   const { token, expiraEn } = await prepararEnlaceDeRecuperacion(correo);
   const prefijo = process.env.URL_RECUPERACION?.trim();
+  if (prefijo && !prefijo.endsWith('token=')) {
+    // En el .env, «#» empieza un comentario: sin comillas, la dirección queda
+    // cortada en «http://localhost:5173/» y el enlace abre la página de inicio.
+    console.error(
+      `URL_RECUPERACION quedó como «${prefijo}»: le falta el final «…token=». En el .env ponga el valor entre comillas, ` +
+        'porque el «#» empieza un comentario.',
+    );
+    process.exit(1);
+  }
   console.log(prefijo ? `→ Enlace: ${prefijo}${token}` : `→ Token de recuperación: ${token}`);
   console.log(`  Vence: ${new Date(expiraEn).toLocaleString('es-CO', { timeZone: 'America/Bogota' })} (hora de Bogotá).`);
   process.exit(0);
