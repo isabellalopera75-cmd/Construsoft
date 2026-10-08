@@ -150,6 +150,20 @@ describe('APU (02 §6): crear, consultar, editar con control de cambios, desacti
     assert.equal(await enBuscador(), 1);
   });
 
+  test('no hay dos APU con el mismo nombre, sin importar mayúsculas: crear y editar marcan el campo nombre', async () => {
+    const primero = (await llamar('POST', '/api/apus', duena.cookie, { ...datos.concreto, nombre: 'Muro en bloque' })).cuerpo;
+    const otro = await llamar('POST', '/api/apus', duena.cookie, { ...datos.concreto, nombre: ' MURO en BLOQUE ' });
+    assert.deepEqual([otro.estado, otro.cuerpo.campo], [422, 'nombre'], otro.crudo);
+    assert.ok(String(otro.cuerpo.mensaje).includes(`Ya existe un APU llamado «Muro en bloque» (${primero.codigo})`), otro.crudo);
+
+    const segundo = (await llamar('POST', '/api/apus', duena.cookie, { ...datos.concreto, nombre: 'Pañete liso' })).cuerpo;
+    const renombrado = await llamar('PUT', `/api/apus/${segundo.id}`, duena.cookie, { ...datos.concreto, nombre: 'muro EN bloque' });
+    assert.deepEqual([renombrado.estado, renombrado.cuerpo.campo], [422, 'nombre']);
+    // Guardarse a sí mismo con el mismo nombre no es repetirlo.
+    const igual = await llamar('PUT', `/api/apus/${primero.id}`, duena.cookie, { ...datos.concreto, nombre: 'Muro En Bloque' });
+    assert.equal(igual.estado, 200, igual.crudo);
+  });
+
   test('eliminar un APU sin uso: 204, con sus versiones', async () => {
     const creado = (await llamar('POST', '/api/apus', duena.cookie, { ...datos.concreto, nombre: 'Para borrar' })).cuerpo;
     assert.equal((await llamar('DELETE', `/api/apus/${creado.id}`, duena.cookie)).estado, 204);

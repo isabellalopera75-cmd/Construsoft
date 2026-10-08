@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { ejecutarConPermiso, type ContextoTenant } from '../infraestructura/basedatos/contextoTenant.js';
 import { listarUnidadesParaElegir } from '../infraestructura/basedatos/configuracionEmpresa.js';
 import { crearRecursosEnBloque, listarRecursos } from '../infraestructura/basedatos/recurso.js';
-import { crearApusEnBloque } from '../infraestructura/basedatos/apu.js';
+import { crearApusEnBloque, listarApus } from '../infraestructura/basedatos/apu.js';
 import { FallasEnBloque } from '../infraestructura/basedatos/enBloque.js';
 import { generarPlantillaDeApu, generarPlantillaDeRecursos, HOJA_APU, HOJA_RECURSOS } from '../importacion/plantillas.js';
 import { ArchivoNoValido, leerArchivoDeApu, leerArchivoDeRecursos, type ErrorDeFila } from '../importacion/lectura.js';
@@ -113,8 +113,8 @@ export function registrarRutasDeImportacion(app: FastifyInstance, sesionDe: Sesi
       const contexto = await sesionDe(request, reply);
       await exigir(contexto, 'APU.CREAR');
       return importar(reply, HOJA_APU, async () => {
-        const { recursos, unidades } = await catalogoDe(contexto);
-        const { apus, errores } = await leerArchivoDeApu(comoArchivo(request.body), unidades, recursos);
+        const [{ recursos, unidades }, existentes] = await Promise.all([catalogoDe(contexto), listarApus(contexto)]);
+        const { apus, errores } = await leerArchivoDeApu(comoArchivo(request.body), unidades, recursos, existentes);
         return { errores, crear: () => crearApusEnBloque(contexto, apus) };
       });
     });

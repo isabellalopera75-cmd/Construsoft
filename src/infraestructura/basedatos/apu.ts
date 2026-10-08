@@ -1,5 +1,6 @@
 import { ejecutarConPermiso, type ClienteEnContexto, type ContextoTenant } from './contextoTenant.js';
 import { porFila } from './enBloque.js';
+import { ErrorParaElUsuario } from './errorParaElUsuario.js';
 import type { EstadoPresupuesto } from './presupuesto.js';
 import type { TipoRecurso } from './recurso.js';
 
@@ -173,8 +174,33 @@ async function leerConCliente(cliente: ClienteEnContexto, id: string): Promise<A
  * cantidad o rendimiento bajo el mínimo (RF-APU-19), recurso de otra empresa
  * (RN-01), y el costo que no cuadra con sus líneas (D-21, al confirmar).
  */
+/**
+ * Decisión del dueño, 8 de octubre de 2026: no hay dos APU con el mismo
+ * nombre en una empresa, sin importar mayúsculas ni espacios de los bordes,
+ * igual que los recursos. Corre dentro de la MISMA transacción que escribe el
+ * nombre, en crear, editar y crear en bloque, hasta que el esquema la defienda
+ * con un índice único.
+ */
+async function exigirNombreLibre(cliente: ClienteEnContexto, nombre: string, excepto: string | null): Promise<void> {
+  const { rows } = await cliente.query<{ nombre: string; codigo: string }>(
+    `SELECT nombre, codigo FROM app.apu
+      WHERE lower(btrim(nombre)) = lower(btrim($1)) AND id IS DISTINCT FROM $2
+      LIMIT 1`,
+    [nombre, excepto],
+  );
+  const existente = rows[0];
+  if (existente) {
+    throw new ErrorParaElUsuario(
+      `Ya existe un APU llamado «${existente.nombre}» (${existente.codigo}). Use otro nombre, o edite el que ya existe.`,
+      'RECHAZADO',
+      'nombre',
+    );
+  }
+}
+
 export async function crearApu(contexto: ContextoTenant, datos: DatosApu): Promise<Apu> {
   return ejecutarConPermiso(contexto, 'APU.CREAR', async (cliente) => {
+    await exigirNombreLibre(cliente, datos.nombre, null);
     const { rows: filasCodigo } = await cliente.query<{ fn_siguiente_codigo: string }>(
       `SELECT app.fn_siguiente_codigo($1, 'APU')`,
       [contexto.tenantId],
@@ -262,6 +288,7 @@ export async function editarApu(
   presupuestosAReapuntar?: string[],
 ): Promise<ResultadoEditarApu> {
   return ejecutarConPermiso(contexto, 'APU.EDITAR', async (cliente) => {
+    await exigirNombreLibre(cliente, datos.nombre, id);
     await cliente.query(
       `SELECT app.fn_nueva_version_apu($1, $2::jsonb, $3, $4, 'Edición del APU')`,
       [id, lineasAJson(datos.lineas), datos.nombre, datos.unidadId],
@@ -400,6 +427,7 @@ export interface ApuImportado {
 export async function crearApusEnBloque(contexto: ContextoTenant, apus: ApuImportado[]): Promise<number> {
   return ejecutarConPermiso(contexto, 'APU.CREAR', (cliente) =>
     porFila(cliente, apus, async (a) => {
+      await exigirNombreLibre(cliente, a.nombre, null);
       const { rows } = await cliente.query<{ id: string }>(
         `INSERT INTO app.apu (tenant_id, codigo, nombre, unidad_id, creado_por)
          VALUES ($1, app.fn_siguiente_codigo($1, 'APU'), $2, $3, $4)

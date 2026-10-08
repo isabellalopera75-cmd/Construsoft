@@ -190,6 +190,30 @@ describe('importar APU desde Excel (CONTRATO §10.4)', () => {
     assert.deepEqual(apus.map((a) => [a.nombre, a.costoDirecto]), [['Concreto 3000 PSI para zapatas', '636750.000000']]);
   });
 
+  test('un APU con el nombre de uno que ya existe, o repetido en el archivo, es error de su fila', async () => {
+    const archivo = await plantillaLlena('/api/apus/plantilla', duena.cookie, {
+      APU: [
+        ['A1', 'CONCRETO 3000 PSI PARA ZAPATAS', 'm³'],
+        ['A2', 'Viga aérea', 'm³'],
+        ['A3', 'viga AÉREA', 'm³'],
+      ],
+      Composición: [
+        ['A1', codigoConcreto, 1, 1, null],
+        ['A2', codigoConcreto, 1, 1, null],
+        ['A3', codigoConcreto, 1, 1, null],
+      ],
+    });
+    const r = await subir('/api/apus/importar', duena.cookie, archivo);
+    assert.equal(r.estado, 422, r.crudo);
+    assert.deepEqual(r.cuerpo.errores!.map((e) => [e.hoja, e.fila, e.columna]), [
+      ['APU', 2, 'Nombre de la actividad'],
+      ['APU', 4, 'Nombre de la actividad'],
+    ]);
+    assert.match(r.cuerpo.errores![0]!.mensaje, /Ya existe un APU llamado «Concreto 3000 PSI para zapatas»/);
+    assert.match(r.cuerpo.errores![1]!.mensaje, /repite el nombre de la fila 3/);
+    assert.deepEqual(await nombres(duena.cookie, '/api/apus', 'apus'), ['Concreto 3000 PSI para zapatas']);
+  });
+
   test('un código de recurso de otra empresa da el mismo error que uno que no existe (RN-01), y no entra nada', async () => {
     const otra = await registrar('Constructora Importa B', '900000392-2', 'importa.b@construsoft.test');
     const unidadesB = (await pedir('/api/unidades', otra.cookie)).json<{ unidades: { id: string; simbolo: string }[] }>().unidades;

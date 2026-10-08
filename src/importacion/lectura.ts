@@ -200,7 +200,10 @@ export async function leerArchivoDeApu(
   archivo: Buffer,
   unidades: UnidadDisponible[],
   catalogo: RecursoDisponible[],
+  existentes: NombreExistente[] = [],
 ): Promise<{ apus: ApuAImportar[]; errores: ErrorDeFila[] }> {
+  const delCatalogo = new Map(existentes.map((e) => [llaveDeNombre(e.nombre), e]));
+  const filaDelNombre = new Map<string, number>();
   const libro = await abrir(archivo);
   const filasApu = hojaDeLaPlantilla(libro, HOJA_APU, COLUMNAS_APU);
   const filasComposicion = hojaDeLaPlantilla(libro, HOJA_COMPOSICION, COLUMNAS_COMPOSICION);
@@ -229,6 +232,16 @@ export async function leerArchivoDeApu(
     if (nombre === null) {
       error(cNombre, 'Escriba el nombre de la actividad.');
       valido = false;
+    } else {
+      const llaveNombre = llaveDeNombre(String(nombre));
+      const existente = delCatalogo.get(llaveNombre);
+      if (existente) {
+        error(cNombre, `Ya existe un APU llamado «${existente.nombre}» (${existente.codigo}). Cambie el nombre o quite la fila.`);
+        valido = false;
+      } else if (filaDelNombre.has(llaveNombre)) {
+        error(cNombre, `Esta fila repite el nombre de la fila ${filaDelNombre.get(llaveNombre)}: no puede haber dos APU con el mismo nombre.`);
+        valido = false;
+      } else filaDelNombre.set(llaveNombre, numero);
     }
     const unidadValor = unidad === null ? undefined : unidadPorSimbolo(unidades, String(unidad));
     if (!unidadValor) {

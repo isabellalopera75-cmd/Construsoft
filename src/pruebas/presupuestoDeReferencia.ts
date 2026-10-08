@@ -1,6 +1,6 @@
 import { ejecutarConPermiso, type ContextoTenant } from '../infraestructura/basedatos/contextoTenant.js';
 import { crearRecurso, listarRecursos, type DatosRecurso, type Recurso } from '../infraestructura/basedatos/recurso.js';
-import { crearApu, type Apu } from '../infraestructura/basedatos/apu.js';
+import { crearApu, leerApu, listarApus, type Apu, type DatosApu } from '../infraestructura/basedatos/apu.js';
 import { crearPresupuesto, editarPorcentajes } from '../infraestructura/basedatos/presupuesto.js';
 import { agregarCapitulo } from '../infraestructura/basedatos/edt.js';
 import { agregarActividad, type Actividad } from '../infraestructura/basedatos/actividad.js';
@@ -50,6 +50,14 @@ export async function armarPresupuestoDeReferencia(
     return existente ?? crearRecurso(contexto, datos);
   };
 
+  // Lo mismo con los APU: tampoco hay dos con el mismo nombre (8 de octubre).
+  const apuUnico = async (datos: DatosApu): Promise<Apu> => {
+    const existente = (await listarApus(contexto, { texto: datos.nombre })).find(
+      (a) => a.nombre.toLowerCase() === datos.nombre.toLowerCase(),
+    );
+    return existente ? (await leerApu(contexto, existente.id))! : crearApu(contexto, datos);
+  };
+
   const recursoSinIva = async (nombre: string, simbolo: string, precio: string): Promise<Recurso> =>
     recurso({
       nombre,
@@ -63,7 +71,7 @@ export async function armarPresupuestoDeReferencia(
 
   const apuDePrecio = async (nombre: string, simbolo: string, precio: string): Promise<Apu> => {
     const recurso = await recursoSinIva(`Recurso · ${nombre}`, simbolo, precio);
-    return crearApu(contexto, {
+    return apuUnico({
       nombre,
       unidadId: await unidad(simbolo),
       lineas: [{ recursoId: recurso.id, cantidad: '1', rendimiento: '1', desperdicioPct: '0' }],
@@ -83,7 +91,7 @@ export async function armarPresupuestoDeReferencia(
   const oficial = await recursoSinIva('Oficial de obra', 'Jr', '120000');
 
   // 06 §8.2 · 1 × 1,00 × 1,05 × 595.000 + 2 × 0,05 × 1 × 120.000 = 636.750.
-  const concreto = await crearApu(contexto, {
+  const concreto = await apuUnico({
     nombre: 'Concreto 3000 PSI para zapatas',
     unidadId: await unidad('m³'),
     lineas: [
