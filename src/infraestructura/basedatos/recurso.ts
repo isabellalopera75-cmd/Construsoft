@@ -1,4 +1,4 @@
-import { ejecutarConPermiso, type ContextoTenant } from './contextoTenant.js';
+import { ejecutarConPermiso, type ClienteEnContexto, type ContextoTenant } from './contextoTenant.js';
 import { ErrorParaElUsuario } from './errorParaElUsuario.js';
 import { porFila } from './enBloque.js';
 
@@ -74,8 +74,33 @@ function filaARecurso(fila: FilaRecurso): Recurso {
  * base llega tal cual — el mismo patrón que ya usa registrarEmpresa con el
  * NIT vacío (D-34).
  */
+/**
+ * Decisión del dueño, 7 de octubre de 2026: no hay dos recursos con el mismo
+ * nombre en una empresa, sin importar mayúsculas ni espacios de los bordes.
+ * Corre dentro de la MISMA transacción que el INSERT o el UPDATE. Hasta que
+ * el esquema la defienda con un índice único, la comprueba esta capa en los
+ * tres caminos que escriben un nombre: crear, editar y crear en bloque.
+ */
+async function exigirNombreLibre(cliente: ClienteEnContexto, nombre: string, excepto: string | null): Promise<void> {
+  const { rows } = await cliente.query<{ nombre: string; codigo: string }>(
+    `SELECT nombre, codigo FROM app.recurso
+      WHERE lower(btrim(nombre)) = lower(btrim($1)) AND id IS DISTINCT FROM $2
+      LIMIT 1`,
+    [nombre, excepto],
+  );
+  const existente = rows[0];
+  if (existente) {
+    throw new ErrorParaElUsuario(
+      `Ya existe un recurso llamado «${existente.nombre}» (${existente.codigo}). Use otro nombre, o edite el que ya existe.`,
+      'RECHAZADO',
+      'nombre',
+    );
+  }
+}
+
 export async function crearRecurso(contexto: ContextoTenant, datos: DatosRecurso): Promise<Recurso> {
   return ejecutarConPermiso(contexto, 'RECURSOS.CREAR', async (cliente) => {
+    await exigirNombreLibre(cliente, datos.nombre, null);
     const { rows: filasCodigo } = await cliente.query<{ fn_siguiente_codigo: string }>(
       `SELECT app.fn_siguiente_codigo($1, 'RECURSO')`,
       [contexto.tenantId],
@@ -298,6 +323,7 @@ export async function actualizarRecurso(
     if (!antes) {
       throw new ErrorParaElUsuario('El recurso no existe en esta empresa.', 'NO_EXISTE');
     }
+    await exigirNombreLibre(cliente, datos.nombre, id);
 
     const { rows } = await cliente.query<FilaRecurso>(
       `UPDATE app.recurso
@@ -362,6 +388,7 @@ export interface RecursoImportado {
 export async function crearRecursosEnBloque(contexto: ContextoTenant, recursos: RecursoImportado[]): Promise<number> {
   return ejecutarConPermiso(contexto, 'RECURSOS.CREAR', (cliente) =>
     porFila(cliente, recursos, async (r) => {
+      await exigirNombreLibre(cliente, r.nombre, null);
       await cliente.query(
         `INSERT INTO app.recurso
                (tenant_id, codigo, nombre, tipo, unidad_id, precio_base, iva_pct,

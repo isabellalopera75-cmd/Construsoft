@@ -105,7 +105,7 @@ describe('Recursos (02 §5): catálogo, crear, editar con la pregunta de los pre
   });
 
   test('precios que no cuadran con el IVA los rechaza la base con un mensaje para la persona', async () => {
-    const r = await enviar('POST', '/api/recursos', duena.cookie, nuevo(u['Kg']!, { precioTotal: '36000' }));
+    const r = await enviar('POST', '/api/recursos', duena.cookie, nuevo(u['Kg']!, { nombre: 'Precio que no cuadra', precioTotal: '36000' }));
     assert.equal(r.estado, 422);
     assert.match(r.cuerpo.mensaje!, /no cuadran/);
   });
@@ -193,6 +193,20 @@ describe('Recursos (02 §5): catálogo, crear, editar con la pregunta de los pre
     const borrar = await enviar('DELETE', `/api/recursos/${creado.id}`, duena.cookie);
     assert.equal(borrar.estado, 422);
     assert.match(borrar.cuerpo.mensaje!, /APU/);
+  });
+
+  test('no hay dos recursos con el mismo nombre, sin importar mayúsculas: crear y editar marcan el campo nombre', async () => {
+    const primero = (await enviar('POST', '/api/recursos', duena.cookie, nuevo(u['Kg']!, { nombre: 'Varilla corrugada 1/2' }))).cuerpo as unknown as Recurso;
+    const otro = await enviar('POST', '/api/recursos', duena.cookie, nuevo(u['Kg']!, { nombre: '  VARILLA corrugada 1/2 ' }));
+    assert.deepEqual([otro.estado, otro.cuerpo.campo], [422, 'nombre'], otro.crudo);
+    assert.ok(otro.cuerpo.mensaje!.includes(`Ya existe un recurso llamado «Varilla corrugada 1/2» (${primero.codigo})`), String(otro.cuerpo.mensaje));
+
+    const segundo = (await enviar('POST', '/api/recursos', duena.cookie, nuevo(u['Kg']!, { nombre: 'Alambre negro' }))).cuerpo as unknown as Recurso;
+    const renombrado = await enviar('PUT', `/api/recursos/${segundo.id}`, duena.cookie, nuevo(u['Kg']!, { nombre: 'varilla CORRUGADA 1/2' }));
+    assert.deepEqual([renombrado.estado, renombrado.cuerpo.campo], [422, 'nombre']);
+    // Guardarse a sí mismo con el mismo nombre no es repetirlo.
+    const igual = await enviar('PUT', `/api/recursos/${primero.id}`, duena.cookie, nuevo(u['Kg']!, { nombre: 'Varilla Corrugada 1/2' }));
+    assert.equal(igual.estado, 200, igual.crudo);
   });
 
   test('eliminar un recurso sin uso: 204, y deja de existir', async () => {

@@ -126,11 +126,23 @@ function unidadPorSimbolo(unidades: UnidadDisponible[], simbolo: string): Unidad
   return unidades.find((u) => u.simbolo.toLowerCase() === simbolo.toLowerCase());
 }
 
+/** Un recurso del catálogo, por su nombre: no puede haber dos con el mismo. */
+export interface NombreExistente {
+  nombre: string;
+  codigo: string;
+}
+
+/** Decisión del dueño, 7 de octubre de 2026: mismo nombre sin importar mayúsculas ni espacios de los bordes. */
+const llaveDeNombre = (nombre: string) => nombre.trim().toLowerCase();
+
 export async function leerArchivoDeRecursos(
   archivo: Buffer,
   unidades: UnidadDisponible[],
+  existentes: NombreExistente[] = [],
 ): Promise<{ recursos: RecursoAImportar[]; errores: ErrorDeFila[] }> {
   const filas = hojaDeLaPlantilla(await abrir(archivo), HOJA_RECURSOS, COLUMNAS_RECURSOS);
+  const delCatalogo = new Map(existentes.map((e) => [llaveDeNombre(e.nombre), e]));
+  const filaDelNombre = new Map<string, number>();
   const recursos: RecursoAImportar[] = [];
   const errores: ErrorDeFila[] = [];
   const [cNombre, cTipo, cUnidad, cBase, cIva, cTotal] = COLUMNAS_RECURSOS;
@@ -144,6 +156,15 @@ export async function leerArchivoDeRecursos(
     const [nombre, tipo, unidad, base, iva, total] = completas(valores, 6) as [Celda, Celda, Celda, Celda, Celda, Celda];
 
     if (nombre === null) error(cNombre, 'Escriba el nombre.');
+    else {
+      const llave = llaveDeNombre(String(nombre));
+      const existente = delCatalogo.get(llave);
+      if (existente) {
+        error(cNombre, `Ya existe un recurso llamado «${existente.nombre}» (${existente.codigo}). Cambie el nombre o quite la fila.`);
+      } else if (filaDelNombre.has(llave)) {
+        error(cNombre, `Esta fila repite el nombre de la fila ${filaDelNombre.get(llave)}: no puede haber dos recursos con el mismo nombre.`);
+      } else filaDelNombre.set(llave, numero);
+    }
     const tipoValor = tipo === null ? undefined : TIPOS.find(([etiqueta]) => etiqueta.toLowerCase() === String(tipo).toLowerCase())?.[1];
     if (!tipoValor) error(cTipo, tipo === null ? 'Elija el tipo de la lista desplegable.' : `«${tipo}» no es un tipo: elija uno de la lista desplegable.`);
     const unidadValor = unidad === null ? undefined : unidadPorSimbolo(unidades, String(unidad));

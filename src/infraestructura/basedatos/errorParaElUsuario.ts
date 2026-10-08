@@ -14,10 +14,13 @@
  */
 export class ErrorParaElUsuario extends Error {
   readonly motivo: 'NO_EXISTE' | 'RECHAZADO';
+  /** El dato del pedido que hay que corregir, cuando es uno solo (contrato §2). */
+  readonly campo: string | undefined;
 
-  constructor(mensaje: string, motivo: 'NO_EXISTE' | 'RECHAZADO') {
+  constructor(mensaje: string, motivo: 'NO_EXISTE' | 'RECHAZADO', campo?: string) {
     super(mensaje);
     this.name = 'ErrorParaElUsuario';
     this.motivo = motivo;
+    this.campo = campo;
   }
 }

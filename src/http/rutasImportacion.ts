@@ -81,8 +81,8 @@ export function registrarRutasDeImportacion(app: FastifyInstance, sesionDe: Sesi
       const contexto = await sesionDe(request, reply);
       await exigir(contexto, 'RECURSOS.CREAR');
       return importar(reply, HOJA_RECURSOS, async () => {
-        const unidades = await listarUnidadesParaElegir(contexto, 'RECURSOS.VER');
-        const { recursos, errores } = await leerArchivoDeRecursos(comoArchivo(request.body), unidades);
+        const [unidades, catalogo] = await Promise.all([listarUnidadesParaElegir(contexto, 'RECURSOS.VER'), listarRecursos(contexto)]);
+        const { recursos, errores } = await leerArchivoDeRecursos(comoArchivo(request.body), unidades, catalogo);
         return { errores, crear: () => crearRecursosEnBloque(contexto, recursos) };
       });
     });

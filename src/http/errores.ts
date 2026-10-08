@@ -101,7 +101,10 @@ export function esNegacionDePermiso(error: unknown): boolean {
  */
 export function traducirError(error: unknown): RespuestaDeError {
   if (error instanceof ErrorParaElUsuario) {
-    return { estado: error.motivo === 'NO_EXISTE' ? 404 : 422, mensaje: error.message, borrarCookie: false };
+    const estado = error.motivo === 'NO_EXISTE' ? 404 : 422;
+    return error.campo
+      ? { estado, mensaje: error.message, campo: error.campo, borrarCookie: false }
+      : { estado, mensaje: error.message, borrarCookie: false };
   }
 
   const codigo = codigoDe(error);

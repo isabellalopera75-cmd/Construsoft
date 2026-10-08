@@ -112,6 +112,26 @@ describe('importar recursos desde Excel (CONTRATO §10.3)', () => {
     assert.deepEqual(await nombres(duena.cookie, '/api/recursos', 'recursos'), antes);
   });
 
+  test('un nombre que ya existe en el catálogo, o que se repite en el archivo, es error de su fila', async () => {
+    const antes = await nombres(duena.cookie, '/api/recursos', 'recursos');
+    const archivo = await plantillaLlena('/api/recursos/plantilla', duena.cookie, {
+      Recursos: [
+        ['CEMENTO GRIS 50 KG', 'Material', 'Kg', 30000, 19, null],
+        ['Ladrillo tolete', 'Material', 'Und', 900, 19, null],
+        ['ladrillo TOLETE ', 'Material', 'Und', 950, 19, null],
+      ],
+    });
+    const r = await subir('/api/recursos/importar', duena.cookie, archivo);
+    assert.equal(r.estado, 422, r.crudo);
+    assert.deepEqual(r.cuerpo.errores!.map((e) => [e.fila, e.columna]), [
+      [2, 'Nombre'],
+      [4, 'Nombre'],
+    ]);
+    assert.match(r.cuerpo.errores![0]!.mensaje, /Ya existe un recurso llamado «Cemento gris 50 kg»/);
+    assert.match(r.cuerpo.errores![1]!.mensaje, /repite el nombre de la fila 3/);
+    assert.deepEqual(await nombres(duena.cookie, '/api/recursos', 'recursos'), antes);
+  });
+
   test('lo que no es un .xlsx es 422 sin lista; más de 2 MB es 413', async () => {
     const texto = await subir('/api/recursos/importar', duena.cookie, Buffer.from('nombre;tipo\nCemento;Material\n'), 'text/csv');
     assert.equal(texto.estado, 422);

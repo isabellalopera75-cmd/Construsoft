@@ -1,5 +1,5 @@
 import { ejecutarConPermiso, type ContextoTenant } from '../infraestructura/basedatos/contextoTenant.js';
-import { crearRecurso, type Recurso } from '../infraestructura/basedatos/recurso.js';
+import { crearRecurso, listarRecursos, type DatosRecurso, type Recurso } from '../infraestructura/basedatos/recurso.js';
 import { crearApu, type Apu } from '../infraestructura/basedatos/apu.js';
 import { crearPresupuesto, editarPorcentajes } from '../infraestructura/basedatos/presupuesto.js';
 import { agregarCapitulo } from '../infraestructura/basedatos/edt.js';
@@ -40,8 +40,18 @@ export async function armarPresupuestoDeReferencia(
       return rows[0]!.id;
     });
 
+  // No hay dos recursos con el mismo nombre en una empresa (decisión del
+  // dueño, 7 de octubre de 2026). Armar la referencia dos veces en la misma
+  // empresa reutiliza los recursos que ya creó la primera.
+  const recurso = async (datos: DatosRecurso): Promise<Recurso> => {
+    const existente = (await listarRecursos(contexto, { texto: datos.nombre })).find(
+      (r) => r.nombre.toLowerCase() === datos.nombre.toLowerCase(),
+    );
+    return existente ?? crearRecurso(contexto, datos);
+  };
+
   const recursoSinIva = async (nombre: string, simbolo: string, precio: string): Promise<Recurso> =>
-    crearRecurso(contexto, {
+    recurso({
       nombre,
       tipo: 'PERSONAL',
       unidadId: await unidad(simbolo),
@@ -61,7 +71,7 @@ export async function armarPresupuestoDeReferencia(
   };
 
   // 06 §8.1 · Los dos recursos documentados.
-  const premezclado = await crearRecurso(contexto, {
+  const premezclado = await recurso({
     nombre: 'Concreto premezclado 3000 PSI',
     tipo: 'MATERIAL',
     unidadId: await unidad('m³'),
