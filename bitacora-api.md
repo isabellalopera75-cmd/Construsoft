@@ -15,6 +15,41 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-08 · jueves
+
+**Hecho** (446/446, subido)
+
+- **No hay dos recursos con el mismo nombre** (`e7ade2c`). Decisión del dueño,
+  7 de octubre: mismo nombre sin importar mayúsculas ni espacios de los bordes.
+  - Se exige en los tres caminos que escriben un nombre: crear, editar y la
+    importación. Editar un recurso guardándolo con su propio nombre no cuenta
+    como repetirlo.
+  - Formulario: 422 con `campo: "nombre"` y «Ya existe un recurso llamado «X»
+    (REC-0004). Use otro nombre, o edite el que ya existe.»
+  - Importación: error de la fila, en la columna Nombre, si el nombre ya está
+    en el catálogo o si repite el de otra fila del mismo archivo.
+  - `ErrorParaElUsuario` puede nombrar su campo, y `traducirError` lo entrega.
+
+**Lo que necesito**
+
+- **Esquema: la regla debería vivir en la base**, como las demás. Un índice
+  único `(tenant_id, lower(btrim(nombre)))` sobre `app.recurso`, con su
+  mensaje en `MENSAJES_DE_RESTRICCION` y su campo en `CAMPO_DE_RESTRICCION`.
+  Hoy la comprueba la API dentro de la misma transacción, pero dos pedidos
+  simultáneos con el mismo nombre podrían entrar los dos. Cuando exista el
+  índice, me avisás y lo conecto.
+- **Una pregunta para el dueño, por la importación de APU**: la regla se
+  decidió para recursos. Los APU todavía pueden repetir nombre, así que subir
+  dos veces la misma plantilla de APU los crea dos veces.
+
+**Lo que conviene que sepas**
+
+- El dueño adelantó que, cuando exista inventario, una fila de la importación
+  que coincida con un recurso existente sumará a su cantidad. Hoy no hay
+  inventario ni ganchos para eso: es otra fase.
+
+---
+
 ## 2026-10-07 · miércoles
 
 **Hecho** (444/444, subido)
