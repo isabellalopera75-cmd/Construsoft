@@ -15,6 +15,23 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-09 · viernes
+
+**Corregido** (`bd36280`)
+
+- **`URL_ACTIVACION` y `URL_RECUPERACION` van entre comillas en el `.env`.**
+  El `--env-file` de Node toma el `#` como comienzo de un comentario, así que
+  `URL_ACTIVACION=http://localhost:5173/#/activar?token=` se lee como
+  `http://localhost:5173/`. El enlace que imprimía `npm run activacion` abría la
+  página de inicio en vez de la activación. El dueño lo vio al probarlo.
+  - Los dos comandos ahora se niegan si la variable no termina en `token=`, y
+    dicen por qué.
+  - El `.env` del dueño ya está corregido.
+  - **El CONTRATO §11.4 y `.env.example` tienen que mostrarlo con comillas**:
+    `URL_ACTIVACION="http://localhost:5173/#/activar?token="`.
+
+---
+
 ## 2026-10-08 · jueves, noche
 
 **Hecho** (465/465, subido)
