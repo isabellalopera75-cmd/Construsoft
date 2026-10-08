@@ -14,9 +14,9 @@ import { useEffect, useState } from 'react';
  * es un lugar y no toca la dirección (DISENO §8).
  */
 
-/** Las cuatro pestañas de Configuración que entran antes del 18 de octubre. */
-export type PestanaDeConfiguracion = 'cuenta' | 'empresa' | 'preferencias' | 'suscripcion';
-const PESTANAS: readonly PestanaDeConfiguracion[] = ['cuenta', 'empresa', 'preferencias', 'suscripcion'];
+/** Las pestañas de Configuración (02 §11). */
+export type PestanaDeConfiguracion = 'cuenta' | 'empresa' | 'preferencias' | 'suscripcion' | 'usuarios';
+const PESTANAS: readonly PestanaDeConfiguracion[] = ['cuenta', 'empresa', 'preferencias', 'suscripcion', 'usuarios'];
 
 export type Ruta =
   | { pantalla: 'inicio' }
@@ -26,6 +26,7 @@ export type Ruta =
   | { pantalla: 'apu' }
   | { pantalla: 'configuracion'; pestana?: PestanaDeConfiguracion }
   | { pantalla: 'recuperar'; token: string }
+  | { pantalla: 'activar'; token: string }
   | { pantalla: 'no-existe' };
 
 export function leerRuta(hash: string): Ruta {
@@ -51,6 +52,10 @@ export function leerRuta(hash: string): Ruta {
   if (primera === 'recuperar' && partes.length === 1) {
     return { pantalla: 'recuperar', token: new URLSearchParams(consulta).get('token') ?? '' };
   }
+  // El enlace de activación de un usuario invitado (CONTRATO §11.4).
+  if (primera === 'activar' && partes.length === 1) {
+    return { pantalla: 'activar', token: new URLSearchParams(consulta).get('token') ?? '' };
+  }
   return { pantalla: 'no-existe' };
 }
 
@@ -63,6 +68,7 @@ export function enlaceA(ruta: Ruta): string {
     case 'apu': return '#/apu';
     case 'configuracion': return ruta.pestana ? `#/configuracion/${ruta.pestana}` : '#/configuracion';
     case 'recuperar': return `#/recuperar?token=${encodeURIComponent(ruta.token)}`;
+    case 'activar': return `#/activar?token=${encodeURIComponent(ruta.token)}`;
     case 'no-existe': return '#/';
   }
 }

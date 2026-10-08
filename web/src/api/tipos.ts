@@ -392,3 +392,47 @@ export interface DetalleDeSuscripcion {
   diasRestantes: number;
   pagos: Pago[];
 }
+
+// --- CONTRATO §11 · Usuarios y roles (02 §11.4) -------------------------------
+
+export type EstadoUsuario = 'PENDIENTE' | 'ACTIVO' | 'REVOCADO';
+export type TipoDeRol = 'ADMIN' | 'ASISTENTE' | 'PERSONALIZADO';
+
+export interface Usuario {
+  id: string;
+  nombre: string;
+  email: string;
+  estado: EstadoUsuario;
+  rolId: string;
+  rolNombre: string;
+  rolTipo: TipoDeRol;
+  creadoEn: Instante;
+  ultimoAcceso: Instante | null;
+  /** El enlace de activación vigente, si hay uno. */
+  activacionVenceEn: Instante | null;
+  esUsted: boolean;
+}
+
+export interface Rol {
+  id: string;
+  nombre: string;
+  tipo: TipoDeRol;
+  permisos: Permiso[];
+  /** Cuántos usuarios lo tienen, revocados incluidos. */
+  usuarios: number;
+}
+
+export interface PermisoDelCatalogo {
+  codigo: Permiso;
+  modulo: string;
+  accion: string;
+  descripcion: string;
+}
+
+export interface PanelDeUsuarios {
+  plan: { codigo: 'PERSONAL' | 'EMPRESARIAL'; maxUsuarios: number | null; rolesPersonalizados: boolean };
+  usuarios: Usuario[];
+  roles: Rol[];
+  /** El catálogo sin PRESUPUESTOS.ESTADO, que no es delegable. */
+  permisos: PermisoDelCatalogo[];
+}

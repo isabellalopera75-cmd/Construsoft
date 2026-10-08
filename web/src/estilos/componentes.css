@@ -597,7 +597,7 @@ textarea { min-height: 88px; padding: var(--e2) var(--e3); resize: vertical; wid
 .opcion-de-busqueda .cifra { grid-column: 3; grid-row: 1; }
 
 /* --- Capa ancha: la composición de un APU, versiones -------------------- */
-.capa:has(.tabla-composicion, .lista-de-versiones, .tabla-version, .bloque-de-composicion) { width: min(100% - 2 * var(--e4), var(--ancho-capa-ancha)); }
+.capa:has(.tabla-composicion, .lista-de-versiones, .tabla-version, .bloque-de-composicion, .matriz-de-permisos) { width: min(100% - 2 * var(--e4), var(--ancho-capa-ancha)); }
 .encabezado-de-capa { display: grid; grid-template-columns: 1fr auto auto; gap: var(--e5); }
 .bloque-de-precio, .bloque-de-composicion { display: grid; gap: var(--e3); padding: var(--e4); border: 1px solid var(--borde-tenue); border-radius: var(--radio-md); }
 .bloque-de-precio-titulo { margin: 0; font-weight: var(--peso-fuerte); font-size: var(--letra-sm); }
@@ -830,4 +830,44 @@ textarea { min-height: 88px; padding: var(--e2) var(--e3); resize: vertical; wid
 @container (max-width: 1100px) {
   .tabla-mesa .fila-actividad .col-descripcion { min-width: 10rem; }
   .tabla-mesa .campo-compacto { width: 6rem; }
+}
+
+/* --- Usuarios y roles (02 §11.4) ----------------------------------------- */
+.insignia-usuario[data-estado='ACTIVO'] { color: var(--exito); background: color-mix(in srgb, var(--exito) 10%, transparent); }
+.insignia-usuario[data-estado='PENDIENTE'] { color: var(--terracota); background: var(--terracota-velo); }
+.insignia-usuario[data-estado='REVOCADO'] { color: var(--texto-segundo); background: color-mix(in srgb, var(--texto-segundo) 10%, transparent); }
+.tabla-usuarios tr[data-estado='REVOCADO'] td:not(.col-acciones) { color: var(--texto-segundo); }
+.tabla-usuarios td, .tabla-roles td { vertical-align: middle; }
+.nombre-de-usuario { display: block; font-weight: var(--peso-medio); }
+.nombre-de-usuario .marca-usted { margin-left: var(--e2); vertical-align: 1px; white-space: nowrap; }
+.correo-de-usuario { display: block; font-size: var(--letra-sm); color: var(--texto-segundo); overflow-wrap: anywhere; }
+.marca-usted {
+  font-size: var(--letra-xs); font-weight: var(--peso-fuerte); color: var(--texto-segundo);
+  padding: 0 var(--e2); border: 1px solid var(--borde-tenue); border-radius: var(--radio-redondo);
+}
+.col-ingreso { font-size: var(--letra-sm); color: var(--texto-segundo); }
+.col-numero { text-align: right; font-variant-numeric: tabular-nums; }
+.nombre-de-rol { font-weight: var(--peso-medio); }
+.etiqueta-suelta { font-size: var(--letra-sm); font-weight: var(--peso-medio); }
+.valor-suelto { margin: 0; font-weight: var(--peso-medio); }
+
+.matriz-de-permisos { display: grid; gap: var(--e3); grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); }
+.modulo-de-permisos {
+  margin: 0; padding: var(--e3) var(--e4) var(--e2); min-width: 0;
+  border: 1px solid var(--borde-tenue); border-radius: var(--radio-md); background: var(--bg-tarjeta);
+}
+.modulo-de-permisos legend { padding: 0 var(--e2); font-weight: var(--peso-fuerte); }
+.casillas-de-permisos { display: grid; }
+.casilla-de-permiso {
+  display: flex; align-items: flex-start; gap: var(--e3); min-height: var(--toque-minimo);
+  padding: var(--e2) 0; cursor: pointer;
+}
+.casilla-de-permiso + .casilla-de-permiso { border-top: 1px solid var(--borde-tenue); }
+.casilla-de-permiso input { flex: none; width: 18px; height: 18px; min-height: 0; margin-top: 3px; accent-color: var(--terracota-boton); }
+.casilla-de-permiso[data-trabada] { cursor: default; }
+.permiso-accion { display: block; font-weight: var(--peso-medio); }
+.permiso-detalle, .permiso-motivo { display: block; font-size: var(--letra-sm); color: var(--texto-segundo); }
+.permiso-motivo { color: var(--terracota); }
+@container (max-width: 560px) {
+  .tabla-usuarios .col-ingreso, .tabla-usuarios th:nth-child(4) { display: none; }
 }

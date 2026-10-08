@@ -18,9 +18,34 @@ import { PantallaSuelta } from './Ingreso.tsx';
  *
  * Un token vencido o inválido lo dice el servidor. El botón de «solicitar uno
  * nuevo» del paso 3 espera también a la fase 8.
+ *
+ * La misma pantalla activa la cuenta de un usuario invitado (02 §11.4,
+ * CONTRATO §11.4): es el mismo gesto —abrir un enlace de un solo uso y elegir
+ * una contraseña— contra otra ruta, con otras palabras. El enlace lo entrega
+ * el dueño con `npm run activacion` hasta que exista el correo.
  */
 
-export function Recuperacion({ token, alTerminar }: { token: string; alTerminar: (aviso: string) => void }) {
+type Proposito = 'recuperacion' | 'activacion';
+
+const TEXTOS: Record<Proposito, { titulo: string; intro: string | null; ruta: string; boton: string; listo: string }> = {
+  recuperacion: {
+    titulo: 'Contraseña nueva',
+    intro: null,
+    ruta: '/api/recuperacion',
+    boton: 'Guardar contraseña',
+    listo: 'Su contraseña quedó guardada. Ingrese con ella.',
+  },
+  activacion: {
+    titulo: 'Active su cuenta',
+    intro: 'Lo invitaron a trabajar en ConstruSoft. Elija la contraseña con la que va a ingresar; nadie más la conoce, ni quien lo invitó.',
+    ruta: '/api/activacion',
+    boton: 'Activar mi cuenta',
+    listo: 'Su cuenta quedó activa. Ingrese con su correo y la contraseña que eligió.',
+  },
+};
+
+export function Recuperacion({ token, proposito = 'recuperacion', alTerminar }: { token: string; proposito?: Proposito; alTerminar: (aviso: string) => void }) {
+  const textos = TEXTOS[proposito];
   const [contrasena, setContrasena] = useState('');
   const [confirmacion, setConfirmacion] = useState('');
   const [errores, setErrores] = useState<{ contrasena?: string; confirmacion?: string }>({});
@@ -40,10 +65,10 @@ export function Recuperacion({ token, alTerminar }: { token: string; alTerminar:
     setEnviando(true);
     setError(null);
     try {
-      await pedir<void>('/api/recuperacion', { metodo: 'POST', cuerpo: { token, contrasena } });
+      await pedir<void>(textos.ruta, { metodo: 'POST', cuerpo: { token, contrasena } });
       // El enlace ya no sirve: se saca del historial para que «atrás» no lo reabra.
       reemplazar({ pantalla: 'inicio' });
-      alTerminar('Su contraseña quedó guardada. Ingrese con ella.');
+      alTerminar(textos.listo);
     } catch (e) {
       if (e instanceof ErrorDeApi && e.campo === 'contrasena') setErrores({ contrasena: e.message });
       else setError(e instanceof ErrorDeApi ? e.message : 'Algo falló en esta pantalla. Recárguela e intente de nuevo.');
@@ -53,7 +78,8 @@ export function Recuperacion({ token, alTerminar }: { token: string; alTerminar:
 
   return (
     <PantallaSuelta>
-      <h1>Contraseña nueva</h1>
+      <h1>{textos.titulo}</h1>
+      {textos.intro ? <p className="campo-ayuda">{textos.intro}</p> : null}
       <form className="formulario" onSubmit={enviar} noValidate>
         {error ? (
           <p className="aviso-error" role="alert">
@@ -61,7 +87,7 @@ export function Recuperacion({ token, alTerminar }: { token: string; alTerminar:
             <span>{error}</span>
           </p>
         ) : null}
-        <Campo etiqueta="Contraseña nueva" ayuda="Mínimo 8 caracteres." error={errores.contrasena}>
+        <Campo etiqueta={proposito === 'activacion' ? 'Contraseña' : 'Contraseña nueva'} ayuda="Mínimo 8 caracteres." error={errores.contrasena}>
           {(a) => (
             <input {...a} type="password" autoComplete="new-password" value={contrasena}
                    onChange={(e) => setContrasena(e.target.value)} />
@@ -74,7 +100,7 @@ export function Recuperacion({ token, alTerminar }: { token: string; alTerminar:
           )}
         </Campo>
         <button type="submit" className="boton boton-principal boton-ancho" disabled={enviando || token === ''}>
-          {enviando ? 'Guardando…' : 'Guardar contraseña'}
+          {enviando ? 'Guardando…' : textos.boton}
         </button>
         <p className="pie-de-formulario">
           <a href="#/">Volver al ingreso</a>

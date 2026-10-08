@@ -533,19 +533,20 @@ Version = { id, numero, tipo, disparador, estado, motivo, valorTotal,
 ## 9. Lo que este contrato todavía no cubre
 
 Para que nadie lo lea creyendo que está completo: no están el cambio de estado
-—activar, cerrar, reabrir—, duplicar, archivar, eliminar, el historial, el alta
-de usuarios (02 §11.4), el logotipo (02 §11.2) ni la superadministración. Entran
-cuando les toque.
+—activar, cerrar, reabrir—, duplicar, archivar, eliminar, el historial, el
+logotipo (02 §11.2) ni la superadministración. Entran cuando les toque. Los
+usuarios y roles (02 §11.4) están propuestos en el §11.
 
 ---
 
-## 10. Importación desde Excel (PROPUESTO el 6 de octubre de 2026, sin construir)
+## 10. Importación desde Excel (propuesto el 6 de octubre de 2026, construido el 7: `eccae1f`)
 
 Decisión del dueño, 6 de octubre de 2026: el ingeniero descarga una plantilla,
-la llena en Excel y la sube para crear recursos o APU en bloque. Esta sección
-**propone** la forma: la interfaz ya la consume (`web/src/modulos/comun/
-ImportarExcel.tsx`) y la API todavía no la tiene. Hasta que exista, el botón
-«Importar desde Excel» recibe un 404 y lo muestra.
+la llena en Excel y la sube para crear recursos o APU en bloque. La interfaz
+es `web/src/modulos/comun/ImportarExcel.tsx`. Desde el 8 de octubre, un
+nombre que ya existe en el catálogo, o que se repite dentro del archivo, es
+error de la fila (`e7ade2c`, `a1c618e`): sin distinguir mayúsculas ni espacios
+de los bordes.
 
 ### 10.1 Las cuatro rutas
 
@@ -642,3 +643,135 @@ columna como sale en la plantilla, o `null` si el error es de la fila entera.
 Se informan **todos** los errores del archivo, no solo el primero. Un archivo
 que no es un `.xlsx` o que no trae la hoja esperada es un 422 sin `errores`,
 con un mensaje que lo dice.
+
+---
+
+## 11. Usuarios y roles (PROPUESTO el 8 de octubre de 2026, sin construir)
+
+02 §11.4. La pestaña «Usuarios» de Configuración. La interfaz ya la consume
+(`web/src/modulos/configuracion/Usuarios.tsx` y la pantalla
+`#/activar?token=`); la API todavía no la tiene. Hasta que exista, la pestaña
+muestra el 404 con «Reintentar».
+
+Todas las rutas de §11.1 y §11.2 piden `USUARIOS.GESTIONAR`. Escribir respeta
+el solo lectura de la suscripción, como cualquier otra escritura.
+
+### 11.1 Una sola lectura para toda la pestaña
+
+`GET /api/usuarios` →
+
+```
+PanelDeUsuarios = {
+  plan:     { codigo: 'PERSONAL' | 'EMPRESARIAL',
+              maxUsuarios: number | null,       // null = sin límite
+              rolesPersonalizados: boolean },
+  usuarios: Usuario[],      // activos, después pendientes, después revocados; por nombre
+  roles:    Rol[],          // Administrador, Asistente, después los personalizados por nombre
+  permisos: PermisoDelCatalogo[]   // app.permiso SIN 'PRESUPUESTOS.ESTADO', en el orden del catálogo
+}
+
+Usuario = { id, nombre, email,
+            estado: 'PENDIENTE' | 'ACTIVO' | 'REVOCADO',
+            rolId, rolNombre, rolTipo: 'ADMIN' | 'ASISTENTE' | 'PERSONALIZADO',
+            creadoEn, ultimoAcceso: Instante | null,
+            activacionVenceEn: Instante | null,   // el enlace de activación vigente, si hay uno
+            esUsted: boolean }
+
+Rol = { id, nombre, tipo: 'ADMIN' | 'ASISTENTE' | 'PERSONALIZADO',
+        permisos: Permiso[],
+        usuarios: number }    // cuántos usuarios lo tienen, revocados incluidos
+
+PermisoDelCatalogo = { codigo, modulo, accion, descripcion }
+```
+
+`plan` viaja aquí y no en el arranque: solo esta pestaña lo necesita. La
+pantalla lo usa para dos cosas: en el plan Personal muestra «su asistente» y
+los permisos del rol Asistente, sin la sección de roles; en el Empresarial
+muestra la sección de roles. El límite lo hace cumplir la base
+(`tg_limites_plan_usuario`, `tg_limites_plan_rol`); la pantalla solo evita
+ofrecer lo que la base va a rechazar.
+
+`PRESUPUESTOS.ESTADO` no sale en el catálogo porque no es delegable: es del
+rol Administrador y nadie lo marca ni lo desmarca.
+
+### 11.2 Usuarios
+
+| Método y ruta | Cuerpo | Respuesta |
+|---|---|---|
+| `POST /api/usuarios` | `{ nombre, email, rolId }` | 201 `Usuario`, en PENDIENTE |
+| `PUT /api/usuarios/:id` | `{ nombre, email, rolId }` | 200 `Usuario` |
+| `POST /api/usuarios/:id/revocar` | — | 200 `Usuario` |
+| `POST /api/usuarios/:id/restituir` | — | 200 `Usuario` |
+
+- **Invitar no fija contraseña** (D-7). Hasta la fase 8 tampoco manda correo:
+  el enlace de activación lo genera el dueño de ConstruSoft (§11.4). Decisión
+  del dueño, 8 de octubre de 2026: el administrador **no ve** el enlace,
+  porque quien lo tiene puede fijar la contraseña de otra persona.
+- **El correo se edita solo mientras el usuario está PENDIENTE.** Después es
+  su identidad de ingreso; cambiarlo es 422 con `campo: "email"`.
+- **El correo es único en todo ConstruSoft**, no por empresa (`app.usuario.
+  email`). Repetido: 422 con `campo: "email"` y «Ese correo ya tiene una
+  cuenta en ConstruSoft. Cada correo pertenece a una sola empresa: use otro.»
+  No dice de qué empresa (RN-01).
+- **Revocar** deja la fila (trazabilidad) y corta en la petición siguiente,
+  por la rama de estado de `fn_exigir_permiso`. Revocarse a sí mismo es 422:
+  «No puede retirarse el acceso a sí mismo. Pídaselo a otro administrador.»
+- **Restituir** devuelve a ACTIVO a quien ya tenía contraseña, y a PENDIENTE a
+  quien nunca la fijó. Cuenta para el límite del plan.
+- **El último administrador activo** (D-29) no se revoca ni cambia de rol: la
+  base lo rechaza con «“X” es el único administrador activo de la empresa…»,
+  que va tal cual, sin `campo` si es revocar y con `campo: "rolId"` si es
+  editar.
+- **El límite del plan** (RN-11): 422 sin `campo` con el mensaje de la base,
+  en palabras de persona: «Su plan Personal admite 2 usuarios y ya los tiene.
+  Revoque uno o cambie al plan Empresarial.»
+- No hay `DELETE`: un usuario se revoca, no se borra. El historial lo nombra.
+
+### 11.3 Roles
+
+| Método y ruta | Cuerpo | Respuesta |
+|---|---|---|
+| `POST /api/roles` | `{ nombre, permisos: Permiso[] }` | 201 `Rol`, siempre PERSONALIZADO |
+| `PUT /api/roles/:id` | `{ nombre, permisos: Permiso[] }` | 200 `Rol` |
+| `DELETE /api/roles/:id` | — | 204 |
+
+- `permisos` es la lista **completa** del rol, no un cambio: la API reemplaza
+  las filas de `app.rol_permiso` del rol en una sola transacción, y por eso
+  `tg_rol_permisos_coherentes`, que es diferido, ve el resultado final.
+- **Crear y borrar roles es solo del plan Empresarial** (RN-11). En el
+  Personal, la pantalla edita únicamente los permisos del rol Asistente.
+- **Administrador no se edita**: 422 «El rol Administrador tiene todos los
+  permisos y no se modifica». Asistente sí se edita, pero **no se renombra**,
+  y no puede llevar `USUARIOS.GESTIONAR` (`fn_permiso_no_delegable`).
+- **Las reglas de la matriz** son las del esquema, y la pantalla ya las aplica
+  al marcar, así que solo deberían llegar si alguien llama la API directo:
+  «Ver» es prerrequisito de su módulo (RF-CFG-25); editar proyectos exige Ver
+  APU (D-59); crear o editar APU exige Ver recursos (D-70). 422 sin `campo`,
+  con el mensaje de la base.
+- Nombre repetido en la empresa (`UNIQUE (tenant_id, nombre)`): 422 con
+  `campo: "nombre"`.
+- Un rol con usuarios, aunque estén revocados, no se borra: 422 que dice
+  cuántos («El rol «Residente» lo tienen 2 usuarios. Cámbielos de rol antes de
+  eliminarlo.»).
+- Cambiar los permisos de un rol vale desde la petición siguiente de sus
+  usuarios: la API comprueba cada vez. Su menú se pone al día al recargar.
+
+### 11.4 La activación
+
+`POST /api/activacion` con `{ token, contrasena }` → 204. Mismas reglas que
+`POST /api/recuperacion`: el token viaja después del «#», uso único, el mismo
+límite de intentos por IP, contraseña de mínimo 8 caracteres con
+`campo: "contrasena"`. Consume un token con `proposito = 'ACTIVACION'`, fija
+`password_hash` y pasa el usuario de PENDIENTE a ACTIVO. Un token de
+recuperación aquí, o uno de activación en `/api/recuperacion`, es el mismo
+error que un token que no existe. Después la persona ingresa con su correo.
+
+Hasta la fase 8 el enlace lo entrega el dueño:
+
+```
+npm run activacion -- correo@empresa.com
+```
+
+Imprime `URL_ACTIVACION` + token, vence a las 72 horas y anula el enlace
+anterior de esa persona (RF-AUT-18). Solo para usuarios PENDIENTE. En
+desarrollo, `URL_ACTIVACION=http://localhost:5173/#/activar?token=`.

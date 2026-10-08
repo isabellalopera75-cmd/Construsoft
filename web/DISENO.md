@@ -496,6 +496,16 @@ presupuestos y abrir uno para consultarlo.
     llenarla, subirla; todo o nada, con el informe fila por fila
     (`modulos/comun/ImportarExcel.tsx`, CONTRATO §10).
 
+- **Usuarios y roles, 8 de octubre de 2026** (02 §11.4, CONTRATO §11): una
+  pestaña de Configuración que cambia con el plan. Personal: el asistente y
+  sus permisos. Empresarial: usuarios y roles. La matriz de permisos va
+  agrupada por módulo, y cada casilla lleva la acción y una línea de qué
+  abre. Al marcar se marca lo que la acción necesita. Lo que no se puede
+  desmarcar queda deshabilitado con el motivo escrito debajo, no en un
+  tooltip. No se ofrece revocarse a uno mismo ni revocar o cambiar de rol al
+  único administrador. El enlace de activación no se muestra: lo entrega el
+  dueño de ConstruSoft hasta que exista el correo.
+
 ## 12. Lo que todavía no está decidido
 
 Para que nadie lo lea creyendo que está completo:

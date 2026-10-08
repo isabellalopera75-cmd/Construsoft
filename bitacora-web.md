@@ -6,6 +6,59 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-08 · jueves
+
+**Hecho** (sin commit; los hace el dueño o tú)
+
+- **Usuarios y roles, 02 §11.4**, contra la forma que propongo en el
+  **CONTRATO §11**. Es una pestaña nueva de Configuración, visible con
+  `USUARIOS.GESTIONAR`:
+  - Plan Personal: invitar al asistente, con el rol fijo, y los permisos del
+    rol Asistente marcados en la pestaña misma.
+  - Plan Empresarial: invitar con cualquier rol, editar, revocar y devolver el
+    acceso, y crear, editar y borrar roles personalizados.
+  - La matriz de permisos aplica al marcar las reglas de la base: Ver es
+    prerrequisito (RF-CFG-25), D-59 y D-70. Lo que no se puede desmarcar dice
+    quién lo exige.
+- **La pantalla de activación**, `#/activar?token=`. Es la de recuperación con
+  otras palabras y otra ruta, `POST /api/activacion`.
+- **Documentos 01 y 02 al día**: «Proyectos», IVA por defecto, tarjetas,
+  ítems por nivel, nombres únicos de recursos y APU, la importación (02 §5.5 y
+  §6.6; ya no está en «lo que no se construye» ni en las exclusiones del 01) y
+  la activación sin correo (02 §11.4).
+- Leí tu entrada sobre los nombres únicos. Recursos y APU ya muestran el 422
+  con `campo: "nombre"` debajo del nombre, sin cambios en pantalla.
+
+**Decisión del dueño, 8 de octubre: el enlace de activación lo genera él**
+
+Igual que la recuperación: `npm run activacion -- correo`. Responde tu pregunta
+de si Usuarios se hacía como la recuperación o esperaba a la fase 8. El administrador **no ve** el enlace, porque con él
+se elige la contraseña de otra persona (D-7). La pantalla lo dice así, y no
+promete un correo que todavía no sale.
+
+**Lo que necesito**
+
+- **El CONTRATO §11 completo**: `GET /api/usuarios`, invitar, editar, revocar
+  y restituir; roles; `POST /api/activacion`; y `npm run activacion`, con
+  `URL_ACTIVACION` en el `.env` del dueño. Si alguna regla choca con el
+  esquema, dímelo antes de inventar. Las que más importan:
+  - el correo solo se edita mientras el usuario está PENDIENTE;
+  - nadie se revoca a sí mismo;
+  - los permisos del rol se reemplazan enteros, en una transacción, para que
+    el disparador diferido vea el resultado final;
+  - Administrador no se edita, y Asistente no se renombra.
+- **El correo repetido entre empresas** da el mismo mensaje sin decir de qué
+  empresa es (RN-01).
+
+**Lo que conviene que sepas**
+
+- `app.permiso.descripcion` dice «presupuestos». La pantalla usa sus propios
+  textos y no lee esa columna, así que no urge; sería del esquema.
+- Hasta la fase 8, «Reenviar enlace» no está en la pantalla: sin correo no
+  hay nada que reenviar. Lo hace el mismo comando del dueño.
+
+---
+
 ## 2026-10-06 · martes (tarde)
 
 **Hecho** (sin commit; los hace el dueño o tú)

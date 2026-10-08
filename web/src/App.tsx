@@ -82,9 +82,11 @@ export function App() {
 
   // El enlace de restablecimiento se abre sin sesión, y con sesión también:
   // quien lo pidió para otra cuenta no tiene por qué salir primero.
-  if (ruta.pantalla === 'recuperar') {
+  if (ruta.pantalla === 'recuperar' || ruta.pantalla === 'activar') {
     return (
       <Recuperacion
+        key={ruta.pantalla}
+        proposito={ruta.pantalla === 'activar' ? 'activacion' : 'recuperacion'}
         token={ruta.token}
         alTerminar={(aviso) => setEstado({ fase: 'sin-sesion', aviso })}
       />
@@ -167,6 +169,7 @@ function Adentro({ ruta }: { ruta: Ruta }) {
         </Cascaron>
       );
     case 'recuperar':
+    case 'activar':
     case 'no-existe':
       break;
   }

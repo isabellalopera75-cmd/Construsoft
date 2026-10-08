@@ -8,6 +8,8 @@ import { Capa } from '../../componentes/Capa.tsx';
 import { Confirmacion } from '../../componentes/Confirmacion.tsx';
 import { Icono } from '../../componentes/Icono.tsx';
 import { Pestanas } from '../../componentes/Pestanas.tsx';
+import { ErrorDeSeccion, Seccion, useLectura } from './piezas.tsx';
+import { Usuarios } from './Usuarios.tsx';
 import { formatearNumero } from '../../formato.ts';
 import { ir, type PestanaDeConfiguracion } from '../../navegacion.ts';
 import { useSesion } from '../../sesion.tsx';
@@ -15,8 +17,9 @@ import { useSesion } from '../../sesion.tsx';
 /*
  * 02 §11 · Configuración, en pestañas. Para el 18 de octubre entran cuatro: mi
  * cuenta, datos de empresa, preferencias (con las unidades de medida, que
- * comparten el permiso CONFIG.PREFERENCIAS) y suscripción. Usuarios espera a
- * la fase 8, que es la del correo de activación.
+ * comparten el permiso CONFIG.PREFERENCIAS), suscripción y usuarios. Usuarios
+ * entró el 8 de octubre de 2026, sin correo: el enlace de activación lo
+ * entrega el dueño de ConstruSoft hasta la fase 8 (CONTRATO §11.4).
  *
  * Cada pestaña se muestra solo si el rol la permite. Mi cuenta no pide
  * permiso: nadie necesita autorización para ver su nombre ni para cambiar su
@@ -30,6 +33,7 @@ export function Configuracion({ pestana }: { pestana: PestanaDeConfiguracion | u
     { id: 'empresa' as const, nombre: 'Datos de empresa', visible: puede('CONFIG.EMPRESA') },
     { id: 'preferencias' as const, nombre: 'Preferencias y unidades', visible: puede('CONFIG.PREFERENCIAS') },
     { id: 'suscripcion' as const, nombre: 'Suscripción', visible: puede('CONFIG.SUSCRIPCION') },
+    { id: 'usuarios' as const, nombre: 'Usuarios', visible: puede('USUARIOS.GESTIONAR') },
   ].filter((p) => p.visible);
   const actual = disponibles.find((p) => p.id === pestana)?.id ?? 'cuenta';
 
@@ -55,46 +59,8 @@ export function Configuracion({ pestana }: { pestana: PestanaDeConfiguracion | u
         {actual === 'empresa' ? <EmpresaPestana /> : null}
         {actual === 'preferencias' ? <PreferenciasPestana /> : null}
         {actual === 'suscripcion' ? <SuscripcionPestana /> : null}
+        {actual === 'usuarios' ? <Usuarios /> : null}
       </div>
-    </div>
-  );
-}
-
-/** Carga una pestaña con su propio estado de carga y error. */
-function useLectura<T>(ruta: string): { datos: T | null; error: string | null; releer: () => void; poner: (d: T) => void } {
-  const [datos, setDatos] = useState<T | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [vez, setVez] = useState(0);
-  useEffect(() => {
-    let vigente = true;
-    pedir<T>(ruta)
-      .then((d) => vigente && (setDatos(d), setError(null)))
-      .catch((e: unknown) => {
-        if (vigente && !(e instanceof ErrorDeApi && e.estado === 401)) setError(e instanceof ErrorDeApi ? e.message : 'No se pudo leer esta sección.');
-      });
-    return () => {
-      vigente = false;
-    };
-  }, [ruta, vez]);
-  return { datos, error, releer: () => setVez((n) => n + 1), poner: setDatos };
-}
-
-function Seccion({ titulo, children, ayuda }: { titulo: string; children: ReactNode; ayuda?: string }) {
-  return (
-    <section className="tarjeta seccion-de-config">
-      <h2>{titulo}</h2>
-      {ayuda ? <p className="campo-ayuda">{ayuda}</p> : null}
-      {children}
-    </section>
-  );
-}
-
-function ErrorDeSeccion({ mensaje, alReintentar }: { mensaje: string; alReintentar: () => void }) {
-  return (
-    <div className="aviso-error" role="alert">
-      <Icono nombre="aviso" />
-      <span>{mensaje}</span>
-      <button type="button" className="boton boton-secundario" onClick={alReintentar}>Reintentar</button>
     </div>
   );
 }
