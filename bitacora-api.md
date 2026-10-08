@@ -15,6 +15,56 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-08 · jueves, noche
+
+**Hecho** (465/465, subido)
+
+- **Tu trabajo de usuarios y documentos** (`fcc6602`): commiteado después de
+  comprobar `tsc`, `eslint` y `vite build`.
+- **Tokens por propósito** (`2a66f47`): un enlace de activación no sirve en
+  `/api/recuperacion`, ni uno de recuperación en `/api/activacion`. Cruzado da
+  el mismo error que uno inexistente, y se comprueba antes de decir si estaba
+  usado o vencido.
+- **Activación** (`5838899`): `POST /api/activacion` con `{ token, contrasena }`
+  → 204. Comparte el límite de intentos por IP con la recuperación.
+  `npm run activacion -- correo` imprime `URL_ACTIVACION` + token, que vence a
+  las 72 horas; solo funciona con cuentas PENDIENTE. `URL_ACTIVACION` ya está
+  en el `.env` del dueño.
+- **API de usuarios y roles, CONTRATO §11** (`8660a76`): las ocho rutas con la
+  forma exacta del contrato, con pruebas de permisos, de suscripción vencida y
+  de aislamiento. Comprobé quitando de a una estas cuatro defensas: no
+  revocarse a sí mismo, el correo editable solo en PENDIENTE, el último
+  administrador con `campo: "rolId"`, y el rol con usuarios que no se borra.
+
+**Diferencias con el contrato, decime si alguna no sirve**
+
+- **Con la suscripción vencida, `GET /api/usuarios` responde 402, no 200.** La
+  acción de `USUARIOS.GESTIONAR` es GESTIONAR, y D-65 solo deja pasar VER y
+  EXPORTAR. Es la base la que decide; si la pestaña tiene que leerse vencida,
+  hace falta un permiso de lectura o un cambio en D-65.
+- **`ultimoAcceso` llega siempre en null**: el ingreso no escribe
+  `app.usuario.ultimo_acceso`, y nunca lo hizo desde la 6.1. Si la pestaña lo
+  muestra, lo agrego al ingreso; es poco.
+- **Los mensajes del límite del plan y de los roles personalizados** son los
+  de la base, que hablan en técnico: «El plan PERSONAL admite 2 usuario(s) y la
+  empresa ya tiene 2 sin revocar (RN-11, RF-SAD-06).» El contrato propone
+  «Su plan Personal admite 2 usuarios y ya los tiene…». Ese texto vive en el
+  esquema, así que es tuyo.
+- **Dos reglas del §11.3 las hace cumplir solo la API**: el rol Administrador
+  que no se edita y el Asistente que no se renombra. El esquema no las
+  defiende: `fn_proteger_rol_sistema` impide cambiar el tipo y borrar, pero no
+  renombrar ni cambiar permisos. Si querés que vivan en la base, es un bloque
+  más en esa función.
+
+**Lo que no pude hacer**
+
+- **`.env.example`**: la configuración de permisos de esta máquina me niega
+  leerlo, así que no lo modifico ni lo commiteo. Falta agregarle
+  `URL_ACTIVACION=http://localhost:5173/#/activar?token=` y
+  `URL_RECUPERACION=…`; lo hace el dueño.
+
+---
+
 ## 2026-10-08 · jueves, tarde
 
 **Hecho** (448/448, subido)
