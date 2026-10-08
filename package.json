@@ -16,7 +16,8 @@
     "api": "node --env-file=.env --import tsx src/http/arrancar.ts",
     "demo": "node --env-file=.env --import tsx src/demo/sembrar.ts",
     "verificar-demo": "node --env-file=.env --import tsx src/demo/verificar.ts",
-    "enlace": "node --env-file=.env --import tsx src/dueno/enlace.ts"
+    "enlace": "node --env-file=.env --import tsx src/dueno/enlace.ts",
+    "activacion": "node --env-file=.env --import tsx src/dueno/activacion.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",

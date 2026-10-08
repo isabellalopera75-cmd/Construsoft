@@ -365,19 +365,26 @@ export async function construirServidor(opciones: OpcionesServidor): Promise<Fas
     return reply.code(201).send(await crearPresupuesto(contexto, datos));
   });
 
-  // --- 04 §8.5 · El enlace de restablecimiento ---------------------------------
-  app.post('/api/recuperacion', async (request, reply) => {
-    const claveIp = `ip:${request.ip}`;
-    exigirSinBloqueo(tokensFallidosPorIp, claveIp);
-    const { token, contrasena } = esquemaRecuperacion.parse(request.body);
-    try {
-      await consumirTokenRecuperacion(hashDeToken(token), await hashearContrasena(contrasena), 'RECUPERACION');
-    } catch (error) {
-      if (error instanceof ErrorParaElUsuario) tokensFallidosPorIp.registrarFallo(claveIp);
-      throw error;
-    }
-    return reply.code(204).send();
-  });
+  // --- 04 §8.5 y CONTRATO §11.4 · Consumir un enlace: recuperar o activar --------
+  // Las dos rutas comparten el límite de intentos por IP. Cada una acepta solo
+  // tokens de su propósito; uno cruzado es el mismo error que uno inexistente.
+  for (const [ruta, proposito] of [
+    ['/api/recuperacion', 'RECUPERACION'],
+    ['/api/activacion', 'ACTIVACION'],
+  ] as const) {
+    app.post(ruta, async (request, reply) => {
+      const claveIp = `ip:${request.ip}`;
+      exigirSinBloqueo(tokensFallidosPorIp, claveIp);
+      const { token, contrasena } = esquemaRecuperacion.parse(request.body);
+      try {
+        await consumirTokenRecuperacion(hashDeToken(token), await hashearContrasena(contrasena), proposito);
+      } catch (error) {
+        if (error instanceof ErrorParaElUsuario) tokensFallidosPorIp.registrarFallo(claveIp);
+        throw error;
+      }
+      return reply.code(204).send();
+    });
+  }
 
   return app;
 }
