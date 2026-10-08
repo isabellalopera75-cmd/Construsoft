@@ -447,7 +447,7 @@ describe('consumirTokenRecuperacion', () => {
     );
     assert.equal(vistoDesdeY.rowCount, 0);
 
-    const resultado = await consumirTokenRecuperacion(tokenHash, 'nuevo_hash_cross_tenant');
+    const resultado = await consumirTokenRecuperacion(tokenHash, 'nuevo_hash_cross_tenant', 'RECUPERACION');
     assert.equal(resultado.tenantId, empresaX.tenantId);
     assert.equal(resultado.usuarioId, empresaX.usuarioId);
   });
@@ -456,9 +456,9 @@ describe('consumirTokenRecuperacion', () => {
     const tokenHash = 'TOK_UN_SOLO_USO';
     await emitirToken(empresaY, empresaY.usuarioId, 'RECUPERACION', tokenHash);
 
-    await consumirTokenRecuperacion(tokenHash, 'primer_hash_valido');
+    await consumirTokenRecuperacion(tokenHash, 'primer_hash_valido', 'RECUPERACION');
     await assert.rejects(
-      consumirTokenRecuperacion(tokenHash, 'segundo_hash_no_deberia_aplicarse'),
+      consumirTokenRecuperacion(tokenHash, 'segundo_hash_no_deberia_aplicarse', 'RECUPERACION'),
       /ya fue usado/,
     );
   });
@@ -481,7 +481,7 @@ describe('consumirTokenRecuperacion', () => {
     );
 
     await assert.rejects(
-      consumirTokenRecuperacion(tokenHash, 'hash_no_deberia_aplicarse'),
+      consumirTokenRecuperacion(tokenHash, 'hash_no_deberia_aplicarse', 'RECUPERACION'),
       /expiró/,
     );
   });
@@ -493,11 +493,11 @@ describe('consumirTokenRecuperacion', () => {
     await emitirToken(empresaX, empresaX.usuarioId, 'RECUPERACION', tokenNuevo);
 
     await assert.rejects(
-      consumirTokenRecuperacion(tokenViejo, 'hash_no_deberia_aplicarse'),
+      consumirTokenRecuperacion(tokenViejo, 'hash_no_deberia_aplicarse', 'RECUPERACION'),
       /ya no es válido/,
     );
 
-    const resultado = await consumirTokenRecuperacion(tokenNuevo, 'hash_valido_recuperacion');
+    const resultado = await consumirTokenRecuperacion(tokenNuevo, 'hash_valido_recuperacion', 'RECUPERACION');
     assert.equal(resultado.usuarioId, empresaX.usuarioId);
   });
 
@@ -516,7 +516,7 @@ describe('consumirTokenRecuperacion', () => {
     await emitirToken(empresaX, invitadoId, 'ACTIVACION', tokenHash);
 
     const nuevoHash = 'hash_de_hugo_nuevo';
-    const resultado = await consumirTokenRecuperacion(tokenHash, nuevoHash);
+    const resultado = await consumirTokenRecuperacion(tokenHash, nuevoHash, 'ACTIVACION');
     assert.equal(resultado.tenantId, empresaX.tenantId);
     assert.equal(resultado.usuarioId, invitadoId);
 
@@ -526,6 +526,25 @@ describe('consumirTokenRecuperacion', () => {
     assert.equal(sesion.passwordHash, nuevoHash);
     assert.equal(sesion.tenantId, empresaX.tenantId);
     assert.equal(sesion.usuarioId, invitadoId);
+  });
+
+  test('un token solo sirve para su propósito: cruzado, es el mismo error que uno que no existe (CONTRATO §11.4)', async () => {
+    const invitadoId = await montarEscenarioComoAdmin(empresaX, async (cliente) => {
+      const { rows } = await cliente.query<{ id: string }>(
+        `INSERT INTO app.usuario (tenant_id, rol_id, nombre, email) VALUES ($1, $2, 'Iris Invitada', 'iris@construsoft.test') RETURNING id`,
+        [empresaX.tenantId, empresaX.rolAdminId],
+      );
+      return rows[0]!.id;
+    });
+    await emitirToken(empresaX, invitadoId, 'ACTIVACION', 'TOK_ACTIVACION_IRIS');
+    const noExiste = /no corresponde a ningún token emitido/;
+    await assert.rejects(consumirTokenRecuperacion('TOK_ACTIVACION_IRIS', 'x', 'RECUPERACION'), noExiste);
+    await assert.rejects(consumirTokenRecuperacion('TOK_QUE_NO_EXISTE', 'x', 'ACTIVACION'), noExiste);
+    // El intento fallido no lo gastó: con su propósito, sí sirve.
+    await consumirTokenRecuperacion('TOK_ACTIVACION_IRIS', 'hash_de_iris', 'ACTIVACION');
+
+    await emitirToken(empresaX, invitadoId, 'RECUPERACION', 'TOK_RECUPERACION_IRIS');
+    await assert.rejects(consumirTokenRecuperacion('TOK_RECUPERACION_IRIS', 'x', 'ACTIVACION'), noExiste);
   });
 });
 
@@ -834,12 +853,12 @@ describe('emitirTokenRecuperacion: el enlace que entrega el dueño a mano (04 §
     const empresa = await registrarEmpresaDePrueba('Constructora Test Emitir', '900000019-9', 'emitir.token@construsoft.test');
     const contexto = { tenantId: empresa.tenantId, usuarioId: empresa.usuarioId };
 
-    const primero = await emitirTokenRecuperacion(contexto, 'a'.repeat(64));
+    const primero = await emitirTokenRecuperacion(contexto, 'a'.repeat(64), 'RECUPERACION');
     const minutos = (Date.parse(primero.expiraEn) - Date.now()) / 60000;
     assert.ok(minutos > 29 && minutos <= 30, `vence en ${minutos} minutos`);
 
-    await emitirTokenRecuperacion(contexto, 'b'.repeat(64));
-    await assert.rejects(consumirTokenRecuperacion('a'.repeat(64), 'hash_nuevo_no_real'));
-    await consumirTokenRecuperacion('b'.repeat(64), 'hash_nuevo_no_real');
+    await emitirTokenRecuperacion(contexto, 'b'.repeat(64), 'RECUPERACION');
+    await assert.rejects(consumirTokenRecuperacion('a'.repeat(64), 'hash_nuevo_no_real', 'RECUPERACION'));
+    await consumirTokenRecuperacion('b'.repeat(64), 'hash_nuevo_no_real', 'RECUPERACION');
   });
 });

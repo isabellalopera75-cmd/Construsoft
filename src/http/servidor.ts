@@ -371,7 +371,7 @@ export async function construirServidor(opciones: OpcionesServidor): Promise<Fas
     exigirSinBloqueo(tokensFallidosPorIp, claveIp);
     const { token, contrasena } = esquemaRecuperacion.parse(request.body);
     try {
-      await consumirTokenRecuperacion(hashDeToken(token), await hashearContrasena(contrasena));
+      await consumirTokenRecuperacion(hashDeToken(token), await hashearContrasena(contrasena), 'RECUPERACION');
     } catch (error) {
       if (error instanceof ErrorParaElUsuario) tokensFallidosPorIp.registrarFallo(claveIp);
       throw error;

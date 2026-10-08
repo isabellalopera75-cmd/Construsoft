@@ -519,14 +519,29 @@ export async function actualizarHashAlIngresar(contexto: ContextoTenant, nuevoHa
  * peticiones concurrentes con el mismo token podrían pasar las dos la
  * validación de arriba (hecha con una lectura previa) y consumirlo dos veces.
  */
+export type PropositoDeToken = 'ACTIVACION' | 'RECUPERACION';
+
 export async function consumirTokenRecuperacion(
   tokenHash: string,
   passwordHash: string,
+  proposito: PropositoDeToken,
 ): Promise<ContextoTenant> {
+  const noExiste = () =>
+    new ErrorParaElUsuario('El enlace no es válido: no corresponde a ningún token emitido.', 'RECHAZADO');
   const token = await resolverToken(tokenHash);
-  if (!token) {
-    throw new ErrorParaElUsuario('El enlace no es válido: no corresponde a ningún token emitido.', 'RECHAZADO');
-  }
+  if (!token) throw noExiste();
+  // CONTRATO §11.4: un enlace de activación no sirve para recuperar ni al
+  // revés, y usarlo en la ruta equivocada es el MISMO error que uno que no
+  // existe. Se mira antes que lo demás, para que ni siquiera diga si estaba
+  // usado o vencido. fn_resolver_token no devuelve el propósito: se lee aquí,
+  // con el contexto del propio dueño del token.
+  const delToken = await ejecutarSinPermiso({ tenantId: token.tenantId, usuarioId: token.usuarioId }, async (cliente) => {
+    const { rows } = await cliente.query<{ proposito: PropositoDeToken }>('SELECT proposito FROM app.token_recuperacion WHERE id = $1', [
+      token.tokenId,
+    ]);
+    return rows[0]?.proposito;
+  });
+  if (delToken !== proposito) throw noExiste();
   if (token.anuladoEn) {
     throw new ErrorParaElUsuario(
       'Este enlace ya no es válido: se emitió uno más reciente para el mismo trámite. ' +
@@ -569,21 +584,24 @@ export async function consumirTokenRecuperacion(
 }
 
 /**
- * Emite un token de RECUPERACION para el usuario del contexto (exención 7 de
- * ejecutarSinPermiso). Guarda solo el hash; vence a los 30 minutos (RF-AUT-07,
- * ck_token_vigencia), y tg_token_anula_anteriores anula los que el usuario
+ * Emite un token de RECUPERACION o de ACTIVACION para el usuario del contexto
+ * (exención 7 de ejecutarSinPermiso). Guarda solo el hash; vence a los 30
+ * minutos o a las 72 horas según el propósito (ck_token_vigencia), y tg_token_anula_anteriores anula los que el usuario
  * tuviera pendientes (RF-AUT-18): solo sirve el último enlace entregado.
  */
 export async function emitirTokenRecuperacion(
   contexto: ContextoTenant,
   tokenHash: string,
+  proposito: PropositoDeToken,
 ): Promise<{ expiraEn: string }> {
+  // RF-AUT-07 y RF-AUT-13: 30 minutos para recuperar, 72 horas para activar.
+  const vigencia = proposito === 'RECUPERACION' ? '30 minutes' : '72 hours';
   return ejecutarSinPermiso(contexto, async (cliente) => {
     const { rows } = await cliente.query<{ expira_en: Date }>(
       `INSERT INTO app.token_recuperacion (tenant_id, usuario_id, proposito, token_hash, expira_en)
-       VALUES ($1, $2, 'RECUPERACION', $3, now() + interval '30 minutes')
+       VALUES ($1, $2, $3, $4, now() + $5::interval)
        RETURNING expira_en`,
-      [contexto.tenantId, contexto.usuarioId, tokenHash],
+      [contexto.tenantId, contexto.usuarioId, proposito, tokenHash, vigencia],
     );
     return { expiraEn: rows[0]!.expira_en.toISOString() };
   });

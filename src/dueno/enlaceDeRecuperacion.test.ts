@@ -13,8 +13,8 @@ describe('el enlace de recuperación del dueño (04 §8.5)', () => {
     const primero = await prepararEnlaceDeRecuperacion('enlace.ana@construsoft.test');
     const segundo = await prepararEnlaceDeRecuperacion('enlace.ana@construsoft.test');
     assert.match(segundo.token, /^[A-Za-z0-9_-]{43}$/);
-    await assert.rejects(consumirTokenRecuperacion(hashDeToken(primero.token), 'hash_nuevo_no_real'));
-    await consumirTokenRecuperacion(hashDeToken(segundo.token), 'hash_nuevo_no_real');
+    await assert.rejects(consumirTokenRecuperacion(hashDeToken(primero.token), 'hash_nuevo_no_real', 'RECUPERACION'));
+    await consumirTokenRecuperacion(hashDeToken(segundo.token), 'hash_nuevo_no_real', 'RECUPERACION');
   });
 
   test('un correo sin cuenta, una cuenta pendiente o una revocada: no hay enlace, y el motivo dice qué hacer', async () => {

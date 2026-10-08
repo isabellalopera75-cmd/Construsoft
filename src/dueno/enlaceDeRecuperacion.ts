@@ -26,6 +26,6 @@ export async function prepararEnlaceDeRecuperacion(correo: string): Promise<Enla
     throw new Error('Esa cuenta está revocada: la restablece un administrador de su empresa, no un enlace de recuperación.');
   }
   const { token, hash } = generarToken();
-  const { expiraEn } = await emitirTokenRecuperacion({ tenantId: usuario.tenantId, usuarioId: usuario.usuarioId }, hash);
+  const { expiraEn } = await emitirTokenRecuperacion({ tenantId: usuario.tenantId, usuarioId: usuario.usuarioId }, hash, 'RECUPERACION');
   return { token, expiraEn };
 }
