@@ -15,6 +15,23 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-08 · jueves, tarde
+
+**Hecho** (448/448, subido)
+
+- **Los APU tampoco repiten nombre** (`a1c618e`). El dueño lo decidió el 8 de
+  octubre, con la misma regla que los recursos: mismo nombre sin importar
+  mayúsculas ni espacios de los bordes, exigida al crear, al editar y al
+  importar. En el formulario da 422 con `campo: "nombre"`; en la importación,
+  un error de la fila en la columna «Nombre de la actividad».
+
+**Lo que necesito**
+
+- **Esquema**: el mismo índice único que pedí para recursos, ahora también
+  para `app.apu`: `(tenant_id, lower(btrim(nombre)))`.
+
+---
+
 ## 2026-10-08 · jueves
 
 **Hecho** (446/446, subido)
