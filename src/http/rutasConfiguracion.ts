@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { leerMiCuenta, type ContextoTenant } from '../infraestructura/basedatos/contextoTenant.js';
+import { leerLogo, leerMiCuenta, type ContextoTenant } from '../infraestructura/basedatos/contextoTenant.js';
 import {
   actualizarDatosEmpresa,
   actualizarPreferencias,
@@ -11,6 +11,9 @@ import {
   leerPreferencias,
   leerSuscripcion,
   listarUnidades,
+  quitarLogo,
+  subirLogo,
+  type TipoDeLogo,
 } from '../infraestructura/basedatos/configuracionEmpresa.js';
 import { ErrorParaElUsuario } from '../infraestructura/basedatos/errorParaElUsuario.js';
 import { UUID } from './rechazo.js';
@@ -22,11 +25,23 @@ import { SIN_CAMPOS_DE_MAS } from './validacion.js';
  * único, separadores distintos, moneda bloqueada cuando ya hay datos, el
  * símbolo repetido sin distinguir mayúsculas— las defiende la base.
  *
- * Fuera por ahora, y anotado en la bitácora: el logotipo (depende del
- * almacenamiento de objetos de D-30, que no existe todavía), el comprobante
- * PDF de cada pago (fase 7) y Usuarios (decisión pendiente sobre cómo llega
- * el enlace de activación sin correo, que es de la fase 8).
+ * El logotipo vive en app.logo (D-71) mientras no haya almacenamiento de
+ * objetos. Usuarios y roles están en rutasUsuarios.ts.
  */
+
+const UN_MEGA = 1024 * 1024;
+
+/**
+ * El tipo por la FIRMA del archivo, no por el content-type que diga el
+ * navegador ni por la extensión: PNG empieza por 89 50 4E 47 0D 0A 1A 0A, y
+ * JPEG por FF D8 FF. Un SVG no entra: servido en línea, es un documento que
+ * ejecuta código en el dominio de la aplicación (D-71).
+ */
+function tipoDeImagen(archivo: Buffer): TipoDeLogo | null {
+  if (archivo.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'image/png';
+  if (archivo.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]))) return 'image/jpeg';
+  return null;
+}
 
 type SesionDe = (request: FastifyRequest, reply: FastifyReply) => Promise<ContextoTenant>;
 
@@ -70,9 +85,51 @@ export function registrarRutasDeConfiguracion(app: FastifyInstance, sesionDe: Se
 
   /** Lo que se muestra de la empresa. El logo queda fuera hasta que exista dónde guardarlo (D-30). */
   async function empresa(contexto: ContextoTenant) {
-    const { razonSocial, nit, direccion, telefono, emailRecuperacion } = await leerDatosEmpresa(contexto);
-    return { razonSocial, nit, direccion, telefono, emailRecuperacion };
+    const { razonSocial, nit, direccion, telefono, emailRecuperacion, logoRuta } = await leerDatosEmpresa(contexto);
+    return { razonSocial, nit, direccion, telefono, emailRecuperacion, logoId: logoRuta };
   }
+
+  // --- CONTRATO §13 · El logotipo: subir, quitar y servir ---------------------------
+  // El cuerpo del PUT es la imagen tal cual. El lector binario y su tope de
+  // 1 MB viven dentro de este plugin; el 413 lleva su propio mensaje.
+  void app.register(async (logo) => {
+    logo.addContentTypeParser('*', { parseAs: 'buffer', bodyLimit: UN_MEGA }, (_request, cuerpo, listo) => listo(null, cuerpo));
+    logo.setErrorHandler((error, _request, reply) => {
+      if ((error as { statusCode?: number }).statusCode === 413) {
+        return reply.code(413).send({ mensaje: 'El logotipo pesa más de 1 MB. Redúzcalo e intente de nuevo.' });
+      }
+      throw error;
+    });
+
+    logo.put('/api/configuracion/empresa/logo', async (request, reply) => {
+      const contexto = await sesionDe(request, reply);
+      const archivo = Buffer.isBuffer(request.body) ? request.body : Buffer.alloc(0);
+      const tipo = tipoDeImagen(archivo);
+      if (!tipo) throw new ErrorParaElUsuario('El logotipo tiene que ser una imagen PNG o JPEG.', 'RECHAZADO');
+      await subirLogo(contexto, archivo, tipo);
+      return reply.send(await empresa(contexto));
+    });
+  });
+
+  app.delete('/api/configuracion/empresa/logo', async (request, reply) => {
+    const contexto = await sesionDe(request, reply);
+    await quitarLogo(contexto);
+    return reply.send(await empresa(contexto));
+  });
+
+  // Cualquier sesión de la empresa: el logo va en la cabecera de todas las
+  // pantallas. El id ya identifica el contenido, así que la caché es eterna.
+  app.get<{ Params: { id: string } }>('/api/logos/:id', async (request, reply) => {
+    const contexto = await sesionDe(request, reply);
+    const imagen = UUID.test(request.params.id) ? await leerLogo(contexto, request.params.id) : null;
+    if (!imagen) throw new ErrorParaElUsuario('Ese logotipo no existe en su empresa.', 'NO_EXISTE');
+    return reply
+      .header('content-type', imagen.tipo)
+      .header('x-content-type-options', 'nosniff')
+      .header('content-disposition', 'inline')
+      .header('cache-control', 'private, max-age=31536000, immutable')
+      .send(imagen.contenido);
+  });
 
   // --- 02 §11.1 · Mi cuenta ------------------------------------------------------
   app.get('/api/configuracion/cuenta', async (request, reply) => {

@@ -83,3 +83,22 @@ export async function leerVersionParaExportar(
     };
   });
 }
+
+/**
+ * CONTRATO §13 · Los bytes del logo que nombra la fotografía (D-64, D-71): el
+ * vigente si es el presupuesto vivo, el que tenía la empresa al congelarse si
+ * es una versión, aunque después lo haya cambiado o quitado. app.logo no
+ * borra nunca una imagen, así que la que nombra una versión sigue ahí. Pide
+ * el mismo permiso que exportar.
+ */
+export async function leerLogoParaExportar(
+  contexto: ContextoTenant,
+  logoRuta: string | null,
+): Promise<{ bytes: Buffer; tipo: 'png' | 'jpeg' } | null> {
+  if (!logoRuta || !/^[0-9a-f-]{36}$/i.test(logoRuta)) return null;
+  return ejecutarConPermiso(contexto, 'PRESUPUESTOS.EXPORTAR', async (cliente) => {
+    const { rows } = await cliente.query<{ contenido: Buffer; tipo: string }>('SELECT contenido, tipo FROM app.logo WHERE id = $1', [logoRuta]);
+    const fila = rows[0];
+    return fila ? { bytes: fila.contenido, tipo: fila.tipo === 'image/png' ? 'png' : 'jpeg' } : null;
+  });
+}

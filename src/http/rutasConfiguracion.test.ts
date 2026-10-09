@@ -79,7 +79,7 @@ describe('Datos de empresa, preferencias y suscripción (02 §11.2, §11.3, §11
     assert.deepEqual([antes.estado, antes.cuerpo.razonSocial, antes.cuerpo.nit], [200, 'Constructora Config HTTP', '900000353-3']);
     const datos = { razonSocial: 'Constructora Config HTTP SAS', nit: '900000353-3', direccion: 'Calle 10 # 20-30', telefono: '6045551234', emailRecuperacion: 'recuperar.config@construsoft.test' };
     const r = await llamar('PUT', '/api/configuracion/empresa', duena.cookie, datos);
-    assert.deepEqual([r.estado, r.cuerpo], [200, datos]);
+    assert.deepEqual([r.estado, r.cuerpo], [200, { ...datos, logoId: null }]);
   });
 
   test('un NIT que ya tiene otra empresa: 409 que marca el campo nit', async () => {
