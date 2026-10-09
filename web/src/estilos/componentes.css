@@ -933,3 +933,92 @@ textarea { min-height: 88px; padding: var(--e2) var(--e3); resize: vertical; wid
 @container (max-width: 560px) {
   .tabla-usuarios .col-ingreso, .tabla-usuarios th:nth-child(4) { display: none; }
 }
+
+/* --- El logotipo de la empresa (02 §11.2, CONTRATO §13) ------------------ */
+.bloque-de-logo { display: flex; flex-wrap: wrap; align-items: center; gap: var(--e5); }
+/* Fondo claro fijo, también en el tema oscuro: el logo se imprime sobre papel
+   blanco, y así se ve como va a salir. */
+.marco-de-logo {
+  display: grid; place-items: center;
+  width: 240px; height: 120px; padding: var(--e3);
+  border: 1px solid var(--borde-tenue); border-radius: var(--radio-md);
+  background: #ffffff;
+}
+.marco-de-logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.marco-de-logo[data-vacio] { background: var(--bg-app); border-style: dashed; color: var(--texto-segundo); font-size: var(--letra-sm); }
+.acciones-de-logo { display: flex; flex-wrap: wrap; gap: var(--e3); }
+
+/* --- Panel del superadministrador (CONTRATO §12) -------------------------- */
+.subtitulo-de-pantalla { margin: var(--e1) 0 0; color: var(--texto-segundo); font-size: var(--letra-sm); }
+.bajo-la-marca {
+  margin: calc(-1 * var(--e4)) 0 var(--e5); color: var(--texto-segundo);
+  font-size: var(--letra-xs); font-weight: var(--peso-fuerte); letter-spacing: 0.08em; text-transform: uppercase;
+}
+.aviso-informativo { margin: 0; padding: var(--e3) var(--e4); border-radius: var(--radio-md); background: var(--terracota-velo); font-size: var(--letra-sm); }
+.vacio-en-linea { margin: 0; color: var(--texto-segundo); font-size: var(--letra-sm); }
+.insignias { display: inline-flex; flex-wrap: wrap; gap: var(--e1); }
+.insignia-suscripcion[data-estado='SIN_SUSCRIPCION'] { color: var(--texto-segundo); background: color-mix(in srgb, var(--texto-segundo) 10%, transparent); }
+.dato-ancho { grid-column: 1 / -1; }
+
+/* La marca del panel lleva debajo «Plataforma», para que nadie confunda en qué
+   consola está antes de suspender una empresa. */
+.sello-de-plataforma {
+  display: flex; align-items: center; gap: var(--e2); margin: calc(-1 * var(--e3)) 0 0; padding: 0 var(--e3);
+  color: var(--terracota); font-size: var(--letra-xs); font-weight: var(--peso-fuerte); letter-spacing: 0.08em; text-transform: uppercase;
+}
+@media (min-width: 641px) {
+  .cascaron[data-barra='plegada'] .sello-de-plataforma { justify-content: center; padding: 0; width: var(--toque-minimo); }
+  .cascaron[data-barra='plegada'] .sello-de-plataforma .etiqueta-de-modulo { display: none; }
+}
+
+.cifras-del-panel { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); gap: var(--e4); margin-bottom: var(--e4); }
+.cifra-del-panel { display: grid; gap: var(--e1); padding: var(--e4) var(--e5); text-decoration: none; color: inherit; }
+.cifra-titulo { font-size: var(--letra-sm); color: var(--texto-segundo); font-weight: var(--peso-medio); }
+.cifra-valor { font-family: var(--fuente-titulo); font-size: var(--letra-2xl); font-weight: var(--peso-fuerte); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.cifra-destacada .cifra-valor { color: var(--terracota); }
+.cifra-destacada a { font-size: var(--letra-sm); }
+.cifra-reparto { display: grid; gap: 2px; font-size: var(--letra-sm); }
+.cifra-reparto strong { font-family: var(--fuente-titulo); font-size: var(--letra-lg); margin-right: var(--e1); }
+/* El estado va también en palabra (el título); el borde es solo apoyo. */
+.cifra-enlace { border-top: 3px solid var(--borde-tenue); transition: background var(--transicion); }
+.cifra-enlace:hover { background: var(--bg-tarjeta-hover); }
+.cifra-enlace[data-estado='ACTIVA'] { border-top-color: var(--exito); }
+.cifra-enlace[data-estado='EN_PRUEBA'] { border-top-color: var(--terracota); }
+.cifra-enlace[data-estado='VENCIDA'], .cifra-enlace[data-estado='SUSPENDIDA'] { border-top-color: var(--peligro); }
+.cifras-secundarias .cifra-valor { font-size: var(--letra-xl); }
+
+.seccion-del-panel { display: grid; gap: var(--e3); padding: var(--e5); margin-bottom: var(--e4); }
+.seccion-del-panel h2 { font-size: var(--letra-xl); }
+.rejilla-de-ficha { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: var(--e4); }
+.rejilla-de-ficha .seccion-del-panel { margin-bottom: var(--e4); align-content: start; }
+.acciones-de-ficha { display: flex; flex-wrap: wrap; gap: var(--e3); margin-bottom: var(--e5); }
+.encabezado-con-volver .insignias { margin-top: var(--e2); }
+.franja-suspendida { border-left-color: var(--peligro); margin-bottom: var(--e4); }
+.franja-suspendida .icono { color: var(--peligro); }
+
+.zona-de-cuidado { border-color: color-mix(in srgb, var(--peligro) 40%, var(--borde-tenue)); }
+.accion-de-cuidado { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--e4); padding-top: var(--e3); border-top: 1px solid var(--borde-tenue); }
+.accion-de-cuidado h3 { font-size: var(--letra-md); margin-bottom: var(--e1); }
+.accion-de-cuidado > div { flex: 1 1 22rem; }
+
+.lista-de-eventos { list-style: none; margin: 0; padding: 0; display: grid; }
+.lista-de-eventos li { padding: var(--e3) 0; border-bottom: 1px solid var(--borde-tenue); display: grid; gap: var(--e1); }
+.lista-de-eventos li:last-child { border-bottom: 0; }
+.lista-de-eventos p { margin: 0; font-size: var(--letra-sm); }
+.evento-cabeza { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--e3); }
+.evento-tipo { font-weight: var(--peso-fuerte); }
+.evento-tipo[data-tipo='TENANT_SUSPENDIDO'], .evento-tipo[data-tipo='TENANT_ELIMINADO'], .evento-tipo[data-tipo='SUSCRIPCION_CANCELADA'] { color: var(--peligro); }
+.evento-tipo[data-tipo='PAGO_REGISTRADO'] { color: var(--exito); }
+.evento-justificacion { color: var(--texto-segundo); font-style: italic; }
+
+.total-del-filtro { margin: 0 0 0 auto; align-self: end; padding-bottom: var(--e2); font-size: var(--letra-sm); }
+.total-del-filtro strong { font-size: var(--letra-lg); }
+
+.opciones-de-periodo { display: flex; flex-wrap: wrap; gap: var(--e2); padding-left: var(--e6); margin: var(--e1) 0 var(--e2); }
+.opciones-de-periodo [aria-pressed='true'] { background: var(--terracota-velo); border-color: var(--terracota); color: var(--texto); }
+.resultado-del-pago { display: flex; gap: var(--e3); align-items: flex-start; margin: 0; padding: var(--e3) var(--e4); border-radius: var(--radio-md); background: color-mix(in srgb, var(--exito) 8%, transparent); font-size: var(--letra-sm); }
+.resultado-del-pago .icono { color: var(--exito); flex: none; margin-top: 2px; }
+.enlace-de-empresa { display: block; font-weight: var(--peso-medio); color: var(--texto); text-decoration: none; }
+.enlace-de-empresa:hover { color: var(--terracota); text-decoration: underline; }
+.tabla th.col-numero { text-align: right; }
+.opciones-de-periodo .boton-de-periodo { width: auto; padding: 0 var(--e4); }

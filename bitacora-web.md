@@ -6,6 +6,75 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-09 · viernes
+
+**Decisión del dueño, 9 de octubre:** se construyen ya, en local, el
+**superadministrador** (fase 7) y el **logotipo**. El correo sigue por terminal
+(`npm run activacion` y `npm run enlace`) porque todavía no se paga un
+proveedor, y el despliegue espera a que el sistema esté listo en local.
+
+**Hecho** (sin commit; los hace el dueño o tú)
+
+- **Esquema, D-71** (`docs/05`, con `docs/prueba-d71.sql`). Lo cargué en un
+  PostgreSQL 16 limpio: el aislamiento queda verificado, las tres pruebas de
+  psql siguen verdes y la nueva da 19 de 19.
+  - `app.logo`: una fila por imagen, con la llave (empresa, sha256). Solo PNG
+    y JPEG, hasta 1 MB, en un `CHECK`. La aplicación tiene INSERT y SELECT y
+    nada más, porque una versión puede nombrar cualquier logo (D-64).
+    `plataforma.tenant.logo_ruta` guarda el id de la fila vigente, y
+    `tg_logo_de_la_empresa` hace de llave foránea: el logo tiene que existir y
+    ser de la misma empresa.
+  - `plataforma.soporte_pago`: los comprobantes de RF-SAD-09, en PNG, JPEG o
+    PDF hasta 5 MB. El panel tiene INSERT y SELECT; la aplicación, nada.
+    `pago.soporte_ruta` guarda su id.
+  - **Los índices únicos de nombre que pediste**: `ux_recurso_nombre` y
+    `ux_apu_nombre`, sobre `(tenant_id, lower(btrim(nombre)))`. Conectalos a
+    `MENSAJES_DE_RESTRICCION` y `CAMPO_DE_RESTRICCION`. Si tu base de
+    desarrollo tiene nombres repetidos de antes de tu regla, el índice no se
+    crea: avisame cuáles y lo resuelve el dueño.
+- **El panel del superadministrador**, en `web/superadmin/` y servido en
+  `/superadmin/`. Es otro paquete de Vite: el de las empresas no carga nada de
+  él. Pantallas:
+  - resumen;
+  - empresas, con filtros;
+  - ficha de la empresa: pago con comprobante, plan y vencimiento, suspender
+    y reactivar, designar administrador, cancelar y eliminar;
+  - pagos por rango de fechas;
+  - bitácora.
+- **El logotipo** en Configuración → Datos de empresa: subir, cambiar y quitar.
+- Todo contra la forma que propongo en el **CONTRATO §12 y §13**.
+
+**Lo que necesito**
+
+- **El CONTRATO §12 completo.** Lo que más importa:
+  - otra conexión (`superadmin_login`, §16.8 del esquema) y otra cookie
+    (`cs_plataforma`, con `Path=/api/superadmin`), sin mezclarse con las de
+    las empresas;
+  - el alta por terminal, `npm run superadmin -- correo "Nombre"`: pide la
+    contraseña dos veces sin mostrarla;
+  - cada acción firmada en `plataforma.evento_plataforma`;
+  - la fecha propuesta de un pago la calcula la base (`…/pagos/propuesta`), no
+    la pantalla;
+  - el panel no ve proyectos ni catálogos, solo conteos (01 §9);
+  - la búsqueda de empresas ignora mayúsculas y tildes.
+- **El CONTRATO §13**: subir, quitar y servir el logo, y dibujarlo en el PDF y
+  el Excel. El proyecto vivo usa el logo vigente; una versión usa el
+  `logo_ruta` de su fotografía. Hoy el exportador recibe la ruta y no tiene de
+  dónde leer la imagen: ahora la lee de `app.logo`.
+- **La variable del `.env` para la conexión del panel** la crea el dueño, con
+  el rol y su contraseña. Decile el nombre que esperás y qué tiene que correr
+  en psql (`CREATE ROLE superadmin_login …`), sin escribir la contraseña: él
+  la pone.
+
+**Lo que conviene que sepas**
+
+- El esquema todavía no tiene cómo cambiar la contraseña de un
+  superadministrador. Por ahora es por terminal; si hace falta, otro comando.
+- Si alguna regla del §12 choca con el esquema (por ejemplo, de dónde lee
+  `fn_auditar_tenant` el autor al suspender), dímelo antes de inventar.
+
+---
+
 ## 2026-10-08 · jueves
 
 **Hecho** (sin commit; los hace el dueño o tú)

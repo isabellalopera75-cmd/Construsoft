@@ -13,7 +13,8 @@ import { agregarCapitulo, agregarSubcapitulo } from './edt.js';
 import { agregarActividad, cambiarCantidad, type Actividad } from './actividad.js';
 import { activarPresupuesto, cerrarPresupuesto, reabrirPresupuesto } from './cicloDeVida.js';
 import { guardarVersion, leerFotografia, leerVersion, listarVersiones } from './versiones.js';
-import { actualizarDatosEmpresa, leerDatosEmpresa } from './configuracionEmpresa.js';
+import { actualizarDatosEmpresa, leerDatosEmpresa, subirLogo } from './configuracionEmpresa.js';
+import { pngDeUnPixel } from '../../pruebas/imagenes.js';
 
 let empresa: EmpresaRegistrada;
 let asistenteId: string;
@@ -225,26 +226,29 @@ describe('versiones: guardar manual, listar y consultar la fotografía (RF-VER-0
 
   test('schema 5: la empresa queda congelada con la versión —razón social, NIT y logo—, aunque cambie después (D-28, D-64)', async () => {
     const datos = await leerDatosEmpresa(contexto());
-    await actualizarDatosEmpresa(contexto(), { ...datos, logoRuta: 'logos/2026.png' });
+    // D-71: el logo es una fila de app.logo; logo_ruta guarda su id.
+    const logo2026 = await subirLogo(contexto(), pngDeUnPixel(20, 26, 0), 'image/png');
+    const logo2028 = await subirLogo(contexto(), pngDeUnPixel(20, 28, 0), 'image/png');
+    await actualizarDatosEmpresa(contexto(), { ...datos, logoRuta: logo2026 });
     const { id } = await obra();
     const de2026 = await guardarVersion(contexto(), id, 'Oferta con el logo de 2026');
 
     await actualizarDatosEmpresa(contexto(), {
       ...datos,
       razonSocial: 'Constructora Versiones Renombrada',
-      logoRuta: 'logos/2028.png',
+      logoRuta: logo2028,
     });
     const de2028 = await guardarVersion(contexto(), id, 'Oferta con el logo de 2028');
 
     assert.deepEqual((await leerVersion(contexto(), de2026.id))!.fotografia.empresa, {
       razonSocial: 'Constructora Versiones',
       nit: '900000110-0',
-      logoRuta: 'logos/2026.png',
+      logoRuta: logo2026,
     });
     assert.deepEqual((await leerVersion(contexto(), de2028.id))!.fotografia.empresa, {
       razonSocial: 'Constructora Versiones Renombrada',
       nit: '900000110-0',
-      logoRuta: 'logos/2028.png',
+      logoRuta: logo2028,
     });
     await actualizarDatosEmpresa(contexto(), datos);
   });

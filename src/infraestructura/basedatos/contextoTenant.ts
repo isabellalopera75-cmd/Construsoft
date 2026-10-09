@@ -186,6 +186,10 @@ async function ejecutarComoTenant<T>(
  *      no tiene sesión: es justo lo que perdió. La identidad la resuelve
  *      autenticar por el correo, y el contexto es el del propio usuario, no
  *      un tenantId recibido por fuera. Solo escribe un token suyo.
+ *   8. leerLogo — el logotipo de la propia empresa (D-71), que la cabecera de
+ *      TODAS las pantallas muestra a cualquier usuario: es el mismo caso que
+ *      el formato numérico del 3, un dato que hace falta antes de saber qué
+ *      permiso aplica. Solo lee, y la RLS de app.logo lo acota a la empresa.
  */
 function ejecutarSinPermiso<T>(
   contexto: ContextoTenant,
@@ -604,5 +608,19 @@ export async function emitirTokenRecuperacion(
       [contexto.tenantId, contexto.usuarioId, proposito, tokenHash, vigencia],
     );
     return { expiraEn: rows[0]!.expira_en.toISOString() };
+  });
+}
+
+/** Ver la exención 8 de ejecutarSinPermiso. null si el id no es un logo de esta empresa. */
+export async function leerLogo(
+  contexto: ContextoTenant,
+  id: string,
+): Promise<{ contenido: Buffer; tipo: 'image/png' | 'image/jpeg' } | null> {
+  return ejecutarSinPermiso(contexto, async (cliente) => {
+    const { rows } = await cliente.query<{ contenido: Buffer; tipo: 'image/png' | 'image/jpeg' }>(
+      'SELECT contenido, tipo FROM app.logo WHERE id = $1',
+      [id],
+    );
+    return rows[0] ?? null;
   });
 }

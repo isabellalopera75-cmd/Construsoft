@@ -61,6 +61,11 @@ describe('traducirError: el único lugar donde un rechazo se vuelve HTTP (04 §8
     assert.match(r.mensaje, /símbolo/);
     assert.equal(traducirError(errorDeLaBase('23505', 'llave duplicada', 'ux_tenant_nit')).campo, 'nit');
     assert.equal(traducirError(errorDeLaBase('23505', 'llave duplicada', 'otra_restriccion')).campo, undefined);
+    // D-71: los índices únicos de nombre son el respaldo de la regla del dueño.
+    for (const indice of ['ux_recurso_nombre', 'ux_apu_nombre']) {
+      const r2 = traducirError(errorDeLaBase('23505', 'llave duplicada', indice));
+      assert.deepEqual([r2.campo, /Ya existe un (recurso|APU) con ese nombre/.test(r2.mensaje)], ['nombre', true]);
+    }
   });
 
   test('una cifra que no cabe en su columna (22003) es un dato del formulario: 422, no 500', () => {

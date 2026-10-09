@@ -11,6 +11,7 @@ import {
   actualizarPreferencias,
   crearUnidad,
   actualizarUnidad,
+  subirLogo,
   eliminarUnidad,
   leerDatosEmpresa,
   leerPreferencias,
@@ -19,6 +20,7 @@ import {
 } from './configuracionEmpresa.js';
 import { comoSuperusuario, vencerSuscripcion } from '../../pruebas/superusuario.js';
 import { crearRecurso } from './recurso.js';
+import { pngDeUnPixel } from '../../pruebas/imagenes.js';
 
 /**
  * Mismo patrón de fixtures que contextoTenant.test.ts, repetido acá a
@@ -102,17 +104,19 @@ describe('CONFIG.EMPRESA', () => {
     assert.equal(antes.razonSocial, 'Constructora Config A');
     assert.equal(antes.logoRuta, null);
 
+    // D-71: logo_ruta es el id de un logo de app.logo de esta misma empresa.
+    const logo = await subirLogo(contexto, pngDeUnPixel(10, 20, 30), 'image/png');
     await actualizarDatosEmpresa(contexto, {
       ...antes,
       direccion: 'Cra 10 # 20-30',
       telefono: '3001234567',
-      logoRuta: 'empresas/logo-config-a.png',
+      logoRuta: logo,
     });
 
     const despues = await leerDatosEmpresa(contexto);
     assert.equal(despues.direccion, 'Cra 10 # 20-30');
     assert.equal(despues.telefono, '3001234567');
-    assert.equal(despues.logoRuta, 'empresas/logo-config-a.png');
+    assert.equal(despues.logoRuta, logo);
     // Lo que la actualización no tocó sigue igual.
     assert.equal(despues.razonSocial, antes.razonSocial);
     assert.equal(despues.nit, antes.nit);

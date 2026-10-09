@@ -363,6 +363,8 @@ export interface Empresa {
   direccion: string | null;
   telefono: string | null;
   emailRecuperacion: string | null;
+  /** El logo vigente (CONTRATO §13): se pide a /api/logos/:id. Null: sin logo. */
+  logoId: string | null;
 }
 
 export interface Preferencias {

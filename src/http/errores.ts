@@ -27,6 +27,8 @@ const MENSAJES_DE_RESTRICCION: Record<string, string> = {
   presupuesto_tenant_id_codigo_key: 'Ya existe un proyecto con ese código en esta empresa. Use otro código.',
   ux_tenant_nit: 'Ya hay una empresa registrada con ese NIT. Si es la suya, ingrese con su cuenta o recupere la contraseña.',
   usuario_email_key: 'Ese correo ya tiene una cuenta. Ingrese con él, o use otro correo para registrarse.',
+  ux_recurso_nombre: 'Ya existe un recurso con ese nombre en su empresa. Use otro nombre, o edite el que ya existe.',
+  ux_apu_nombre: 'Ya existe un APU con ese nombre en su empresa. Use otro nombre, o edite el que ya existe.',
   ux_unidad_simbolo:
     'Ya existe una unidad con ese símbolo en su empresa. «Kg» y «kg» son el mismo símbolo: use otro.',
   ck_presupuesto_texto_no_vacio: 'El código, el nombre y la ubicación del proyecto son obligatorios.',
@@ -44,6 +46,8 @@ const CAMPO_DE_RESTRICCION: Record<string, string> = {
   ux_tenant_nit: 'nit',
   usuario_email_key: 'email',
   ux_unidad_simbolo: 'simbolo',
+  ux_recurso_nombre: 'nombre',
+  ux_apu_nombre: 'nombre',
 };
 
 /** La sesión no sirve: no hay cookie, la firma no vale, venció, o el sello ya no es el de la base. */

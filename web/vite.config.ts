@@ -33,6 +33,17 @@ export default defineConfig({
      * de su lado, que es donde corresponde.
      */
     emptyOutDir: false,
+    /*
+     * Dos aplicaciones en un proyecto (CONTRATO §12): la de las empresas en
+     * «/» y el panel del superadministrador en «/superadmin/». Son dos
+     * paquetes: el de las empresas no carga ni una línea del panel.
+     */
+    rollupOptions: {
+      input: {
+        empresas: fileURLToPath(new URL('./index.html', import.meta.url)),
+        superadmin: fileURLToPath(new URL('./superadmin/index.html', import.meta.url)),
+      },
+    },
   },
   server: {
     port: 5173,

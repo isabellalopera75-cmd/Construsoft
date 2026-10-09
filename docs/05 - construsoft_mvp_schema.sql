@@ -35,7 +35,7 @@
 --  ---------------------------------------------------------------------------
 --  LAS DECISIONES DE DISEÑO QUE ESTE ESQUEMA IMPLEMENTA
 --
---  Son sesenta y tres: D-1 a D-64, sin la D-10, que no existe. El motivo de
+--  Son setenta: D-1 a D-71, sin la D-10, que no existe. El motivo de
 --  cada una está en la sección 14 del documento de alcance. Aquí va el
 --  enunciado, y cada decisión vuelve a aparecer anotada en el punto del esquema
 --  donde vive. Las ocho últimas están al final de esta lista y tienen fecha:
@@ -507,6 +507,30 @@
 --         uso no obliga a componer sus líneas. Y como sus hermanas cubre el
 --         DELETE, así que quitarle RECURSOS.VER a un rol que arma APU se
 --         rechaza al confirmar la transacción.
+--   D-71  (posterior a la auditoría · dos tablas, dos índices y un
+--         disparador) Las imágenes viven en la base mientras no haya
+--         almacenamiento de objetos. Decisión del dueño, 9 de octubre de
+--         2026: el despliegue y sus servicios pagos esperan a que el sistema
+--         esté listo en local, y el logotipo y los comprobantes de pago no.
+--            app.logo guarda una fila por imagen, direccionada por su hash, y
+--         plataforma.tenant.logo_ruta apunta a la vigente con el id de esa
+--         fila. Una fila por empresa no servía: reemplazar el logo pisaría el
+--         que una versión tiene congelado (D-64). Por la misma razón app.logo
+--         no admite UPDATE ni DELETE a la aplicación: un logo que alguna
+--         fotografía nombra no se borra nunca. Solo PNG y JPEG —un SVG servido
+--         en línea es ejecución de script en el dominio de la aplicación— y
+--         tope de 1 MB en un CHECK. Tabla aparte y no columna de tenant, para
+--         que leer la empresa no arrastre la imagen.
+--            plataforma.soporte_pago guarda los comprobantes de RF-SAD-09
+--         (PNG, JPEG o PDF, hasta 5 MB) y pago.soporte_ruta apunta a su id.
+--         Solo el panel del superadministrador la lee y la escribe.
+--            Cuando exista almacenamiento de objetos (D-30), las dos rutas
+--         pasan a ser llaves de objeto y estas tablas se migran una sola vez;
+--         las fotografías no cambian, porque guardan la ruta y no la imagen.
+--            Entran con ella los índices de nombre único de recurso y de APU
+--         (decisión del dueño del 7 y 8 de octubre de 2026): sin distinguir
+--         mayúsculas ni espacios de los bordes. La API ya lo comprobaba dentro
+--         de su transacción; dos pedidos simultáneos podían pasar los dos.
 --
 --  ---------------------------------------------------------------------------
 --  LO QUE SIGUE ABIERTO, A PROPÓSITO
@@ -824,8 +848,9 @@ CREATE TABLE plataforma.tenant (                    -- RF-AUT-01, RF-AUT-02
 COMMENT ON COLUMN plataforma.tenant.estado IS
   'SUSPENDIDO bloquea el acceso conservando todos los datos (RF-SAD-04, RNF-18).';
 COMMENT ON COLUMN plataforma.tenant.logo_ruta IS
-  'Llave del objeto en almacenamiento de objetos, servido por URL firmada de '
-  'vencimiento corto (D-30). Nunca una ruta de disco local.';
+  'El logo vigente: el id de una fila de app.logo de la misma empresa (D-71), '
+  'o nulo. Cuando exista almacenamiento de objetos será la llave del objeto '
+  '(D-30). Nunca una ruta de disco local.';
 
 -- El NIT es único en toda la plataforma (RF-AUT-16). Sin esa unicidad se puede
 -- registrar la misma empresa N veces para encadenar pruebas gratuitas, que es
@@ -961,6 +986,23 @@ COMMENT ON COLUMN plataforma.pago.factura_cufe IS
   'Código único de factura electrónica que devuelve el proveedor tecnológico. '
   'El comprobante de RF-CFG-08 es esta factura, no un PDF propio (D-32).';
 CREATE INDEX ix_pago_suscripcion ON plataforma.pago (suscripcion_id, fecha DESC);
+
+-- D-71 · El comprobante de un pago manual (RF-SAD-09): la foto o el PDF que
+-- mandó el cliente. pago.soporte_ruta guarda el id de esta fila. No hay llave
+-- foránea porque el comprobante se sube ANTES de registrar el pago, y un pago
+-- puede no tener comprobante. Se sube una vez y no cambia: el panel tiene
+-- INSERT y SELECT, nada más.
+CREATE TABLE plataforma.soporte_pago (
+    id          uuid        PRIMARY KEY DEFAULT app.uuid_v7(),
+    sha256      text        NOT NULL CHECK (sha256 ~ '^[0-9a-f]{64}$'),
+    tipo        text        NOT NULL
+                            CHECK (tipo IN ('image/png','image/jpeg','application/pdf')),
+    contenido   bytea       NOT NULL
+                            CHECK (octet_length(contenido) BETWEEN 1 AND 5242880),
+    subido_por  uuid        NOT NULL REFERENCES plataforma.usuario_plataforma(id),
+    subido_en   timestamptz NOT NULL DEFAULT now()
+);
+REVOKE ALL ON plataforma.soporte_pago FROM PUBLIC;
 
 
 -- -----------------------------------------------------------------------------
@@ -1273,6 +1315,44 @@ CREATE TABLE app.configuracion_empresa (
     CHECK (separador_miles <> separador_decimal)
 );
 
+-- D-71 · El logotipo de la empresa (RF-CFG-05), una fila por imagen. Subir dos
+-- veces la misma imagen no crea otra fila: la llave es (empresa, hash). La
+-- aplicación tiene INSERT y SELECT y nada más, porque una versión congelada
+-- puede nombrar cualquiera de estas filas (D-64): «quitar el logo» es poner
+-- plataforma.tenant.logo_ruta en nulo, no borrar la imagen.
+CREATE TABLE app.logo (
+    id         uuid        PRIMARY KEY DEFAULT app.uuid_v7(),
+    tenant_id  uuid        NOT NULL REFERENCES plataforma.tenant(id) ON DELETE CASCADE,
+    sha256     text        NOT NULL CHECK (sha256 ~ '^[0-9a-f]{64}$'),
+    tipo       text        NOT NULL CHECK (tipo IN ('image/png','image/jpeg')),
+    contenido  bytea       NOT NULL
+                           CHECK (octet_length(contenido) BETWEEN 1 AND 1048576),
+    creado_en  timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (tenant_id, sha256)
+);
+
+-- logo_ruta no puede tener llave foránea mientras sea texto, y lo seguirá
+-- siendo cuando apunte a un objeto. Mientras apunte a app.logo, este
+-- disparador hace de llave: el logo vigente tiene que existir y ser de la
+-- misma empresa. Sin él, una empresa podía señalar el logo de otra con solo
+-- conocer su id, y la otra lo vería impreso en sus ofertas.
+CREATE OR REPLACE FUNCTION plataforma.fn_logo_de_la_empresa() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF NEW.logo_ruta IS NULL OR NEW.logo_ruta IS NOT DISTINCT FROM OLD.logo_ruta THEN
+        RETURN NEW;
+    END IF;
+    IF NEW.logo_ruta !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+       OR NOT EXISTS (SELECT 1 FROM app.logo l
+                       WHERE l.id = NEW.logo_ruta::uuid AND l.tenant_id = NEW.id) THEN
+        RAISE EXCEPTION
+          'El logo indicado no existe en esta empresa. Súbalo de nuevo (D-71).';
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER tg_logo_de_la_empresa BEFORE UPDATE OF logo_ruta ON plataforma.tenant
+    FOR EACH ROW EXECUTE FUNCTION plataforma.fn_logo_de_la_empresa();
+
 CREATE TABLE app.unidad_medida (                      -- RF-CFG-17..20
     id           uuid        PRIMARY KEY DEFAULT app.uuid_v7(),
     tenant_id    uuid        NOT NULL REFERENCES plataforma.tenant(id) ON DELETE CASCADE,
@@ -1350,6 +1430,11 @@ COMMENT ON COLUMN app.recurso.via_captura IS
   'las dos igualdades de ck_recurso_precios_cuadran se exige.';
 CREATE INDEX ix_recurso_tipo    ON app.recurso (tenant_id, tipo, nombre);
 CREATE INDEX ix_recurso_nombre  ON app.recurso (tenant_id, lower(nombre));  -- RF-REC-03/14
+-- D-71 · Dos recursos de una empresa no se llaman igual, sin distinguir
+-- mayúsculas ni espacios de los bordes (decisión del dueño, 7 de octubre de
+-- 2026). La API lo comprueba antes para dar un mensaje con el recurso que ya
+-- existe; este índice es lo que impide que dos pedidos simultáneos pasen.
+CREATE UNIQUE INDEX ux_recurso_nombre ON app.recurso (tenant_id, lower(btrim(nombre)));
 -- Índice trigrama. El índice sobre lower(nombre) solo sirve búsquedas por
 -- prefijo, y la que describe RF-REC-03 —autocompletado, «todos los recursos
 -- relacionados»— es ILIKE '%término%', que sin trigramas cae en Seq Scan.
@@ -1388,6 +1473,8 @@ CREATE TABLE app.apu (
         CHECK (btrim(codigo) <> '' AND btrim(nombre) <> '')
 );
 CREATE INDEX ix_apu_nombre ON app.apu (tenant_id, lower(nombre));   -- RF-APU-02
+-- D-71 · La misma regla para los APU (decisión del dueño, 8 de octubre de 2026).
+CREATE UNIQUE INDEX ux_apu_nombre ON app.apu (tenant_id, lower(btrim(nombre)));
 CREATE INDEX ix_apu_unidad ON app.apu (tenant_id, unidad_id);       -- RF-APU-03
 CREATE INDEX ix_apu_nombre_trgm ON app.apu
     USING gin (tenant_id, nombre gin_trgm_ops);
@@ -6412,7 +6499,7 @@ GRANT INSERT ON app.recurso, app.apu, app.apu_version, app.apu_version_recurso,
                 app.presupuesto, app.wbs_nodo, app.presupuesto_item,
                 app.rol, app.rol_permiso,
                 app.usuario, app.unidad_medida, app.token_recuperacion,
-                app.configuracion_empresa TO construsoft_app;
+                app.configuracion_empresa, app.logo TO construsoft_app;
 
 -- DELETE solo donde el día a día lo permite; nunca sobre las cuatro inmutables
 -- (apu_version, apu_version_recurso, presupuesto_version, evento_auditoria).
@@ -6567,6 +6654,8 @@ GRANT SELECT ON ALL TABLES IN SCHEMA app TO construsoft_superadmin;
 GRANT SELECT ON ALL TABLES IN SCHEMA plataforma TO construsoft_superadmin;
 GRANT USAGE ON SEQUENCE app.seq_uuid_v7 TO construsoft_superadmin;
 GRANT SELECT ON plataforma.usuario_plataforma TO construsoft_superadmin;
+-- D-71 · Los comprobantes de pago: el panel los sube y los lee; nunca los cambia.
+GRANT INSERT ON plataforma.soporte_pago TO construsoft_superadmin;
 GRANT UPDATE (estado) ON plataforma.tenant TO construsoft_superadmin;               -- suspender/reactivar
 GRANT UPDATE (plan_id, fecha_vencimiento, estado, cancelada_en, cancelada_motivo)
     ON plataforma.suscripcion TO construsoft_superadmin;                            -- RF-SAD-06

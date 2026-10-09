@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { ejecutarConPermiso, type ContextoTenant } from './contextoTenant.js';
 import { ErrorParaElUsuario } from './errorParaElUsuario.js';
 
@@ -82,6 +83,41 @@ export async function actualizarDatosEmpresa(
         contexto.tenantId,
       ],
     ),
+  );
+}
+
+/** Los dos formatos que admite app.logo (D-71). */
+export type TipoDeLogo = 'image/png' | 'image/jpeg';
+
+/**
+ * 02 §11.2, CONTRATO §13 · Subir el logotipo. La llave de app.logo es
+ * (empresa, sha256): la misma imagen subida dos veces es la misma fila. La
+ * nueva queda vigente en plataforma.tenant.logo_ruta, y las anteriores NO se
+ * borran: una versión congelada puede estar nombrándolas (D-64). El tipo y el
+ * tope de 1 MB los defiende un CHECK; la firma del archivo la mira la ruta.
+ */
+export async function subirLogo(contexto: ContextoTenant, contenido: Buffer, tipo: TipoDeLogo): Promise<string> {
+  const sha256 = createHash('sha256').update(contenido).digest('hex');
+  return ejecutarConPermiso(contexto, 'CONFIG.EMPRESA', async (cliente) => {
+    await cliente.query(
+      `INSERT INTO app.logo (tenant_id, sha256, tipo, contenido) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (tenant_id, sha256) DO NOTHING`,
+      [contexto.tenantId, sha256, tipo, contenido],
+    );
+    const { rows } = await cliente.query<{ id: string }>('SELECT id FROM app.logo WHERE tenant_id = $1 AND sha256 = $2', [
+      contexto.tenantId,
+      sha256,
+    ]);
+    const id = rows[0]!.id;
+    await cliente.query('UPDATE plataforma.tenant SET logo_ruta = $2 WHERE id = $1', [contexto.tenantId, id]);
+    return id;
+  });
+}
+
+/** Quitar el logotipo vigente. La imagen se queda en app.logo (D-64): solo deja de ser la vigente. */
+export async function quitarLogo(contexto: ContextoTenant): Promise<void> {
+  await ejecutarConPermiso(contexto, 'CONFIG.EMPRESA', (cliente) =>
+    cliente.query('UPDATE plataforma.tenant SET logo_ruta = NULL WHERE id = $1', [contexto.tenantId]),
   );
 }
 

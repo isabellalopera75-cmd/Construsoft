@@ -514,6 +514,20 @@ presupuestos y abrir uno para consultarlo.
   globo. Entre 641 y 1024 px va siempre plegada y sin botón; en el teléfono
   sigue siendo un cajón.
 
+- **El panel del superadministrador, 9 de octubre de 2026** (CONTRATO §12).
+  El prototipo no servía, así que se diseñó desde la plataforma: el mismo
+  marco (barra lateral plegable, migas, quién soy), las mismas tarjetas,
+  capas e insignias, y los mismos tokens. Lo que lo distingue es un sello
+  «Plataforma» con un escudo bajo la marca, para que nadie confunda en qué
+  consola está antes de suspender una empresa. La ficha de la empresa pone
+  arriba lo de todos los días (registrar un pago) y abajo, separada, una
+  «zona de cuidado» con lo que no tiene vuelta atrás. La suspensión y el
+  estado de la suscripción son dos insignias, porque son dos cosas. La fecha
+  hasta la que queda cubierto un pago la calcula la base, no la pantalla.
+- **El logotipo** (CONTRATO §13) va en su propia sección de Datos de empresa,
+  sobre un fondo blanco fijo también en el tema oscuro: se imprime sobre
+  papel blanco. Elegir el archivo lo sube; no hay «Guardar».
+
 ## 12. Lo que todavía no está decidido
 
 Para que nadie lo lea creyendo que está completo:

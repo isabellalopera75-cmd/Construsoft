@@ -504,8 +504,8 @@ Suscripcion   = { estado, plan, venceEl, diasRestantes,
                             estado, facturaNumero }] }
 ```
 
-`Empresa` **no trae el logotipo**: todavía no tiene dónde guardarse (D-30), y el
-campo aparecerá cuando exista. El estado de la suscripción sale de
+`Empresa` trae `logoId` desde el §13: el logo vive en `app.logo` (D-71)
+mientras no haya almacenamiento de objetos. El estado de la suscripción sale de
 `fn_estado_suscripcion`, la misma del arranque, así que la pestaña y la barra
 superior no pueden discrepar. Una suscripción VENCIDA o CANCELADA se consulta
 igual: es justo cuando hace falta.
@@ -534,8 +534,8 @@ Version = { id, numero, tipo, disparador, estado, motivo, valorTotal,
 
 Para que nadie lo lea creyendo que está completo: no están el cambio de estado
 —activar, cerrar, reabrir—, duplicar, archivar, eliminar, el historial, el
-logotipo (02 §11.2) ni la superadministración. Entran cuando les toque. Los
-usuarios y roles (02 §11.4) están propuestos en el §11.
+superadministración ni el logotipo: los dos están propuestos en el §12 y el §13.
+Entran cuando les toque. Los usuarios y roles (02 §11.4) están en el §11.
 
 ---
 
@@ -646,7 +646,7 @@ con un mensaje que lo dice.
 
 ---
 
-## 11. Usuarios y roles (PROPUESTO el 8 de octubre de 2026, sin construir)
+## 11. Usuarios y roles (propuesto el 8 de octubre de 2026, construido el mismo día: `8660a76`)
 
 02 §11.4. La pestaña «Usuarios» de Configuración. La interfaz ya la consume
 (`web/src/modulos/configuracion/Usuarios.tsx` y la pantalla
@@ -774,4 +774,176 @@ npm run activacion -- correo@empresa.com
 
 Imprime `URL_ACTIVACION` + token, vence a las 72 horas y anula el enlace
 anterior de esa persona (RF-AUT-18). Solo para usuarios PENDIENTE. En
-desarrollo, `URL_ACTIVACION=http://localhost:5173/#/activar?token=`.
+desarrollo, `URL_ACTIVACION="http://localhost:5173/#/activar?token="`, **con
+comillas**: sin ellas, el `--env-file` de Node toma el `#` como comentario.
+
+---
+
+## 12. Superadministración (PROPUESTO el 9 de octubre de 2026, sin construir)
+
+Fase 7, RF-SAD-01 a 15. Decisión del dueño, 9 de octubre de 2026: se construye
+ya, en local; el correo y el despliegue esperan. La interfaz es una aplicación
+aparte dentro de `web/` (`web/superadmin/index.html`, servida en
+`/superadmin/`): no comparte pantalla de ingreso, sesión ni código de pantallas
+con la de las empresas (02 §3.5), y el paquete de las empresas no carga nada de
+ella.
+
+### 12.1 Conexión, sesión y alta del superadministrador
+
+- **Otra conexión a la base**: el rol `superadmin_login` del §16.8 del esquema,
+  miembro de `construsoft_superadmin`. Su cadena va en una variable nueva del
+  `.env` que **crea y escribe el dueño**, con la contraseña del rol. Ninguna
+  ruta de §12 usa la conexión de la aplicación, ni al revés.
+- **Otra cookie**: `cs_plataforma`, HttpOnly, Secure, SameSite=Strict, con
+  `Path=/api/superadmin` y vigencia de 2 horas. Una cookie de empresa no abre
+  ninguna ruta de §12, y esta no abre ninguna de las demás.
+- **Alta por terminal**: `npm run superadmin -- correo@dominio "Nombre"` pide la
+  contraseña **dos veces en la terminal, sin mostrarla**, y crea la fila en
+  `plataforma.usuario_plataforma` con argon2id. La escribe el dueño; ningún
+  asistente la ve ni la propone (regla 8 del CLAUDE.md).
+- `POST /api/superadmin/sesion` `{ email, contrasena }` → 200 `{ nombre, email }`.
+  Mismo mensaje para correo inexistente, contraseña errada o cuenta inactiva, y
+  el mismo límite de intentos que el ingreso de empresas.
+- `GET /api/superadmin/sesion` → 200 `{ nombre, email }` o 401.
+- `DELETE /api/superadmin/sesion` → 204.
+- Cada escritura fija el autor que piden `fn_evento_plataforma`,
+  `fn_registrar_pago`, `fn_designar_admin` y `fn_eliminar_tenant`. Ninguna
+  acción del panel queda sin firmar en `plataforma.evento_plataforma`.
+
+### 12.2 Las formas
+
+```
+EstadoComercial = 'EN_PRUEBA' | 'ACTIVA' | 'VENCIDA' | 'CANCELADA' | 'SIN_SUSCRIPCION'
+                  // el de fn_estado_suscripcion; «suspendida» va aparte, porque
+                  // no es un estado de la suscripción sino del inquilino
+
+FilaDeEmpresa = { id, razonSocial, nit, planCodigo: 'PERSONAL'|'EMPRESARIAL'|null,
+                  estado: EstadoComercial, suspendida: boolean,
+                  venceEl: Fecha|null, diasRestantes: number|null,
+                  usuarios: number,        // sin revocar
+                  proyectos: number,
+                  registradaEn: Instante,
+                  eliminableDesde: Fecha|null }   // solo pruebas sin convertir (RF-SAD-13)
+
+Resumen = { empresas: { total, enPrueba, activas, vencidas, canceladas, suspendidas },
+            nuevasEsteMes: number,
+            ingresosDelMes: Dinero, moneda: 'COP',
+            proyectos: number,
+            porPlan: { PERSONAL: number, EMPRESARIAL: number },
+            porVencer: FilaDeEmpresa[],          // vencen en 7 días o menos (RF-SAD-10)
+            pruebasSinConvertir: FilaDeEmpresa[] } // prueba vencida, sin pago
+
+FichaDeEmpresa = {
+  empresa:     { id, razonSocial, nit, direccion, telefono, emailRecuperacion,
+                 registradaEn, suspendida: boolean },
+  suscripcion: { id, planCodigo, estado: EstadoComercial, fechaInicio: Fecha,
+                 venceEl: Fecha, diasRestantes: number,
+                 canceladaEn: Instante|null, canceladaMotivo: string|null } | null,
+  usuarios:    [{ id, nombre, email, rolNombre, rolTipo, estado, ultimoAcceso }],
+  cifras:      { proyectos, recursos, apus },
+  pagos:       PagoDePlataforma[],          // del más reciente al más antiguo
+  eventos:     EventoDePlataforma[],        // los de esta empresa
+  eliminableDesde: Fecha|null }
+
+PagoDePlataforma = { id, fecha: Fecha, concepto, monto: Dinero, moneda, metodo,
+                     referencia: string|null, periodoMeses: number|null,
+                     cubreHasta: Fecha, soporteId: string|null,
+                     registradoPor: string, registradoEn: Instante,
+                     empresa: { id, razonSocial } }
+
+EventoDePlataforma = { id, tipo, descripcion, justificacion: string|null,
+                       ocurridoEn: Instante, autor: string|null,
+                       empresa: { id, razonSocial } | null }   // null si se eliminó
+```
+
+`Fecha` es «aaaa-mm-dd» sin hora. **El panel no ve proyectos ni catálogos**
+(01 §9: «no opera obras ni ve el detalle técnico»): solo conteos.
+
+### 12.3 Las rutas
+
+Todas bajo `/api/superadmin`, con la cookie `cs_plataforma`.
+
+| Método y ruta | Cuerpo | Respuesta |
+|---|---|---|
+| `GET /resumen` | — | `Resumen` (RF-SAD-02, 10) |
+| `GET /empresas?texto=&estado=&plan=` | — | `{ empresas: FilaDeEmpresa[] }` (RF-SAD-03). `texto` busca en razón social y NIT sin distinguir mayúsculas ni tildes («rios» encuentra «Ríos»); `estado` acepta los de `EstadoComercial` y `SUSPENDIDA` |
+| `GET /empresas/:id` | — | `FichaDeEmpresa` |
+| `POST /empresas/:id/suspender` | `{ motivo }` | `FichaDeEmpresa` (RF-SAD-04) |
+| `POST /empresas/:id/reactivar` | `{ motivo }` | `FichaDeEmpresa` (RF-SAD-05) |
+| `PUT /empresas/:id/suscripcion` | `{ planCodigo, venceEl, motivo }` | `FichaDeEmpresa` (RF-SAD-06) |
+| `POST /empresas/:id/suscripcion/cancelar` | `{ motivo }` | `FichaDeEmpresa` (RF-SAD-07) |
+| `GET /empresas/:id/pagos/propuesta?periodoMeses=n` | — | `{ cubreHasta: Fecha }` |
+| `POST /soportes` | el archivo tal cual | 201 `{ id }` |
+| `GET /soportes/:id` | — | el archivo |
+| `POST /empresas/:id/pagos` | ver abajo | 201 `FichaDeEmpresa` (RF-SAD-09, 12) |
+| `GET /pagos?desde=&hasta=` | — | `{ pagos: PagoDePlataforma[], total: Dinero, moneda }` (RF-SAD-08) |
+| `POST /empresas/:id/administrador` | `{ email, nombre, justificacion }` | `FichaDeEmpresa` (RF-SAD-14) |
+| `DELETE /empresas/:id` | `{ justificacion, confirmacion }` | 204 (RF-SAD-13, 15) |
+| `GET /eventos?empresaId=` | — | `{ eventos: EventoDePlataforma[] }`, los 200 más recientes |
+
+Las reglas:
+
+- **`motivo` y `justificacion` son obligatorios** donde aparecen, y quedan en
+  `plataforma.evento_plataforma`. Vacío: 422 con `campo`.
+- **Suspender no es cancelar.** Suspender corta el acceso de la empresa sin
+  tocar su suscripción, y la empresa lo ve como «suspendida por la
+  administración» (02 §3.4). Cancelar es comercial. Las dos conservan todo.
+- **Cambiar plan o vencimiento**: el paso a un plan menor lo frena
+  `fn_plan_cabe` con su mensaje; va tal cual. `venceEl` en el pasado es 422 con
+  `campo: "venceEl"`.
+- **Registrar un pago**: `{ fecha, concepto, monto, metodo, referencia,
+  periodoMeses, cubreHasta, soporteId }`.
+  - `monto` es `Dinero` en texto (regla 1.1). `metodo` es uno de
+    `TRANSFERENCIA`, `PSE`, `EFECTIVO`, `OTRO`.
+  - Llega `periodoMeses` **o** `cubreHasta`. Si viene la fecha, manda la fecha
+    (D-36); si no, la base propone `max(vencimiento, hoy) + período`.
+  - La pantalla muestra antes la fecha que resultaría con `GET …/propuesta`, y
+    **no la calcula ella**: sumar meses tiene casos borde (31 de enero + 1 mes)
+    y la regla vive en la base.
+  - Un pago que dejaría el vencimiento en el pasado: 422 con
+    `campo: "cubreHasta"`, con el mensaje de la base.
+- **Comprobantes** (D-71): `POST /soportes` recibe el archivo tal cual, como la
+  importación (§10): PNG, JPEG o PDF, hasta 5 MB, comprobando la firma del
+  archivo y no la extensión. Más grande: 413. Otro tipo: 422. `GET
+  /soportes/:id` lo devuelve con su tipo guardado, `nosniff` e `inline`, sin
+  nombre de archivo del usuario.
+- **Designar administrador** (RF-SAD-14): con `fn_designar_admin`. Si el correo
+  no existe en la empresa, la persona nace PENDIENTE y **el enlace lo genera el
+  dueño con `npm run activacion`**, igual que los invitados (§11.4), hasta que
+  exista el correo. La justificación dice cómo se verificó la identidad de quien
+  lo pidió; la pantalla lo pide con esas palabras.
+- **Eliminar** (RF-SAD-13, 15): con `fn_eliminar_tenant`. `confirmacion` es la
+  razón social escrita a mano; si no coincide, 422 con `campo: "confirmacion"`.
+  Una empresa que pagó o que todavía no lleva 10 días con la prueba vencida no
+  se elimina: el mensaje de la base va tal cual.
+
+## 13. El logotipo de la empresa (PROPUESTO el 9 de octubre de 2026, sin construir)
+
+02 §11.2, RF-CFG-05, RNF-20. Con D-71 la imagen vive en `app.logo` mientras no
+haya almacenamiento de objetos, y `plataforma.tenant.logo_ruta` guarda el id
+de la vigente.
+
+| Método y ruta | Cuerpo | Respuesta | Permiso |
+|---|---|---|---|
+| `GET /api/configuracion/empresa` | — | `Empresa` con `logoId: string \| null` | `CONFIG.EMPRESA` |
+| `PUT /api/configuracion/empresa/logo` | la imagen tal cual | 200 `Empresa` | `CONFIG.EMPRESA` |
+| `DELETE /api/configuracion/empresa/logo` | — | 200 `Empresa`, con `logoId: null` | `CONFIG.EMPRESA` |
+| `GET /api/logos/:id` | — | la imagen | sesión de la empresa |
+
+- **Solo PNG y JPEG, hasta 1 MB**, comprobando la firma del archivo y no el
+  `content-type` que diga el navegador. Otro tipo: 422 «El logotipo tiene que
+  ser una imagen PNG o JPEG.». Más grande: 413 «El logotipo pesa más de 1 MB.
+  Redúzcalo e intente de nuevo.».
+- **Subir** calcula el sha256, inserta en `app.logo` si esa imagen no estaba
+  (la llave es empresa y hash) y deja su id en `logo_ruta`. Subir otra vez la
+  misma imagen no crea otra fila.
+- **Quitar** deja `logo_ruta` en nulo y **no borra la imagen**: una versión
+  congelada puede estar nombrándola (D-64). La aplicación no tiene DELETE sobre
+  `app.logo`.
+- **`GET /api/logos/:id`** sirve con el tipo guardado, `nosniff`, `inline` y
+  caché larga e inmutable: el id ya identifica el contenido. Un id de otra
+  empresa es 404, como uno que no existe (RN-01).
+- **PDF y Excel**: una exportación del proyecto vivo usa el logo vigente; la de
+  una versión usa el `logo_ruta` de su fotografía, aunque la empresa haya
+  cambiado de logo después. El logo se encaja en su espacio del encabezado
+  conservando la proporción. Sin logo, el encabezado queda como hoy.

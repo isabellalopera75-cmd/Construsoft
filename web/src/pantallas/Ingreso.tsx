@@ -1,8 +1,12 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ErrorDeApi, pedir } from '../api/cliente.ts';
 import type { Arranque } from '../api/tipos.ts';
 import { Campo } from '../componentes/Campo.tsx';
 import { Icono } from '../componentes/Icono.tsx';
+import { PantallaSuelta } from '../componentes/PantallaSuelta.tsx';
+
+// La pantalla suelta vive en componentes/: la usa también el superadministrador.
+export { PantallaSuelta };
 
 /*
  * 02 §3.2 · Ingreso. Correo y contraseña, sin selector de empresa: el correo
@@ -110,16 +114,6 @@ export function Ingreso({ alEntrar, aviso }: { alEntrar: (arranque: Arranque) =>
 }
 
 /** El marco de las pantallas sin sesión: la marca y una tarjeta centrada. */
-export function PantallaSuelta({ children }: { children: ReactNode }) {
-  return (
-    <div className="pantalla-suelta">
-      <main className="tarjeta-suelta">
-        <p className="marca-palabra marca-grande">ConstruSoft</p>
-        {children}
-      </main>
-    </div>
-  );
-}
 
 /** Segundos que faltan hasta un instante, actualizados cada segundo. */
 function useCuentaRegresiva(hasta: number | null): number {

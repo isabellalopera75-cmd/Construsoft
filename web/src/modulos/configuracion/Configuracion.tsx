@@ -9,6 +9,7 @@ import { Confirmacion } from '../../componentes/Confirmacion.tsx';
 import { Icono } from '../../componentes/Icono.tsx';
 import { Pestanas } from '../../componentes/Pestanas.tsx';
 import { ErrorDeSeccion, Seccion, useLectura } from './piezas.tsx';
+import { Logotipo } from './Logotipo.tsx';
 import { Usuarios } from './Usuarios.tsx';
 import { formatearNumero } from '../../formato.ts';
 import { ir, type PestanaDeConfiguracion } from '../../navegacion.ts';
@@ -56,7 +57,7 @@ export function Configuracion({ pestana }: { pestana: PestanaDeConfiguracion | u
       />
       <div id="pestana-config-panel" role="tabpanel" aria-labelledby={`pestana-config-${actual}`} className="panel-de-pestana">
         {actual === 'cuenta' ? <MiCuentaPestana /> : null}
-        {actual === 'empresa' ? <EmpresaPestana /> : null}
+        {actual === 'empresa' ? <EmpresaConLogo /> : null}
         {actual === 'preferencias' ? <PreferenciasPestana /> : null}
         {actual === 'suscripcion' ? <SuscripcionPestana /> : null}
         {actual === 'usuarios' ? <Usuarios /> : null}
@@ -155,12 +156,15 @@ function CambiarContrasena({ alCerrar, alCambiar }: { alCerrar: () => void; alCa
 
 // --- 02 §11.2 · Datos de empresa ------------------------------------------------
 
+/** Lo que se edita en el formulario; el logo va aparte, con su propio botón. */
+type CampoDeEmpresa = Exclude<keyof Empresa, 'logoId'>;
+
 function EmpresaPestana() {
   const { datos, error, releer, poner } = useLectura<Empresa>('/api/configuracion/empresa');
   const { soloLectura, recargar } = useSesion();
   const { avisar } = useAvisos();
-  const [form, setForm] = useState<Record<keyof Empresa, string> | null>(null);
-  const [errores, setErrores] = useState<Partial<Record<keyof Empresa, string>>>({});
+  const [form, setForm] = useState<Record<CampoDeEmpresa, string> | null>(null);
+  const [errores, setErrores] = useState<Partial<Record<CampoDeEmpresa, string>>>({});
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
@@ -202,7 +206,7 @@ function EmpresaPestana() {
     }
   }
 
-  const campo = (clave: keyof Empresa, etiqueta: string, extra: { tipo?: string; ayuda?: string; autoComplete?: string } = {}) => (
+  const campo = (clave: CampoDeEmpresa, etiqueta: string, extra: { tipo?: string; ayuda?: string; autoComplete?: string } = {}) => (
     <Campo etiqueta={etiqueta} error={errores[clave]} {...(extra.ayuda ? { ayuda: extra.ayuda } : {})}>
       {(a) => (
         <input {...a} type={extra.tipo ?? 'text'} autoComplete={extra.autoComplete ?? 'off'} value={form[clave]} disabled={soloLectura}
@@ -230,10 +234,6 @@ function EmpresaPestana() {
           tipo: 'email',
           ayuda: 'Distinto del correo de ingreso: es por donde se recupera la cuenta si el administrador pierde el acceso.',
         })}
-        <p className="nota-pendiente">
-          <Icono nombre="reloj" />
-          <span>La carga del logotipo llega en una próxima versión. Mientras tanto, los PDF salen con la razón social y el NIT.</span>
-        </p>
         {soloLectura ? null : (
           <div className="fila-de-botones fila-izquierda">
             <button type="submit" className="boton boton-principal" disabled={enviando}>{enviando ? 'Guardando…' : 'Guardar datos'}</button>
@@ -241,6 +241,15 @@ function EmpresaPestana() {
         )}
       </form>
     </Seccion>
+  );
+}
+
+function EmpresaConLogo() {
+  return (
+    <>
+      <EmpresaPestana />
+      <Logotipo />
+    </>
   );
 }
 

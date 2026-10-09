@@ -5,6 +5,7 @@ import { enlaceA, type Ruta } from '../navegacion.ts';
 import { useSesion } from '../sesion.tsx';
 import { aplicarTema, temaVisible, type Tema } from '../tema.ts';
 import { AvisoDeSuscripcion } from './AvisoDeSuscripcion.tsx';
+import { useBarraPlegable } from './barraPlegable.ts';
 
 /*
  * El marco de toda pantalla de adentro (DISENO §7): barra lateral con los
@@ -17,37 +18,6 @@ import { AvisoDeSuscripcion } from './AvisoDeSuscripcion.tsx';
  * mouse o al llegar con el teclado. Entre 641 y 1024 px va siempre plegada,
  * porque no cabe; en el teléfono es un cajón y esto no aplica.
  */
-
-const CLAVE_BARRA = 'construsoft.barraPlegada';
-
-function leerPreferencia(): boolean {
-  try {
-    return window.localStorage.getItem(CLAVE_BARRA) === 'si';
-  } catch {
-    return false;
-  }
-}
-
-function guardarPreferencia(plegada: boolean): void {
-  try {
-    window.localStorage.setItem(CLAVE_BARRA, plegada ? 'si' : 'no');
-  } catch {
-    // Sin almacenamiento, la barra se pliega igual; solo no se recuerda.
-  }
-}
-
-/** ¿La ventana mide entre 641 y 1024 px? Ahí la barra va siempre plegada. */
-function useVentanaMediana(): boolean {
-  const consulta = '(min-width: 641px) and (max-width: 1024px)';
-  const [mediana, setMediana] = useState(() => window.matchMedia(consulta).matches);
-  useEffect(() => {
-    const lista = window.matchMedia(consulta);
-    const alCambiar = () => setMediana(lista.matches);
-    lista.addEventListener('change', alCambiar);
-    return () => lista.removeEventListener('change', alCambiar);
-  }, []);
-  return mediana;
-}
 
 export interface Modulo {
   ruta: Ruta;
@@ -114,15 +84,7 @@ export function Cascaron({ ruta, migas, children }: Props) {
   const [cajonAbierto, setCajonAbierto] = useState(false);
   const botonMenu = useRef<HTMLButtonElement>(null);
   const actual = moduloDe(ruta);
-  const [preferida, setPreferida] = useState(leerPreferencia);
-  const mediana = useVentanaMediana();
-  const plegada = mediana || preferida;
-
-  function alternarBarra() {
-    const nueva = !preferida;
-    setPreferida(nueva);
-    guardarPreferencia(nueva);
-  }
+  const { plegada, mediana, alternarBarra } = useBarraPlegable();
 
   // Cambiar de pantalla cierra el cajón del teléfono.
   useEffect(() => setCajonAbierto(false), [ruta]);
