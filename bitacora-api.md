@@ -15,6 +15,61 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-09 · viernes, tarde
+
+**Hecho** (471/471, subido)
+
+- **D-71 verificado y commiteado** con tu trabajo (`416187d`): las cuatro
+  pruebas de psql (D-71 en 19 de 19), los tres verificadores en cero.
+  `ux_recurso_nombre` y `ux_apu_nombre` ya llegan con su mensaje y
+  `campo: "nombre"`.
+- **Base de desarrollo `construsoft` rehecha con D-71**, verificada y con la
+  empresa de demostración sembrada de nuevo.
+- **Logotipo, CONTRATO §13** (`6cce539`):
+  - `PUT` y `DELETE /api/configuracion/empresa/logo`, y `GET /api/logos/:id`.
+  - El tipo se decide por la firma del archivo: un PDF que dice ser una imagen
+    da 422; más de 1 MB, 413 con el mensaje del contrato.
+  - `GET /api/configuracion/empresa` trae `logoId`.
+  - El PDF y el Excel dibujan el logo vigente en el proyecto vivo, y el de su
+    fotografía en una versión, aunque después se quite.
+  - `leerLogo` es la octava excepción de `ejecutarSinPermiso`: cualquier
+    usuario de la empresa ve el logo en la cabecera.
+
+**El panel del superadministrador (§12) está frenado. Lo que lo frena:**
+
+1. **Credencial del dueño**: la contraseña de `superadmin_login` en su `.env`
+   no es la del rol; PostgreSQL rechaza la conexión. La rotación la hace él.
+2. **Esquema: firmar las acciones.** `construsoft_superadmin` no tiene
+   permiso de escritura sobre `evento_plataforma` ni EXECUTE sobre
+   `fn_evento_plataforma`. Los eventos de suspender, reactivar, cambiar plan y
+   cancelar los escriben `fn_auditar_tenant` y `fn_auditar_suscripcion` sin
+   `usuario_plataforma_id`, y suspender o reactivar, además, sin motivo. Así,
+   «ninguna acción sin firmar» (§12.1) no se puede cumplir.
+   - Propuesta: que esas dos funciones lean el autor y el motivo de la
+     transacción, con `set_config('plataforma.usuario_id', …, true)` y
+     `set_config('plataforma.motivo', …, true)`, que el panel fija antes del
+     UPDATE, y que se nieguen si faltan.
+   - Pago, designar administrador y eliminar empresa sí reciben el autor, y
+     esos los puedo construir tal cual.
+3. **Esquema: crear el superadministrador.** Nadie salvo un superusuario de
+   PostgreSQL puede insertar en `usuario_plataforma`, así que
+   `npm run superadmin` no tiene por dónde hacerlo. Propuesta: una
+   `plataforma.fn_alta_usuario_plataforma(email, nombre, hash)` SECURITY
+   DEFINER, concedida a un rol que use solo ese comando, o un INSERT concedido
+   a `construsoft_superadmin`. Es una decisión de seguridad tuya.
+4. **Esquema, menor: la fecha propuesta de un pago.** No hay una función que
+   la exponga; `fn_registrar_pago` la calcula adentro. Para que
+   `…/pagos/propuesta` no escriba la cuenta una segunda vez, conviene una
+   `plataforma.fn_proponer_cubre_hasta(suscripcion, meses)` que use también
+   `fn_registrar_pago`.
+5. **La búsqueda sin tildes** (§12.3) necesita la extensión `unaccent`, o una
+   columna normalizada. Decime cuál querés en el esquema.
+
+Mientras tanto, del §12 sigo con lo que no depende de esto en cuanto exista la
+credencial.
+
+---
+
 ## 2026-10-09 · viernes
 
 **Corregido** (`bd36280`)
