@@ -10,7 +10,44 @@ import { AvisoDeSuscripcion } from './AvisoDeSuscripcion.tsx';
  * El marco de toda pantalla de adentro (DISENO §7): barra lateral con los
  * módulos que el rol permite, barra superior con «dónde estoy · quién soy», el
  * aviso de la suscripción y el contenido en una columna de 1280 px.
+ *
+ * La barra lateral se pliega a iconos (decisión del dueño, 9 de octubre de
+ * 2026): un botón al pie la oculta y la muestra, y el navegador recuerda la
+ * elección. Plegada, cada icono muestra su nombre en un globo al pasar el
+ * mouse o al llegar con el teclado. Entre 641 y 1024 px va siempre plegada,
+ * porque no cabe; en el teléfono es un cajón y esto no aplica.
  */
+
+const CLAVE_BARRA = 'construsoft.barraPlegada';
+
+function leerPreferencia(): boolean {
+  try {
+    return window.localStorage.getItem(CLAVE_BARRA) === 'si';
+  } catch {
+    return false;
+  }
+}
+
+function guardarPreferencia(plegada: boolean): void {
+  try {
+    window.localStorage.setItem(CLAVE_BARRA, plegada ? 'si' : 'no');
+  } catch {
+    // Sin almacenamiento, la barra se pliega igual; solo no se recuerda.
+  }
+}
+
+/** ¿La ventana mide entre 641 y 1024 px? Ahí la barra va siempre plegada. */
+function useVentanaMediana(): boolean {
+  const consulta = '(min-width: 641px) and (max-width: 1024px)';
+  const [mediana, setMediana] = useState(() => window.matchMedia(consulta).matches);
+  useEffect(() => {
+    const lista = window.matchMedia(consulta);
+    const alCambiar = () => setMediana(lista.matches);
+    lista.addEventListener('change', alCambiar);
+    return () => lista.removeEventListener('change', alCambiar);
+  }, []);
+  return mediana;
+}
 
 export interface Modulo {
   ruta: Ruta;
@@ -77,6 +114,15 @@ export function Cascaron({ ruta, migas, children }: Props) {
   const [cajonAbierto, setCajonAbierto] = useState(false);
   const botonMenu = useRef<HTMLButtonElement>(null);
   const actual = moduloDe(ruta);
+  const [preferida, setPreferida] = useState(leerPreferencia);
+  const mediana = useVentanaMediana();
+  const plegada = mediana || preferida;
+
+  function alternarBarra() {
+    const nueva = !preferida;
+    setPreferida(nueva);
+    guardarPreferencia(nueva);
+  }
 
   // Cambiar de pantalla cierra el cajón del teléfono.
   useEffect(() => setCajonAbierto(false), [ruta]);
@@ -94,7 +140,7 @@ export function Cascaron({ ruta, migas, children }: Props) {
   }, [cajonAbierto]);
 
   return (
-    <div className="cascaron" data-cajon={cajonAbierto ? 'abierto' : 'cerrado'}>
+    <div className="cascaron" data-cajon={cajonAbierto ? 'abierto' : 'cerrado'} data-barra={plegada ? 'plegada' : 'abierta'}>
       <a className="saltar-al-contenido" href="#contenido" onClick={(e) => {
         // El destino es un id, no una ruta: sin esto, el «#contenido»
         // reemplazaría la dirección de la pantalla.
@@ -105,7 +151,7 @@ export function Cascaron({ ruta, migas, children }: Props) {
       </a>
 
       <aside className="barra-lateral" id="barra-lateral" aria-label="Módulos">
-        <a className="marca" href={enlaceA({ pantalla: 'inicio' })}>
+        <a className="marca" href={enlaceA({ pantalla: 'inicio' })} aria-label="ConstruSoft, ir al inicio">
           <span className="marca-palabra">ConstruSoft</span>
         </a>
         <nav>
@@ -114,7 +160,6 @@ export function Cascaron({ ruta, migas, children }: Props) {
               <a
                 href={enlaceA({ pantalla: 'inicio' })}
                 aria-current={actual === 'inicio' ? 'page' : undefined}
-                title="Inicio"
               >
                 <Icono nombre="inicio" />
                 <span className="etiqueta-de-modulo">Inicio</span>
@@ -125,7 +170,6 @@ export function Cascaron({ ruta, migas, children }: Props) {
                 <a
                   href={enlaceA(m.ruta)}
                   aria-current={actual === m.ruta.pantalla ? 'page' : undefined}
-                  title={m.nombre}
                 >
                   <Icono nombre={m.icono} />
                   <span className="etiqueta-de-modulo">{m.nombre}</span>
@@ -134,6 +178,19 @@ export function Cascaron({ ruta, migas, children }: Props) {
             ))}
           </ul>
         </nav>
+        {/* Sin botón entre 641 y 1024: ahí la barra no cabe abierta. */}
+        {mediana ? null : (
+          <button
+            type="button"
+            className="boton-de-barra"
+            aria-expanded={!plegada}
+            aria-controls="barra-lateral"
+            onClick={alternarBarra}
+          >
+            <Icono nombre={plegada ? 'desplegar' : 'plegar'} />
+            <span className="etiqueta-de-modulo">{plegada ? 'Mostrar menú' : 'Ocultar menú'}</span>
+          </button>
+        )}
       </aside>
 
       {/* El velo del cajón: tocar fuera lo cierra. Solo existe en teléfono. */}

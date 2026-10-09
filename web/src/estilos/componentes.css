@@ -110,6 +110,29 @@
   text-decoration: none;
 }
 .lista-de-modulos a:hover { background: var(--bg-tarjeta-hover); color: var(--texto); }
+/* Ocultar y mostrar el menú: al pie de la barra, con la misma forma que un
+   módulo para que se lea como parte de la navegación y no como un módulo más. */
+.boton-de-barra {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--e3);
+  min-height: var(--toque-minimo);
+  padding: 0 var(--e3);
+  border: 0;
+  border-top: 1px solid var(--borde-tenue);
+  border-radius: 0;
+  background: transparent;
+  color: var(--texto-segundo);
+  font: inherit;
+  font-size: var(--letra-sm);
+  font-weight: var(--peso-medio);
+  cursor: pointer;
+  text-align: left;
+}
+.boton-de-barra:hover { color: var(--texto); }
+.cascaron[data-barra='plegada'] .boton-de-barra { border-top: 0; border-radius: var(--radio-md); }
+.cascaron[data-barra='plegada'] .boton-de-barra:hover { background: var(--bg-tarjeta-hover); }
 /* El módulo actual: velo terracota, texto pleno y una barra a la izquierda,
    para que no dependa solo del color (DISENO §2). */
 .lista-de-modulos a[aria-current='page'] {
@@ -454,13 +477,51 @@ html:has(dialog[open]) { overflow: hidden; }
 
 /* --- Anchos (DISENO §11) ------------------------------------------------ */
 
-/* 641 a 1024: barra lateral a iconos. */
-@media (max-width: 1024px) {
-  .barra-lateral { width: var(--ancho-barra-iconos); padding: var(--e4) var(--e2); align-items: center; }
-  .marca .marca-palabra { font-size: 0; }
-  .marca .marca-palabra::first-letter { font-size: var(--letra-xl); }
-  .etiqueta-de-modulo { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .lista-de-modulos a { justify-content: center; padding: 0; width: var(--toque-minimo); }
+/* La barra plegada: a mano desde cualquier ancho, o siempre entre 641 y
+   1024 (lo decide Cascaron con data-barra). En el teléfono es un cajón y no
+   se pliega. Plegada, cada icono lleva su nombre en un globo al pasar el
+   mouse o al llegar con el teclado; el nombre sigue en el enlace para los
+   lectores de pantalla. */
+@media (min-width: 641px) {
+  .cascaron[data-barra='plegada'] .barra-lateral {
+    width: var(--ancho-barra-iconos);
+    padding: var(--e4) var(--e2);
+    align-items: center;
+    /* Visible y no «auto»: con desplazamiento, el globo se recortaría en el
+       borde de la barra. Son seis enlaces; caben siempre. */
+    overflow: visible;
+  }
+  .cascaron[data-barra='plegada'] .marca { padding: 0; justify-content: center; width: var(--toque-minimo); }
+  .cascaron[data-barra='plegada'] .marca .marca-palabra { font-size: 0; }
+  .cascaron[data-barra='plegada'] .marca .marca-palabra::first-letter { font-size: var(--letra-xl); }
+  .cascaron[data-barra='plegada'] :is(.lista-de-modulos a, .boton-de-barra) {
+    position: relative;
+    justify-content: center;
+    padding: 0;
+    width: var(--toque-minimo);
+  }
+  .cascaron[data-barra='plegada'] .etiqueta-de-modulo {
+    position: absolute;
+    left: calc(100% + var(--e3));
+    top: 50%;
+    z-index: 30;
+    padding: var(--e1) var(--e3);
+    border-radius: var(--radio-md);
+    background: var(--bg-barra);
+    border: 1px solid var(--borde-campo);
+    box-shadow: var(--sombra-flotante);
+    color: var(--texto);
+    font-size: var(--letra-sm);
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transform: translate(-4px, -50%);
+    transition: opacity var(--transicion), transform var(--transicion);
+  }
+  .cascaron[data-barra='plegada'] :is(.lista-de-modulos a, .boton-de-barra):is(:hover, :focus-visible) .etiqueta-de-modulo {
+    opacity: 1;
+    transform: translate(0, -50%);
+  }
 }
 
 /* Hasta 640: la barra lateral es un cajón, y la lista se reduce a lo que se
@@ -490,6 +551,7 @@ html:has(dialog[open]) { overflow: hidden; }
   .lista-de-modulos a { justify-content: flex-start; padding: 0 var(--e3); width: auto; }
 
   .boton-del-cajon { display: inline-flex; margin-left: calc(-1 * var(--e2)); }
+  .boton-de-barra { display: none; }
   .barra-superior { padding: 0 var(--e3); }
   .quien-soy-texto { display: none; }
   .migas li:not(:last-child) { display: none; }

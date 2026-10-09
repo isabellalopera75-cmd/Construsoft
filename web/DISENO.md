@@ -506,6 +506,14 @@ presupuestos y abrir uno para consultarlo.
   único administrador. El enlace de activación no se muestra: lo entrega el
   dueño de ConstruSoft hasta que exista el correo.
 
+- **La barra lateral se pliega, 9 de octubre de 2026** (decisión del dueño):
+  un botón al pie, «Ocultar menú», la deja solo con iconos, y el navegador lo
+  recuerda. Plegada, cada icono muestra solo el nombre del módulo en un globo
+  al pasar el mouse o al llegar con el teclado. El nombre sigue dentro del
+  enlace para los lectores de pantalla, y no hay `title`, que duplicaría el
+  globo. Entre 641 y 1024 px va siempre plegada y sin botón; en el teléfono
+  sigue siendo un cajón.
+
 ## 12. Lo que todavía no está decidido
 
 Para que nadie lo lea creyendo que está completo:
