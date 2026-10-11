@@ -17,7 +17,8 @@
     "demo": "node --env-file=.env --import tsx src/demo/sembrar.ts",
     "verificar-demo": "node --env-file=.env --import tsx src/demo/verificar.ts",
     "enlace": "node --env-file=.env --import tsx src/dueno/enlace.ts",
-    "activacion": "node --env-file=.env --import tsx src/dueno/activacion.ts"
+    "activacion": "node --env-file=.env --import tsx src/dueno/activacion.ts",
+    "superadmin": "node --env-file=.env --import tsx src/dueno/superadmin.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",

@@ -28,6 +28,7 @@ import { registrarRutasDeExportacion } from './rutasExportacion.js';
 import { registrarRutasDeCicloDeVida } from './rutasCicloDeVida.js';
 import { registrarRutasDeImportacion } from './rutasImportacion.js';
 import { registrarRutasDeUsuarios } from './rutasUsuarios.js';
+import { registrarRutasDelPanel } from './rutasSuperadmin.js';
 
 export interface OpcionesServidor {
   /** La clave de firma de la cookie: SESSION_SECRET del .env, que escribe el dueño. */
@@ -337,6 +338,9 @@ export async function construirServidor(opciones: OpcionesServidor): Promise<Fas
 
   // --- 02 §11.4 · Usuarios y roles -----------------------------------------------------
   registrarRutasDeUsuarios(app, sesionDe);
+
+  // --- CONTRATO §12 · El panel del superadministrador: otra conexión y otra cookie -----
+  registrarRutasDelPanel(app, ahora);
 
   // --- 02 §11.1 · Cambiar la contraseña desde Mi cuenta ---------------------------
   // Verifica la actual, guarda la nueva y mueve el sello de credenciales

@@ -36,12 +36,29 @@ export async function comoSuperusuario<T>(operacion: (cliente: pg.PoolClient) =>
 
 /** Deja vencida desde ayer la suscripción del inquilino. */
 export async function vencerSuscripcion(tenantId: string): Promise<void> {
+  await moverVencimiento(tenantId, -1);
+}
+
+/**
+ * Pone el vencimiento de la suscripción a `dias` de hoy: negativo es vencida
+ * hace tantos días. Como superusuario y sin SET ROLE, el cambio no se firma
+ * (D-72): es la preparación del escenario, no una acción del panel.
+ */
+export async function moverVencimiento(tenantId: string, dias: number): Promise<void> {
   await comoSuperusuario((cliente) =>
     cliente.query(
       `UPDATE plataforma.suscripcion
-          SET fecha_inicio = current_date - 40, fecha_vencimiento = current_date - 1
+          SET fecha_inicio = least(fecha_inicio, current_date + $2::int, current_date - 40),
+              fecha_vencimiento = current_date + $2::int
         WHERE tenant_id = $1`,
-      [tenantId],
+      [tenantId, dias],
     ),
+  );
+}
+
+/** Desactiva a un superadministrador: no hay ruta ni comando que lo haga todavía. */
+export async function desactivarSuperadmin(email: string): Promise<void> {
+  await comoSuperusuario((cliente) =>
+    cliente.query('UPDATE plataforma.usuario_plataforma SET activo = false WHERE email = $1', [email]),
   );
 }

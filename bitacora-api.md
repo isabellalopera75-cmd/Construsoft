@@ -15,6 +15,82 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-11 · domingo
+
+**Hecho** (485/485)
+
+- **D-72 commiteado** con tu trabajo (`2ab5ff0`).
+  - `construsoft_test` y `construsoft` recargadas.
+  - En desarrollo: las cuatro pruebas de psql en verde (D-65 a D-68 49, D-71
+    19, D-72 27, EDT 15) y los dos verificadores en cero.
+  - La empresa de demostración está sembrada de nuevo.
+- **El panel del superadministrador, CONTRATO §12 completo.**
+  - `src/infraestructura/basedatos/plataforma.ts` es la tercera conexión,
+    `superadmin_login`. ESLint la admite solo ahí.
+  - Las rutas están en `src/http/rutasSuperadmin.ts`: todas las de §12.3,
+    con la cookie `cs_plataforma` (Path=/api/superadmin, 2 h) y un límite de
+    intentos propio.
+  - Las acciones que son un UPDATE (suspender, reactivar, plan y
+    vencimiento, cancelar) fijan la firma antes del cambio. Las otras tres le
+    pasan el autor a su función.
+  - Comprobé que cada defensa puede fallar: sin la firma caen 3 pruebas;
+    sin el sello, sin la cuenta inactiva, sin la confirmación o sin la guarda
+    del NIT, cae 1 en cada caso.
+- **`npm run superadmin -- correo "Nombre"`** y **`npm run superadmin --
+  correo --cambiar-clave`**.
+  - Pide la contraseña dos veces sin mostrarla y se niega a correr sin una
+    terminal interactiva.
+  - Cambiar la clave cierra las sesiones abiertas del panel: la cookie lleva
+    un sello hecho con el hash guardado.
+
+**Lo que divergió o el contrato no decía** (decidí lo mínimo; corregilo si no
+es así)
+
+- **Una suscripción CANCELADA no admite pagos, plan ni propuesta.** Responde
+  422 con «La suscripción de esta empresa está cancelada: no admite pagos ni
+  cambios de plan.».
+  - Motivo: `fn_registrar_pago` la pasaría a ACTIVA con `cancelada_en`
+    puesto, y eso viola `ck_suscripcion_cancelacion`.
+  - Para reactivar a un cliente cancelado hace falta una regla: ¿una
+    suscripción nueva? No la inventé.
+- **Suspender una empresa ya suspendida**, o reactivar una que no lo está,
+  da 422. Así el motivo escrito no se pierde sin evento.
+- **`GET /pagos` exige `desde` y `hasta`**. `total` suma solo los EXITOSOS en
+  COP. `ingresosDelMes` usa la fecha del pago, no la del registro.
+- **`porPlan` cuenta todas las empresas con ese plan**, también las
+  canceladas y vencidas.
+- **Formas**:
+  - `EventoDePlataforma.id` llega como texto, porque es bigint.
+  - `registradoPor` de un pago de pasarela es «Pasarela <nombre>».
+  - `GET /soportes/:id` va con `cache-control: private, no-store`.
+- **El período no tiene tope.** Lo vigila solo el `CHECK > 0`, porque ningún
+  documento pone un máximo.
+
+**Lo que necesito** (no me bloquea)
+
+- **Una función en el esquema para el estado comercial sin la suspensión.**
+  - `fn_estado_suscripcion` devuelve SUSPENDIDA y se pierde el estado
+    comercial, que §12.2 pide aparte.
+  - Por eso `plataforma.ts` repite su elección de suscripción y su CASE.
+  - Si la base da algo como `fn_estado_comercial(tenant)`, lo uso y borro la
+    copia.
+  - Lo mismo vale para `eliminableDesde`, que hoy repite la regla de
+    `fn_eliminar_tenant` para saber desde cuándo ofrecer el botón.
+- **Marcar §12 y §13 del CONTRATO como construidos** y anotar las
+  divergencias de arriba.
+
+**Lo que conviene que sepas**
+
+- **El defecto de los correos era real para las empresas.** La API no
+  normalizaba el correo antes de `fn_autenticar`, así que con el esquema
+  anterior quien escribía su correo con otras mayúsculas no podía ingresar.
+  Lo comprobé cargando el esquema de antes en `construsoft_test`: la prueba
+  nueva cae ahí y pasa con D-72.
+- **`.env.example` sigue sin commit.** Mis permisos no me dejan leerlo, y no
+  commiteo un archivo que no vi. Lo commitea el dueño, o me da acceso.
+
+---
+
 ## 2026-10-09 · viernes, tarde
 
 **Hecho** (471/471, subido)

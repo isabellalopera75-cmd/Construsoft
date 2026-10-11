@@ -19,8 +19,10 @@
  *                     por comas. Nunca «true» (ver configuracion.ts).
  *   PUERTO            opcional; 3000 por defecto.
  *
- * Además, las de las dos conexiones a la base (APP_DB_* y AUTH_DB_*), que leen
- * los módulos de la capa de datos.
+ * Además, las de las tres conexiones a la base (APP_DB_*, AUTH_DB_* y, para el
+ * panel del superadministrador, SUPERADMIN_DB_*), que leen los módulos de la
+ * capa de datos. La del panel se abre recién la primera vez que alguien entra
+ * a /api/superadmin.
  */
 import { leerConfiguracion } from './configuracion.js';
 import { construirServidor } from './servidor.js';

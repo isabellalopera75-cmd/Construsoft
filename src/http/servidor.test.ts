@@ -140,6 +140,11 @@ describe('ingreso (02 §3.2, 04 §8.2) y su límite de intentos (04 §5)', () =>
     assert.equal(arranque.json<{ razonSocial: string }>().razonSocial, 'Constructora HTTP Ingreso');
   });
 
+  test('el correo no distingue mayúsculas: «HTTP.Ingreso@…» es la misma cuenta (D-72)', async () => {
+    const r = await ingresar('HTTP.Ingreso@Construsoft.TEST', cuenta.contrasena);
+    assert.equal(r.statusCode, 200, r.body);
+  });
+
   test('«no existe» y «existe con otra contraseña» responden exactamente igual', async () => {
     const mala = await ingresar(cuenta.email, 'otra-contrasena-1');
     const nadie = await ingresar('http.nadie@construsoft.test', 'otra-contrasena-1');
