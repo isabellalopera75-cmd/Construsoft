@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { ErrorDeApi, pedir } from '../../api/cliente.ts';
 import { ErrorDeSeccion } from '../../modulos/configuracion/piezas.tsx';
-import { dinero, fechaSola, hoy, NOMBRE_DE_METODO, primeroDelMes } from '../comun.tsx';
+import { dinero, fechaSola, hoy, InsigniaDePago, NOMBRE_DE_METODO, primeroDelMes } from '../comun.tsx';
+import { quienDelPago } from './Ficha.tsx';
 import { enlaceA } from '../navegacion.ts';
 import type { PagoDePlataforma } from '../tipos.ts';
 
@@ -14,6 +15,7 @@ import type { PagoDePlataforma } from '../tipos.ts';
 export function Pagos() {
   const [desde, setDesde] = useState(primeroDelMes());
   const [hasta, setHasta] = useState(hoy());
+  const [estado, setEstado] = useState('');
   const [datos, setDatos] = useState<{ pagos: PagoDePlataforma[]; total: string; moneda: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [vez, setVez] = useState(0);
@@ -22,20 +24,20 @@ export function Pagos() {
     if (desde === '' || hasta === '' || desde > hasta) return;
     let vigente = true;
     setDatos(null);
-    pedir<{ pagos: PagoDePlataforma[]; total: string; moneda: string }>(`/api/superadmin/pagos?desde=${desde}&hasta=${hasta}`)
+    pedir<{ pagos: PagoDePlataforma[]; total: string; moneda: string }>(`/api/superadmin/pagos?desde=${desde}&hasta=${hasta}${estado ? `&estado=${estado}` : ''}`)
       .then((r) => vigente && (setDatos(r), setError(null)))
       .catch((e: unknown) => vigente && setError(e instanceof ErrorDeApi ? e.message : 'No se pudieron leer los pagos.'));
     return () => {
       vigente = false;
     };
-  }, [desde, hasta, vez]);
+  }, [desde, hasta, estado, vez]);
 
   return (
     <>
       <div className="encabezado-de-pantalla">
         <div>
           <h1>Pagos</h1>
-          <p className="subtitulo-de-pantalla">Lo que registró el panel, para conciliar con el banco. Un pago se registra desde la ficha de su empresa.</p>
+          <p className="subtitulo-de-pantalla">Los pagos registrados y los que reportaron las empresas, para conciliar con el banco. El total suma solo los confirmados.</p>
         </div>
       </div>
       <div className="barra-de-filtros">
@@ -47,9 +49,18 @@ export function Pagos() {
           <label htmlFor="pagos-hasta">Hasta</label>
           <input id="pagos-hasta" type="date" value={hasta} min={desde} onChange={(e) => setHasta(e.target.value)} />
         </div>
+        <div className="campo">
+          <label htmlFor="pagos-estado">Estado</label>
+          <select id="pagos-estado" value={estado} onChange={(e) => setEstado(e.target.value)}>
+            <option value="">Todos</option>
+            <option value="EXITOSO">Confirmados</option>
+            <option value="PENDIENTE">Por verificar</option>
+            <option value="RECHAZADO">Rechazados</option>
+          </select>
+        </div>
         {datos ? (
           <p className="total-del-filtro">
-            {datos.pagos.length === 1 ? '1 pago' : `${datos.pagos.length} pagos`} · <strong>{dinero(datos.total, datos.moneda)}</strong>
+            {datos.pagos.length === 1 ? '1 pago' : `${datos.pagos.length} pagos`} · confirmados: <strong>{dinero(datos.total, datos.moneda)}</strong>
           </p>
         ) : null}
       </div>
@@ -68,6 +79,7 @@ export function Pagos() {
                 <th scope="col">Concepto</th>
                 <th scope="col">Método</th>
                 <th scope="col" className="col-numero">Monto</th>
+                <th scope="col">Estado</th>
                 <th scope="col">Cubre hasta</th>
                 <th scope="col">Comprobante</th>
               </tr>
@@ -77,10 +89,11 @@ export function Pagos() {
                 <tr key={p.id}>
                   <td>{fechaSola(p.fecha)}</td>
                   <td><a href={enlaceA({ pantalla: 'empresa', id: p.empresa.id })}>{p.empresa.razonSocial}</a></td>
-                  <td>{p.concepto}<span className="dato-de-apoyo">Registró {p.registradoPor}{p.referencia ? ` · ref. ${p.referencia}` : ''}</span></td>
+                  <td>{p.concepto}<span className="dato-de-apoyo">{quienDelPago(p)}{p.referencia ? ` · ref. ${p.referencia}` : ''}</span></td>
                   <td>{NOMBRE_DE_METODO[p.metodo]}</td>
                   <td className="cifra col-numero">{dinero(p.monto, p.moneda)}</td>
-                  <td>{fechaSola(p.cubreHasta)}</td>
+                  <td><InsigniaDePago estado={p.estado} /></td>
+                  <td>{p.cubreHasta ? fechaSola(p.cubreHasta) : '—'}</td>
                   <td>{p.soporteId ? <a href={`/api/superadmin/soportes/${encodeURIComponent(p.soporteId)}`} target="_blank" rel="noopener">Ver</a> : '—'}</td>
                 </tr>
               ))}

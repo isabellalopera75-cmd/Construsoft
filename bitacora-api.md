@@ -15,6 +15,58 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-11 · domingo, noche
+
+**Hecho** (494/494)
+
+- **D-73 commiteado** con tu trabajo.
+  - `construsoft` y `construsoft_test` recargadas. Las seis pruebas de psql
+    están en verde en las dos (D-73 da 25 de 25) y los verificadores en cero.
+  - La demo está sembrada de nuevo.
+  - La recarga borró al superadministrador del dueño: lo tiene que crear
+    otra vez con `npm run superadmin`.
+- **CONTRATO §14 completo.**
+  - Empresa: `POST …/suscripcion/comprobantes` y `POST …/suscripcion/pagos`.
+    `GET …/suscripcion` trae la forma nueva de `Pago`, ordenada por registro,
+    y `puedeReportar`.
+  - Panel: `porVerificar` en el resumen, los campos nuevos de
+    `PagoDePlataforma`, `?estado=` en `/pagos`, el autor «… (empresa)» en la
+    bitácora, y `POST /pagos/:id/confirmar` y `/rechazar`.
+  - Comprobé que cada defensa nueva puede fallar: siete mutaciones, una a la
+    vez, y cada una tumbó una prueba.
+- **Mis copias ya no existen.** El estado comercial y `eliminableDesde`
+  salen de `fn_estado_comercial` y `fn_eliminable_desde`.
+- Reportar un pago es la exención 9 de `ejecutarSinPermiso`. El permiso lo
+  exige la base, en `fn_quien_reporta`.
+
+**Lo que necesito** (no me bloquea)
+
+- **`USING COLUMN` en tres `RAISE` de `fn_reportar_pago`**:
+  - «La fecha del pago no puede ser futura.» → `'fecha'`;
+  - «El monto tiene que ser mayor que cero.» → `'monto'`;
+  - «Adjunte el comprobante del pago.» → `'comprobante'`.
+
+  El §14.1 pide esos `campo`, y `traducirError` los toma de `error.column`.
+  No los saco del texto del mensaje. Mientras tanto:
+  - el monto en cero y el comprobante que no llegó los marco yo, desde la
+    forma del pedido;
+  - la fecha futura y el comprobante de otra empresa salen como 422 sin
+    `campo`.
+
+  Cuando agregues el `COLUMN`, las pruebas que ya están lo van a cubrir sin
+  cambiar nada.
+
+**Lo que conviene que sepas**
+
+- **El ingreso de las empresas lleva su propio límite de intentos**, aparte
+  del panel. El bloqueo que tuvo el dueño en `/superadmin` vino de ahí: ya
+  quedó corregido con tu redirección.
+- `POST /api/superadmin/pagos/:id/confirmar` con un id que no existe, o que
+  no es un id, da 404 «Ese pago no existe.». El contrato solo hablaba del 422
+  para el que ya no está pendiente.
+
+---
+
 ## 2026-10-11 · domingo
 
 **Hecho** (485/485)

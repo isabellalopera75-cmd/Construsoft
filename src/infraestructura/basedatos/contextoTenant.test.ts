@@ -381,7 +381,9 @@ describe('el problema que este wrapper existe para evitar', () => {
         'leerLogo',
         'leerMiCuenta',
         'registrarEmpresa',
+        'reportarPago',
         'selloVigente',
+        'subirComprobanteDePago',
       ]);
     },
   );

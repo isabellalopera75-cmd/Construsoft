@@ -1,6 +1,12 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { leerLogo, leerMiCuenta, type ContextoTenant } from '../infraestructura/basedatos/contextoTenant.js';
+import {
+  leerLogo,
+  leerMiCuenta,
+  reportarPago,
+  subirComprobanteDePago,
+  type ContextoTenant,
+} from '../infraestructura/basedatos/contextoTenant.js';
 import {
   actualizarDatosEmpresa,
   actualizarPreferencias,
@@ -13,11 +19,11 @@ import {
   listarUnidades,
   quitarLogo,
   subirLogo,
-  type TipoDeLogo,
 } from '../infraestructura/basedatos/configuracionEmpresa.js';
 import { ErrorParaElUsuario } from '../infraestructura/basedatos/errorParaElUsuario.js';
+import { tipoDeComprobante, tipoDeImagen } from './firmaDeArchivo.js';
 import { UUID } from './rechazo.js';
-import { SIN_CAMPOS_DE_MAS } from './validacion.js';
+import { SIN_CAMPOS_DE_MAS, decimalComoTexto } from './validacion.js';
 
 /*
  * Configuración (02 §11), pestaña por pestaña. Cada una pide su permiso de
@@ -30,18 +36,23 @@ import { SIN_CAMPOS_DE_MAS } from './validacion.js';
  */
 
 const UN_MEGA = 1024 * 1024;
+const CINCO_MEGAS = 5 * UN_MEGA;
 
-/**
- * El tipo por la FIRMA del archivo, no por el content-type que diga el
- * navegador ni por la extensión: PNG empieza por 89 50 4E 47 0D 0A 1A 0A, y
- * JPEG por FF D8 FF. Un SVG no entra: servido en línea, es un documento que
- * ejecuta código en el dominio de la aplicación (D-71).
- */
-function tipoDeImagen(archivo: Buffer): TipoDeLogo | null {
-  if (archivo.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'image/png';
-  if (archivo.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]))) return 'image/jpeg';
-  return null;
-}
+/** El reporte de un pago (CONTRATO §14.1). El comprobante se sube antes, aparte. */
+const esquemaReporteDePago = z.strictObject(
+  {
+    fecha: z.string('Escriba la fecha del pago.').regex(/^\d{4}-\d{2}-\d{2}$/, 'Escriba la fecha del pago.'),
+    monto: decimalComoTexto(18, 'El monto', 'Escriba el monto con punto decimal y hasta seis decimales.').refine(
+      (m) => /[1-9]/.test(m),
+      'El monto tiene que ser mayor que cero.',
+    ),
+    metodo: z.enum(['TRANSFERENCIA', 'PSE', 'EFECTIVO', 'OTRO'], 'Elija cómo pagó.'),
+    referencia: z.string().trim().nullable().optional().transform((v) => v || null),
+    periodoMeses: z.union([z.literal(1), z.literal(3), z.literal(6), z.literal(12)], 'Elija cuántos meses paga: 1, 3, 6 o 12.'),
+    comprobanteId: z.string().nullable().optional(),
+  },
+  SIN_CAMPOS_DE_MAS,
+);
 
 type SesionDe = (request: FastifyRequest, reply: FastifyReply) => Promise<ContextoTenant>;
 
@@ -153,6 +164,39 @@ export function registrarRutasDeConfiguracion(app: FastifyInstance, sesionDe: Se
   // --- 02 §11.3 · Suscripción: el estado y los pagos; no cobra -------------------
   app.get('/api/configuracion/suscripcion', async (request, reply) => {
     return reply.send(await leerSuscripcion(await sesionDe(request, reply)));
+  });
+
+  // --- CONTRATO §14.1 · Reportar un pago: queda en verificación, no da acceso ----
+  // El comprobante es el archivo tal cual, como el logo, con tope de 5 MB.
+  void app.register(async (comprobantes) => {
+    comprobantes.addContentTypeParser('*', { parseAs: 'buffer', bodyLimit: CINCO_MEGAS }, (_request, cuerpo, listo) => listo(null, cuerpo));
+    comprobantes.setErrorHandler((error, _request, reply) => {
+      if ((error as { statusCode?: number }).statusCode === 413) {
+        return reply.code(413).send({ mensaje: 'El comprobante pesa más de 5 MB. Redúzcalo e intente de nuevo.', campo: 'comprobante' });
+      }
+      throw error;
+    });
+
+    comprobantes.post('/api/configuracion/suscripcion/comprobantes', async (request, reply) => {
+      const contexto = await sesionDe(request, reply);
+      const archivo = Buffer.isBuffer(request.body) ? request.body : Buffer.alloc(0);
+      const tipo = tipoDeComprobante(archivo);
+      if (!tipo) {
+        throw new ErrorParaElUsuario('El comprobante tiene que ser una imagen PNG o JPEG, o un PDF.', 'RECHAZADO', 'comprobante');
+      }
+      return reply.code(201).send({ id: await subirComprobanteDePago(contexto, archivo, tipo) });
+    });
+  });
+
+  app.post('/api/configuracion/suscripcion/pagos', async (request, reply) => {
+    const contexto = await sesionDe(request, reply);
+    const { comprobanteId, ...pago } = esquemaReporteDePago.parse(request.body);
+    // El campo de la pantalla es «comprobante», no el id que viaja.
+    if (!comprobanteId || !UUID.test(comprobanteId)) {
+      throw new ErrorParaElUsuario('Adjunte el comprobante: sin él no podemos verificar el pago.', 'RECHAZADO', 'comprobante');
+    }
+    await reportarPago(contexto, { ...pago, comprobanteId });
+    return reply.code(201).send(await leerSuscripcion(contexto));
   });
 
   // --- 02 §11.5 · Preferencias del sistema ---------------------------------------

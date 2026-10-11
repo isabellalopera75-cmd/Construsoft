@@ -9,6 +9,14 @@ import './estilos/tokens.css';
 import './estilos/base.css';
 import './estilos/componentes.css';
 
+// «/superadmin» sin la barra final cae aquí, en la aplicación de las empresas,
+// y un superadministrador que ingresaba ahí gastaba sus intentos contra el
+// ingreso equivocado (bitácora de la API, 11 de octubre de 2026). Se lo lleva
+// al panel antes de pintar nada.
+if (window.location.pathname.replace(/\/+$/, '') === '/superadmin') {
+  window.location.replace(`/superadmin/${window.location.hash}`);
+}
+
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App.tsx';

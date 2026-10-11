@@ -6,6 +6,7 @@ import {
   cambiarSuscripcion,
   cambiarSuspension,
   cancelarSuscripcion,
+  confirmarPago,
   designarAdministrador,
   eliminarEmpresa,
   leerFicha,
@@ -15,14 +16,15 @@ import {
   listarEventos,
   listarPagos,
   proponerCubreHasta,
+  rechazarPago,
   registrarPago,
   subirSoporte,
   superadminVigente,
   type Superadmin,
-  type TipoDeSoporte,
 } from '../infraestructura/basedatos/plataforma.js';
 import { ErrorParaElUsuario } from '../infraestructura/basedatos/errorParaElUsuario.js';
 import { hashearContrasena, necesitaRehash, verificarContrasena } from './contrasenas.js';
+import { tipoDeComprobante } from './firmaDeArchivo.js';
 import { ContadorDeIntentos } from './limiteIntentos.js';
 import { Rechazo, UUID } from './rechazo.js';
 import { SIN_CAMPOS_DE_MAS, decimalComoTexto } from './validacion.js';
@@ -67,13 +69,6 @@ function leerCookie(valor: string, ahora: number): DatosDeSesion | null {
   }
 }
 
-/** PNG, JPEG o PDF por la FIRMA del archivo, no por lo que diga el navegador (D-71). */
-function tipoDeSoporte(archivo: Buffer): TipoDeSoporte | null {
-  if (archivo.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'image/png';
-  if (archivo.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]))) return 'image/jpeg';
-  if (archivo.subarray(0, 5).toString('latin1') === '%PDF-') return 'application/pdf';
-  return null;
-}
 
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 const fecha = (mensaje: string) => z.string(mensaje).regex(FECHA, mensaje);
@@ -145,7 +140,17 @@ const esquemaEliminar = z.strictObject(
 const esquemaRango = z.object({
   desde: fecha('Elija la fecha inicial.'),
   hasta: fecha('Elija la fecha final.'),
+  estado: z.enum(['EXITOSO', 'PENDIENTE', 'RECHAZADO'], 'Ese estado de pago no existe.').optional(),
 });
+
+/** D-73: llega el período, la fecha o ninguno; con ninguno vale el período que pidió la empresa. */
+const esquemaConfirmar = z.strictObject(
+  {
+    periodoMeses: z.number('Elija cuántos meses cubre el pago.').int().min(1, 'El período es de al menos un mes.').nullable().optional(),
+    cubreHasta: fecha('Escriba hasta qué fecha cubre el pago.').nullable().optional(),
+  },
+  SIN_CAMPOS_DE_MAS,
+);
 
 const esquemaEventos = z.object({
   empresaId: z.string().regex(UUID, 'Esa empresa no existe.').optional(),
@@ -255,8 +260,8 @@ export function registrarRutasDelPanel(app: FastifyInstance, ahora: () => number
 
   app.get(`${RUTA}/pagos`, async (request, reply) => {
     await sesionDe(request, reply);
-    const { desde, hasta } = esquemaRango.parse(request.query);
-    return reply.send(await listarPagos(desde, hasta));
+    const { desde, hasta, estado } = esquemaRango.parse(request.query);
+    return reply.send(await listarPagos(desde, hasta, estado ?? null));
   });
 
   app.get(`${RUTA}/eventos`, async (request, reply) => {
@@ -333,6 +338,27 @@ export function registrarRutasDelPanel(app: FastifyInstance, ahora: () => number
     return reply.code(204).send();
   });
 
+  // --- §14.2 · Verificar un pago que reportó la empresa (D-73) ----------------------
+  const idDePago = (id: string) => {
+    if (!UUID.test(id)) throw new ErrorParaElUsuario('Ese pago no existe.', 'NO_EXISTE');
+    return id;
+  };
+
+  app.post<{ Params: { id: string } }>(`${RUTA}/pagos/:id/confirmar`, async (request, reply) => {
+    const yo = await sesionDe(request, reply);
+    const id = idDePago(request.params.id);
+    const datos = esquemaConfirmar.parse(request.body ?? {});
+    const empresa = await confirmarPago(yo.id, id, { periodoMeses: datos.periodoMeses ?? null, cubreHasta: datos.cubreHasta ?? null });
+    return reply.send(await ficha(empresa));
+  });
+
+  app.post<{ Params: { id: string } }>(`${RUTA}/pagos/:id/rechazar`, async (request, reply) => {
+    const yo = await sesionDe(request, reply);
+    const id = idDePago(request.params.id);
+    const { motivo } = esquemaMotivo.parse(request.body);
+    return reply.send(await ficha(await rechazarPago(yo.id, id, motivo)));
+  });
+
   // --- §12.3 · Comprobantes (D-71) ---------------------------------------------------
   // El cuerpo es el archivo tal cual. El lector binario y su tope de 5 MB
   // viven dentro de este plugin; el 413 lleva su propio mensaje.
@@ -348,7 +374,7 @@ export function registrarRutasDelPanel(app: FastifyInstance, ahora: () => number
     soportes.post(`${RUTA}/soportes`, async (request, reply) => {
       const yo = await sesionDe(request, reply);
       const archivo = Buffer.isBuffer(request.body) ? request.body : Buffer.alloc(0);
-      const tipo = tipoDeSoporte(archivo);
+      const tipo = tipoDeComprobante(archivo);
       if (!tipo) throw new ErrorParaElUsuario('El comprobante tiene que ser una imagen PNG o JPEG, o un PDF.', 'RECHAZADO');
       return reply.code(201).send({ id: await subirSoporte(yo.id, archivo, tipo) });
     });

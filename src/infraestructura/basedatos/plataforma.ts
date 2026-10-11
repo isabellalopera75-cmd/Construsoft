@@ -152,6 +152,7 @@ export async function cambiarClaveSuperadmin(email: string, hash: string): Promi
 // --- Las formas (CONTRATO §12.2) ---------------------------------------------------
 
 export type EstadoComercial = 'EN_PRUEBA' | 'ACTIVA' | 'VENCIDA' | 'CANCELADA' | 'SIN_SUSCRIPCION';
+export type EstadoDePago = 'EXITOSO' | 'PENDIENTE' | 'RECHAZADO';
 
 export interface FilaDeEmpresa {
   id: string;
@@ -177,9 +178,15 @@ export interface PagoDePlataforma {
   metodo: string;
   referencia: string | null;
   periodoMeses: number | null;
-  cubreHasta: string;
+  /** Nulo mientras espera verificación. */
+  cubreHasta: string | null;
   soporteId: string | null;
-  registradoPor: string;
+  estado: EstadoDePago;
+  origen: 'MANUAL' | 'REPORTADO' | 'PASARELA';
+  /** Nulo mientras espera verificación. */
+  registradoPor: string | null;
+  reportadoPor: string | null;
+  rechazoMotivo: string | null;
   registradoEn: Date;
   empresa: { id: string; razonSocial: string };
 }
@@ -195,11 +202,9 @@ export interface EventoDePlataforma {
 }
 
 /**
- * La suscripción que cuenta de cada empresa: la misma elección que
- * plataforma.fn_estado_suscripcion (la vigente primero, después la más
- * reciente). Esa función no sirve aquí tal cual: para una empresa
- * suspendida devuelve SUSPENDIDA y se pierde su estado comercial, y el
- * panel muestra los dos por separado (CONTRATO §12.2).
+ * La suscripción que cuenta de cada empresa, para el plan y las fechas: la
+ * misma elección que plataforma.fn_estado_comercial (la vigente primero,
+ * después la más reciente). El ESTADO no se deduce aquí: lo da esa función.
  */
 const SUSCRIPCION_QUE_CUENTA = `
   LEFT JOIN LATERAL (
@@ -210,25 +215,15 @@ const SUSCRIPCION_QUE_CUENTA = `
           LIMIT 1) s ON true
   LEFT JOIN plataforma.plan pl ON pl.id = s.plan_id`;
 
-const PAGO_EXITOSO_DE_LA_EMPRESA = `
-  SELECT 1 FROM plataforma.pago px
-    JOIN plataforma.suscripcion sp ON sp.id = px.suscripcion_id
-   WHERE sp.tenant_id = t.id AND px.estado = 'EXITOSO'`;
-
 /**
- * Una fila por empresa. `eliminableDesde` es la regla de fn_eliminar_tenant
- * vista desde antes: solo una prueba que nunca pagó ni pasó a otro estado, y
- * diez días después de vencer (RF-SAD-13). La que decide al eliminar sigue
- * siendo la base; esto solo dice desde cuándo la pantalla ofrece el botón.
+ * Una fila por empresa. El estado comercial y desde cuándo es eliminable los
+ * da la base (D-73): fn_estado_comercial, sin la suspensión encima, y
+ * fn_eliminable_desde, la misma regla que aplica fn_eliminar_tenant.
  */
 const FILAS_DE_EMPRESA = `
   SELECT t.id, t.razon_social AS "razonSocial", t.nit,
          pl.codigo AS "planCodigo",
-         CASE WHEN s.id IS NULL                       THEN 'SIN_SUSCRIPCION'
-              WHEN s.estado = 'CANCELADA'             THEN 'CANCELADA'
-              WHEN s.fecha_vencimiento < current_date THEN 'VENCIDA'
-              WHEN s.estado = 'EN_PRUEBA'             THEN 'EN_PRUEBA'
-              ELSE                                         'ACTIVA' END AS estado,
+         plataforma.fn_estado_comercial(t.id) AS estado,
          t.estado = 'SUSPENDIDO' AS suspendida,
          s.fecha_vencimiento::text AS "venceEl",
          (s.fecha_vencimiento - current_date) AS "diasRestantes",
@@ -236,29 +231,34 @@ const FILAS_DE_EMPRESA = `
            WHERE u.tenant_id = t.id AND u.estado <> 'REVOCADO') AS usuarios,
          (SELECT count(*)::int FROM app.presupuesto p WHERE p.tenant_id = t.id) AS proyectos,
          t.creado_en AS "registradaEn",
-         CASE WHEN s.estado = 'EN_PRUEBA'
-               AND NOT EXISTS (${PAGO_EXITOSO_DE_LA_EMPRESA})
-               AND NOT EXISTS (SELECT 1 FROM plataforma.suscripcion so
-                                WHERE so.tenant_id = t.id AND so.estado <> 'EN_PRUEBA')
-              THEN (s.fecha_vencimiento + 10)::text END AS "eliminableDesde"
+         plataforma.fn_eliminable_desde(t.id)::text AS "eliminableDesde"
     FROM plataforma.tenant t
     ${SUSCRIPCION_QUE_CUENTA}`;
 
+/**
+ * `registradoPor` es quien lo registró o lo verificó; nulo mientras un pago
+ * reportado espera. `reportadoPor`, la persona de la empresa que lo reportó
+ * (D-73).
+ */
 const PAGOS = `
   SELECT p.id, p.fecha::text AS fecha, p.concepto, p.monto, btrim(p.moneda) AS moneda, p.metodo,
          p.referencia, p.periodo_meses AS "periodoMeses", p.cubre_hasta::text AS "cubreHasta",
-         p.soporte_ruta AS "soporteId",
-         COALESCE(up.nombre, 'Pasarela ' || p.pasarela) AS "registradoPor",
+         p.soporte_ruta AS "soporteId", p.estado, p.origen,
+         COALESCE(up.nombre, CASE WHEN p.origen = 'PASARELA' THEN 'Pasarela ' || p.pasarela END) AS "registradoPor",
+         ur.nombre AS "reportadoPor", p.rechazo_motivo AS "rechazoMotivo",
          p.registrado_en AS "registradoEn",
          json_build_object('id', t.id, 'razonSocial', t.razon_social) AS empresa
     FROM plataforma.pago p
     JOIN plataforma.suscripcion s ON s.id = p.suscripcion_id
     JOIN plataforma.tenant t ON t.id = s.tenant_id
-    LEFT JOIN plataforma.usuario_plataforma up ON up.id = p.registrado_por`;
+    LEFT JOIN plataforma.usuario_plataforma up ON up.id = p.registrado_por
+    LEFT JOIN app.usuario ur ON ur.id = p.reportado_por`;
 
+/** El autor de un PAGO_REPORTADO es la persona de la empresa, con «(empresa)» detrás (CONTRATO §14.2). */
 const EVENTOS = `
   SELECT e.id::text AS id, e.tipo, e.descripcion, e.justificacion, e.ocurrido_en AS "ocurridoEn",
-         up.nombre AS autor,
+         COALESCE(up.nombre,
+                  CASE WHEN e.tipo = 'PAGO_REPORTADO' THEN (e.datos->>'reportado_por') || ' (empresa)' END) AS autor,
          CASE WHEN t.id IS NULL THEN NULL
               ELSE json_build_object('id', t.id, 'razonSocial', t.razon_social) END AS empresa
     FROM plataforma.evento_plataforma e
@@ -301,6 +301,8 @@ export interface Resumen {
   moneda: 'COP';
   proyectos: number;
   porPlan: { PERSONAL: number; EMPRESARIAL: number };
+  /** Los pagos reportados que esperan verificación, del más antiguo al más reciente (D-73). */
+  porVerificar: PagoDePlataforma[];
   porVencer: FilaDeEmpresa[];
   pruebasSinConvertir: FilaDeEmpresa[];
 }
@@ -335,6 +337,9 @@ export async function leerResumen(): Promise<Resumen> {
       PERSONAL: cuantas((f) => f.planCodigo === 'PERSONAL'),
       EMPRESARIAL: cuantas((f) => f.planCodigo === 'EMPRESARIAL'),
     },
+    porVerificar: await consultar<PagoDePlataforma>(
+      `${PAGOS} WHERE p.origen = 'REPORTADO' AND p.estado = 'PENDIENTE' ORDER BY p.registrado_en, p.id`,
+    ),
     porVencer: filas
       .filter((f) => (f.estado === 'EN_PRUEBA' || f.estado === 'ACTIVA') && f.diasRestantes !== null && f.diasRestantes <= 7)
       .sort(porVencimiento),
@@ -425,11 +430,16 @@ export async function leerFicha(tenantId: string): Promise<FichaDeEmpresa | null
   };
 }
 
-/** RF-SAD-08. Los pagos con fecha entre las dos, y el total de los exitosos. */
-export async function listarPagos(desde: string, hasta: string): Promise<{ pagos: PagoDePlataforma[]; total: string; moneda: 'COP' }> {
+/** RF-SAD-08. Los pagos con fecha entre las dos, de un estado o de todos, y el total de los exitosos. */
+export async function listarPagos(
+  desde: string,
+  hasta: string,
+  estado: EstadoDePago | null = null,
+): Promise<{ pagos: PagoDePlataforma[]; total: string; moneda: 'COP' }> {
   const pagos = await consultar<PagoDePlataforma>(
-    `${PAGOS} WHERE p.fecha BETWEEN $1::date AND $2::date ORDER BY p.fecha DESC, p.registrado_en DESC`,
-    [desde, hasta],
+    `${PAGOS} WHERE p.fecha BETWEEN $1::date AND $2::date AND ($3::text IS NULL OR p.estado = $3)
+      ORDER BY p.fecha DESC, p.registrado_en DESC`,
+    [desde, hasta, estado],
   );
   const [suma] = await consultar<{ total: string }>(
     `SELECT COALESCE(sum(monto), 0)::text AS total FROM plataforma.pago
@@ -655,5 +665,71 @@ export async function eliminarEmpresa(
       );
     }
     await c.query('SELECT app.fn_eliminar_tenant($1, $2, $3)', [tenantId, datos.justificacion, autor]);
+  });
+}
+
+/** La empresa de un pago, para devolver su ficha. Null si el pago no existe. */
+async function empresaDelPago(c: PoolClient, pagoId: string): Promise<string | null> {
+  const { rows } = await c.query<{ tenant_id: string }>(
+    `SELECT s.tenant_id FROM plataforma.pago p
+       JOIN plataforma.suscripcion s ON s.id = p.suscripcion_id
+      WHERE p.id = $1`,
+    [pagoId],
+  );
+  return rows[0]?.tenant_id ?? null;
+}
+
+const pagoNoExiste = () => new ErrorParaElUsuario('Ese pago no existe.', 'NO_EXISTE');
+
+/**
+ * D-73. Confirmar un pago reportado: lo mismo que registrarlo, sobre el que
+ * ya está. Llega el período, la fecha o ninguno (vale el período que pidió la
+ * empresa). Devuelve la empresa del pago.
+ */
+export async function confirmarPago(
+  autor: string,
+  pagoId: string,
+  datos: { periodoMeses: number | null; cubreHasta: string | null },
+): Promise<string> {
+  return enTransaccion(null, async (c) => {
+    const empresa = await empresaDelPago(c, pagoId);
+    if (!empresa) throw pagoNoExiste();
+    // Como al registrar: con la fecha escrita a mano, el rechazo de la fecha
+    // pasada va marcando el campo. Pero aquí la función rechaza también un
+    // pago que ya no espera, con la fecha escrita o sin ella: se distingue
+    // mirando la fecha, no el texto. El SAVEPOINT deja consultar después del
+    // rechazo, que aborta la transacción.
+    await c.query('SAVEPOINT confirmar');
+    try {
+      await c.query('SELECT plataforma.fn_confirmar_pago($1, $2, $3::date, $4::smallint)', [
+        pagoId,
+        autor,
+        datos.cubreHasta,
+        datos.periodoMeses,
+      ]);
+    } catch (error) {
+      if (datos.cubreHasta && (error as { code?: string }).code === 'P0001') {
+        await c.query('ROLLBACK TO SAVEPOINT confirmar');
+        const { rows } = await c.query<{ pasada: boolean }>(
+          `SELECT $1::date < current_date
+                  AND EXISTS (SELECT 1 FROM plataforma.pago
+                               WHERE id = $2 AND origen = 'REPORTADO' AND estado = 'PENDIENTE') AS pasada`,
+          [datos.cubreHasta, pagoId],
+        );
+        if (rows[0]!.pasada) throw new ErrorParaElUsuario((error as Error).message, 'RECHAZADO', 'cubreHasta');
+      }
+      throw error;
+    }
+    return empresa;
+  });
+}
+
+/** D-73. Rechazar un pago reportado; la empresa lee el motivo tal cual. Devuelve la empresa del pago. */
+export async function rechazarPago(autor: string, pagoId: string, motivo: string): Promise<string> {
+  return enTransaccion(null, async (c) => {
+    const empresa = await empresaDelPago(c, pagoId);
+    if (!empresa) throw pagoNoExiste();
+    await c.query('SELECT plataforma.fn_rechazar_pago($1, $2, $3)', [pagoId, autor, motivo]);
+    return empresa;
   });
 }

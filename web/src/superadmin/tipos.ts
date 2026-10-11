@@ -40,7 +40,11 @@ export interface Resumen {
   porPlan: Record<CodigoDePlan, number>;
   porVencer: FilaDeEmpresa[];
   pruebasSinConvertir: FilaDeEmpresa[];
+  /** Pagos que reportaron las empresas y esperan verificación (CONTRATO §14). */
+  porVerificar: PagoDePlataforma[];
 }
+
+export type EstadoDePago = 'EXITOSO' | 'PENDIENTE' | 'RECHAZADO';
 
 export interface PagoDePlataforma {
   id: string;
@@ -51,10 +55,17 @@ export interface PagoDePlataforma {
   metodo: MetodoDePago;
   referencia: string | null;
   periodoMeses: number | null;
-  cubreHasta: Fecha;
+  /** Nulo mientras un pago reportado espera verificación (CONTRATO §14). */
+  cubreHasta: Fecha | null;
   soporteId: string | null;
-  registradoPor: string;
+  estado: EstadoDePago;
+  origen: 'MANUAL' | 'REPORTADO' | 'PASARELA';
+  /** Quién de la empresa lo reportó, si lo reportó la empresa. */
+  reportadoPor: string | null;
+  /** Quién lo registró o lo verificó en el panel; nulo mientras espera. */
+  registradoPor: string | null;
   registradoEn: Instante;
+  rechazoMotivo: string | null;
   empresa: { id: string; razonSocial: string };
 }
 

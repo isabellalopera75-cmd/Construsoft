@@ -35,7 +35,7 @@
 --  ---------------------------------------------------------------------------
 --  LAS DECISIONES DE DISEÑO QUE ESTE ESQUEMA IMPLEMENTA
 --
---  Son setenta y una: D-1 a D-72, sin la D-10, que no existe. El motivo de
+--  Son setenta y dos: D-1 a D-73, sin la D-10, que no existe. El motivo de
 --  cada una está en la sección 14 del documento de alcance. Aquí va el
 --  enunciado, y cada decisión vuelve a aparecer anotada en el punto del esquema
 --  donde vive. Las ocho últimas están al final de esta lista y tienen fecha:
@@ -563,6 +563,28 @@
 --         quien escribía su correo con otra mayúscula, y fn_designar_admin
 --         podía intentar crear a la misma persona dos veces. Ahora las cuatro
 --         funciones que comparan correos nombran OPERATOR(public.=).
+--   D-73  (posterior a la auditoría · un origen de pago, dos columnas y seis
+--         funciones) La empresa reporta su pago y el superadministrador lo
+--         verifica. Decisión del dueño, 11 de octubre de 2026: una empresa
+--         puede mandar un comprobante falso, así que reportar un pago no da
+--         acceso; solo lo da el superadministrador al confirmarlo.
+--            El pago reportado entra con origen REPORTADO y estado PENDIENTE,
+--         con el comprobante obligatorio y el período que pide la empresa. No
+--         mueve la suscripción ni un día. fn_confirmar_pago lo pasa a EXITOSO
+--         y hace lo mismo que fn_registrar_pago; fn_rechazar_pago lo pasa a
+--         RECHAZADO con un motivo que la empresa lee. Los dos firman con el
+--         superadministrador que verificó. Una suscripción tiene a lo sumo un
+--         pago reportado pendiente: el segundo espera a que se resuelva el
+--         primero.
+--            Reportar no pasa por fn_exigir_permiso y es a propósito: D-65
+--         deja una empresa vencida en solo lectura, y vencida es justo cuando
+--         tiene que poder reportar que ya pagó. Lo puede hacer un usuario
+--         activo con rol Administrador o con CONFIG.SUSCRIPCION.
+--            Entran con ella fn_estado_comercial y fn_eliminable_desde, que
+--         pidió la API para el panel: el estado de la suscripción sin taparlo
+--         con la suspensión, y la fecha desde la que una empresa se puede
+--         eliminar. fn_eliminar_tenant usa la segunda, así que el botón del
+--         panel y el rechazo de la base no pueden discrepar.
 --
 --  ---------------------------------------------------------------------------
 --  LO QUE SIGUE ABIERTO, A PROPÓSITO
@@ -988,8 +1010,14 @@ CREATE TABLE plataforma.pago (                      -- RF-SAD-08, RF-SAD-09, RF-
     -- NULL y pasó a exigirse por origen: la regla sigue siendo la misma —un
     -- pago manual siempre tiene autor— pero ya cabe el otro caso sin migrar.
     origen          text        NOT NULL DEFAULT 'MANUAL'
-                                CHECK (origen IN ('MANUAL','PASARELA')),
+                                CHECK (origen IN ('MANUAL','PASARELA','REPORTADO')),
+    -- En un pago REPORTADO (D-73), quien lo VERIFICÓ: nulo mientras espera.
     registrado_por  uuid        REFERENCES plataforma.usuario_plataforma(id),
+    -- D-73 · Quién de la empresa lo reportó, cuándo lo verificó el panel y,
+    -- si lo rechazó, por qué. El motivo lo lee la empresa.
+    reportado_por   uuid,
+    verificado_en   timestamptz,
+    rechazo_motivo  text,
     -- Qué pasarela, con qué identificador de transacción, en qué estado lo
     -- dejó y con qué cuerpo llegó el webhook. El payload completo se guarda
     -- porque una conciliación tardía siempre necesita el dato que nadie
@@ -999,8 +1027,20 @@ CREATE TABLE plataforma.pago (                      -- RF-SAD-08, RF-SAD-09, RF-
     pasarela_estado text,
     pasarela_datos  jsonb,
     registrado_en   timestamptz NOT NULL DEFAULT now(),
+    -- D-73 · Quién responde por cada origen. MANUAL: quien lo registró.
+    -- REPORTADO: quien lo reportó siempre, y quien lo verificó en cuanto deja
+    -- de estar pendiente. PASARELA: nadie, la confirma el webhook.
     CONSTRAINT ck_pago_origen_manual
-        CHECK ((origen = 'MANUAL') = (registrado_por IS NOT NULL)),
+        CHECK (CASE origen
+                 WHEN 'MANUAL'    THEN registrado_por IS NOT NULL AND reportado_por IS NULL
+                 WHEN 'REPORTADO' THEN reportado_por IS NOT NULL
+                                   AND (estado = 'PENDIENTE') = (registrado_por IS NULL)
+                                   AND (estado = 'PENDIENTE') = (verificado_en IS NULL)
+                 ELSE                  registrado_por IS NULL AND reportado_por IS NULL
+               END),
+    CONSTRAINT ck_pago_rechazo_con_motivo
+        CHECK ((estado = 'RECHAZADO' AND origen = 'REPORTADO')
+               = (rechazo_motivo IS NOT NULL AND btrim(rechazo_motivo) <> '')),
     CONSTRAINT ck_pago_origen_pasarela
         CHECK ((origen = 'PASARELA')
                = (pasarela IS NOT NULL AND pasarela_referencia IS NOT NULL))
@@ -1008,6 +1048,10 @@ CREATE TABLE plataforma.pago (                      -- RF-SAD-08, RF-SAD-09, RF-
 -- Un webhook se reintenta: la misma transacción puede llegar tres veces. Esta
 -- unicidad es la que convierte el reintento en un no-evento en vez de en tres
 -- meses de suscripción regalados.
+-- D-73 · A lo sumo un pago reportado esperando verificación por suscripción.
+CREATE UNIQUE INDEX ux_pago_reportado_pendiente
+    ON plataforma.pago (suscripcion_id)
+    WHERE origen = 'REPORTADO' AND estado = 'PENDIENTE';
 CREATE UNIQUE INDEX ux_pago_pasarela
     ON plataforma.pago (pasarela, pasarela_referencia)
     WHERE pasarela IS NOT NULL;
@@ -1032,8 +1076,17 @@ CREATE TABLE plataforma.soporte_pago (
                             CHECK (tipo IN ('image/png','image/jpeg','application/pdf')),
     contenido   bytea       NOT NULL
                             CHECK (octet_length(contenido) BETWEEN 1 AND 5242880),
-    subido_por  uuid        NOT NULL REFERENCES plataforma.usuario_plataforma(id),
-    subido_en   timestamptz NOT NULL DEFAULT now()
+    -- Lo sube el panel (subido_por) o la empresa al reportar su pago (D-73:
+    -- tenant_id y subido_por_usuario). Uno de los dos, nunca ambos.
+    subido_por  uuid        REFERENCES plataforma.usuario_plataforma(id),
+    tenant_id   uuid        REFERENCES plataforma.tenant(id) ON DELETE CASCADE,
+    subido_por_usuario uuid,
+    subido_en   timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT ck_soporte_quien
+        CHECK ((subido_por IS NOT NULL)
+               <> (tenant_id IS NOT NULL AND subido_por_usuario IS NOT NULL)),
+    CONSTRAINT ck_soporte_empresa_completa
+        CHECK ((tenant_id IS NULL) = (subido_por_usuario IS NULL))
 );
 REVOKE ALL ON plataforma.soporte_pago FROM PUBLIC;
 
@@ -1058,7 +1111,8 @@ CREATE TABLE plataforma.evento_plataforma (
     tipo                   text        NOT NULL CHECK (tipo IN
                                        ('TENANT_CREADO','TENANT_SUSPENDIDO','TENANT_REACTIVADO',
                                         'TENANT_ELIMINADO','PLAN_CAMBIADO','SUSCRIPCION_CANCELADA',
-                                        'PAGO_REGISTRADO','ADMIN_DESIGNADO')),
+                                        'PAGO_REGISTRADO','ADMIN_DESIGNADO',
+                                        'PAGO_REPORTADO','PAGO_RECHAZADO')),   -- D-73
     descripcion            text        NOT NULL,
     justificacion          text,
     datos                  jsonb,
@@ -1161,11 +1215,13 @@ BEGIN
     -- El vencimiento que mueve un pago registrado en esta misma transacción ya
     -- quedó firmado por fn_registrar_pago (PAGO_REGISTRADO): no se pide otra
     -- firma ni se escribe otro evento.
+    -- D-73: o de un pago reportado que se confirma en esta transacción.
     IF v_fecha AND NOT v_plan AND NOT v_cancel AND EXISTS (
            SELECT 1 FROM plataforma.pago p
             WHERE p.suscripcion_id = NEW.id
               AND p.cubre_hasta = NEW.fecha_vencimiento
-              AND p.registrado_en = now()) THEN
+              AND p.estado = 'EXITOSO'
+              AND (p.registrado_en = now() OR p.verificado_en = now())) THEN
         RETURN NEW;
     END IF;
     IF NOT (v_plan OR v_fecha OR v_cancel) THEN
@@ -1278,6 +1334,16 @@ CREATE TABLE app.usuario (
         CHECK (estado <> 'ACTIVO' OR password_hash IS NOT NULL)
 );
 CREATE INDEX ix_usuario_tenant ON app.usuario (tenant_id, estado);
+
+-- D-73 · Las dos llaves que plataforma.soporte_pago y plataforma.pago no
+-- podían declarar al nacer, porque app.usuario se crea después.
+ALTER TABLE plataforma.soporte_pago
+    ADD CONSTRAINT fk_soporte_usuario
+    FOREIGN KEY (tenant_id, subido_por_usuario)
+    REFERENCES app.usuario(tenant_id, id) ON DELETE CASCADE;
+ALTER TABLE plataforma.pago
+    ADD CONSTRAINT fk_pago_reportado_por
+    FOREIGN KEY (reportado_por) REFERENCES app.usuario(id) ON DELETE SET NULL;
 
 -- -----------------------------------------------------------------------------
 --  D-67 · El sello de credenciales se mueve solo, y solo cuando corresponde.
@@ -4752,18 +4818,14 @@ BEGIN
     -- §8 / D-14: quien pagó alguna vez conserva sus datos indefinidamente; una
     -- prueba no convertida solo se elimina a partir de los 10 días de vencida.
     -- Antes la promesa vivía solo en el procedimiento de soporte.
-    IF EXISTS (SELECT 1 FROM plataforma.pago p
-                JOIN plataforma.suscripcion s ON s.id = p.suscripcion_id
-               WHERE s.tenant_id = p_tenant_id AND p.estado = 'EXITOSO')
-       OR EXISTS (SELECT 1 FROM plataforma.suscripcion
-                   WHERE tenant_id = p_tenant_id AND estado <> 'EN_PRUEBA') THEN
+    -- D-73 · La regla vive en fn_eliminable_desde, que el panel también lee
+    -- para ofrecer el botón: los dos no pueden discrepar.
+    IF plataforma.fn_eliminable_desde(p_tenant_id) IS NULL THEN
         RAISE EXCEPTION
           'La empresa pagó o dejó de estar en prueba: conserva sus datos '
           '(§8 del documento 01). Suspéndala, no la elimine.';
     END IF;
-    IF EXISTS (SELECT 1 FROM plataforma.suscripcion
-                WHERE tenant_id = p_tenant_id AND estado = 'EN_PRUEBA'
-                  AND fecha_vencimiento + 10 > current_date) THEN
+    IF plataforma.fn_eliminable_desde(p_tenant_id) > current_date THEN
         RAISE EXCEPTION
           'La prueba no lleva 10 días vencida: aún no es eliminable (RF-SAD-13).';
     END IF;
@@ -6377,6 +6439,232 @@ BEGIN
     END IF;
 END $$;
 
+-- -----------------------------------------------------------------------------
+--  D-73 · El pago que reporta la empresa y verifica el superadministrador.
+-- -----------------------------------------------------------------------------
+
+-- Quién de la empresa puede reportar: un usuario activo, Administrador o con
+-- CONFIG.SUSCRIPCION. Lee el rol directo y no pasa por fn_exigir_permiso,
+-- porque esa niega toda acción que no sea ver o exportar a una empresa
+-- vencida (D-65), y vencida es justo cuando tiene que poder reportar.
+CREATE OR REPLACE FUNCTION plataforma.fn_quien_reporta() RETURNS uuid
+LANGUAGE plpgsql STABLE
+SET search_path = app, plataforma, pg_temp AS $$
+DECLARE v_tenant uuid := app.fn_tenant_actual(); v_usuario uuid := app.fn_usuario_actual();
+BEGIN
+    IF v_tenant IS NULL OR v_usuario IS NULL OR NOT EXISTS (
+           SELECT 1 FROM app.usuario u JOIN app.rol r ON r.id = u.rol_id
+            WHERE u.id = v_usuario AND u.tenant_id = v_tenant AND u.estado = 'ACTIVO'
+              AND (r.tipo = 'ADMIN' OR EXISTS (
+                     SELECT 1 FROM app.rol_permiso rp
+                      WHERE rp.rol_id = r.id AND rp.permiso_codigo = 'CONFIG.SUSCRIPCION'))) THEN
+        RAISE EXCEPTION
+          'Reportar un pago es del Administrador de la empresa o de quien tenga '
+          'el permiso de ver la suscripción (D-73).'
+          USING ERRCODE = 'CS004';
+    END IF;
+    RETURN v_usuario;
+END $$;
+
+CREATE OR REPLACE FUNCTION plataforma.fn_subir_comprobante_empresa(
+    p_sha256 text, p_tipo text, p_contenido bytea)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = plataforma, app, pg_temp AS $$
+DECLARE v_usuario uuid := plataforma.fn_quien_reporta(); v_id uuid;
+BEGIN
+    INSERT INTO plataforma.soporte_pago (sha256, tipo, contenido, tenant_id, subido_por_usuario)
+         VALUES (p_sha256, p_tipo, p_contenido, app.fn_tenant_actual(), v_usuario)
+      RETURNING id INTO v_id;
+    RETURN v_id;
+END $$;
+
+CREATE OR REPLACE FUNCTION plataforma.fn_reportar_pago(
+    p_fecha date, p_monto numeric, p_metodo text, p_referencia text,
+    p_periodo_meses smallint, p_soporte_id uuid)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = plataforma, app, pg_temp AS $$
+DECLARE
+    v_usuario uuid := plataforma.fn_quien_reporta();
+    v_tenant  uuid := app.fn_tenant_actual();
+    v_susc    record;
+    v_id      uuid;
+BEGIN
+    SELECT s.id, s.estado, pl.codigo AS plan INTO v_susc
+      FROM plataforma.suscripcion s JOIN plataforma.plan pl ON pl.id = s.plan_id
+     WHERE s.tenant_id = v_tenant AND s.estado IN ('EN_PRUEBA','ACTIVA');
+    IF v_susc.id IS NULL THEN
+        RAISE EXCEPTION
+          'La suscripción de su empresa está cancelada: escríbanos para '
+          'reactivarla antes de reportar un pago.';
+    END IF;
+    IF p_fecha IS NULL OR p_fecha > current_date THEN
+        RAISE EXCEPTION 'La fecha del pago no puede ser futura.';
+    END IF;
+    IF p_monto IS NULL OR p_monto <= 0 THEN
+        RAISE EXCEPTION 'El monto tiene que ser mayor que cero.';
+    END IF;
+    IF p_periodo_meses IS NULL OR p_periodo_meses < 1 THEN
+        RAISE EXCEPTION 'Indique cuántos meses paga.';
+    END IF;
+    IF p_soporte_id IS NULL OR NOT EXISTS (
+           SELECT 1 FROM plataforma.soporte_pago sp
+            WHERE sp.id = p_soporte_id AND sp.tenant_id = v_tenant)
+       OR EXISTS (SELECT 1 FROM plataforma.pago p WHERE p.soporte_ruta = p_soporte_id::text) THEN
+        RAISE EXCEPTION 'Adjunte el comprobante del pago.';
+    END IF;
+    IF EXISTS (SELECT 1 FROM plataforma.pago p
+                WHERE p.suscripcion_id = v_susc.id
+                  AND p.origen = 'REPORTADO' AND p.estado = 'PENDIENTE') THEN
+        RAISE EXCEPTION
+          'Ya hay un pago reportado esperando verificación. Cuando lo revisemos '
+          'podrá reportar otro.';
+    END IF;
+
+    INSERT INTO plataforma.pago
+        (suscripcion_id, fecha, concepto, monto, metodo, referencia, estado,
+         origen, reportado_por, periodo_meses, soporte_ruta)
+    VALUES (v_susc.id, p_fecha,
+            format('Plan %s · %s', initcap(v_susc.plan),
+                   CASE WHEN p_periodo_meses = 1 THEN '1 mes'
+                        ELSE p_periodo_meses || ' meses' END),
+            p_monto, p_metodo, NULLIF(btrim(p_referencia), ''), 'PENDIENTE',
+            'REPORTADO', v_usuario, p_periodo_meses, p_soporte_id::text)
+      RETURNING id INTO v_id;
+
+    PERFORM plataforma.fn_evento_plataforma(v_tenant, 'PAGO_REPORTADO',
+        format('La empresa reportó un pago de %s por %s', p_monto, p_metodo),
+        NULL,
+        jsonb_build_object('pago_id', v_id,
+                           'reportado_por', (SELECT nombre FROM app.usuario WHERE id = v_usuario)),
+        NULL);
+    RETURN v_id;
+END $$;
+
+-- El panel confirma: lo mismo que fn_registrar_pago, sobre el pago que ya está.
+CREATE OR REPLACE FUNCTION plataforma.fn_confirmar_pago(
+    p_pago_id uuid, p_verificado_por uuid,
+    p_cubre_hasta date DEFAULT NULL, p_periodo_meses smallint DEFAULT NULL)
+RETURNS date LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = plataforma, app, pg_temp AS $$
+DECLARE v_pago record; v_susc record; v_nueva date;
+BEGIN
+    SELECT * INTO v_pago FROM plataforma.pago WHERE id = p_pago_id FOR UPDATE;
+    IF v_pago.id IS NULL OR v_pago.origen <> 'REPORTADO' OR v_pago.estado <> 'PENDIENTE' THEN
+        RAISE EXCEPTION 'Ese pago no está esperando verificación.';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM plataforma.usuario_plataforma
+                    WHERE id = p_verificado_por AND activo) THEN
+        RAISE EXCEPTION 'Quien verifica no es un superadministrador activo (D-73).';
+    END IF;
+    SELECT * INTO v_susc FROM plataforma.suscripcion WHERE id = v_pago.suscripcion_id FOR UPDATE;
+    IF v_susc.estado = 'CANCELADA' THEN
+        RAISE EXCEPTION
+          'La suscripción de esta empresa está cancelada: no admite pagos ni '
+          'cambios de plan.';
+    END IF;
+    v_nueva := COALESCE(p_cubre_hasta,
+                        plataforma.fn_proponer_cubre_hasta(
+                            v_susc.id, COALESCE(p_periodo_meses, v_pago.periodo_meses)));
+    IF v_nueva < current_date THEN
+        RAISE EXCEPTION
+          'La fecha de vencimiento (%) ya pasó: el pago no devolvería el acceso '
+          '(D-36).', v_nueva;
+    END IF;
+
+    UPDATE plataforma.pago
+       SET estado = 'EXITOSO', registrado_por = p_verificado_por,
+           verificado_en = now(), cubre_hasta = v_nueva,
+           periodo_meses = COALESCE(p_periodo_meses, periodo_meses)
+     WHERE id = p_pago_id;
+    UPDATE plataforma.suscripcion
+       SET estado = 'ACTIVA', fecha_vencimiento = v_nueva,
+           aviso_prueba_en = NULL, aviso_vencimiento_en = NULL
+     WHERE id = v_susc.id;
+
+    PERFORM plataforma.fn_evento_plataforma(v_susc.tenant_id, 'PAGO_REGISTRADO',
+        format('Pago reportado de %s por %s, verificado; cubre hasta %s',
+               v_pago.monto, v_pago.metodo, v_nueva),
+        NULL,
+        jsonb_build_object('pago_id', p_pago_id, 'referencia', v_pago.referencia,
+                           'soporte_ruta', v_pago.soporte_ruta),
+        p_verificado_por);
+    RETURN v_nueva;
+END $$;
+
+CREATE OR REPLACE FUNCTION plataforma.fn_rechazar_pago(
+    p_pago_id uuid, p_verificado_por uuid, p_motivo text)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = plataforma, app, pg_temp AS $$
+DECLARE v_pago record;
+BEGIN
+    IF btrim(COALESCE(p_motivo, '')) = '' THEN
+        RAISE EXCEPTION
+          'Escriba por qué se rechaza el pago: la empresa lo va a leer.';
+    END IF;
+    SELECT * INTO v_pago FROM plataforma.pago WHERE id = p_pago_id FOR UPDATE;
+    IF v_pago.id IS NULL OR v_pago.origen <> 'REPORTADO' OR v_pago.estado <> 'PENDIENTE' THEN
+        RAISE EXCEPTION 'Ese pago no está esperando verificación.';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM plataforma.usuario_plataforma
+                    WHERE id = p_verificado_por AND activo) THEN
+        RAISE EXCEPTION 'Quien verifica no es un superadministrador activo (D-73).';
+    END IF;
+    UPDATE plataforma.pago
+       SET estado = 'RECHAZADO', registrado_por = p_verificado_por,
+           verificado_en = now(), rechazo_motivo = btrim(p_motivo)
+     WHERE id = p_pago_id;
+    PERFORM plataforma.fn_evento_plataforma(
+        (SELECT tenant_id FROM plataforma.suscripcion WHERE id = v_pago.suscripcion_id),
+        'PAGO_RECHAZADO',
+        format('Pago reportado de %s por %s, rechazado', v_pago.monto, v_pago.metodo),
+        btrim(p_motivo), jsonb_build_object('pago_id', p_pago_id), p_verificado_por);
+END $$;
+
+-- -----------------------------------------------------------------------------
+--  D-73 · Para el panel: el estado comercial sin la suspensión encima, y desde
+--  cuándo una empresa se puede eliminar. fn_estado_suscripcion pone la
+--  suspensión primero porque es lo que la empresa ve; el panel las muestra
+--  aparte, porque son dos cosas distintas.
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION plataforma.fn_estado_comercial(p_tenant_id uuid)
+RETURNS text LANGUAGE sql STABLE AS $$
+    SELECT CASE
+             WHEN s.id IS NULL                       THEN 'SIN_SUSCRIPCION'
+             WHEN s.estado = 'CANCELADA'             THEN 'CANCELADA'
+             WHEN s.fecha_vencimiento < current_date THEN 'VENCIDA'
+             WHEN s.estado = 'EN_PRUEBA'             THEN 'EN_PRUEBA'
+             ELSE                                         'ACTIVA'
+           END
+      FROM plataforma.tenant t
+      LEFT JOIN LATERAL (
+               SELECT sx.* FROM plataforma.suscripcion sx
+                WHERE sx.tenant_id = t.id
+                ORDER BY (sx.estado IN ('EN_PRUEBA','ACTIVA')) DESC,
+                         sx.fecha_vencimiento DESC, sx.creado_en DESC, sx.id DESC
+                LIMIT 1) s ON true
+     WHERE t.id = p_tenant_id;
+$$;
+
+-- Nulo: no se puede eliminar nunca (pagó, o salió de la prueba). Una fecha:
+-- desde ese día (RF-SAD-13, 10 días después de vencida la prueba). Un pago
+-- reportado y rechazado no cuenta como pago: un comprobante falso no compra la
+-- conservación de los datos.
+CREATE OR REPLACE FUNCTION plataforma.fn_eliminable_desde(p_tenant_id uuid)
+RETURNS date LANGUAGE sql STABLE AS $$
+    SELECT CASE
+             WHEN EXISTS (SELECT 1 FROM plataforma.pago p
+                            JOIN plataforma.suscripcion s ON s.id = p.suscripcion_id
+                           WHERE s.tenant_id = p_tenant_id AND p.estado = 'EXITOSO')
+               OR EXISTS (SELECT 1 FROM plataforma.suscripcion
+                           WHERE tenant_id = p_tenant_id AND estado <> 'EN_PRUEBA')
+               OR NOT EXISTS (SELECT 1 FROM plataforma.suscripcion
+                               WHERE tenant_id = p_tenant_id)
+             THEN NULL
+             ELSE (SELECT max(fecha_vencimiento) + 10 FROM plataforma.suscripcion
+                    WHERE tenant_id = p_tenant_id AND estado = 'EN_PRUEBA')
+           END;
+$$;
+
 -- D-72 · Para buscar empresas sin distinguir mayúsculas ni tildes.
 CREATE OR REPLACE FUNCTION plataforma.fn_sin_tildes(p_texto text)
 RETURNS text LANGUAGE sql STABLE
@@ -6626,6 +6914,10 @@ ALTER FUNCTION plataforma.fn_auditar_tenant()                   OWNER TO constru
 ALTER FUNCTION plataforma.fn_auditar_suscripcion()              OWNER TO construsoft_super;
 ALTER FUNCTION plataforma.fn_alta_usuario_plataforma(citext,text,text) OWNER TO construsoft_super;
 ALTER FUNCTION plataforma.fn_clave_usuario_plataforma(citext,text)     OWNER TO construsoft_super;
+ALTER FUNCTION plataforma.fn_subir_comprobante_empresa(text,text,bytea) OWNER TO construsoft_super;
+ALTER FUNCTION plataforma.fn_reportar_pago(date,numeric,text,text,smallint,uuid) OWNER TO construsoft_super;
+ALTER FUNCTION plataforma.fn_confirmar_pago(uuid,uuid,date,smallint)    OWNER TO construsoft_super;
+ALTER FUNCTION plataforma.fn_rechazar_pago(uuid,uuid,text)              OWNER TO construsoft_super;
 ALTER FUNCTION plataforma.fn_marcar_aviso(uuid,text)            OWNER TO construsoft_super;
 
 -- 16.3 · Estas SÍ reciben un id arbitrario del cliente, así que su dueño es
@@ -6758,6 +7050,10 @@ REVOKE EXECUTE ON FUNCTION app.fn_designar_admin(uuid,citext,text,text,uuid,text
 REVOKE EXECUTE ON FUNCTION plataforma.fn_registrar_pago(uuid,date,text,numeric,text,text,smallint,uuid,text,text,text,date,text) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION plataforma.fn_alta_usuario_plataforma(citext,text,text) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION plataforma.fn_clave_usuario_plataforma(citext,text)     FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION plataforma.fn_subir_comprobante_empresa(text,text,bytea) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION plataforma.fn_reportar_pago(date,numeric,text,text,smallint,uuid) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION plataforma.fn_confirmar_pago(uuid,uuid,date,smallint)    FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION plataforma.fn_rechazar_pago(uuid,uuid,text)              FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION plataforma.fn_registrar_pago_pasarela(uuid,numeric,text,text,text,jsonb,smallint,date,text,date) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION plataforma.fn_evento_plataforma(uuid,text,text,text,jsonb,uuid) FROM PUBLIC;
 GRANT  EXECUTE ON FUNCTION app.fn_alta_tenant(text,text,text,text,citext,text,citext) TO construsoft_app;
@@ -6847,6 +7143,13 @@ GRANT EXECUTE ON FUNCTION plataforma.fn_alta_usuario_plataforma(citext,text,text
 GRANT EXECUTE ON FUNCTION plataforma.fn_clave_usuario_plataforma(citext,text)     TO construsoft_superadmin;
 GRANT EXECUTE ON FUNCTION plataforma.fn_proponer_cubre_hasta(uuid,smallint)       TO construsoft_superadmin;
 GRANT EXECUTE ON FUNCTION plataforma.fn_sin_tildes(text)                          TO construsoft_superadmin;
+-- D-73 · La empresa reporta; el panel confirma o rechaza.
+GRANT EXECUTE ON FUNCTION plataforma.fn_subir_comprobante_empresa(text,text,bytea) TO construsoft_app;
+GRANT EXECUTE ON FUNCTION plataforma.fn_reportar_pago(date,numeric,text,text,smallint,uuid) TO construsoft_app;
+GRANT EXECUTE ON FUNCTION plataforma.fn_confirmar_pago(uuid,uuid,date,smallint)    TO construsoft_superadmin;
+GRANT EXECUTE ON FUNCTION plataforma.fn_rechazar_pago(uuid,uuid,text)              TO construsoft_superadmin;
+GRANT EXECUTE ON FUNCTION plataforma.fn_estado_comercial(uuid)                     TO construsoft_superadmin;
+GRANT EXECUTE ON FUNCTION plataforma.fn_eliminable_desde(uuid)                     TO construsoft_superadmin;
 -- El webhook de la pasarela (D-40) se atiende con el rol del panel, no con el
 -- de la aplicación: quien confirma un pago no puede ser el mismo rol que
 -- atiende a los inquilinos.

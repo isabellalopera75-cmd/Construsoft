@@ -1,5 +1,5 @@
 import { formatearNumero } from '../formato.ts';
-import type { CodigoDePlan, Dinero, EstadoComercial, Fecha, MetodoDePago } from './tipos.ts';
+import type { CodigoDePlan, Dinero, EstadoComercial, EstadoDePago, Fecha, MetodoDePago } from './tipos.ts';
 
 /*
  * Lo que comparten las pantallas del panel. El panel no tiene una empresa de
@@ -75,4 +75,14 @@ export function textoDeDias(dias: number | null): string {
   if (dias === 1) return 'vence mañana';
   if (dias > 1) return `en ${dias} días`;
   return dias === -1 ? 'venció ayer' : `venció hace ${-dias} días`;
+}
+
+const NOMBRE_DE_ESTADO_DE_PAGO: Record<EstadoDePago, string> = {
+  EXITOSO: 'Confirmado',
+  PENDIENTE: 'Por verificar',
+  RECHAZADO: 'Rechazado',
+};
+
+export function InsigniaDePago({ estado }: { estado: EstadoDePago }) {
+  return <span className="insignia insignia-pago" data-estado={estado}>{NOMBRE_DE_ESTADO_DE_PAGO[estado]}</span>;
 }

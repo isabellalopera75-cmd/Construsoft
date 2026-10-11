@@ -779,7 +779,13 @@ comillas**: sin ellas, el `--env-file` de Node toma el `#` como comentario.
 
 ---
 
-## 12. Superadministración (PROPUESTO el 9 de octubre de 2026, sin construir)
+## 12. Superadministración (propuesto el 9 de octubre de 2026, construido: `7c3db83`)
+
+> **Cómo quedó construido** (diferencias con lo propuesto, aceptadas):
+> una suscripción cancelada no admite pagos, cambio de plan ni propuesta;
+> suspender o reactivar dos veces da 422; `GET /api/superadmin/pagos` exige
+> `desde` y `hasta`; `porPlan` cuenta también las empresas canceladas; el `id`
+> de un evento es texto; los soportes se sirven con `Cache-Control: no-store`.
 
 Fase 7, RF-SAD-01 a 15. Decisión del dueño, 9 de octubre de 2026: se construye
 ya, en local; el correo y el despliegue esperan. La interfaz es una aplicación
@@ -926,7 +932,7 @@ Las reglas:
   Una empresa que pagó o que todavía no lleva 10 días con la prueba vencida no
   se elimina: el mensaje de la base va tal cual.
 
-## 13. El logotipo de la empresa (PROPUESTO el 9 de octubre de 2026, sin construir)
+## 13. El logotipo de la empresa (propuesto el 9 de octubre de 2026, construido: `6cce539`)
 
 02 §11.2, RF-CFG-05, RNF-20. Con D-71 la imagen vive en `app.logo` mientras no
 haya almacenamiento de objetos, y `plataforma.tenant.logo_ruta` guarda el id
@@ -956,3 +962,84 @@ de la vigente.
   una versión usa el `logo_ruta` de su fotografía, aunque la empresa haya
   cambiado de logo después. El logo se encaja en su espacio del encabezado
   conservando la proporción. Sin logo, el encabezado queda como hoy.
+
+## 14. El pago que reporta la empresa (PROPUESTO el 11 de octubre de 2026, sin construir)
+
+Decisión del dueño, 11 de octubre de 2026. La empresa paga por fuera
+—transferencia o PSE— y **reporta** el pago con su comprobante. El pago queda
+en verificación y **no da acceso**: solo lo da el superadministrador al
+confirmarlo, porque un comprobante puede ser falso. Si lo rechaza, la empresa
+lee el motivo. La base lo sostiene con D-73 (`docs/prueba-d73.sql`).
+
+La interfaz ya lo consume: `web/src/modulos/configuracion/Suscripcion.tsx` del
+lado de la empresa, y en el panel el resumen, la ficha
+(`superadmin/pantallas/Ficha.tsx`, `ConfirmarPago`) y la lista de pagos.
+
+### 14.1 Del lado de la empresa
+
+`GET /api/configuracion/suscripcion` cambia así:
+
+```
+DetalleDeSuscripcion = { estado, plan, venceEl, diasRestantes, pagos: Pago[],
+                         puedeReportar: boolean }
+
+Pago = { id, fecha, concepto, monto: Dinero, moneda, metodo,
+         estado: 'EXITOSO' | 'PENDIENTE' | 'RECHAZADO',
+         origen: 'MANUAL' | 'REPORTADO' | 'PASARELA',
+         periodoMeses: number | null,
+         cubreHasta: Fecha | null,        // nulo mientras espera
+         rechazoMotivo: string | null,
+         facturaNumero: string | null }
+```
+
+- `pagos` va del más reciente al más antiguo por `registrado_en`, para que el
+  último rechazo y el pendiente se lean primero.
+- `puedeReportar`: la persona es Administrador o tiene `CONFIG.SUSCRIPCION`,
+  y la suscripción no está cancelada. La pantalla además oculta el botón si hay
+  un pago pendiente. **Con la suscripción vencida es verdadero**: es justo
+  cuando hace falta (D-73 no pasa por `fn_exigir_permiso`).
+
+| Método y ruta | Cuerpo | Respuesta |
+|---|---|---|
+| `POST /api/configuracion/suscripcion/comprobantes` | el archivo tal cual | 201 `{ id }` |
+| `POST /api/configuracion/suscripcion/pagos` | `{ fecha, monto, metodo, referencia, periodoMeses, comprobanteId }` | 201 `DetalleDeSuscripcion` |
+
+- **El comprobante**: PNG, JPEG o PDF hasta 5 MB, decidido por la firma del
+  archivo, como en §12. Va a `plataforma.fn_subir_comprobante_empresa`.
+- **El reporte**: `plataforma.fn_reportar_pago`. `monto` es `Dinero` en texto
+  (regla 1.1); `metodo` es uno de `TRANSFERENCIA`, `PSE`, `EFECTIVO` u `OTRO`;
+  `periodoMeses` es 1, 3, 6 o 12. Los rechazos de la base van como 422:
+  - comprobante faltante o de otra empresa: `campo: "comprobante"`;
+  - fecha futura: `campo: "fecha"`;
+  - monto en cero: `campo: "monto"`;
+  - ya hay uno pendiente, o la suscripción está cancelada: sin `campo`.
+- Quien no puede reportar recibe el 403 de siempre (CS004).
+
+### 14.2 Del lado del panel
+
+- `Resumen` trae `porVerificar: PagoDePlataforma[]`, los pagos reportados
+  pendientes de todas las empresas, del más antiguo al más reciente. Es lo
+  primero que muestra el resumen.
+- `PagoDePlataforma` suma `estado`, `origen`, `reportadoPor` (el nombre de
+  quien lo reportó, o nulo) y `rechazoMotivo`. `cubreHasta` y `registradoPor`
+  pasan a poder ser nulos: valen nulo mientras espera.
+- `FichaDeEmpresa.pagos` incluye los pendientes y los rechazados.
+- `GET /api/superadmin/pagos` acepta `estado=EXITOSO|PENDIENTE|RECHAZADO`.
+  `total` sigue sumando solo los EXITOSOS.
+- En la bitácora, el autor de un `PAGO_REPORTADO` es el nombre de quien lo
+  reportó, con «(empresa)» detrás, y no un superadministrador.
+
+| Método y ruta | Cuerpo | Respuesta |
+|---|---|---|
+| `POST /api/superadmin/pagos/:id/confirmar` | `{ periodoMeses, cubreHasta }` | 200 `FichaDeEmpresa` |
+| `POST /api/superadmin/pagos/:id/rechazar` | `{ motivo }` | 200 `FichaDeEmpresa` |
+
+- **Confirmar**: `plataforma.fn_confirmar_pago(pago, autor, cubreHasta,
+  periodoMeses)`. Llega uno de los dos, o ninguno (vale el período que pidió la
+  empresa). La pantalla muestra antes la fecha con `…/pagos/propuesta`, como al
+  registrar. No necesita la firma de `set_config`: la función recibe el autor y
+  el disparador reconoce el cambio de vencimiento.
+- **Rechazar**: `plataforma.fn_rechazar_pago(pago, autor, motivo)`. Sin motivo
+  es 422 con `campo: "motivo"`. La empresa lee ese motivo tal cual.
+- Un pago que ya no está pendiente: 422 «Ese pago no está esperando
+  verificación.».

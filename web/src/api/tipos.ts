@@ -376,6 +376,8 @@ export interface Preferencias {
   notifCambioEstado: boolean;
 }
 
+export type EstadoDePago = 'EXITOSO' | 'PENDIENTE' | 'RECHAZADO';
+
 export interface Pago {
   id: string;
   fecha: string;
@@ -383,7 +385,14 @@ export interface Pago {
   monto: Dinero;
   moneda: string;
   metodo: string;
-  estado: string;
+  estado: EstadoDePago;
+  /** CONTRATO §14: REPORTADO es el que subió la empresa y verifica el panel. */
+  origen: 'MANUAL' | 'REPORTADO' | 'PASARELA';
+  periodoMeses: number | null;
+  /** Nulo mientras un pago reportado espera verificación. */
+  cubreHasta: string | null;
+  /** Por qué se rechazó un pago reportado; lo escribe el panel. */
+  rechazoMotivo: string | null;
   facturaNumero: string | null;
 }
 
@@ -393,6 +402,8 @@ export interface DetalleDeSuscripcion {
   venceEl: string;
   diasRestantes: number;
   pagos: Pago[];
+  /** Si esta persona puede reportar un pago ahora (CONTRATO §14.1). */
+  puedeReportar: boolean;
 }
 
 // --- CONTRATO §11 · Usuarios y roles (02 §11.4) -------------------------------

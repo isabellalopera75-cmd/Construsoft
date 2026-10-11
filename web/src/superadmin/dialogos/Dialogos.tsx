@@ -5,8 +5,8 @@ import { Campo } from '../../componentes/Campo.tsx';
 import { Capa } from '../../componentes/Capa.tsx';
 import { Icono } from '../../componentes/Icono.tsx';
 import { leerCifra, soloCifra } from '../../entrada.ts';
-import { fechaSola, hoy, NOMBRE_DE_METODO, NOMBRE_DE_PLAN, SEPARADOR_DECIMAL } from '../comun.tsx';
-import type { CodigoDePlan, FichaDeEmpresa, MetodoDePago } from '../tipos.ts';
+import { dinero, fechaSola, hoy, NOMBRE_DE_METODO, NOMBRE_DE_PLAN, SEPARADOR_DECIMAL } from '../comun.tsx';
+import type { CodigoDePlan, FichaDeEmpresa, MetodoDePago, PagoDePlataforma } from '../tipos.ts';
 
 /*
  * Las capas de la ficha de una empresa (CONTRATO §12.3). Cada una dice lo que
@@ -180,6 +180,114 @@ export function RegistrarPago({ ficha, alCerrar, alRegistrar }: { ficha: FichaDe
       <Campo etiqueta="Comprobante (opcional)" ayuda="La foto o el PDF que mandó el cliente. PNG, JPEG o PDF, hasta 5 MB." error={errores.soporte}>
         {(a) => <input {...a} className="campo-archivo" type="file" accept="image/png,image/jpeg,application/pdf" onChange={(e) => setArchivo(e.target.files?.[0] ?? null)} />}
       </Campo>
+    </Capa>
+  );
+}
+
+// --- Confirmar un pago reportado por la empresa (CONTRATO §14, D-73) --------------
+
+export function ConfirmarPago({ ficha, pago, alCerrar, alConfirmar }: { ficha: FichaDeEmpresa; pago: PagoDePlataforma; alCerrar: () => void; alConfirmar: (f: FichaDeEmpresa) => void }) {
+  const pedido = pago.periodoMeses ?? 1;
+  const [modo, setModo] = useState<'periodo' | 'fecha'>('periodo');
+  const [periodo, setPeriodo] = useState(pedido);
+  const [cubreHasta, setCubreHasta] = useState('');
+  const [verificado, setVerificado] = useState(false);
+  const [propuesta, setPropuesta] = useState<string | null>(null);
+  const [errores, setErrores] = useState<Record<string, string | undefined>>({});
+  const [error, setError] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
+
+  useEffect(() => {
+    if (modo !== 'periodo') return;
+    let vigente = true;
+    setPropuesta(null);
+    pedir<{ cubreHasta: string }>(`${rutaDe(ficha)}/pagos/propuesta?periodoMeses=${periodo}`)
+      .then((r) => vigente && setPropuesta(r.cubreHasta))
+      .catch(() => vigente && setPropuesta(null));
+    return () => {
+      vigente = false;
+    };
+  }, [ficha, modo, periodo]);
+
+  async function enviar() {
+    if (enviando) return;
+    const faltan: Record<string, string | undefined> = {};
+    if (!verificado) faltan.verificado = 'Confirme que revisó el dinero en la cuenta.';
+    if (modo === 'fecha' && (cubreHasta === '' || cubreHasta < hoy())) faltan.cubreHasta = 'Escriba una fecha desde hoy en adelante.';
+    setErrores(faltan);
+    if (Object.values(faltan).some(Boolean)) return;
+    setEnviando(true);
+    setError(null);
+    try {
+      alConfirmar(await pedir<FichaDeEmpresa>(`/api/superadmin/pagos/${encodeURIComponent(pago.id)}/confirmar`, {
+        metodo: 'POST',
+        cuerpo: modo === 'periodo' ? { periodoMeses: periodo, cubreHasta: null } : { periodoMeses: null, cubreHasta },
+      }));
+    } catch (e) {
+      setEnviando(false);
+      if (e instanceof ErrorDeApi && e.campo) setErrores({ [e.campo]: e.message });
+      else setError(e instanceof ErrorDeApi ? e.message : 'No se confirmó el pago. Intente de nuevo.');
+    }
+  }
+
+  const vence = modo === 'periodo' ? propuesta : cubreHasta || null;
+
+  return (
+    <Capa
+      titulo={`Confirmar el pago de ${ficha.empresa.razonSocial}`}
+      alCerrar={alCerrar}
+      hayCambios={verificado || modo !== 'periodo' || periodo !== pedido}
+      error={error}
+      alEnviar={() => void enviar()}
+      acciones={(cerrar) => (
+        <>
+          <button type="button" className="boton boton-secundario" onClick={cerrar} disabled={enviando}>Cancelar</button>
+          <button type="submit" className="boton boton-principal" disabled={enviando}>{enviando ? 'Confirmando…' : 'Confirmar y extender'}</button>
+        </>
+      )}
+    >
+      <dl className="datos-estaticos datos-en-rejilla">
+        <div><dt>Monto</dt><dd>{dinero(pago.monto, pago.moneda)}</dd></div>
+        <div><dt>Pagó el</dt><dd>{fechaSola(pago.fecha)}</dd></div>
+        <div><dt>Medio</dt><dd>{NOMBRE_DE_METODO[pago.metodo]}{pago.referencia ? ` · ref. ${pago.referencia}` : ''}</dd></div>
+        <div><dt>Reportó</dt><dd>{pago.reportadoPor ?? '—'}</dd></div>
+      </dl>
+      <fieldset className="grupo-de-opciones">
+        <legend>¿Qué cubre?</legend>
+        <label className="opcion">
+          <input type="radio" name="modo-confirmar" checked={modo === 'periodo'} onChange={() => setModo('periodo')} />
+          <span>Un período {periodo === pedido ? '(el que pidió la empresa)' : ''}</span>
+        </label>
+        {modo === 'periodo' ? (
+          <div className="opciones-de-periodo" role="group" aria-label="Meses">
+            {PERIODOS.map((n) => (
+              <button key={n} type="button" className="boton boton-secundario boton-de-periodo" aria-pressed={periodo === n} onClick={() => setPeriodo(n)}>
+                {n === 1 ? '1 mes' : `${n} meses`}
+              </button>
+            ))}
+          </div>
+        ) : null}
+        <label className="opcion">
+          <input type="radio" name="modo-confirmar" checked={modo === 'fecha'} onChange={() => setModo('fecha')} />
+          <span>Hasta una fecha que yo indico</span>
+        </label>
+        {modo === 'fecha' ? (
+          <Campo etiqueta="Cubre hasta" error={errores.cubreHasta}>
+            {(a) => <input {...a} type="date" min={hoy()} value={cubreHasta} onChange={(e) => setCubreHasta(e.target.value)} />}
+          </Campo>
+        ) : null}
+      </fieldset>
+      <p className="resultado-del-pago" aria-live="polite">
+        <Icono nombre="visto" />
+        <span>{vence ? <>Queda vigente hasta el <strong>{fechaSola(vence)}</strong>.</> : 'Calculando hasta cuándo queda vigente…'}</span>
+      </p>
+      <div className="campo" data-con-error={errores.verificado ? 'si' : undefined}>
+        <label className="casilla casilla-de-verificacion">
+          <input type="checkbox" checked={verificado} onChange={(e) => setVerificado(e.target.checked)} />
+          <span>Revisé el comprobante y el dinero está en la cuenta.</span>
+        </label>
+        {errores.verificado ? <p className="campo-error" role="alert">{errores.verificado}</p> : null}
+      </div>
     </Capa>
   );
 }

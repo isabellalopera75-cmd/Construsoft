@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { ErrorDeApi, pedir } from '../../api/cliente.ts';
-import type { DetalleDeSuscripcion, Empresa, EstadoSuscripcion, MiCuenta, Preferencias, Unidad } from '../../api/tipos.ts';
+import type { Empresa, MiCuenta, Preferencias, Unidad } from '../../api/tipos.ts';
 import { useAvisos } from '../../componentes/Avisos.tsx';
 import { BotonVolver } from '../../cascaron/Cascaron.tsx';
 import { Campo } from '../../componentes/Campo.tsx';
@@ -10,6 +10,7 @@ import { Icono } from '../../componentes/Icono.tsx';
 import { Pestanas } from '../../componentes/Pestanas.tsx';
 import { ErrorDeSeccion, Seccion, useLectura } from './piezas.tsx';
 import { Logotipo } from './Logotipo.tsx';
+import { SuscripcionPestana } from './Suscripcion.tsx';
 import { Usuarios } from './Usuarios.tsx';
 import { formatearNumero } from '../../formato.ts';
 import { ir, type PestanaDeConfiguracion } from '../../navegacion.ts';
@@ -508,103 +509,5 @@ function FormularioDeUnidad({ unidad, alCerrar, alGuardar }: { unidad: Unidad | 
         {(a) => <input {...a} autoComplete="off" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />}
       </Campo>
     </Capa>
-  );
-}
-
-// --- 02 §11.3 · Suscripción --------------------------------------------------------
-
-const NOMBRES_DE_ESTADO: Record<EstadoSuscripcion, string> = {
-  EN_PRUEBA: 'En prueba',
-  ACTIVA: 'Activa',
-  VENCIDA: 'Vencida',
-  CANCELADA: 'Cancelada',
-  SUSPENDIDA: 'Suspendida',
-  SIN_SUSCRIPCION: 'Sin suscripción',
-};
-
-/** Una fecha sin hora («aaaa-mm-dd»), sin pasar por la medianoche UTC. */
-function fechaSola(texto: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(texto);
-  if (!m) return texto;
-  const [, a, mes, d] = m;
-  // eslint-disable-next-line no-restricted-globals -- partes de una fecha, no dinero
-  const fecha = new Date(parseInt(a ?? '0', 10), parseInt(mes ?? '1', 10) - 1, parseInt(d ?? '1', 10));
-  return new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'long', year: 'numeric' }).format(fecha);
-}
-
-function SuscripcionPestana() {
-  const { datos, error, releer } = useLectura<DetalleDeSuscripcion>('/api/configuracion/suscripcion');
-  const { arranque } = useSesion();
-  const formato = arranque.formatoNumerico;
-  if (error) return <ErrorDeSeccion mensaje={error} alReintentar={releer} />;
-  if (!datos) return <p className="campo-ayuda">Cargando…</p>;
-
-  const dias = datos.diasRestantes;
-  return (
-    <>
-      <Seccion titulo="Suscripción">
-        <dl className="datos-estaticos datos-en-rejilla">
-          <div><dt>Plan</dt><dd>{datos.plan}</dd></div>
-          <div>
-            <dt>Estado</dt>
-            <dd><span className="insignia insignia-suscripcion" data-estado={datos.estado}>{NOMBRES_DE_ESTADO[datos.estado]}</span></dd>
-          </div>
-          <div><dt>Vence el</dt><dd>{fechaSola(datos.venceEl)}</dd></div>
-          <div><dt>Días restantes</dt><dd className="cifra-izquierda">{dias > 0 ? dias : 0}</dd></div>
-        </dl>
-        {datos.estado === 'SUSPENDIDA' ? (
-          <p className="nota-pendiente">
-            <Icono nombre="candado" />
-            <span>El acceso de su empresa fue suspendido por la administración de ConstruSoft. Esto no se resuelve con un pago: escríbanos para conocer el motivo.</span>
-          </p>
-        ) : (
-          <div className="como-pagar">
-            <h3>Cómo pagar</h3>
-            <p>
-              {datos.estado === 'EN_PRUEBA'
-                ? `Le ${dias === 1 ? 'queda 1 día' : `quedan ${dias} días`} de prueba. `
-                : ''}
-              El pago se hace por transferencia o PSE, fuera de la aplicación; el equipo de ConstruSoft lo registra y la fecha de
-              vencimiento se extiende en ese momento. Mientras la suscripción no esté vigente, la empresa queda en solo lectura:
-              sus datos se conservan y se pueden exportar.
-            </p>
-          </div>
-        )}
-      </Seccion>
-      <Seccion titulo="Historial de facturación">
-        {datos.pagos.length === 0 ? (
-          <p className="campo-ayuda">Todavía no hay pagos registrados.</p>
-        ) : (
-          <div className="tarjeta-tabla tabla-con-borde">
-            <table className="tabla">
-              <caption className="solo-lectores">Pagos</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Fecha</th>
-                  <th scope="col">Concepto</th>
-                  <th scope="col" className="cifra">Monto</th>
-                  <th scope="col">Método</th>
-                  <th scope="col">Estado</th>
-                  <th scope="col">Factura</th>
-                </tr>
-              </thead>
-              <tbody>
-                {datos.pagos.map((p) => (
-                  <tr key={p.id}>
-                    <td>{fechaSola(p.fecha)}</td>
-                    <td>{p.concepto}</td>
-                    <td className="cifra">{formatearNumero(p.monto, formato)} {p.moneda}</td>
-                    <td>{p.metodo}</td>
-                    <td>{p.estado}</td>
-                    <td>{p.facturaNumero ?? <span className="dato-de-apoyo">—</span>}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        <p className="campo-ayuda">El comprobante en PDF de cada pago llega con el módulo de cobro.</p>
-      </Seccion>
-    </>
   );
 }

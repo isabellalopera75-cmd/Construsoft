@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { Pool, type QueryResult, type QueryResultRow } from 'pg';
 import { leerEnvObligatoria } from './env.js';
 import { resolverToken } from './autenticacion.js';
@@ -190,6 +191,12 @@ async function ejecutarComoTenant<T>(
  *      TODAS las pantallas muestra a cualquier usuario: es el mismo caso que
  *      el formato numérico del 3, un dato que hace falta antes de saber qué
  *      permiso aplica. Solo lee, y la RLS de app.logo lo acota a la empresa.
+ *   9. subirComprobanteDePago y reportarPago — el pago que reporta la empresa
+ *      (D-73, CONTRATO §14). NO son una puerta sin permiso: el permiso lo
+ *      exige la propia base, en plataforma.fn_quien_reporta (Administrador o
+ *      CONFIG.SUSCRIPCION; si no, el mismo rechazo de permiso de siempre). No pasan por fn_exigir_permiso
+ *      porque esa niega toda escritura a una empresa vencida (D-65), y
+ *      vencida es justo cuando tiene que poder reportar que pagó.
  */
 function ejecutarSinPermiso<T>(
   contexto: ContextoTenant,
@@ -609,6 +616,38 @@ export async function emitirTokenRecuperacion(
     );
     return { expiraEn: rows[0]!.expira_en.toISOString() };
   });
+}
+
+/** Ver la exención 9 de ejecutarSinPermiso. Devuelve el id del comprobante. */
+export async function subirComprobanteDePago(
+  contexto: ContextoTenant,
+  contenido: Buffer,
+  tipo: 'image/png' | 'image/jpeg' | 'application/pdf',
+): Promise<string> {
+  return ejecutarSinPermiso(contexto, async (cliente) => {
+    const { rows } = await cliente.query<{ id: string }>(
+      'SELECT plataforma.fn_subir_comprobante_empresa($1, $2, $3) AS id',
+      [createHash('sha256').update(contenido).digest('hex'), tipo, contenido],
+    );
+    return rows[0]!.id;
+  });
+}
+
+/** Ver la exención 9 de ejecutarSinPermiso. Las reglas —no futura, una pendiente a la vez— las pone la base. */
+export async function reportarPago(
+  contexto: ContextoTenant,
+  pago: { fecha: string; monto: string; metodo: string; referencia: string | null; periodoMeses: number; comprobanteId: string },
+): Promise<void> {
+  await ejecutarSinPermiso(contexto, (cliente) =>
+    cliente.query('SELECT plataforma.fn_reportar_pago($1::date, $2::numeric, $3, $4, $5::smallint, $6::uuid)', [
+      pago.fecha,
+      pago.monto,
+      pago.metodo,
+      pago.referencia,
+      pago.periodoMeses,
+      pago.comprobanteId,
+    ]),
+  );
 }
 
 /** Ver la exención 8 de ejecutarSinPermiso. null si el id no es un logo de esta empresa. */

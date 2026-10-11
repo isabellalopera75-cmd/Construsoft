@@ -5,8 +5,8 @@ import { Confirmacion } from '../../componentes/Confirmacion.tsx';
 import { Icono } from '../../componentes/Icono.tsx';
 import { formatearFecha, formatearFechaYHora } from '../../fechas.ts';
 import { ErrorDeSeccion, useLectura } from '../../modulos/configuracion/piezas.tsx';
-import { dinero, fechaSola, hoy, InsigniasDeEmpresa, NOMBRE_DE_METODO, NOMBRE_DE_PLAN, textoDeDias } from '../comun.tsx';
-import { CambiarSuscripcion, DesignarAdministrador, EliminarEmpresa, RegistrarPago } from '../dialogos/Dialogos.tsx';
+import { dinero, fechaSola, hoy, InsigniaDePago, InsigniasDeEmpresa, NOMBRE_DE_METODO, NOMBRE_DE_PLAN, textoDeDias } from '../comun.tsx';
+import { CambiarSuscripcion, ConfirmarPago, DesignarAdministrador, EliminarEmpresa, RegistrarPago } from '../dialogos/Dialogos.tsx';
 import { enlaceA } from '../navegacion.ts';
 import type { EventoDePlataforma, FichaDeEmpresa } from '../tipos.ts';
 
@@ -19,7 +19,7 @@ import type { EventoDePlataforma, FichaDeEmpresa } from '../tipos.ts';
  * El panel no ve proyectos ni catálogos (01 §9): solo cuántos hay.
  */
 
-type Dialogo = 'pago' | 'suscripcion' | 'suspender' | 'reactivar' | 'administrador' | 'cancelar' | 'eliminar' | null;
+type Dialogo = 'pago' | 'suscripcion' | 'suspender' | 'reactivar' | 'administrador' | 'cancelar' | 'eliminar' | 'confirmar-pago' | 'rechazar-pago' | null;
 
 export function Ficha({ id }: { id: string }) {
   const ruta = `/api/superadmin/empresas/${encodeURIComponent(id)}`;
@@ -37,6 +37,8 @@ export function Ficha({ id }: { id: string }) {
     avisar(aviso);
   };
   const eliminable = datos.eliminableDesde !== null && datos.eliminableDesde <= hoy();
+  // CONTRATO §14 · A lo sumo uno por suscripción (D-73).
+  const porVerificar = datos.pagos.find((p) => p.estado === 'PENDIENTE') ?? null;
 
   return (
     <>
@@ -62,6 +64,35 @@ export function Ficha({ id }: { id: string }) {
             administración de ConstruSoft. Sus datos están intactos. Registrar un pago no la reactiva: hay que reactivarla aquí.
           </span>
         </p>
+      ) : null}
+
+      {porVerificar ? (
+        <section className="tarjeta seccion-del-panel seccion-por-verificar" aria-labelledby="titulo-por-verificar">
+          <h2 id="titulo-por-verificar">Pago por verificar</h2>
+          <p className="campo-ayuda">
+            {porVerificar.reportadoPor ?? 'La empresa'} reportó este pago con su comprobante. No da acceso hasta que lo confirme: revise
+            que el dinero esté en la cuenta antes de hacerlo.
+          </p>
+          <dl className="datos-estaticos datos-en-rejilla">
+            <div><dt>Monto</dt><dd className="cifra-izquierda">{dinero(porVerificar.monto, porVerificar.moneda)}</dd></div>
+            <div><dt>Pagó el</dt><dd>{fechaSola(porVerificar.fecha)}</dd></div>
+            <div><dt>Medio</dt><dd>{NOMBRE_DE_METODO[porVerificar.metodo]}{porVerificar.referencia ? ` · ref. ${porVerificar.referencia}` : ''}</dd></div>
+            <div><dt>Pide</dt><dd>{porVerificar.periodoMeses === 1 ? '1 mes' : `${porVerificar.periodoMeses ?? '—'} meses`}</dd></div>
+          </dl>
+          <div className="fila-de-botones fila-izquierda">
+            {porVerificar.soporteId ? (
+              <a className="boton boton-secundario" href={`/api/superadmin/soportes/${encodeURIComponent(porVerificar.soporteId)}`} target="_blank" rel="noopener">
+                <Icono nombre="descargar" />
+                Ver comprobante
+              </a>
+            ) : null}
+            <button type="button" className="boton boton-principal" onClick={() => setDialogo('confirmar-pago')}>
+              <Icono nombre="visto" />
+              Confirmar pago
+            </button>
+            <button type="button" className="boton boton-peligroso" onClick={() => setDialogo('rechazar-pago')}>Rechazar</button>
+          </div>
+        </section>
       ) : null}
 
       <div className="acciones-de-ficha">
@@ -139,6 +170,7 @@ export function Ficha({ id }: { id: string }) {
                   <th scope="col">Concepto</th>
                   <th scope="col">Método</th>
                   <th scope="col" className="col-numero">Monto</th>
+                  <th scope="col">Estado</th>
                   <th scope="col">Cubre hasta</th>
                   <th scope="col">Comprobante</th>
                 </tr>
@@ -149,11 +181,13 @@ export function Ficha({ id }: { id: string }) {
                     <td>{fechaSola(p.fecha)}</td>
                     <td>
                       {p.concepto}
-                      <span className="dato-de-apoyo">Registró {p.registradoPor}{p.referencia ? ` · ref. ${p.referencia}` : ''}</span>
+                      <span className="dato-de-apoyo">{quienDelPago(p)}{p.referencia ? ` · ref. ${p.referencia}` : ''}</span>
+                      {p.estado === 'RECHAZADO' && p.rechazoMotivo ? <span className="dato-de-apoyo">Motivo: {p.rechazoMotivo}</span> : null}
                     </td>
                     <td>{NOMBRE_DE_METODO[p.metodo]}</td>
                     <td className="cifra col-numero">{dinero(p.monto, p.moneda)}</td>
-                    <td>{fechaSola(p.cubreHasta)}</td>
+                    <td><InsigniaDePago estado={p.estado} /></td>
+                    <td>{p.cubreHasta ? fechaSola(p.cubreHasta) : '—'}</td>
                     <td>
                       {p.soporteId ? (
                         <a href={`/api/superadmin/soportes/${encodeURIComponent(p.soporteId)}`} target="_blank" rel="noopener">Ver</a>
@@ -239,6 +273,22 @@ export function Ficha({ id }: { id: string }) {
           : 'Administrador designado.')} />
       ) : null}
       {dialogo === 'eliminar' ? <EliminarEmpresa ficha={datos} alCerrar={cerrar} /> : null}
+      {dialogo === 'confirmar-pago' && porVerificar ? (
+        <ConfirmarPago ficha={datos} pago={porVerificar} alCerrar={cerrar} alConfirmar={(f) => listo(f, `Pago confirmado. ${f.empresa.razonSocial} queda vigente hasta el ${fechaSola(f.suscripcion?.venceEl ?? '')}.`)} />
+      ) : null}
+      {dialogo === 'rechazar-pago' && porVerificar ? (
+        <Confirmacion
+          titulo="Rechazar el pago reportado"
+          textoConfirmar="Rechazar pago"
+          textoEnviando="Rechazando…"
+          peligroso
+          pideTexto={{ etiqueta: 'Motivo', ayuda: 'La empresa lo va a leer en su pestaña de suscripción. Dígale qué hacer.', campo: 'motivo', vacio: 'Escriba por qué se rechaza el pago.' }}
+          alCerrar={cerrar}
+          alConfirmar={async (motivo) => listo(await pedir<FichaDeEmpresa>(`/api/superadmin/pagos/${encodeURIComponent(porVerificar.id)}/rechazar`, { metodo: 'POST', cuerpo: { motivo } }), 'Pago rechazado. La empresa verá el motivo.')}
+        >
+          <p>El pago de {dinero(porVerificar.monto, porVerificar.moneda)} queda rechazado y la suscripción no cambia. La empresa puede reportar otro.</p>
+        </Confirmacion>
+      ) : null}
       {dialogo === 'suspender' ? (
         <Confirmacion
           titulo={`Suspender a ${empresa.razonSocial}`}
@@ -281,6 +331,16 @@ export function Ficha({ id }: { id: string }) {
   );
 }
 
+/** Quién está detrás de un pago, en palabras. */
+export function quienDelPago(p: { origen: string; reportadoPor: string | null; registradoPor: string | null; estado: string }): string {
+  if (p.origen === 'REPORTADO') {
+    const reporto = `Reportó ${p.reportadoPor ?? 'la empresa'}`;
+    if (p.estado === 'PENDIENTE') return reporto;
+    return `${reporto} · ${p.estado === 'RECHAZADO' ? 'rechazó' : 'verificó'} ${p.registradoPor ?? '—'}`;
+  }
+  return `Registró ${p.registradoPor ?? '—'}`;
+}
+
 function nombreDeEstadoDeUsuario(estado: string): string {
   return estado === 'ACTIVO' ? 'Activo' : estado === 'PENDIENTE' ? 'Pendiente' : estado === 'REVOCADO' ? 'Revocado' : estado;
 }
@@ -294,6 +354,8 @@ const NOMBRES_DE_EVENTO: Record<string, string> = {
   SUSCRIPCION_CANCELADA: 'Suscripción cancelada',
   PAGO_REGISTRADO: 'Pago registrado',
   ADMIN_DESIGNADO: 'Administrador designado',
+  PAGO_REPORTADO: 'Pago reportado por la empresa',
+  PAGO_RECHAZADO: 'Pago rechazado',
 };
 
 export function ListaDeEventos({ eventos, conEmpresa, vacio }: { eventos: EventoDePlataforma[]; conEmpresa: boolean; vacio: string }) {

@@ -6,6 +6,65 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-11 · domingo, tarde
+
+**Decisión del dueño, 11 de octubre:** la empresa reporta su pago con el
+comprobante y vos (el panel) lo verificás. Reportar no da acceso: un
+comprobante puede ser falso. Solo lo da el superadministrador al confirmarlo.
+
+**Hecho** (sin commit; los hace el dueño o tú)
+
+- **Esquema, D-73**, con `docs/prueba-d73.sql`. Lo cargué en un PostgreSQL 16
+  limpio y las seis baterías están en verde; D-73 da 25 de 25. Comprobé que
+  detecta dos defectos sembrados: dejar reportar a cualquiera hace caer 1
+  caso, y contar un pago rechazado como pagado hace caer 4.
+  - `pago.origen` admite REPORTADO. Columnas nuevas en `pago`:
+    `reportado_por`, `verificado_en` y `rechazo_motivo`. `ck_pago_origen_manual`
+    dice quién responde por cada origen.
+  - A lo sumo un pago reportado PENDIENTE por suscripción
+    (`ux_pago_reportado_pendiente`).
+  - `soporte_pago` admite comprobantes de la empresa, con `tenant_id` y
+    `subido_por_usuario`. Se borran con ella.
+  - Funciones nuevas:
+    - `fn_subir_comprobante_empresa` y `fn_reportar_pago`, concedidas a
+      `construsoft_app`. No pasan por `fn_exigir_permiso`, así que una empresa
+      vencida puede reportar.
+    - `fn_confirmar_pago` y `fn_rechazar_pago`, concedidas al panel. Reciben
+      el autor y no necesitan la firma de `set_config`: el disparador reconoce
+      el vencimiento que mueve una confirmación.
+  - Tipos de evento nuevos: `PAGO_REPORTADO` y `PAGO_RECHAZADO`.
+  - **Lo que pediste**: `fn_estado_comercial(tenant)` y
+    `fn_eliminable_desde(tenant)`. `fn_eliminar_tenant` ya usa la segunda,
+    así que podés borrar tus copias. Un pago rechazado no cuenta como pagado:
+    un comprobante falso no compra la conservación de los datos.
+- **Las pantallas**, contra el **CONTRATO §14**:
+  - Empresa: «Reportar un pago» en Configuración → Suscripción, el aviso
+    «en verificación», el rechazo con su motivo y el estado en el historial.
+  - Panel: «pagos por verificar» primero en el resumen; en la ficha, el bloque
+    con «Ver comprobante», «Confirmar pago» (pide marcar que revisó el
+    dinero) y «Rechazar» (pide el motivo); y en Pagos, el filtro por estado.
+- **`/superadmin` sin la barra** ahora lleva a `/superadmin/` antes de pintar
+  nada (`web/src/main.tsx`). Era lo que dejaba al dueño bloqueado por
+  intentos.
+- El CONTRATO marca §12 y §13 como construidos, con las decisiones tuyas
+  anotadas.
+
+**Lo que necesito**
+
+- **Recargar el esquema** en `construsoft` y `construsoft_test`, y correr las
+  seis baterías.
+- **Construir el CONTRATO §14.**
+
+**Sobre lo que decidiste solo el 11**
+
+- **Una suscripción cancelada no admite pagos.** Coincide con D-73, que
+  tampoco deja reportar ni confirmar. Cómo se reactiva a un cliente cancelado
+  sigue sin decidir; lo pregunto al dueño cuando haga falta.
+- **Suspender a quien ya está suspendida da 422**: de acuerdo.
+- **`porPlan` cuenta también las canceladas**: de acuerdo por ahora.
+
+---
+
 ## 2026-10-11 · domingo
 
 **Hecho: D-72 en el esquema** (sin commit; los hace el dueño o tú). Son los

@@ -1022,3 +1022,13 @@ textarea { min-height: 88px; padding: var(--e2) var(--e3); resize: vertical; wid
 .enlace-de-empresa:hover { color: var(--terracota); text-decoration: underline; }
 .tabla th.col-numero { text-align: right; }
 .opciones-de-periodo .boton-de-periodo { width: auto; padding: 0 var(--e4); }
+
+/* --- Pago reportado por la empresa (CONTRATO §14, D-73) ------------------ */
+.insignia-pago[data-estado='EXITOSO'] { color: var(--exito); background: color-mix(in srgb, var(--exito) 10%, transparent); }
+.insignia-pago[data-estado='PENDIENTE'] { color: var(--terracota); background: var(--terracota-velo); }
+.insignia-pago[data-estado='RECHAZADO'] { color: var(--peligro); background: color-mix(in srgb, var(--peligro) 10%, transparent); }
+.franja-en-verificacion { border-left-color: var(--terracota); }
+.franja-en-verificacion .icono { color: var(--terracota); }
+.seccion-por-verificar { border: 1px solid var(--terracota); box-shadow: inset 4px 0 0 var(--terracota); }
+.opciones-de-periodo.sin-sangria { padding-left: 0; }
+.casilla-de-verificacion { font-size: var(--letra-md); }

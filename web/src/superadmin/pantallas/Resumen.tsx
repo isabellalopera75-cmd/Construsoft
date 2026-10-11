@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 import { ErrorDeSeccion, useLectura } from '../../modulos/configuracion/piezas.tsx';
-import { dinero, fechaSola, InsigniasDeEmpresa, NOMBRE_DE_PLAN, textoDeDias } from '../comun.tsx';
+import { dinero, fechaSola, InsigniasDeEmpresa, NOMBRE_DE_METODO, NOMBRE_DE_PLAN, textoDeDias } from '../comun.tsx';
 import { enlaceA } from '../navegacion.ts';
-import type { FilaDeEmpresa, Resumen as ResumenDeDatos } from '../tipos.ts';
+import type { FilaDeEmpresa, PagoDePlataforma, Resumen as ResumenDeDatos } from '../tipos.ts';
 
 /*
  * RF-SAD-02 y RF-SAD-10 · Lo que el dueño mira primero al entrar: cuántas
@@ -25,6 +25,8 @@ export function Resumen() {
           <p className="subtitulo-de-pantalla">{e.total === 1 ? '1 empresa registrada' : `${e.total} empresas registradas`}</p>
         </div>
       </div>
+
+      {datos.porVerificar.length > 0 ? <PagosPorVerificar pagos={datos.porVerificar} /> : null}
 
       <section className="cifras-del-panel" aria-label="Estado de las empresas">
         <Cifra titulo="Pagando" valor={e.activas} estado="ACTIVA" enlace="#/empresas?estado=ACTIVA" />
@@ -134,6 +136,51 @@ function ListaDeAccion({
           </table>
         </div>
       )}
+    </section>
+  );
+}
+
+/*
+ * CONTRATO §14 · Lo primero que hay que hacer hoy: pagos que reportaron las
+ * empresas y no dan acceso hasta que alguien los verifique contra el banco.
+ */
+function PagosPorVerificar({ pagos }: { pagos: PagoDePlataforma[] }) {
+  return (
+    <section className="tarjeta seccion-del-panel seccion-por-verificar">
+      <h2>{pagos.length === 1 ? '1 pago por verificar' : `${pagos.length} pagos por verificar`}</h2>
+      <p className="campo-ayuda">
+        Las empresas los reportaron con su comprobante. No les dan acceso hasta que usted los confirme: revise que el dinero esté en la cuenta.
+      </p>
+      <div className="tarjeta-tabla tabla-con-borde">
+        <table className="tabla">
+          <caption className="solo-lectores">Pagos por verificar</caption>
+          <thead>
+            <tr>
+              <th scope="col">Empresa</th>
+              <th scope="col" className="col-numero">Monto</th>
+              <th scope="col">Pagó el</th>
+              <th scope="col">Medio</th>
+              <th scope="col">Comprobante</th>
+              <th scope="col"><span className="solo-lectores">Acción</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {pagos.map((p) => (
+              <tr key={p.id}>
+                <td>
+                  <a className="enlace-de-empresa" href={enlaceA({ pantalla: 'empresa', id: p.empresa.id })}>{p.empresa.razonSocial}</a>
+                  {p.reportadoPor ? <span className="dato-de-apoyo">Lo reportó {p.reportadoPor}</span> : null}
+                </td>
+                <td className="cifra col-numero">{dinero(p.monto, p.moneda)}</td>
+                <td>{fechaSola(p.fecha)}</td>
+                <td>{NOMBRE_DE_METODO[p.metodo]}{p.referencia ? <span className="dato-de-apoyo">ref. {p.referencia}</span> : null}</td>
+                <td>{p.soporteId ? <a href={`/api/superadmin/soportes/${encodeURIComponent(p.soporteId)}`} target="_blank" rel="noopener">Ver</a> : '—'}</td>
+                <td><a className="boton boton-secundario boton-de-periodo" href={enlaceA({ pantalla: 'empresa', id: p.empresa.id })}>Verificar</a></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }

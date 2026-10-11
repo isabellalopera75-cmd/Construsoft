@@ -331,7 +331,13 @@ export interface PagoRealizado {
   monto: string;
   moneda: string;
   metodo: string;
-  estado: string;
+  estado: 'EXITOSO' | 'PENDIENTE' | 'RECHAZADO';
+  origen: 'MANUAL' | 'REPORTADO' | 'PASARELA';
+  periodoMeses: number | null;
+  /** Nulo mientras el pago reportado espera verificación (D-73). */
+  cubreHasta: string | null;
+  /** Lo que escribió el superadministrador al rechazarlo; la empresa lo lee tal cual. */
+  rechazoMotivo: string | null;
   facturaNumero: string | null;
 }
 
@@ -350,17 +356,12 @@ export interface Suscripcion {
   venceEl: string | null;
   diasRestantes: number | null;
   pagos: PagoRealizado[];
-}
-
-interface FilaPago {
-  id: string;
-  fecha: string;
-  concepto: string;
-  monto: string;
-  moneda: string;
-  metodo: string;
-  estado: string;
-  factura_numero: string | null;
+  /**
+   * La suscripción no está cancelada (CONTRATO §14.1). Quien lee esta pestaña
+   * ya tiene CONFIG.SUSCRIPCION, que es lo otro que pide fn_reportar_pago. Con
+   * la suscripción vencida es verdadero: es justo cuando hace falta.
+   */
+  puedeReportar: boolean;
 }
 
 export async function leerSuscripcion(contexto: ContextoTenant): Promise<Suscripcion> {
@@ -381,13 +382,22 @@ export async function leerSuscripcion(contexto: ContextoTenant): Promise<Suscrip
       throw new ErrorParaElUsuario('La empresa no existe en esta instalación.', 'NO_EXISTE');
     }
 
-    const { rows: filasPago } = await cliente.query<FilaPago>(
+    // Por registro y no por fecha del pago: el último rechazo y el pendiente
+    // se leen primero (CONTRATO §14.1).
+    const { rows: pagos } = await cliente.query<PagoRealizado>(
       `SELECT pg.id, pg.fecha::text AS fecha, pg.concepto, pg.monto, pg.moneda, pg.metodo,
-              pg.estado, pg.factura_numero
+              pg.estado, pg.origen, pg.periodo_meses AS "periodoMeses",
+              pg.cubre_hasta::text AS "cubreHasta", pg.rechazo_motivo AS "rechazoMotivo",
+              pg.factura_numero AS "facturaNumero"
          FROM plataforma.pago pg
          JOIN plataforma.suscripcion s ON s.id = pg.suscripcion_id
         WHERE s.tenant_id = $1
-        ORDER BY pg.fecha DESC`,
+        ORDER BY pg.registrado_en DESC, pg.id DESC`,
+      [contexto.tenantId],
+    );
+    const { rows: vigente } = await cliente.query<{ hay: boolean }>(
+      `SELECT EXISTS (SELECT 1 FROM plataforma.suscripcion
+                       WHERE tenant_id = $1 AND estado IN ('EN_PRUEBA','ACTIVA')) AS hay`,
       [contexto.tenantId],
     );
 
@@ -396,16 +406,8 @@ export async function leerSuscripcion(contexto: ContextoTenant): Promise<Suscrip
       plan: estado.plan_codigo,
       venceEl: estado.vence_el,
       diasRestantes: estado.dias_restantes,
-      pagos: filasPago.map((fila) => ({
-        id: fila.id,
-        fecha: fila.fecha,
-        concepto: fila.concepto,
-        monto: fila.monto,
-        moneda: fila.moneda,
-        metodo: fila.metodo,
-        estado: fila.estado,
-        facturaNumero: fila.factura_numero,
-      })),
+      pagos,
+      puedeReportar: vigente[0]!.hay,
     };
   });
 }

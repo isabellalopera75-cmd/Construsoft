@@ -1,0 +1,292 @@
+import { useState } from 'react';
+import { ErrorDeApi, pedir } from '../../api/cliente.ts';
+import type { DetalleDeSuscripcion, EstadoDePago, EstadoSuscripcion, Pago } from '../../api/tipos.ts';
+import { useAvisos } from '../../componentes/Avisos.tsx';
+import { Campo } from '../../componentes/Campo.tsx';
+import { Capa } from '../../componentes/Capa.tsx';
+import { Icono } from '../../componentes/Icono.tsx';
+import { leerCifra, soloCifra } from '../../entrada.ts';
+import { formatearNumero } from '../../formato.ts';
+import { useSesion } from '../../sesion.tsx';
+import { ErrorDeSeccion, Seccion, useLectura } from './piezas.tsx';
+
+/*
+ * 02 §11.3 · Suscripción, y desde el 11 de octubre de 2026 el pago reportado
+ * (CONTRATO §14, D-73).
+ *
+ * La empresa paga por fuera —transferencia o PSE— y reporta aquí el pago con
+ * su comprobante. El pago queda «en verificación» y NO extiende la suscripción:
+ * solo la extiende el equipo de ConstruSoft al confirmarlo, porque un
+ * comprobante puede ser falso (decisión del dueño). Si lo rechaza, la empresa
+ * lee el motivo aquí mismo.
+ *
+ * Se puede reportar con la suscripción vencida, que es justo cuando hace
+ * falta; no con una cancelada ni mientras otro pago espera verificación.
+ */
+
+const NOMBRES_DE_ESTADO: Record<EstadoSuscripcion, string> = {
+  EN_PRUEBA: 'En prueba',
+  ACTIVA: 'Activa',
+  VENCIDA: 'Vencida',
+  CANCELADA: 'Cancelada',
+  SUSPENDIDA: 'Suspendida',
+  SIN_SUSCRIPCION: 'Sin suscripción',
+};
+
+const NOMBRES_DE_PAGO: Record<EstadoDePago, string> = {
+  EXITOSO: 'Confirmado',
+  PENDIENTE: 'En verificación',
+  RECHAZADO: 'Rechazado',
+};
+
+const METODOS = [
+  { valor: 'TRANSFERENCIA', nombre: 'Transferencia' },
+  { valor: 'PSE', nombre: 'PSE' },
+  { valor: 'EFECTIVO', nombre: 'Efectivo' },
+  { valor: 'OTRO', nombre: 'Otro' },
+];
+const NOMBRE_DE_METODO: Record<string, string> = Object.fromEntries(METODOS.map((m) => [m.valor, m.nombre]));
+
+const MESES: Record<string, string> = {
+  '01': 'enero', '02': 'febrero', '03': 'marzo', '04': 'abril', '05': 'mayo', '06': 'junio',
+  '07': 'julio', '08': 'agosto', '09': 'septiembre', '10': 'octubre', '11': 'noviembre', '12': 'diciembre',
+};
+
+/** «2026-10-16» → «16 de octubre de 2026», sin pasar por la medianoche UTC. */
+function fechaSola(texto: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(texto);
+  if (!m) return texto;
+  const [, anio = '', mes = '', dia = ''] = m;
+  return `${dia.replace(/^0/, '')} de ${MESES[mes] ?? mes} de ${anio}`;
+}
+
+function hoy(): string {
+  const d = new Date();
+  const dos = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}`;
+}
+
+export function SuscripcionPestana() {
+  const { datos, error, releer, poner } = useLectura<DetalleDeSuscripcion>('/api/configuracion/suscripcion');
+  const { arranque } = useSesion();
+  const { avisar } = useAvisos();
+  const [reportando, setReportando] = useState(false);
+  const formato = arranque.formatoNumerico;
+  if (error) return <ErrorDeSeccion mensaje={error} alReintentar={releer} />;
+  if (!datos) return <p className="campo-ayuda">Cargando…</p>;
+
+  const dias = datos.diasRestantes;
+  const pendiente = datos.pagos.find((p) => p.origen === 'REPORTADO' && p.estado === 'PENDIENTE') ?? null;
+  // El último rechazo importa solo si es lo más reciente que pasó: si después
+  // se confirmó otro pago, ya no hay nada que hacer con él.
+  const ultimoReportado = datos.pagos.find((p) => p.origen === 'REPORTADO' && p.estado !== 'PENDIENTE') ?? null;
+  const rechazado = !pendiente && ultimoReportado?.estado === 'RECHAZADO' ? ultimoReportado : null;
+  const dinero = (p: Pago) => `$ ${formatearNumero(p.monto, { ...formato, decimalesVista: 0 })}`;
+
+  return (
+    <>
+      <Seccion titulo="Suscripción">
+        <dl className="datos-estaticos datos-en-rejilla">
+          <div><dt>Plan</dt><dd>{datos.plan}</dd></div>
+          <div>
+            <dt>Estado</dt>
+            <dd><span className="insignia insignia-suscripcion" data-estado={datos.estado}>{NOMBRES_DE_ESTADO[datos.estado]}</span></dd>
+          </div>
+          <div><dt>Vence el</dt><dd>{fechaSola(datos.venceEl)}</dd></div>
+          <div><dt>Días restantes</dt><dd className="cifra-izquierda">{dias > 0 ? dias : 0}</dd></div>
+        </dl>
+
+        {pendiente ? (
+          <p className="franja-de-estado franja-en-verificacion" role="status">
+            <Icono nombre="reloj" />
+            <span>
+              <strong>Su pago está en verificación.</strong> Reportó {dinero(pendiente)} el {fechaSola(pendiente.fecha)}.
+              Cuando el equipo de ConstruSoft lo confirme, su suscripción se extiende y lo verá aquí. Mientras tanto, su acceso
+              sigue como está.
+            </span>
+          </p>
+        ) : null}
+        {rechazado ? (
+          <p className="aviso-error" role="alert">
+            <Icono nombre="aviso" />
+            <span>
+              <strong>No pudimos confirmar su pago del {fechaSola(rechazado.fecha)}.</strong> {rechazado.rechazoMotivo} Si cree
+              que es un error, escríbanos o repórtelo de nuevo con el comprobante correcto.
+            </span>
+          </p>
+        ) : null}
+
+        {datos.estado === 'SUSPENDIDA' ? (
+          <p className="nota-pendiente">
+            <Icono nombre="candado" />
+            <span>El acceso de su empresa fue suspendido por la administración de ConstruSoft. Esto no se resuelve con un pago: escríbanos para conocer el motivo.</span>
+          </p>
+        ) : (
+          <div className="como-pagar">
+            <h3>Cómo pagar</h3>
+            <p>
+              {datos.estado === 'EN_PRUEBA' ? `Le ${dias === 1 ? 'queda 1 día' : `quedan ${dias} días`} de prueba. ` : ''}
+              Pague por transferencia o PSE y reporte aquí el pago con su comprobante. El equipo de ConstruSoft lo verifica y, al
+              confirmarlo, extiende su suscripción. Mientras la suscripción no esté vigente, la empresa queda en solo lectura: sus
+              datos se conservan y se pueden exportar.
+            </p>
+            {datos.puedeReportar && !pendiente ? (
+              <div className="fila-de-botones fila-izquierda">
+                <button type="button" className="boton boton-principal" onClick={() => setReportando(true)}>
+                  <Icono nombre="subirArchivo" />
+                  Reportar un pago
+                </button>
+              </div>
+            ) : null}
+          </div>
+        )}
+      </Seccion>
+
+      <Seccion titulo="Historial de pagos">
+        {datos.pagos.length === 0 ? (
+          <p className="campo-ayuda">Todavía no hay pagos.</p>
+        ) : (
+          <div className="tarjeta-tabla tabla-con-borde">
+            <table className="tabla">
+              <caption className="solo-lectores">Pagos</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Fecha</th>
+                  <th scope="col">Concepto</th>
+                  <th scope="col" className="col-numero">Monto</th>
+                  <th scope="col">Método</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col">Cubre hasta</th>
+                </tr>
+              </thead>
+              <tbody>
+                {datos.pagos.map((p) => (
+                  <tr key={p.id}>
+                    <td>{fechaSola(p.fecha)}</td>
+                    <td>
+                      {p.concepto}
+                      {p.estado === 'RECHAZADO' && p.rechazoMotivo ? <span className="dato-de-apoyo">{p.rechazoMotivo}</span> : null}
+                    </td>
+                    <td className="cifra col-numero">{dinero(p)}</td>
+                    <td>{NOMBRE_DE_METODO[p.metodo] ?? p.metodo}</td>
+                    <td><span className="insignia insignia-pago" data-estado={p.estado}>{NOMBRES_DE_PAGO[p.estado]}</span></td>
+                    <td>{p.cubreHasta ? fechaSola(p.cubreHasta) : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Seccion>
+
+      {reportando ? (
+        <ReportarPago
+          alCerrar={() => setReportando(false)}
+          alReportar={(d) => {
+            poner(d);
+            setReportando(false);
+            avisar('Pago reportado. Le avisaremos aquí cuando lo verifiquemos.');
+          }}
+        />
+      ) : null}
+    </>
+  );
+}
+
+const TIPOS_DE_COMPROBANTE = ['image/png', 'image/jpeg', 'application/pdf'];
+const MAXIMO = 5 * 1024 * 1024;
+
+function ReportarPago({ alCerrar, alReportar }: { alCerrar: () => void; alReportar: (d: DetalleDeSuscripcion) => void }) {
+  const { arranque } = useSesion();
+  const separador = arranque.formatoNumerico.separadorDecimal;
+  const [monto, setMonto] = useState('');
+  const [fecha, setFecha] = useState(hoy());
+  const [metodo, setMetodo] = useState('TRANSFERENCIA');
+  const [referencia, setReferencia] = useState('');
+  const [meses, setMeses] = useState(1);
+  const [archivo, setArchivo] = useState<File | null>(null);
+  const [errores, setErrores] = useState<Record<string, string | undefined>>({});
+  const [error, setError] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
+
+  async function enviar() {
+    if (enviando) return;
+    const faltan: Record<string, string | undefined> = {};
+    const lectura = leerCifra(monto, { decimales: 2, permitirCero: false, nombre: 'el monto' });
+    if ('error' in lectura) faltan.monto = lectura.error;
+    if (fecha === '' || fecha > hoy()) faltan.fecha = 'Escriba la fecha en que pagó; no puede ser futura.';
+    if (!archivo) faltan.comprobante = 'Adjunte el comprobante: sin él no podemos verificar el pago.';
+    else if (!TIPOS_DE_COMPROBANTE.includes(archivo.type)) faltan.comprobante = 'El comprobante tiene que ser una imagen PNG o JPEG, o un PDF.';
+    else if (archivo.size > MAXIMO) faltan.comprobante = 'El comprobante pesa más de 5 MB.';
+    setErrores(faltan);
+    if (Object.values(faltan).some(Boolean) || 'error' in lectura || !archivo) return;
+    setEnviando(true);
+    setError(null);
+    try {
+      const { id } = await pedir<{ id: string }>('/api/configuracion/suscripcion/comprobantes', { metodo: 'POST', archivo });
+      const detalle = await pedir<DetalleDeSuscripcion>('/api/configuracion/suscripcion/pagos', {
+        metodo: 'POST',
+        cuerpo: { fecha, monto: lectura.valor, metodo, referencia: referencia.trim() === '' ? null : referencia.trim(), periodoMeses: meses, comprobanteId: id },
+      });
+      alReportar(detalle);
+    } catch (e) {
+      setEnviando(false);
+      if (e instanceof ErrorDeApi && e.campo) setErrores({ [e.campo]: e.message });
+      else setError(e instanceof ErrorDeApi ? e.message : 'No se reportó el pago. Intente de nuevo.');
+    }
+  }
+
+  return (
+    <Capa
+      titulo="Reportar un pago"
+      alCerrar={alCerrar}
+      hayCambios={monto !== '' || referencia !== '' || archivo !== null}
+      error={error}
+      alEnviar={() => void enviar()}
+      acciones={(cerrar) => (
+        <>
+          <button type="button" className="boton boton-secundario" onClick={cerrar} disabled={enviando}>Cancelar</button>
+          <button type="submit" className="boton boton-principal" disabled={enviando}>{enviando ? 'Enviando…' : 'Reportar pago'}</button>
+        </>
+      )}
+    >
+      <p className="campo-ayuda">
+        Cuéntenos qué pagó y adjunte el comprobante. El equipo de ConstruSoft lo verifica contra el banco y, al confirmarlo, extiende su
+        suscripción. Su acceso no cambia hasta entonces.
+      </p>
+      <div className="fila-de-campos">
+        <Campo etiqueta="Monto pagado" error={errores.monto}>
+          {(a) => <input {...a} inputMode="decimal" autoComplete="off" value={monto} onChange={(e) => setMonto(soloCifra(e.target.value, separador))} />}
+        </Campo>
+        <Campo etiqueta="Fecha del pago" error={errores.fecha}>
+          {(a) => <input {...a} type="date" max={hoy()} value={fecha} onChange={(e) => setFecha(e.target.value)} />}
+        </Campo>
+      </div>
+      <div className="fila-de-campos">
+        <Campo etiqueta="Medio de pago">
+          {(a) => (
+            <select {...a} value={metodo} onChange={(e) => setMetodo(e.target.value)}>
+              {METODOS.map((m) => <option key={m.valor} value={m.valor}>{m.nombre}</option>)}
+            </select>
+          )}
+        </Campo>
+        <Campo etiqueta="Referencia (opcional)" ayuda="El número de la transferencia o del PSE.">
+          {(a) => <input {...a} autoComplete="off" value={referencia} onChange={(e) => setReferencia(e.target.value)} />}
+        </Campo>
+      </div>
+      <fieldset className="grupo-de-opciones">
+        <legend>¿Cuántos meses paga?</legend>
+        <div className="opciones-de-periodo sin-sangria" role="group" aria-label="Meses">
+          {[1, 3, 6, 12].map((n) => (
+            <button key={n} type="button" className="boton boton-secundario boton-de-periodo" aria-pressed={meses === n} onClick={() => setMeses(n)}>
+              {n === 1 ? '1 mes' : `${n} meses`}
+            </button>
+          ))}
+        </div>
+      </fieldset>
+      <Campo etiqueta="Comprobante" ayuda="Foto o PDF del comprobante del banco. PNG, JPEG o PDF, hasta 5 MB." error={errores.comprobante}>
+        {(a) => <input {...a} className="campo-archivo" type="file" accept="image/png,image/jpeg,application/pdf" onChange={(e) => setArchivo(e.target.files?.[0] ?? null)} />}
+      </Campo>
+    </Capa>
+  );
+}
