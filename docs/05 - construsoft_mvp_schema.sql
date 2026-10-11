@@ -35,7 +35,7 @@
 --  ---------------------------------------------------------------------------
 --  LAS DECISIONES DE DISEÑO QUE ESTE ESQUEMA IMPLEMENTA
 --
---  Son setenta: D-1 a D-71, sin la D-10, que no existe. El motivo de
+--  Son setenta y una: D-1 a D-72, sin la D-10, que no existe. El motivo de
 --  cada una está en la sección 14 del documento de alcance. Aquí va el
 --  enunciado, y cada decisión vuelve a aparecer anotada en el punto del esquema
 --  donde vive. Las ocho últimas están al final de esta lista y tienen fecha:
@@ -531,6 +531,38 @@
 --         (decisión del dueño del 7 y 8 de octubre de 2026): sin distinguir
 --         mayúsculas ni espacios de los bordes. La API ya lo comprobaba dentro
 --         de su transacción; dos pedidos simultáneos podían pasar los dos.
+--   D-72  (posterior a la auditoría · cuatro funciones y dos disparadores
+--         reescritos) Lo que el panel del superadministrador necesitaba y el
+--         esquema no tenía. Lo encontró el asistente de la API el 9 de
+--         octubre de 2026, construyendo el CONTRATO §12.
+--            Primero, toda acción del panel va firmada. Suspender, reactivar,
+--         cambiar plan o vencimiento y cancelar son UPDATE que audita un
+--         disparador, y el disparador no sabía quién ni por qué. Ahora lee
+--         plataforma.usuario_id y plataforma.motivo, que el panel fija con
+--         set_config(…, true) en la misma transacción, y se NIEGA si faltan o
+--         si el autor no es un superadministrador activo. Un cambio de
+--         vencimiento que sale de un pago registrado en la misma transacción
+--         no pide firma aparte: fn_registrar_pago ya firma el suyo.
+--            Segundo, plataforma.fn_alta_usuario_plataforma: hasta ahora solo
+--         un superusuario de PostgreSQL podía crear un superadministrador.
+--         Recibe el hash argon2id, nunca la contraseña. La concesión es al
+--         grupo del panel porque el comando de terminal usa esa conexión; la
+--         API no ofrece ninguna ruta que la llame. Con ella va
+--         fn_clave_usuario_plataforma, para cambiar la contraseña igual.
+--            Tercero, plataforma.fn_proponer_cubre_hasta: la regla de D-25
+--         —max(vencimiento, hoy) + período— vivía dentro de fn_registrar_pago.
+--         Ahora tiene nombre, la usan el pago y la pantalla que la muestra
+--         antes de registrarlo, y no hay dos copias que puedan discrepar.
+--            Cuarto, plataforma.fn_sin_tildes, sobre la extensión unaccent:
+--         buscar «rios» encuentra «Ríos». Es para el panel, que busca entre
+--         decenas de empresas; no lleva índice.
+--            Y de paso, un defecto que estaba desde antes: dentro de una
+--         función con search_path propio que no incluye public, «email =
+--         p_email» comparaba como texto y distinguía mayúsculas, porque el
+--         operador de citext vive en public. fn_autenticar no encontraba a
+--         quien escribía su correo con otra mayúscula, y fn_designar_admin
+--         podía intentar crear a la misma persona dos veces. Ahora las cuatro
+--         funciones que comparan correos nombran OPERATOR(public.=).
 --
 --  ---------------------------------------------------------------------------
 --  LO QUE SIGUE ABIERTO, A PROPÓSITO
@@ -548,6 +580,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;   -- azar criptográfico, hash de token
 CREATE EXTENSION IF NOT EXISTS citext;     -- correos sin distinción de mayúsculas
 CREATE EXTENSION IF NOT EXISTS pg_trgm;    -- búsqueda por subcadena
 CREATE EXTENSION IF NOT EXISTS btree_gin;  -- índices GIN encabezados por tenant_id
+CREATE EXTENSION IF NOT EXISTS unaccent;   -- D-72: búsqueda sin tildes en el panel
 
 CREATE SCHEMA IF NOT EXISTS plataforma;    -- operación del SaaS (sin tenant_id)
 CREATE SCHEMA IF NOT EXISTS app;           -- datos de los inquilinos
@@ -1059,16 +1092,57 @@ $$;
 -- Suspender, reactivar, cambiar de plan y cancelar se hacen con un UPDATE desde
 -- el panel, así que el evento lo escribe un trigger: si dependiera de que el
 -- panel se acuerde, el día que falte será el que importaba.
+--
+-- D-72 · Y el evento va firmado. El panel fija, en la misma transacción y antes
+-- del UPDATE:
+--     SELECT set_config('plataforma.usuario_id', $1, true),
+--            set_config('plataforma.motivo',     $2, true);
+-- Sin las dos, o con un autor que no es un superadministrador activo, el
+-- UPDATE se rechaza. La carga inicial y las pruebas corren como superusuario y
+-- quedan fuera de la exigencia: no hay panel detrás de ellas.
+CREATE OR REPLACE FUNCTION plataforma.fn_firma_del_panel(
+    OUT autor uuid, OUT motivo text)
+LANGUAGE plpgsql STABLE
+SET search_path = plataforma, pg_temp AS $$
+DECLARE v_texto text;
+BEGIN
+    v_texto := NULLIF(btrim(current_setting('plataforma.usuario_id', true)), '');
+    motivo  := NULLIF(btrim(current_setting('plataforma.motivo', true)), '');
+    IF v_texto ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
+        autor := v_texto::uuid;
+    END IF;
+    -- Solo el superusuario que actúa como tal: la carga inicial. Una prueba que
+    -- se pone en la piel del panel con SET ROLE tiene que firmar como él.
+    IF COALESCE((SELECT r.rolsuper FROM pg_roles r WHERE r.rolname = session_user), false)
+       AND COALESCE(current_setting('role', true), 'none') = 'none' THEN
+        RETURN;
+    END IF;
+    IF autor IS NULL OR motivo IS NULL THEN
+        RAISE EXCEPTION
+          'Las acciones del panel van firmadas: fije plataforma.usuario_id y '
+          'plataforma.motivo en la misma transacción antes del cambio (D-72).'
+          USING ERRCODE = 'P0001';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM plataforma.usuario_plataforma u
+                    WHERE u.id = autor AND u.activo) THEN
+        RAISE EXCEPTION
+          'El autor de la acción no es un superadministrador activo (D-72).';
+    END IF;
+END $$;
+
 CREATE OR REPLACE FUNCTION plataforma.fn_auditar_tenant() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = plataforma, app, pg_temp AS $$
+DECLARE f record;
 BEGIN
     IF NEW.estado IS DISTINCT FROM OLD.estado THEN
+        f := plataforma.fn_firma_del_panel();
         PERFORM plataforma.fn_evento_plataforma(
             NEW.id,
             CASE NEW.estado WHEN 'SUSPENDIDO' THEN 'TENANT_SUSPENDIDO'
                             ELSE 'TENANT_REACTIVADO' END,
-            format('Estado de la empresa: %s → %s', OLD.estado, NEW.estado));
+            format('Estado de la empresa: %s → %s', OLD.estado, NEW.estado),
+            f.motivo, NULL, f.autor);
     END IF;
     RETURN NEW;
 END $$;
@@ -1078,18 +1152,41 @@ CREATE TRIGGER tg_auditar_tenant AFTER UPDATE OF estado ON plataforma.tenant
 CREATE OR REPLACE FUNCTION plataforma.fn_auditar_suscripcion() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = plataforma, app, pg_temp AS $$
+DECLARE
+    f        record;
+    v_plan   boolean := NEW.plan_id IS DISTINCT FROM OLD.plan_id;
+    v_fecha  boolean := NEW.fecha_vencimiento IS DISTINCT FROM OLD.fecha_vencimiento;
+    v_cancel boolean := NEW.estado = 'CANCELADA' AND OLD.estado <> 'CANCELADA';
 BEGIN
-    IF NEW.plan_id IS DISTINCT FROM OLD.plan_id THEN
-        PERFORM plataforma.fn_evento_plataforma(NEW.tenant_id, 'PLAN_CAMBIADO',
-            format('Plan %s → %s',
-                   (SELECT codigo FROM plataforma.plan WHERE id = OLD.plan_id),
-                   (SELECT codigo FROM plataforma.plan WHERE id = NEW.plan_id)));
+    -- El vencimiento que mueve un pago registrado en esta misma transacción ya
+    -- quedó firmado por fn_registrar_pago (PAGO_REGISTRADO): no se pide otra
+    -- firma ni se escribe otro evento.
+    IF v_fecha AND NOT v_plan AND NOT v_cancel AND EXISTS (
+           SELECT 1 FROM plataforma.pago p
+            WHERE p.suscripcion_id = NEW.id
+              AND p.cubre_hasta = NEW.fecha_vencimiento
+              AND p.registrado_en = now()) THEN
+        RETURN NEW;
     END IF;
-    IF NEW.estado = 'CANCELADA' AND OLD.estado <> 'CANCELADA' THEN
+    IF NOT (v_plan OR v_fecha OR v_cancel) THEN
+        RETURN NEW;                      -- avisos marcados y similares
+    END IF;
+    f := plataforma.fn_firma_del_panel();
+    IF v_plan OR v_fecha THEN
+        PERFORM plataforma.fn_evento_plataforma(NEW.tenant_id, 'PLAN_CAMBIADO',
+            concat_ws(' · ',
+              CASE WHEN v_plan THEN format('Plan %s → %s',
+                   (SELECT codigo FROM plataforma.plan WHERE id = OLD.plan_id),
+                   (SELECT codigo FROM plataforma.plan WHERE id = NEW.plan_id)) END,
+              CASE WHEN v_fecha THEN format('Vencimiento %s → %s',
+                   OLD.fecha_vencimiento, NEW.fecha_vencimiento) END),
+            f.motivo, NULL, f.autor);
+    END IF;
+    IF v_cancel THEN
         PERFORM plataforma.fn_evento_plataforma(NEW.tenant_id,
             'SUSCRIPCION_CANCELADA',
             'Suscripción cancelada por el superadministrador',
-            NEW.cancelada_motivo);
+            COALESCE(NEW.cancelada_motivo, f.motivo), NULL, f.autor);
     END IF;
     RETURN NEW;
 END $$;
@@ -4462,7 +4559,11 @@ SET search_path = app, plataforma, pg_temp AS $$
     SELECT u.id, u.tenant_id, u.rol_id, u.nombre,
            u.password_hash, u.estado, u.credenciales_en
       FROM app.usuario u
-     WHERE u.email = p_email;
+     -- D-72 · OPERATOR(public.=) y no «=»: el search_path de esta función no
+     -- incluye public, donde vive citext, y sin el operador nombrado la
+     -- comparación caía a texto y distinguía mayúsculas: «Ana@a.co» no
+     -- encontraba a «ana@a.co».
+     WHERE u.email OPERATOR(public.=) p_email;
 $$;
 ALTER FUNCTION app.fn_autenticar(citext) OWNER TO construsoft_auth;
 COMMENT ON FUNCTION app.fn_autenticar(citext) IS
@@ -6035,6 +6136,28 @@ COMMENT ON FUNCTION plataforma.fn_estado_suscripcion(uuid) IS
 --  Limpia además las dos marcas de aviso, sin lo cual el aviso del período
 --  siguiente no se envía nunca.
 -- -----------------------------------------------------------------------------
+-- D-72 · La regla de D-25 con nombre propio: la usan fn_registrar_pago y la
+-- pantalla que muestra, antes de registrar, hasta cuándo queda cubierta.
+-- Sumar meses tiene casos borde —31 de enero más un mes— y la respuesta tiene
+-- que ser la misma en los dos lados.
+CREATE OR REPLACE FUNCTION plataforma.fn_proponer_cubre_hasta(
+    p_suscripcion_id uuid, p_periodo_meses smallint)
+RETURNS date LANGUAGE plpgsql STABLE
+SET search_path = plataforma, pg_temp AS $$
+DECLARE v_anterior date;
+BEGIN
+    IF p_periodo_meses IS NULL OR p_periodo_meses < 1 THEN
+        RAISE EXCEPTION 'El período tiene que ser de al menos un mes.';
+    END IF;
+    SELECT fecha_vencimiento INTO v_anterior
+      FROM plataforma.suscripcion WHERE id = p_suscripcion_id;
+    IF v_anterior IS NULL THEN
+        RAISE EXCEPTION 'La suscripción % no existe.', p_suscripcion_id;
+    END IF;
+    RETURN (greatest(v_anterior, current_date)
+            + (p_periodo_meses || ' months')::interval)::date;
+END $$;
+
 CREATE OR REPLACE FUNCTION plataforma.fn_registrar_pago(
     p_suscripcion_id uuid, p_fecha date, p_concepto text, p_monto numeric,
     p_metodo text, p_referencia text, p_periodo_meses smallint,
@@ -6066,8 +6189,8 @@ BEGIN
     -- cuando no la escriba. El máximo sigue importando: sumar sobre el
     -- vencimiento anterior dejaría bloqueado a quien paga con retraso.
     v_nueva := COALESCE(p_cubre_hasta,
-                        (greatest(v_anterior, current_date)
-                         + (p_periodo_meses || ' months')::interval)::date);
+                        plataforma.fn_proponer_cubre_hasta(p_suscripcion_id,
+                                                           p_periodo_meses));
 
     IF v_nueva < current_date THEN
         RAISE EXCEPTION
@@ -6170,7 +6293,8 @@ BEGIN
     END IF;
 
     SELECT id, estado INTO v_usuario, v_estado
-      FROM app.usuario WHERE tenant_id = p_tenant_id AND email = p_email;
+      FROM app.usuario WHERE tenant_id = p_tenant_id
+                         AND email OPERATOR(public.=) p_email;   -- D-72, ver fn_autenticar
 
     IF v_usuario IS NULL THEN
         -- Usuario nuevo: nace PENDIENTE y fija su contraseña con el enlace de
@@ -6208,6 +6332,58 @@ BEGIN
 
     RETURN v_usuario;
 END $$;
+-- D-72 · Crear un superadministrador y cambiarle la contraseña. Solo los usa
+-- el comando de terminal del dueño (npm run superadmin): reciben el HASH
+-- argon2id, la contraseña nunca llega a la base ni a la API.
+CREATE OR REPLACE FUNCTION plataforma.fn_alta_usuario_plataforma(
+    p_email citext, p_nombre text, p_hash text)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = plataforma, app, pg_temp AS $$
+DECLARE v_id uuid;
+BEGIN
+    IF btrim(COALESCE(p_nombre, '')) = '' THEN
+        RAISE EXCEPTION 'Escriba el nombre del superadministrador.';
+    END IF;
+    IF p_email IS NULL OR p_email::text !~ '^[^\s@]+@[^\s@]+\.[^\s@]+$' THEN
+        RAISE EXCEPTION 'El correo del superadministrador no es válido.';
+    END IF;
+    IF p_hash IS NULL OR p_hash !~ '^\$argon2id\$' THEN
+        RAISE EXCEPTION
+          'Se espera el hash argon2id de la contraseña, nunca la contraseña (RNF-02).';
+    END IF;
+    IF EXISTS (SELECT 1 FROM plataforma.usuario_plataforma
+                WHERE email OPERATOR(public.=) p_email) THEN      -- ver fn_autenticar
+        RAISE EXCEPTION 'Ya existe un superadministrador con el correo %.', p_email;
+    END IF;
+    INSERT INTO plataforma.usuario_plataforma (nombre, email, password_hash)
+         VALUES (btrim(p_nombre), p_email, p_hash)
+      RETURNING id INTO v_id;
+    RETURN v_id;
+END $$;
+
+CREATE OR REPLACE FUNCTION plataforma.fn_clave_usuario_plataforma(
+    p_email citext, p_hash text)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = plataforma, app, pg_temp AS $$
+BEGIN
+    IF p_hash IS NULL OR p_hash !~ '^\$argon2id\$' THEN
+        RAISE EXCEPTION
+          'Se espera el hash argon2id de la contraseña, nunca la contraseña (RNF-02).';
+    END IF;
+    UPDATE plataforma.usuario_plataforma SET password_hash = p_hash
+     WHERE email OPERATOR(public.=) p_email AND activo;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'No hay un superadministrador activo con el correo %.', p_email;
+    END IF;
+END $$;
+
+-- D-72 · Para buscar empresas sin distinguir mayúsculas ni tildes.
+CREATE OR REPLACE FUNCTION plataforma.fn_sin_tildes(p_texto text)
+RETURNS text LANGUAGE sql STABLE
+SET search_path = public, pg_temp AS $$
+    SELECT lower(public.unaccent(p_texto));
+$$;
+
 COMMENT ON FUNCTION plataforma.fn_registrar_pago IS
   'D-25/D-36: pago manual, con su soporte y con la fecha de vencimiento que '
   'fija el superadministrador. Si no la fija, propone max(vencimiento '
@@ -6448,6 +6624,8 @@ ALTER FUNCTION plataforma.fn_evento_plataforma(uuid,text,text,text,jsonb,uuid)
     OWNER TO construsoft_super;
 ALTER FUNCTION plataforma.fn_auditar_tenant()                   OWNER TO construsoft_super;
 ALTER FUNCTION plataforma.fn_auditar_suscripcion()              OWNER TO construsoft_super;
+ALTER FUNCTION plataforma.fn_alta_usuario_plataforma(citext,text,text) OWNER TO construsoft_super;
+ALTER FUNCTION plataforma.fn_clave_usuario_plataforma(citext,text)     OWNER TO construsoft_super;
 ALTER FUNCTION plataforma.fn_marcar_aviso(uuid,text)            OWNER TO construsoft_super;
 
 -- 16.3 · Estas SÍ reciben un id arbitrario del cliente, así que su dueño es
@@ -6578,6 +6756,8 @@ GRANT UPDATE (razon_social, nit, logo_ruta, direccion, telefono,
 REVOKE EXECUTE ON FUNCTION app.fn_eliminar_tenant(uuid,text,uuid) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION app.fn_designar_admin(uuid,citext,text,text,uuid,text) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION plataforma.fn_registrar_pago(uuid,date,text,numeric,text,text,smallint,uuid,text,text,text,date,text) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION plataforma.fn_alta_usuario_plataforma(citext,text,text) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION plataforma.fn_clave_usuario_plataforma(citext,text)     FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION plataforma.fn_registrar_pago_pasarela(uuid,numeric,text,text,text,jsonb,smallint,date,text,date) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION plataforma.fn_evento_plataforma(uuid,text,text,text,jsonb,uuid) FROM PUBLIC;
 GRANT  EXECUTE ON FUNCTION app.fn_alta_tenant(text,text,text,text,citext,text,citext) TO construsoft_app;
@@ -6661,6 +6841,12 @@ GRANT UPDATE (plan_id, fecha_vencimiento, estado, cancelada_en, cancelada_motivo
     ON plataforma.suscripcion TO construsoft_superadmin;                            -- RF-SAD-06
 GRANT EXECUTE ON FUNCTION app.fn_eliminar_tenant(uuid,text,uuid) TO construsoft_superadmin;
 GRANT EXECUTE ON FUNCTION plataforma.fn_registrar_pago(uuid,date,text,numeric,text,text,smallint,uuid,text,text,text,date,text) TO construsoft_superadmin;
+-- D-72 · El alta y la clave de superadministradores (solo el comando de
+-- terminal), la fecha propuesta de un pago y la búsqueda sin tildes.
+GRANT EXECUTE ON FUNCTION plataforma.fn_alta_usuario_plataforma(citext,text,text) TO construsoft_superadmin;
+GRANT EXECUTE ON FUNCTION plataforma.fn_clave_usuario_plataforma(citext,text)     TO construsoft_superadmin;
+GRANT EXECUTE ON FUNCTION plataforma.fn_proponer_cubre_hasta(uuid,smallint)       TO construsoft_superadmin;
+GRANT EXECUTE ON FUNCTION plataforma.fn_sin_tildes(text)                          TO construsoft_superadmin;
 -- El webhook de la pasarela (D-40) se atiende con el rol del panel, no con el
 -- de la aplicación: quien confirma un pago no puede ser el mismo rol que
 -- atiende a los inquilinos.

@@ -806,9 +806,18 @@ ella.
   el mismo límite de intentos que el ingreso de empresas.
 - `GET /api/superadmin/sesion` → 200 `{ nombre, email }` o 401.
 - `DELETE /api/superadmin/sesion` → 204.
-- Cada escritura fija el autor que piden `fn_evento_plataforma`,
-  `fn_registrar_pago`, `fn_designar_admin` y `fn_eliminar_tenant`. Ninguna
-  acción del panel queda sin firmar en `plataforma.evento_plataforma`.
+- Cada escritura va firmada (D-72). Las que reciben el autor como argumento
+  —`fn_registrar_pago`, `fn_designar_admin`, `fn_eliminar_tenant`— lo reciben
+  ahí. Las que son un UPDATE —suspender, reactivar, plan, vencimiento,
+  cancelar— fijan antes, en la misma transacción,
+  `set_config('plataforma.usuario_id', id, true)` y
+  `set_config('plataforma.motivo', motivo, true)`; sin las dos, la base
+  rechaza el cambio. Ninguna acción del panel queda sin firmar.
+- El alta por terminal usa `plataforma.fn_alta_usuario_plataforma(email,
+  nombre, hash)`; cambiar la contraseña, `fn_clave_usuario_plataforma`. Las
+  dos reciben el hash, nunca la contraseña. La propuesta de un pago es
+  `plataforma.fn_proponer_cubre_hasta`, y la búsqueda sin tildes,
+  `plataforma.fn_sin_tildes`.
 
 ### 12.2 Las formas
 

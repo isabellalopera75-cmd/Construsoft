@@ -6,6 +6,75 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-11 · domingo
+
+**Hecho: D-72 en el esquema** (sin commit; los hace el dueño o tú). Son los
+cuatro puntos que me pediste el 9, con `docs/prueba-d72.sql`. Lo cargué en un
+PostgreSQL 16 limpio:
+
+- Las cinco baterías están en verde: fase 0, EDT, D-65 a D-68, D-71 y D-72
+  con 27 de 27.
+- Comprobé que la batería nueva detecta el defecto: le quité la exigencia de
+  firma a la base y cayeron 9 casos.
+
+Lo que cambió:
+
+1. **Las acciones del panel van firmadas.** `fn_auditar_tenant` y
+   `fn_auditar_suscripcion` leen el autor y el motivo de la transacción, con
+   tu propuesta:
+   ```sql
+   SELECT set_config('plataforma.usuario_id', $1, true),
+          set_config('plataforma.motivo',     $2, true);
+   ```
+   - Lo fijás antes del UPDATE, en la misma transacción.
+   - Sin las dos, o con un autor que no es un superadministrador activo, el
+     UPDATE se rechaza (P0001). El evento queda con `usuario_plataforma_id` y
+     el motivo en `justificacion`.
+   - Cubre suspender, reactivar, cambiar plan, cambiar vencimiento (ahora
+     también deja evento, `PLAN_CAMBIADO` con «Vencimiento a → b») y cancelar.
+   - `fn_registrar_pago` no necesita firma aparte: el vencimiento que mueve un
+     pago de la misma transacción no escribe otro evento.
+   - La carga inicial como superusuario queda exenta. Una prueba con SET ROLE
+     tiene que firmar, como el panel.
+2. **`plataforma.fn_alta_usuario_plataforma(email citext, nombre text, hash
+   text) → uuid`** y **`plataforma.fn_clave_usuario_plataforma(email, hash)`**.
+   - Son SECURITY DEFINER y solo aceptan un hash `$argon2id$`: la contraseña
+     en claro se rechaza.
+   - Están concedidas a `construsoft_superadmin`, para el comando de terminal
+     y no para una ruta de la API.
+   - `npm run superadmin` ya tiene por dónde. Si querés, que el mismo comando
+     acepte `--cambiar-clave`.
+3. **`plataforma.fn_proponer_cubre_hasta(suscripcion uuid, meses smallint) →
+   date`**. `fn_registrar_pago` la usa, así que `…/pagos/propuesta` y el pago
+   dan siempre la misma fecha.
+4. **`plataforma.fn_sin_tildes(text)`**, sobre la extensión `unaccent`, que el
+   esquema ahora crea. Para el filtro `texto`:
+   ```sql
+   plataforma.fn_sin_tildes(razon_social) LIKE '%' || plataforma.fn_sin_tildes($1) || '%'
+   ```
+   Sin índice: son decenas de empresas.
+
+**Encontré y corregí un defecto anterior.** Dentro de una función con
+`search_path` propio sin `public`, `email = p_email` comparaba como texto y
+distinguía mayúsculas, porque el operador de citext vive en `public`.
+
+- `fn_autenticar` no encontraba a quien ingresaba con otra mayúscula, salvo
+  que la API normalice el correo antes. Revisá si lo hace.
+- `fn_designar_admin` podía intentar crear a la misma persona dos veces.
+
+Ahora las cuatro funciones que comparan correos usan `OPERATOR(public.=)`.
+
+**Lo que necesito**
+
+- **Recargar el esquema** en `construsoft` y `construsoft_test`, y correr las
+  cinco baterías. La extensión `unaccent` la crea el esquema; viene con
+  PostgreSQL y no hay que instalar nada aparte.
+- **Construir lo que quedaba frenado**: suspender, reactivar, cambiar plan o
+  vencimiento, cancelar y `npm run superadmin`. El CONTRATO §12.1 ya dice
+  cómo se firma.
+
+---
+
 ## 2026-10-09 · viernes
 
 **Decisión del dueño, 9 de octubre:** se construyen ya, en local, el
