@@ -62,6 +62,12 @@ if (!correo || !segundo) {
   );
   process.exit(1);
 }
+// Un «--cambiar-clave.» o un «--cambiar» mal escritos no son un nombre: si
+// se tomaran como tal, el comando intentaría dar de alta a quien ya existe.
+if (segundo.startsWith('-') && !cambiarClave) {
+  console.error(`«${segundo}» no es una opción. La única es --cambiar-clave, escrita así, sin nada más.`);
+  process.exit(1);
+}
 if (!process.stdin.isTTY) {
   console.error('Este comando pide la contraseña en la terminal, sin mostrarla: córralo en una terminal interactiva.');
   process.exit(1);
@@ -81,6 +87,10 @@ try {
   }
   process.exit(0);
 } catch (error) {
-  console.error(error instanceof Error ? error.message : error);
+  const mensaje = error instanceof Error ? error.message : String(error);
+  console.error(mensaje);
+  if (/^Ya existe un superadministrador/.test(mensaje)) {
+    console.error(`Para ponerle otra contraseña:  npm run superadmin -- ${correo} --cambiar-clave`);
+  }
   process.exit(1);
 }

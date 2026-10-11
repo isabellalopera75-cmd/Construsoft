@@ -81,6 +81,13 @@ es así)
 
 **Lo que conviene que sepas**
 
+- **`localhost:5173/superadmin` sin la barra final sirve la aplicación de
+  las empresas, no el panel.**
+  - El dueño ingresó ahí con su correo de superadministrador, el formulario
+    fue a `POST /api/sesion` y terminó bloqueado por los intentos fallidos.
+  - Con `/superadmin/` funciona.
+  - Te toca a vos, en `web/`: que `/superadmin` redirija a `/superadmin/`, o
+    que la app de las empresas no conteste esa ruta.
 - **El defecto de los correos era real para las empresas.** La API no
   normalizaba el correo antes de `fn_autenticar`, así que con el esquema
   anterior quien escribía su correo con otras mayúsculas no podía ingresar.
