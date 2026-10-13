@@ -940,13 +940,16 @@ textarea { min-height: 88px; padding: var(--e2) var(--e3); resize: vertical; wid
 .bloque-de-logo { display: flex; flex-wrap: wrap; align-items: center; gap: var(--e5); }
 /* Fondo claro fijo, también en el tema oscuro: el logo se imprime sobre papel
    blanco, y así se ve como va a salir. */
+/* Flex y no grid: dentro de una celda de grid, el max-height: 100% de la
+   imagen se mide contra la celda, que crece con la imagen, y un logo alto se
+   salía del marco. Con flex, el alto del marco es fijo y la imagen se ajusta. */
 .marco-de-logo {
-  display: grid; place-items: center;
-  width: 240px; height: 120px; padding: var(--e3);
+  display: flex; align-items: center; justify-content: center; flex: none; overflow: hidden;
+  box-sizing: border-box; width: 240px; height: 120px; padding: var(--e3);
   border: 1px solid var(--borde-tenue); border-radius: var(--radio-md);
   background: #ffffff;
 }
-.marco-de-logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.marco-de-logo img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .marco-de-logo[data-vacio] { background: var(--bg-app); border-style: dashed; color: var(--texto-segundo); font-size: var(--letra-sm); }
 .acciones-de-logo { display: flex; flex-wrap: wrap; gap: var(--e3); }
 
@@ -1239,26 +1242,44 @@ textarea { min-height: 88px; padding: var(--e2) var(--e3); resize: vertical; wid
 .tarjeta-de-cuidado .icono { width: 18px; height: 18px; }
 
 /* --- Registro de una empresa nueva (02 §3.1) ------------------------------
-   Más ancha que el ingreso: tres pasos, y los dos planes lado a lado. Cada
-   paso lleva su número en un círculo, para que se lea como un recorrido. */
-.tarjeta-suelta-ancha { max-width: 560px; }
+   Un paso a la vez. Arriba, el recorrido: los tres pasos con su número, el
+   actual resaltado y los hechos con una marca (y se pueden volver a abrir). */
+.tarjeta-suelta-ancha { max-width: 520px; }
 .entrada-de-registro { margin: calc(-1 * var(--e3)) 0 var(--e5); font-size: var(--letra-sm); color: var(--texto-segundo); }
-.formulario-de-registro { gap: var(--e5); }
-.paso-de-registro { display: grid; gap: var(--e4); margin: 0; padding: 0; border: 0; min-width: 0; }
-/* El separador va en el título y no en el fieldset: en un fieldset, el borde
-   de arriba pasa por detrás de la leyenda y la corta. */
-.paso-de-registro + .paso-de-registro > legend { padding-top: var(--e5); border-top: 1px solid var(--borde-tenue); }
-.paso-de-registro > legend {
-  display: flex; align-items: center; gap: var(--e2);
-  width: 100%; padding: 0; margin-bottom: var(--e1);
-  font-family: var(--fuente-titulo); font-size: var(--letra-lg); font-weight: var(--peso-fuerte);
+.pasos-de-registro {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--e2);
+  margin: 0 0 var(--e5); padding: 0; list-style: none;
 }
+.pasos-de-registro li { position: relative; }
+/* La línea que une cada paso con el siguiente. */
+.pasos-de-registro li:not(:last-child)::after {
+  content: ''; position: absolute; top: 12px; left: calc(24px + var(--e2)); right: calc(-1 * var(--e2));
+  height: 1px; background: var(--borde-tenue);
+}
+.pasos-de-registro li[data-estado='hecho']:not(:last-child)::after { background: var(--terracota); }
+.paso-del-indicador {
+  position: relative; z-index: 1;
+  display: inline-flex; flex-direction: column; align-items: flex-start; gap: var(--e1);
+  padding: 0 var(--e2) 0 0; border: 0; background: var(--bg-tarjeta); min-height: 0;
+  font: inherit; font-size: var(--letra-sm); color: var(--texto-segundo); text-align: left;
+}
+button.paso-del-indicador { cursor: pointer; }
+button.paso-del-indicador:hover { color: var(--texto); }
 .numero-de-paso {
   display: inline-grid; place-items: center; flex: none;
   width: 24px; height: 24px; border-radius: 50%;
-  background: var(--terracota-halo); color: var(--terracota);
-  font-family: var(--fuente-texto); font-size: var(--letra-sm);
+  border: 1px solid var(--borde-campo); background: var(--bg-tarjeta); color: var(--texto-segundo);
+  font-size: var(--letra-sm); font-weight: var(--peso-fuerte);
 }
+.numero-de-paso .icono { width: 14px; height: 14px; }
+[data-estado='actual'] .paso-del-indicador { color: var(--texto); font-weight: var(--peso-fuerte); }
+[data-estado='actual'] .numero-de-paso { border-color: var(--terracota); background: var(--terracota-boton); color: #fff; }
+[data-estado='hecho'] .numero-de-paso { border-color: var(--terracota); background: var(--terracota-halo); color: var(--terracota); }
+.formulario-de-registro { gap: var(--e5); }
+.paso-de-registro { display: grid; gap: var(--e4); margin: 0; padding: 0; border: 0; min-width: 0; }
+.paso-de-registro > legend.etiqueta { padding: 0; margin-bottom: var(--e2); }
+.botones-de-registro { display: flex; gap: var(--e3); }
+.botones-de-registro .boton-principal { flex: 1; }
 .planes-de-registro { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: var(--e3); }
 .planes-de-registro .opcion { height: 100%; }
 .opcional { font-weight: var(--peso-normal); color: var(--texto-segundo); }
