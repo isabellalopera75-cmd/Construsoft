@@ -270,24 +270,6 @@ describe('las acciones del panel van firmadas (D-72)', () => {
     assert.deepEqual([evento.tipo, evento.justificacion, evento.autor], ['ADMIN_DESIGNADO', 'Videollamada con cédula', 'Ana Acciones']);
   });
 
-  test('eliminar: la confirmación es la razón social; la base decide si ya es eliminable; el evento sobrevive a la empresa', async () => {
-    const e = await registrar('Constructora Se Elimina', '900000429-9', 'panel.elimina@construsoft.test');
-    const ruta = `/empresas/${e.contexto.tenantId}`;
-    const mal = await panel('DELETE', ruta, cookie, { justificacion: 'Prueba abandonada', confirmacion: 'Otra' });
-    assert.deepEqual([mal.estado, mal.cuerpo.campo], [422, 'confirmacion']);
-    const temprano = await panel('DELETE', ruta, cookie, { justificacion: 'Prueba abandonada', confirmacion: 'Constructora Se Elimina' });
-    assert.equal(temprano.estado, 422);
-    // D-74: el rechazo dice desde qué fecha, la misma que la ficha muestra.
-    const { eliminableDesde } = (await panel('GET', ruta, cookie)).cuerpo;
-    assert.match(temprano.cuerpo.mensaje, new RegExp(`desde el ${eliminableDesde}`));
-
-    await moverVencimiento(e.contexto.tenantId, -11);
-    const r = await panel('DELETE', ruta, cookie, { justificacion: 'Prueba abandonada', confirmacion: ' Constructora Se Elimina ' });
-    assert.equal(r.estado, 204, r.crudo);
-    assert.equal((await panel('GET', ruta, cookie)).estado, 404);
-    const evento = (await panel('GET', '/eventos', cookie)).cuerpo.eventos.find(
-      (x: { tipo: string; justificacion: string }) => x.tipo === 'TENANT_ELIMINADO' && x.justificacion === 'Prueba abandonada',
-    );
-    assert.deepEqual([evento.empresa, evento.autor], [null, 'Ana Acciones']);
-  });
+  // Eliminar vive en cicloDeSuscripcion.test.ts, con la purga: los dos se
+  // llevan empresas eliminables, y en archivos distintos correrían a la vez.
 });

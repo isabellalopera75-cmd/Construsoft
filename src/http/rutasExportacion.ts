@@ -4,6 +4,7 @@ import type { ContextoTenant } from '../infraestructura/basedatos/contextoTenant
 import {
   leerPresupuestoParaExportar,
   leerLogoParaExportar,
+  listarExportables,
   leerVersionParaExportar,
   type DocumentoExportable,
 } from '../infraestructura/basedatos/exportacion.js';
@@ -21,6 +22,10 @@ import { UUID } from './rechazo.js';
  *
  * El logo sale de app.logo (D-71): el que nombra la fotografía, vigente o
  * congelado con la versión.
+ *
+ * Exportar funciona con la cuenta suspendida o cancelada (D-76, CONTRATO
+ * §17.1): cada ruta de aquí pide PRESUPUESTOS.EXPORTAR y ninguna pasa antes
+ * por un VER, que la cuenta detenida no tiene.
  */
 
 type SesionDe = (request: FastifyRequest, reply: FastifyReply) => Promise<ContextoTenant>;
@@ -61,6 +66,11 @@ export function registrarRutasDeExportacion(app: FastifyInstance, sesionDe: Sesi
       .header('content-disposition', adjunto(`${nombre}.${formato}`))
       .send(archivo);
   }
+
+  // --- CONTRATO §17.1 · Qué se puede descargar, con la cuenta detenida o no -------
+  app.get('/api/presupuestos/exportables', async (request, reply) => {
+    return reply.send({ presupuestos: await listarExportables(await sesionDe(request, reply)) });
+  });
 
   // --- 02 §9.5 · El presupuesto como está hoy ------------------------------------
   app.get<{ Params: { id: string } }>('/api/presupuestos/:id/exportar', async (request, reply) => {

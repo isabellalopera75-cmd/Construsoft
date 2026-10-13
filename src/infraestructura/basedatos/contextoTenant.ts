@@ -270,7 +270,8 @@ export interface Suscripcion {
   suspendidaDesde: string | null;
   reactivableHasta: string | null;
   seEliminaEl: string | null;
-  canceladaPor: 'EMPRESA' | 'PLATAFORMA' | null;
+  /** PRUEBA: la prueba gratuita que terminó sin pago (D-76). */
+  canceladaPor: 'EMPRESA' | 'PLATAFORMA' | 'PRUEBA' | null;
   pagoEnVerificacion: boolean;
 }
 

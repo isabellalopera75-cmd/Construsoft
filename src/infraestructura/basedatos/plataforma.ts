@@ -393,7 +393,8 @@ export interface FichaDeEmpresa {
     canceladaEn: Date | null;
     canceladaMotivo: string | null;
     /** D-74, de fn_ciclo_suscripcion(id, false): los plazos, sin la suspensión del panel encima. */
-    canceladaPor: 'EMPRESA' | 'PLATAFORMA' | null;
+    /** PRUEBA: la prueba gratuita que terminó sin pago (D-76). */
+    canceladaPor: 'EMPRESA' | 'PLATAFORMA' | 'PRUEBA' | null;
     pagarAMasTardar: string | null;
     suspendidaDesde: string | null;
     reactivableHasta: string | null;

@@ -15,6 +15,55 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-13 · martes, la prueba gratuita
+
+**Hecho** (521/521, sin commit)
+
+- **D-76 cargado en las dos bases.** El dueño autorizó recrear `construsoft`.
+  - Las nueve baterías dan verde en las dos: fase 0 con sus 3 rechazos,
+    EDT 15, D-65 a D-68 49, D-71 19, D-72 27, D-73 25, D-74 52, D-75 19 y
+    D-76 17.
+  - Los tres verificadores dan cero.
+  - La demo está sembrada. Al dueño le toca crear otra vez su
+    superadministrador con `npm run superadmin`.
+- **CONTRATO §17.1.**
+  - `GET /api/presupuestos/exportables` devuelve
+    `{ presupuestos: { id, codigo, nombre, estado, archivado }[] }`, de
+    `app.fn_presupuestos_exportables()`. Pide `PRESUPUESTOS.EXPORTAR`: sin
+    él, 403.
+  - Las cuatro descargas (proyecto y versión, PDF y Excel) ya pedían solo
+    `EXPORTAR`. Están probadas con la cuenta en `SOLO_PAGO` y en `NINGUNO`.
+  - Aislamiento probado: la lista de A no trae nada de B, y los archivos de B
+    dan 404.
+- **CONTRATO §17.** `canceladaPor` admite `'PRUEBA'` en la sesión y en la
+  ficha. Probados los días 16 a 25, el día 26 y la purga de la prueba.
+- **Corregí un defecto mío.** Una prueba cancelada por D-76 sigue guardada
+  `EN_PRUEBA`, y la pestaña la daba por vigente: ofrecía «Cancelar» y
+  «Reportar pago». Ahora se mira el estado que deriva la base.
+- **Movida una prueba.** «Eliminar desde el panel» pasó de
+  `superadmin.test.ts` a `cicloDeSuscripcion.test.ts`, con la purga. Desde
+  D-76 la prueba vencida 11 días es purgable, y en archivos distintos las
+  dos corrían en paralelo sobre la misma clase de empresas.
+
+**Lo que necesito** (no me bloquea: lo tapé en la API, pero es tuyo)
+
+- **Cancelar revive una prueba que terminó sin pago.**
+  `fn_cancelar_suscripcion_empresa` busca la suscripción por el estado
+  GUARDADO (`EN_PRUEBA`/`ACTIVA`), y la prueba muerta sigue `EN_PRUEBA`.
+  - Probado: cancelarla el día 26 respondía 200. Pasaba de `NINGUNO` a
+    `SOLO_PAGO`, «cancelada por EMPRESA», con `reactivableHasta` diez días
+    después, `puedeReportar` verdadero y la purga corrida.
+  - En la API la cancelación ahora pregunta antes el estado que deriva
+    `fn_estado_suscripcion`. Si es `CANCELADA`, responde el mismo 422 «La
+    suscripción ya está cancelada.».
+  - Pero la base debería rechazarlo ella. Lo mismo vale para
+    `cancelarSuscripcion` del panel, que es un `UPDATE` sobre la guardada y
+    tendría el mismo efecto, con `PLATAFORMA`.
+  - Y, por la misma causa, quizá `fn_registrar_pago` y el cambio de plan
+    del panel sobre una prueba muerta. Eso no lo probé.
+
+---
+
 ## 2026-10-13 · martes, pedido del dueño
 
 **Lo que necesito** (no me bloquea; es tuyo, está en `web/`)
@@ -23,6 +72,7 @@ Nada de narrar el proceso.
   escribe.** El dueño lo pidió con una captura del filtro «Precio total ·
   Desde» de Recursos: hoy se lee `142577` y tiene que leerse `142.577`.
   Vale para todo campo donde se escribe un precio o un monto.
+  -tambien que intercambies en el nav/menu el modeulo recuersos por proyecto en el orden, es decir, no va (inicio, recuros, apu, proyectos, configuracion) sino (inicio, proyectos, apu, recursos, configuracion)
   - El separador es el de la empresa (`formatoNumerico` del arranque), no un
     punto fijo: una empresa con `,` de miles ve `142,577`.
   - **El contrato no cambia.** A la API el valor sigue llegando como `Dinero`

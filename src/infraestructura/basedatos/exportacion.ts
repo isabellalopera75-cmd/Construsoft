@@ -38,6 +38,30 @@ async function leerFormato(cliente: ClienteEnContexto, tenantId: string): Promis
   };
 }
 
+/** Un proyecto que se puede descargar: lo mínimo para elegirlo (CONTRATO §17.1). */
+export interface PresupuestoExportable {
+  id: string;
+  codigo: string;
+  nombre: string;
+  estado: string;
+  archivado: boolean;
+}
+
+/**
+ * D-76 · La lista para elegir qué descargar con la cuenta detenida, archivados
+ * incluidos. Sale de app.fn_presupuestos_exportables, que pide EXPORTAR y no
+ * VER: exportar funciona en cualquier estado de la suscripción, porque los
+ * datos son de la empresa. No abre la consulta: no trae importes ni la EDT.
+ */
+export async function listarExportables(contexto: ContextoTenant): Promise<PresupuestoExportable[]> {
+  return ejecutarConPermiso(contexto, 'PRESUPUESTOS.EXPORTAR', async (cliente) => {
+    const { rows } = await cliente.query<PresupuestoExportable>(
+      'SELECT id, codigo, nombre, estado, archivado FROM app.fn_presupuestos_exportables()',
+    );
+    return rows;
+  });
+}
+
 /**
  * RF-PRE-29/30 · El presupuesto tal como está ahora. La fotografía la arma
  * app.fn_snapshot_presupuesto, la misma función de las versiones, pero sin

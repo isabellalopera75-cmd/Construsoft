@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { altaSuperadmin, purgarEmpresas } from '../infraestructura/basedatos/plataforma.js';
+import { activarPresupuesto } from '../infraestructura/basedatos/cicloDeVida.js';
+import { listarVersiones } from '../infraestructura/basedatos/versiones.js';
+import { armarPresupuestoDeReferencia } from '../pruebas/presupuestoDeReferencia.js';
 import {
   activarYMoverVencimiento,
   moverCancelacion,
@@ -18,7 +21,13 @@ import { construirServidor } from './servidor.js';
  * CONTRATO §15 (D-74): el ciclo de vida de la suscripción. Los plazos los
  * calcula plataforma.fn_ciclo_suscripcion; aquí se comprueba que la API los
  * lleva tal cual a la empresa y al panel, que el 423 sale de CS006, y que la
- * purga solo la corre el panel.
+ * purga solo la corre el panel. Y el §17 (D-76): la prueba gratuita de 15 + 10
+ * días, y exportar con la cuenta detenida.
+ *
+ * TODO lo que deja una empresa eliminable, y la purga, vive en ESTE archivo:
+ * node --test corre los archivos en paralelo, y una purga en un archivo se
+ * llevaría la empresa que otro archivo está a punto de eliminar a mano desde
+ * el panel. Dentro de un archivo las pruebas corren en orden.
  */
 
 let app: FastifyInstance;
@@ -40,7 +49,7 @@ after(async () => {
   await app.close();
 });
 
-async function llamar(metodo: 'GET' | 'POST', url: string, cookie: string, cuerpo?: unknown) {
+async function llamar(metodo: 'GET' | 'POST' | 'DELETE', url: string, cookie: string, cuerpo?: unknown) {
   const r = await app.inject({
     method: metodo,
     url,
@@ -48,7 +57,9 @@ async function llamar(metodo: 'GET' | 'POST', url: string, cookie: string, cuerp
     headers: { cookie },
     ...(cuerpo === undefined ? {} : { payload: cuerpo as object }),
   });
-  return { estado: r.statusCode, cuerpo: (r.body === '' ? {} : r.json()) as Record<string, any>, crudo: r.body };
+  const tipo = String(r.headers['content-type'] ?? '');
+  const respuesta = tipo.includes('json') && r.body !== '' ? r.json() : {};
+  return { estado: r.statusCode, cuerpo: respuesta as Record<string, any>, crudo: r.body, tipo };
 }
 
 const HOY = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
@@ -278,7 +289,123 @@ describe('el panel ve el ciclo (CONTRATO §15.4)', () => {
   });
 });
 
-describe('la purga diaria (CONTRATO §15.5)', () => {
+describe('la prueba gratuita: 15 días con todo, 10 de solo lectura (CONTRATO §17)', () => {
+  test('días 16 a 25: VENCIDA en solo lectura, con hasta cuándo pagar; consulta, no escribe', async () => {
+    const e = await registrar('Constructora Prueba Vencida', '900000458-8', 'ciclo.prueba.vencida@construsoft.test');
+    await moverVencimiento(e.contexto.tenantId, -3);
+    const s = await sesion(e);
+    assert.deepEqual([s.estado, s.acceso, s.soloLectura, s.canceladaPor], ['VENCIDA', 'SOLO_LECTURA', true, null]);
+    assert.deepEqual([s.pagarAMasTardar, s.seEliminaEl], [sumarDias(s.venceEl, 10), sumarDias(s.venceEl, 11)]);
+    assert.equal((await llamar('GET', '/api/recursos', e.cookie)).estado, 200);
+    const escribir = await llamar('POST', '/api/configuracion/unidades', e.cookie, { simbolo: 'm5', descripcion: 'Otra' });
+    assert.equal(escribir.estado, 402, escribir.crudo);
+    assert.equal((await detalle(e)).puedeReportar, true, 'en sus diez días todavía paga');
+  });
+
+  test('día 26 sin pago: CANCELADA por la prueba, sin acceso y sin poder pagar; el panel la ve para eliminar', async () => {
+    const e = await registrar('Constructora Prueba Sin Pago', '900000459-9', 'ciclo.prueba.sinpago@construsoft.test');
+    await moverVencimiento(e.contexto.tenantId, -11);
+    const s = await sesion(e);
+    assert.deepEqual([s.estado, s.acceso, s.canceladaPor, s.seEliminaEl], ['CANCELADA', 'NINGUNO', 'PRUEBA', HOY]);
+    assert.equal((await llamar('GET', '/api/recursos', e.cookie)).estado, 423);
+    const d = await detalle(e);
+    assert.deepEqual([d.puedeReportar, d.puedeCancelar, d.puedeReanudar], [false, false, false]);
+    const pago = await reportar(e.cookie);
+    assert.equal(pago.estado, 422, pago.crudo);
+    assert.match(pago.cuerpo.mensaje, /La prueba terminó sin pago/);
+
+    // Cancelarla otra vez no puede abrirle diez días nuevos para reactivar.
+    const otraVez = await cancelar(e);
+    assert.equal(otraVez.estado, 422, otraVez.crudo);
+    assert.deepEqual(((x) => [x.canceladaPor, x.acceso])(await sesion(e)), ['PRUEBA', 'NINGUNO']);
+
+    const f = await ficha(e.contexto.tenantId);
+    assert.deepEqual([f.suscripcion.estado, f.suscripcion.canceladaPor, f.eliminableDesde], ['CANCELADA', 'PRUEBA', HOY]);
+    const resumen = (await llamar('GET', '/api/superadmin/resumen', panel)).cuerpo;
+    assert.ok(resumen.porEliminar.some((x: { id: string }) => x.id === e.contexto.tenantId));
+    assert.ok(!resumen.pruebasSinConvertir.some((x: { id: string }) => x.id === e.contexto.tenantId));
+  });
+});
+
+describe('exportar, siempre: los datos son de la empresa (CONTRATO §17.1)', () => {
+  /** Una empresa con el presupuesto de referencia activo; devuelve también el id de su versión 1. */
+  async function empresaConProyecto(razonSocial: string, nit: string, email: string) {
+    const e = await registrar(razonSocial, nit, email);
+    const { presupuestoId } = await armarPresupuestoDeReferencia(e.contexto, 'EXP-DETENIDA');
+    await activarPresupuesto(e.contexto, presupuestoId);
+    const [v1] = await listarVersiones(e.contexto, presupuestoId);
+    return { e, presupuestoId, versionId: v1!.id };
+  }
+
+  async function exportaTodo(cookie: string, presupuestoId: string, versionId: string) {
+    for (const [url, tipo] of [
+      [`/api/presupuestos/${presupuestoId}/exportar?formato=pdf`, 'application/pdf'],
+      [`/api/presupuestos/${presupuestoId}/exportar?formato=xlsx`, 'spreadsheetml'],
+      [`/api/versiones/${versionId}/exportar?formato=pdf`, 'application/pdf'],
+      [`/api/versiones/${versionId}/exportar?formato=xlsx`, 'spreadsheetml'],
+    ] as const) {
+      const r = await llamar('GET', url, cookie);
+      assert.equal(r.estado, 200, `${url}: ${r.crudo.slice(0, 200)}`);
+      assert.ok(r.tipo.includes(tipo), `${url}: ${r.tipo}`);
+    }
+  }
+
+  test('suspendida por falta de pago: no consulta, pero lista sus proyectos y los descarga en PDF y Excel, también sus versiones', async () => {
+    const { e, presupuestoId, versionId } = await empresaConProyecto('Constructora Exporta Suspendida', '900000460-0', 'ciclo.exporta.susp@construsoft.test');
+    await activarYMoverVencimiento(e.contexto.tenantId, -20);
+    assert.equal((await sesion(e)).acceso, 'SOLO_PAGO');
+    assert.equal((await llamar('GET', '/api/presupuestos', e.cookie)).estado, 423, 'la lista de siempre pide VER');
+
+    const lista = await llamar('GET', '/api/presupuestos/exportables', e.cookie);
+    assert.equal(lista.estado, 200, lista.crudo);
+    assert.deepEqual(lista.cuerpo, {
+      presupuestos: [{ id: presupuestoId, codigo: 'EXP-DETENIDA', nombre: lista.cuerpo.presupuestos[0].nombre, estado: 'ACTIVO', archivado: false }],
+    });
+    await exportaTodo(e.cookie, presupuestoId, versionId);
+  });
+
+  test('la prueba cancelada sin pago, sin ningún acceso, también descarga lo suyo', async () => {
+    const { e, presupuestoId, versionId } = await empresaConProyecto('Constructora Exporta Prueba', '900000461-1', 'ciclo.exporta.prueba@construsoft.test');
+    await moverVencimiento(e.contexto.tenantId, -11);
+    assert.equal((await sesion(e)).acceso, 'NINGUNO');
+    assert.equal((await llamar('GET', '/api/presupuestos/exportables', e.cookie)).cuerpo.presupuestos.length, 1);
+    await exportaTodo(e.cookie, presupuestoId, versionId);
+  });
+
+  test('pide PRESUPUESTOS.EXPORTAR: sin él, 403; y la lista y los archivos de otra empresa no existen (RN-01)', async () => {
+    const { e: a } = await empresaConProyecto('Constructora Exporta A', '900000462-2', 'ciclo.exporta.a@construsoft.test');
+    const b = await empresaConProyecto('Constructora Exporta B', '900000463-3', 'ciclo.exporta.b@construsoft.test');
+    const sinPermiso = await asistenteCon(a, 'ciclo.exporta.sin@construsoft.test', ['PRESUPUESTOS.VER']);
+    assert.equal((await llamar('GET', '/api/presupuestos/exportables', sinPermiso)).estado, 403);
+
+    const deA = (await llamar('GET', '/api/presupuestos/exportables', a.cookie)).cuerpo.presupuestos.map((p: { id: string }) => p.id);
+    assert.ok(!deA.includes(b.presupuestoId));
+    assert.equal((await llamar('GET', `/api/presupuestos/${b.presupuestoId}/exportar?formato=pdf`, a.cookie)).estado, 404);
+    assert.equal((await llamar('GET', `/api/versiones/${b.versionId}/exportar?formato=pdf`, a.cookie)).estado, 404);
+  });
+});
+
+describe('eliminar y purgar (CONTRATO §12.3, §15.5, §17)', () => {
+  test('eliminar desde el panel: la confirmación es la razón social; la base decide si ya es eliminable; el evento sobrevive a la empresa', async () => {
+    const e = await registrar('Constructora Se Elimina', '900000429-9', 'panel.elimina@construsoft.test');
+    const ruta = `/api/superadmin/empresas/${e.contexto.tenantId}`;
+    const mal = await llamar('DELETE', ruta, panel, { justificacion: 'Prueba abandonada', confirmacion: 'Otra' });
+    assert.deepEqual([mal.estado, mal.cuerpo.campo], [422, 'confirmacion']);
+    const temprano = await llamar('DELETE', ruta, panel, { justificacion: 'Prueba abandonada', confirmacion: 'Constructora Se Elimina' });
+    assert.equal(temprano.estado, 422);
+    // D-74: el rechazo dice desde qué fecha, la misma que la ficha muestra.
+    assert.match(temprano.cuerpo.mensaje, new RegExp(`desde el ${(await ficha(e.contexto.tenantId)).eliminableDesde}`));
+
+    await moverVencimiento(e.contexto.tenantId, -11);
+    const r = await llamar('DELETE', ruta, panel, { justificacion: 'Prueba abandonada', confirmacion: ' Constructora Se Elimina ' });
+    assert.equal(r.estado, 204, r.crudo);
+    assert.equal((await llamar('GET', ruta, panel)).estado, 404);
+    const evento = (await llamar('GET', '/api/superadmin/eventos', panel)).cuerpo.eventos.find(
+      (x: { tipo: string; justificacion: string }) => x.tipo === 'TENANT_ELIMINADO' && x.justificacion === 'Prueba abandonada',
+    );
+    assert.deepEqual([evento.empresa, evento.autor], [null, 'Pía Plazos']);
+  });
+
   test('elimina las que cumplieron su plazo, dice por qué, y deja las demás', async () => {
     const vieja = await registrar('Constructora Suspendida Vieja', '900000455-5', 'ciclo.vieja@construsoft.test');
     await activarYMoverVencimiento(vieja.contexto.tenantId, -80);
@@ -289,6 +416,11 @@ describe('la purga diaria (CONTRATO §15.5)', () => {
     assert.equal((await sesion(fuera)).acceso, 'NINGUNO');
     const viva = await registrar('Constructora Sigue Viva', '900000457-7', 'ciclo.viva@construsoft.test');
     await activarYMoverVencimiento(viva.contexto.tenantId, -20);
+    // D-76: la prueba sin pago la toma la purga al día siguiente de sus diez días.
+    const prueba = await registrar('Constructora Prueba Purgada', '900000464-4', 'ciclo.prueba.purgada@construsoft.test');
+    await moverVencimiento(prueba.contexto.tenantId, -11);
+    const enSusDias = await registrar('Constructora Prueba En Sus Dias', '900000465-5', 'ciclo.prueba.dias@construsoft.test');
+    await moverVencimiento(enSusDias.contexto.tenantId, -10);
 
     const purgadas = await purgarEmpresas();
     const porId = new Map(purgadas.map((p) => [p.tenantId, p]));
@@ -296,6 +428,8 @@ describe('la purga diaria (CONTRATO §15.5)', () => {
     assert.equal(porId.get(vieja.contexto.tenantId)!.razonSocial, 'Constructora Suspendida Vieja');
     assert.match(porId.get(fuera.contexto.tenantId)!.motivo, /cancelada/);
     assert.ok(!porId.has(viva.contexto.tenantId));
+    assert.match(porId.get(prueba.contexto.tenantId)!.motivo, /D-76/);
+    assert.ok(!porId.has(enSusDias.contexto.tenantId), 'el día 25 todavía puede pagar');
 
     assert.equal((await llamar('GET', `/api/superadmin/empresas/${vieja.contexto.tenantId}`, panel)).estado, 404);
     assert.equal((await llamar('GET', `/api/superadmin/empresas/${viva.contexto.tenantId}`, panel)).estado, 200);
