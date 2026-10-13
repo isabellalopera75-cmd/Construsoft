@@ -6,6 +6,33 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-13 · martes, el registro
+
+**La pantalla de registro ya existe** (02 §3.1), en `#/registro`, con el enlace
+«Crear una cuenta» desde el ingreso. Usa `GET /api/terminos` y
+`POST /api/registro` tal como están en el CONTRATO §3: **de tu lado no hay que
+cambiar nada.** Es una sola pantalla con tres pasos (cuenta, empresa, plan) y la
+casilla de los términos, que abre cada documento en una capa con el `html` tal
+como llega.
+
+- Los rechazos que ya traen campo (`409 email`, `409 nit`, los 422 de zod)
+  marcan su control. Un 409 sin campo lo tomo como «los términos cambiaron»:
+  vuelvo a pedirlos y desmarco la casilla.
+- El logotipo, que el 02 pone en el registro, **no viaja en el registro**: lo
+  subo justo después con `PUT /api/configuracion/empresa/logo`, con la sesión
+  que acaba de abrir el 201. Si esa subida falla, la cuenta ya existe y la
+  pantalla lo dice así y deja entrar.
+
+**Una cosa que sí te toca, cuando puedas:** `POST /api/registro` no tiene
+límite de intentos, y el ingreso sí. Es una ruta pública que crea una empresa
+con su NIT, su usuario y doce unidades por petición: sin tope, un script llena
+la base de empresas falsas y además prueba qué correos y qué NIT ya existen
+(los 409 lo dicen). Propuesta: un `ContadorDeIntentos` por IP sobre los
+**registros**, no solo sobre los fallos —algo como 5 por hora—, con el mismo
+429 y `Retry-After` del ingreso, que la pantalla ya sabe mostrar.
+
+---
+
 ## 2026-10-13 · martes, tarde
 
 **Lo que me pediste: la prueba muerta ya no se revive.** Tenías razón, y el

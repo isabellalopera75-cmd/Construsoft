@@ -59,32 +59,20 @@ export function Resumen() {
         </div>
       </section>
 
-      <ListaDeAccion
+      <TarjetasDeEmpresas
         titulo="Vencen en los próximos 7 días"
-        ayuda="Empresas en prueba o al día que pierden el acceso pronto. Registrar el pago se hace desde su ficha."
         vacio="Ninguna empresa vence esta semana."
         filas={datos.porVencer}
-        columnaFinal={(f) => (f.venceEl ? <>{fechaSola(f.venceEl)} <span className="dato-de-apoyo">{textoDeDias(f.diasRestantes)}</span></> : '—')}
-        tituloFinal="Vence"
+        fecha={(f) => (f.venceEl ? <>Vence el {fechaSola(f.venceEl)} <span className="dato-de-apoyo">{textoDeDias(f.diasRestantes)}</span></> : '—')}
       />
       {datos.porEliminar.length > 0 ? (
-        <ListaDeAccion
+        <TarjetasDeEmpresas
           titulo="Sus datos se eliminan pronto"
-          ayuda="Suspendidas por falta de pago o canceladas sin reactivar. Si nada cambia, la purga diaria borra sus datos en la fecha de la derecha (D-74). Un pago reportado detiene el plazo."
           vacio=""
           filas={datos.porEliminar}
-          columnaFinal={(f) => (f.eliminableDesde ? fechaSola(f.eliminableDesde) : '—')}
-          tituloFinal="Se eliminan el"
+          fecha={(f) => (f.eliminableDesde ? <>Se eliminan el {fechaSola(f.eliminableDesde)}</> : '—')}
         />
       ) : null}
-      <ListaDeAccion
-        titulo="Pruebas vencidas sin pago"
-        ayuda="Empresas en sus 10 días de solo lectura después de la prueba. Si no pagan, la prueba se cancela y la purga diaria borra sus datos en la fecha de la derecha (D-76)."
-        vacio="No hay pruebas vencidas sin pago."
-        filas={datos.pruebasSinConvertir}
-        columnaFinal={(f) => (f.eliminableDesde ? fechaSola(f.eliminableDesde) : 'Pago en verificación')}
-        tituloFinal="Se eliminan el"
-      />
     </>
   );
 }
@@ -98,54 +86,40 @@ function Cifra({ titulo, valor, estado, enlace }: { titulo: string; valor: numbe
   );
 }
 
-function ListaDeAccion({
+/**
+ * Las empresas que piden una acción, como tarjetas y no como filas (pedido del
+ * dueño, 13 de octubre de 2026): el nombre, sus insignias y la fecha que
+ * importa. Toda la tarjeta lleva a la ficha.
+ */
+function TarjetasDeEmpresas({
   titulo,
-  ayuda,
   vacio,
   filas,
-  columnaFinal,
-  tituloFinal,
+  fecha,
 }: {
   titulo: string;
-  ayuda: string;
   vacio: string;
   filas: FilaDeEmpresa[];
-  columnaFinal: (f: FilaDeEmpresa) => ReactNode;
-  tituloFinal: string;
+  fecha: (f: FilaDeEmpresa) => ReactNode;
 }) {
   return (
-    <section className="tarjeta seccion-del-panel">
+    <section className="seccion-de-tarjetas" aria-label={titulo}>
       <h2>{titulo}</h2>
-      <p className="campo-ayuda">{ayuda}</p>
       {filas.length === 0 ? (
         <p className="vacio-en-linea">{vacio}</p>
       ) : (
-        <div className="tarjeta-tabla tabla-con-borde">
-          <table className="tabla">
-            <caption className="solo-lectores">{titulo}</caption>
-            <thead>
-              <tr>
-                <th scope="col">Empresa</th>
-                <th scope="col">Plan</th>
-                <th scope="col">Estado</th>
-                <th scope="col">{tituloFinal}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filas.map((f) => (
-                <tr key={f.id}>
-                  <td>
-                    <a className="enlace-de-empresa" href={enlaceA({ pantalla: 'empresa', id: f.id })}>{f.razonSocial}</a>
-                    <span className="dato-de-apoyo">NIT {f.nit}</span>
-                  </td>
-                  <td>{f.planCodigo ? NOMBRE_DE_PLAN[f.planCodigo] : '—'}</td>
-                  <td><InsigniasDeEmpresa estado={f.estado} suspendida={f.suspendida} /></td>
-                  <td>{columnaFinal(f)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ul className="tarjetas-de-empresa">
+          {filas.map((f) => (
+            <li key={f.id}>
+              <a className="tarjeta tarjeta-de-empresa" href={enlaceA({ pantalla: 'empresa', id: f.id })}>
+                <span className="tarjeta-de-empresa-nombre">{f.razonSocial}</span>
+                <span className="dato-de-apoyo">NIT {f.nit}{f.planCodigo ? ` · ${NOMBRE_DE_PLAN[f.planCodigo]}` : ''}</span>
+                <InsigniasDeEmpresa estado={f.estado} suspendida={f.suspendida} />
+                <span className="tarjeta-de-empresa-fecha">{fecha(f)}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
       )}
     </section>
   );

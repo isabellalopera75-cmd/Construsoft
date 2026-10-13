@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { cuandoSeDetengaLaCuenta, cuandoSePierdaLaSesion, ErrorDeApi, pedir } from './api/cliente.ts';
 import type { Arranque, Permiso } from './api/tipos.ts';
 import { Cascaron } from './cascaron/Cascaron.tsx';
-import { useRuta, type Ruta } from './navegacion.ts';
+import { reemplazar, useRuta, type Ruta } from './navegacion.ts';
 import { Inicio } from './pantallas/Inicio.tsx';
 import { Ingreso, PantallaSuelta } from './pantallas/Ingreso.tsx';
 import { CuentaDetenida } from './pantallas/CuentaDetenida.tsx';
@@ -14,6 +14,7 @@ import { Mesa } from './modulos/mesa/Mesa.tsx';
 import { Recursos } from './modulos/recursos/Recursos.tsx';
 import { Presupuestos } from './pantallas/Presupuestos.tsx';
 import { Recuperacion } from './pantallas/Recuperacion.tsx';
+import { Registro } from './pantallas/Registro.tsx';
 import { ContextoDeSesion, crearSesion, useSesion } from './sesion.tsx';
 
 /*
@@ -113,6 +114,18 @@ export function App() {
         </PantallaSuelta>
       );
     case 'sin-sesion':
+      // Al terminar el registro se entra al inicio, no a «#/registro»: con
+      // sesión, esa dirección ya no lleva a ningún lado.
+      if (ruta.pantalla === 'registro') {
+        return (
+          <Registro
+            alEntrar={(arranque) => {
+              reemplazar({ pantalla: 'inicio' });
+              setEstado({ fase: 'dentro', arranque });
+            }}
+          />
+        );
+      }
       return <Ingreso aviso={estado.aviso} alEntrar={(arranque) => setEstado({ fase: 'dentro', arranque })} />;
     case 'dentro':
       return (
@@ -143,6 +156,9 @@ function Adentro({ ruta }: { ruta: Ruta }) {
   switch (ruta.pantalla) {
     case 'inicio':
       return <Cascaron ruta={ruta} migas={[{ nombre: 'Inicio' }]}><Inicio /></Cascaron>;
+    // Con sesión, «Crear una cuenta» no tiene sentido: se va al inicio.
+    case 'registro':
+      return <Cascaron ruta={{ pantalla: 'inicio' }} migas={[{ nombre: 'Inicio' }]}><Inicio /></Cascaron>;
     case 'presupuestos':
       if (!permitido('PRESUPUESTOS.VER')) break;
       return (

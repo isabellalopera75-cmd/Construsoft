@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import type { Permiso } from '../api/tipos.ts';
+import { pedir } from '../api/cliente.ts';
+import type { FilaDePresupuesto, Permiso } from '../api/tipos.ts';
 import { Icono, type NombreDeIcono } from '../componentes/Icono.tsx';
 import { enlaceA, type Ruta } from '../navegacion.ts';
 import { useSesion } from '../sesion.tsx';
 import { aplicarTema, temaVisible, type Tema } from '../tema.ts';
 import { AvisoDeSuscripcion } from './AvisoDeSuscripcion.tsx';
 import { useBarraPlegable } from './barraPlegable.ts';
+import { pestanasDeConfiguracion } from '../modulos/configuracion/pestanas.ts';
 
 /*
  * El marco de toda pantalla de adentro (DISENO §7): barra lateral con los
@@ -75,6 +77,71 @@ function moduloDe(ruta: Ruta): Ruta['pantalla'] {
   return ruta.pantalla === 'mesa' ? 'presupuestos' : ruta.pantalla;
 }
 
+/*
+ * Submenús de la barra lateral (pedido del dueño, 13 de octubre de 2026): al
+ * pasar el mouse por Proyectos aparecen los cuatro proyectos más recientes, y
+ * por Configuración sus pestañas. Abierta la barra, se despliegan debajo del
+ * módulo; plegada, salen al lado. Con el teclado se abren al llegar con Tab
+ * (focus-within). En el teléfono no se muestran: allí no hay mouse.
+ */
+interface EnlaceDeSubmenu {
+  clave: string;
+  texto: string;
+  apoyo?: string;
+  href: string;
+}
+
+function Submenu({ titulo, enlaces, vacio }: { titulo: string; enlaces: EnlaceDeSubmenu[]; vacio?: string }) {
+  return (
+    <div className="submenu-de-modulo">
+      <span className="submenu-titulo" aria-hidden="true">{titulo}</span>
+      {enlaces.length === 0 ? (
+        <span className="submenu-vacio">{vacio}</span>
+      ) : (
+        <ul aria-label={titulo}>
+          {enlaces.map((e) => (
+            <li key={e.clave}>
+              <a href={e.href}>
+                {e.apoyo ? <span className="cifra-codigo submenu-apoyo">{e.apoyo}</span> : null}
+                <span className="submenu-texto">{e.texto}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Los cuatro proyectos modificados más recientemente. Se piden cuando el mouse
+ * pasa por Proyectos, no al cargar cada pantalla, y se reusan por 30 segundos:
+ * así un proyecto recién creado aparece la siguiente vez sin pedir la lista a
+ * cada movimiento del mouse.
+ */
+let recientesGuardados: { lista: FilaDePresupuesto[]; en: number } | null = null;
+function useProyectosRecientes(pasadas: number): FilaDePresupuesto[] | null {
+  const [lista, setLista] = useState<FilaDePresupuesto[] | null>(recientesGuardados?.lista ?? null);
+  useEffect(() => {
+    if (pasadas === 0) return;
+    if (recientesGuardados && Date.now() - recientesGuardados.en < 30_000) return;
+    let vivo = true;
+    pedir<FilaDePresupuesto[]>('/api/presupuestos')
+      .then((filas) => {
+        const cuatro = [...filas].sort((a, b) => b.fechaModificacion.localeCompare(a.fechaModificacion)).slice(0, 4);
+        recientesGuardados = { lista: cuatro, en: Date.now() };
+        if (vivo) setLista(cuatro);
+      })
+      .catch(() => {
+        if (vivo) setLista((l) => l ?? []);
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [pasadas]);
+  return lista;
+}
+
 interface Props {
   ruta: Ruta;
   /** «Dónde estoy»: las migas, de la más general a la actual. */
@@ -83,7 +150,9 @@ interface Props {
 }
 
 export function Cascaron({ ruta, migas, children }: Props) {
-  const { arranque, salir } = useSesion();
+  const { arranque, salir, puede } = useSesion();
+  const [pasadas, setPasadas] = useState(0);
+  const recientes = useProyectosRecientes(pasadas);
   const modulos = useModulosVisibles();
   const [cajonAbierto, setCajonAbierto] = useState(false);
   const botonMenu = useRef<HTMLButtonElement>(null);
@@ -131,17 +200,33 @@ export function Cascaron({ ruta, migas, children }: Props) {
                 <span className="etiqueta-de-modulo">Inicio</span>
               </a>
             </li>
-            {modulos.map((m) => (
-              <li key={m.nombre}>
-                <a
-                  href={enlaceA(m.ruta)}
-                  aria-current={actual === m.ruta.pantalla ? 'page' : undefined}
-                >
-                  <Icono nombre={m.icono} />
-                  <span className="etiqueta-de-modulo">{m.nombre}</span>
-                </a>
-              </li>
-            ))}
+            {modulos.map((m) => {
+              const conSubmenu = m.ruta.pantalla === 'presupuestos' || m.ruta.pantalla === 'configuracion';
+              return (
+                <li key={m.nombre} className={conSubmenu ? 'modulo-con-submenu' : undefined}
+                    onMouseEnter={m.ruta.pantalla === 'presupuestos' ? () => setPasadas((n) => n + 1) : undefined}
+                    onFocus={m.ruta.pantalla === 'presupuestos' ? () => setPasadas((n) => n + 1) : undefined}>
+                  <a
+                    href={enlaceA(m.ruta)}
+                    aria-current={actual === m.ruta.pantalla ? 'page' : undefined}
+                  >
+                    <Icono nombre={m.icono} />
+                    <span className="etiqueta-de-modulo">{m.nombre}</span>
+                  </a>
+                  {m.ruta.pantalla === 'configuracion' ? (
+                    <Submenu titulo={m.nombre} enlaces={pestanasDeConfiguracion(puede).map((p) => ({
+                      clave: p.id, texto: p.nombre, href: enlaceA({ pantalla: 'configuracion', pestana: p.id }),
+                    }))} />
+                  ) : null}
+                  {m.ruta.pantalla === 'presupuestos' ? (
+                    <Submenu titulo={m.nombre} vacio={recientes === null ? 'Cargando…' : 'Todavía no hay proyectos.'}
+                             enlaces={(recientes ?? []).map((p) => ({
+                               clave: p.id, texto: p.nombre, apoyo: p.codigo, href: enlaceA({ pantalla: 'mesa', id: p.id }),
+                             }))} />
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         </nav>
         {/* Sin botón entre 641 y 1024: ahí la barra no cabe abierta. */}

@@ -27,6 +27,7 @@ export type Ruta =
   | { pantalla: 'configuracion'; pestana?: PestanaDeConfiguracion }
   | { pantalla: 'recuperar'; token: string }
   | { pantalla: 'activar'; token: string }
+  | { pantalla: 'registro' }
   | { pantalla: 'no-existe' };
 
 export function leerRuta(hash: string): Ruta {
@@ -56,6 +57,8 @@ export function leerRuta(hash: string): Ruta {
   if (primera === 'activar' && partes.length === 1) {
     return { pantalla: 'activar', token: new URLSearchParams(consulta).get('token') ?? '' };
   }
+  // 02 §3.1 · Crear una cuenta: una empresa nueva, sin sesión.
+  if (primera === 'registro' && partes.length === 1) return { pantalla: 'registro' };
   return { pantalla: 'no-existe' };
 }
 
@@ -69,6 +72,7 @@ export function enlaceA(ruta: Ruta): string {
     case 'configuracion': return ruta.pestana ? `#/configuracion/${ruta.pestana}` : '#/configuracion';
     case 'recuperar': return `#/recuperar?token=${encodeURIComponent(ruta.token)}`;
     case 'activar': return `#/activar?token=${encodeURIComponent(ruta.token)}`;
+    case 'registro': return '#/registro';
     case 'no-existe': return '#/';
   }
 }

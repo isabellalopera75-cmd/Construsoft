@@ -1141,3 +1141,138 @@ textarea { min-height: 88px; padding: var(--e2) var(--e3); resize: vertical; wid
 /* D-76 · La descarga de los proyectos en la cuenta detenida. */
 .col-descargas { width: 1%; white-space: nowrap; }
 .col-descargas > div { display: flex; gap: var(--e2); justify-content: flex-end; }
+
+/* --- Panel: tarjetas en vez de filas (pedido del dueño, 13 de octubre) ---- */
+.seccion-de-tarjetas { margin-bottom: var(--e5); }
+.seccion-de-tarjetas h2,
+.zona-de-cuidado h2 { font-size: var(--letra-lg); margin-bottom: var(--e3); }
+.tarjetas-de-empresa {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; gap: var(--e3); grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+}
+.tarjeta-de-empresa {
+  display: grid; gap: var(--e1); align-content: start; height: 100%;
+  padding: var(--e4); color: inherit; text-decoration: none;
+  transition: border-color var(--transicion), background var(--transicion);
+}
+.tarjeta-de-empresa:hover { border-color: var(--borde-activo); background: var(--bg-tarjeta-hover); }
+.tarjeta-de-empresa-nombre { font-weight: var(--peso-fuerte); }
+.tarjeta-de-empresa .insignias { margin-top: var(--e1); }
+.tarjeta-de-empresa-fecha { margin-top: var(--e2); padding-top: var(--e2); border-top: 1px solid var(--borde-tenue); font-size: var(--letra-sm); }
+
+/* La zona de cuidado de la ficha: dos tarjetas cuadradas, no filas largas. */
+.zona-de-cuidado:not(.tarjeta) { margin-bottom: var(--e5); }
+.tarjetas-de-cuidado { display: grid; gap: var(--e3); grid-template-columns: repeat(auto-fill, minmax(10rem, 11rem)); }
+.tarjeta-de-cuidado {
+  aspect-ratio: 1; display: grid; place-content: center; justify-items: center; gap: var(--e2);
+  padding: var(--e4); text-align: center; font-weight: var(--peso-fuerte); font-size: var(--letra-sm);
+  color: var(--peligro); border-color: color-mix(in srgb, var(--peligro) 45%, var(--borde-tenue)); cursor: pointer;
+  transition: background var(--transicion), border-color var(--transicion);
+}
+.tarjeta-de-cuidado:hover:not(:disabled) { background: color-mix(in srgb, var(--peligro) 8%, var(--bg-tarjeta)); border-color: var(--peligro); }
+.tarjeta-de-cuidado:disabled { color: var(--texto-apagado); border-color: var(--borde-tenue); cursor: not-allowed; }
+
+/* --- Submenús de la barra lateral (pedido del dueño, 13 de octubre) -------
+   Proyectos muestra sus cuatro proyectos más recientes y Configuración sus
+   pestañas, al pasar el mouse o llegar con Tab. Abierta la barra, debajo del
+   módulo; plegada, al lado, como el globo del nombre. En el teléfono no. */
+.submenu-de-modulo { display: none; }
+.submenu-titulo { display: none; }
+.submenu-de-modulo ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px; }
+.lista-de-modulos .submenu-de-modulo a {
+  display: flex; align-items: baseline; gap: var(--e2);
+  min-height: 28px; padding: var(--e1) var(--e3);
+  border-radius: var(--radio-sm); box-shadow: none;
+  font-size: var(--letra-sm); font-weight: var(--peso-normal); color: var(--texto-segundo);
+}
+.lista-de-modulos .submenu-de-modulo a:hover { background: var(--bg-tarjeta-hover); color: var(--texto); }
+.submenu-texto { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.submenu-apoyo { flex: none; font-size: var(--letra-xs); color: var(--texto-apagado); }
+.submenu-vacio { display: block; padding: var(--e1) var(--e3); font-size: var(--letra-sm); color: var(--texto-apagado); }
+
+@media (min-width: 641px) and (hover: hover) {
+  .modulo-con-submenu:is(:hover, :focus-within) > .submenu-de-modulo { display: block; }
+  /* Abierta: sangrado bajo el nombre del módulo, con una guía a la izquierda. */
+  .cascaron:not([data-barra='plegada']) .submenu-de-modulo {
+    margin: 2px 0 var(--e1) calc(var(--e3) + 10px);
+    padding-left: var(--e3);
+    border-left: 1px solid var(--borde-tenue);
+  }
+  /* Plegada: una tarjeta flotante al lado, con el nombre del módulo arriba. El
+     relleno izquierdo es el puente para que el mouse no la pierda. */
+  /* La barra va encima del contenido: si no, un botón con posición propia del
+     contenido (el de «Volver») se pinta sobre la tarjeta flotante. */
+  .cascaron[data-barra='plegada'] .barra-lateral { z-index: 20; }
+  .cascaron[data-barra='plegada'] .modulo-con-submenu { position: relative; }
+  .cascaron[data-barra='plegada'] .modulo-con-submenu > a .etiqueta-de-modulo { display: none; }
+  .cascaron[data-barra='plegada'] .submenu-de-modulo {
+    position: absolute; left: 100%; top: 0; z-index: 30;
+    padding-left: var(--e3); width: 16rem;
+  }
+  .cascaron[data-barra='plegada'] .submenu-de-modulo > * { background: var(--bg-barra); }
+  .cascaron[data-barra='plegada'] .submenu-de-modulo {
+    filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.25));
+  }
+  .cascaron[data-barra='plegada'] .submenu-titulo {
+    display: block; padding: var(--e2) var(--e3) var(--e1);
+    border: 1px solid var(--borde-campo); border-bottom: 0; border-radius: var(--radio-md) var(--radio-md) 0 0;
+    font-size: var(--letra-sm); font-weight: var(--peso-fuerte); color: var(--texto);
+  }
+  /* Los enlaces del submenú no son iconos: se les quita el ancho fijo y el
+     centrado que la barra plegada pone a los de los módulos. */
+  .cascaron[data-barra='plegada'] .lista-de-modulos .submenu-de-modulo a {
+    width: auto; justify-content: flex-start; padding: var(--e1) var(--e3);
+  }
+  .cascaron[data-barra='plegada'] .submenu-de-modulo ul,
+  .cascaron[data-barra='plegada'] .submenu-vacio {
+    padding: 0 var(--e1) var(--e1);
+    border: 1px solid var(--borde-campo); border-top: 0; border-radius: 0 0 var(--radio-md) var(--radio-md);
+  }
+}
+
+/* La zona de cuidado de la ficha, más pequeña: rectángulos con el icono al lado. */
+.tarjetas-de-cuidado { grid-template-columns: repeat(auto-fill, 13rem); }
+.tarjeta-de-cuidado {
+  aspect-ratio: auto; display: flex; align-items: center; justify-content: flex-start; gap: var(--e2);
+  min-height: 44px; padding: var(--e2) var(--e3); text-align: left;
+}
+.tarjeta-de-cuidado .icono { width: 18px; height: 18px; }
+
+/* --- Registro de una empresa nueva (02 §3.1) ------------------------------
+   Más ancha que el ingreso: tres pasos, y los dos planes lado a lado. Cada
+   paso lleva su número en un círculo, para que se lea como un recorrido. */
+.tarjeta-suelta-ancha { max-width: 560px; }
+.entrada-de-registro { margin: calc(-1 * var(--e3)) 0 var(--e5); font-size: var(--letra-sm); color: var(--texto-segundo); }
+.formulario-de-registro { gap: var(--e5); }
+.paso-de-registro { display: grid; gap: var(--e4); margin: 0; padding: 0; border: 0; min-width: 0; }
+/* El separador va en el título y no en el fieldset: en un fieldset, el borde
+   de arriba pasa por detrás de la leyenda y la corta. */
+.paso-de-registro + .paso-de-registro > legend { padding-top: var(--e5); border-top: 1px solid var(--borde-tenue); }
+.paso-de-registro > legend {
+  display: flex; align-items: center; gap: var(--e2);
+  width: 100%; padding: 0; margin-bottom: var(--e1);
+  font-family: var(--fuente-titulo); font-size: var(--letra-lg); font-weight: var(--peso-fuerte);
+}
+.numero-de-paso {
+  display: inline-grid; place-items: center; flex: none;
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--terracota-halo); color: var(--terracota);
+  font-family: var(--fuente-texto); font-size: var(--letra-sm);
+}
+.planes-de-registro { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: var(--e3); }
+.planes-de-registro .opcion { height: 100%; }
+.opcional { font-weight: var(--peso-normal); color: var(--texto-segundo); }
+.logo-de-registro { display: flex; flex-wrap: wrap; align-items: center; gap: var(--e4); }
+.logo-de-registro .marco-de-logo { width: 180px; height: 80px; }
+.acciones-de-logo input:focus-visible + label { outline: 2px solid var(--borde-activo); outline-offset: 2px; }
+.casilla-de-terminos { align-items: flex-start; line-height: 1.5; }
+.casilla-de-terminos input { margin-top: 2px; flex: none; }
+.boton-enlace {
+  display: inline; min-height: 0; padding: 0; border: 0; background: none;
+  font: inherit; color: var(--terracota); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; cursor: pointer;
+}
+.documento-legal { font-size: var(--letra-sm); line-height: 1.6; }
+.documento-legal h3 { margin: var(--e4) 0 var(--e2); font-size: var(--letra-md); }
+.documento-legal p, .documento-legal ul { margin: 0 0 var(--e3); }
+.documento-legal .legal-fecha { color: var(--texto-segundo); }
+.documento-legal .aviso-borrador { padding: var(--e3) var(--e4); border-radius: var(--radio-md); background: var(--terracota-velo); }

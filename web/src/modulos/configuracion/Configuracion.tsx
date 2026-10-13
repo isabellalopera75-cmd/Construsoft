@@ -9,6 +9,7 @@ import { Confirmacion } from '../../componentes/Confirmacion.tsx';
 import { Icono } from '../../componentes/Icono.tsx';
 import { Pestanas } from '../../componentes/Pestanas.tsx';
 import { ErrorDeSeccion, Seccion, useLectura } from './piezas.tsx';
+import { pestanasDeConfiguracion } from './pestanas.ts';
 import { Logotipo } from './Logotipo.tsx';
 import { SuscripcionPestana } from './Suscripcion.tsx';
 import { Usuarios } from './Usuarios.tsx';
@@ -30,13 +31,7 @@ import { useSesion } from '../../sesion.tsx';
 
 export function Configuracion({ pestana }: { pestana: PestanaDeConfiguracion | undefined }) {
   const { puede } = useSesion();
-  const disponibles = [
-    { id: 'cuenta' as const, nombre: 'Mi cuenta', visible: true },
-    { id: 'empresa' as const, nombre: 'Datos de empresa', visible: puede('CONFIG.EMPRESA') },
-    { id: 'preferencias' as const, nombre: 'Preferencias y unidades', visible: puede('CONFIG.PREFERENCIAS') },
-    { id: 'suscripcion' as const, nombre: 'Suscripción', visible: puede('CONFIG.SUSCRIPCION') },
-    { id: 'usuarios' as const, nombre: 'Usuarios', visible: puede('USUARIOS.GESTIONAR') },
-  ].filter((p) => p.visible);
+  const disponibles = pestanasDeConfiguracion(puede);
   const actual = disponibles.find((p) => p.id === pestana)?.id ?? 'cuenta';
 
   // Centrada y con ancho de lectura (decisión del dueño, 6 de octubre de

@@ -248,40 +248,33 @@ export function Ficha({ id }: { id: string }) {
         </div>
       </section>
 
-      <section className="tarjeta seccion-del-panel">
-        <h2>Bitácora de la empresa</h2>
-        <ListaDeEventos eventos={datos.eventos} conEmpresa={false} vacio="Ninguna acción del panel sobre esta empresa todavía." />
-      </section>
-
-      <section className="tarjeta seccion-del-panel zona-de-cuidado">
-        <h2>Zona de cuidado</h2>
-        <div className="accion-de-cuidado">
-          <div>
-            <h3>Cancelar la suscripción</h3>
-            <p className="campo-ayuda">
-              Es definitivo (D-74): la empresa trabaja hasta la fecha que pagó y no se le cobra más. Después tiene diez días en que solo su
-              Administrador puede reactivarla, pagando; pasados esos días, la purga diaria elimina sus datos. El panel no la revive.
-            </p>
-          </div>
-          <button type="button" className="boton boton-peligroso" disabled={!suscripcion || suscripcion.estado === 'CANCELADA'} onClick={() => setDialogo('cancelar')}>
-            Cancelar suscripción
+      {/* La zona de cuidado: dos tarjetas y nada más (pedido del dueño, 13 de
+          octubre de 2026). Lo que cada una hace lo dice su diálogo; el porqué
+          de un botón apagado va en su title. */}
+      <section className="zona-de-cuidado" aria-labelledby="titulo-zona-de-cuidado">
+        <h2 id="titulo-zona-de-cuidado">Zona de cuidado</h2>
+        <div className="tarjetas-de-cuidado">
+          <button
+            type="button"
+            className="tarjeta tarjeta-de-cuidado"
+            disabled={!suscripcion || suscripcion.estado === 'CANCELADA'}
+            title={suscripcion?.estado === 'CANCELADA' ? 'La suscripción ya está cancelada.' : undefined}
+            onClick={() => setDialogo('cancelar')}
+          >
+            <Icono nombre="pausa" tamano={18} />
+            <span>Cancelar suscripción</span>
           </button>
-        </div>
-        <div className="accion-de-cuidado">
-          <div>
-            <h3>Eliminar los datos de la empresa</h3>
-            <p className="campo-ayuda">
-              {datos.eliminableDesde === null
-                ? 'No se puede: está al día, en su plazo para pagar o tiene un pago esperando verificación. Si hace falta, suspéndala.'
-                : eliminable
-                  ? 'Ya se cumplió su plazo (D-74, RF-SAD-13). Borra todo lo de la empresa y no se puede deshacer.'
-                  : suscripcion?.estado === 'VENCIDA'
-                    ? `Su prueba terminó. Si no paga, se cancela y la purga diaria borra sus datos el ${fechaSola(datos.eliminableDesde)} (D-76).`
-                    : `Si nada cambia, la purga diaria borra sus datos el ${fechaSola(datos.eliminableDesde)}.`}
-            </p>
-          </div>
-          <button type="button" className="boton boton-peligroso" disabled={!eliminable} onClick={() => setDialogo('eliminar')}>
-            Eliminar datos
+          <button
+            type="button"
+            className="tarjeta tarjeta-de-cuidado"
+            disabled={!eliminable}
+            title={eliminable ? undefined : datos.eliminableDesde === null
+              ? 'No corre ningún plazo de eliminación: está al día, en su plazo o con un pago en verificación.'
+              : `Se podrá desde el ${fechaSola(datos.eliminableDesde)}.`}
+            onClick={() => setDialogo('eliminar')}
+          >
+            <Icono nombre="basura" tamano={18} />
+            <span>Eliminar datos</span>
           </button>
         </div>
       </section>

@@ -108,6 +108,9 @@ export function Ingreso({ alEntrar, aviso }: { alEntrar: (arranque: Arranque) =>
         <button type="submit" className="boton boton-principal boton-ancho" disabled={enviando || bloqueado}>
           {enviando ? 'Ingresando…' : bloqueado ? `Espere ${espera} s para reintentar` : 'Ingresar'}
         </button>
+        <p className="pie-de-formulario">
+          ¿Todavía no tiene cuenta? <a href="#/registro">Crear una cuenta</a>
+        </p>
       </form>
     </PantallaSuelta>
   );
