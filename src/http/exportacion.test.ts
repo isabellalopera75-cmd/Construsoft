@@ -89,7 +89,7 @@ describe('exportar la oferta en PDF y Excel (02 §9.5, RF-PRE-29/30)', () => {
 
 interface MesaLeida {
   nodos: { codigoWbs: string; nombre: string; montoAcumulado: string }[];
-  actividades: { codigoItem: string; descripcion: string; unidadSimbolo: string; cantidad: string; precioUnitario: string; costoTotal: string }[];
+  actividades: { codigoItem: string; codigoApu: string; descripcion: string; unidadSimbolo: string; cantidad: string; precioUnitario: string; costoTotal: string }[];
   pie: Record<'costoIndirecto' | 'costoDirecto' | 'administracion' | 'imprevistos' | 'utilidad' | 'aiu' | 'iva' | 'valorTotal', string> & {
     porcentajes: { a: string; i: string; u: string; iva: string };
   };
@@ -133,9 +133,16 @@ describe('las cifras de los archivos son las de la base, línea por línea (02 �
     const pdf = textoDePdf((await pedir(`/api/presupuestos/${p.id}/exportar?formato=pdf`, duena.cookie)).rawPayload);
     const desde = (primero: string, cuantos: number) => pdf.slice(pdf.indexOf(primero), pdf.indexOf(primero) + cuantos);
     for (const n of mesa.nodos) assert.deepEqual(desde(n.codigoWbs, 3), [n.codigoWbs, n.nombre, f(n.montoAcumulado)]);
+    // La actividad se identifica por el código de su APU (CONTRATO §16).
     for (const a of mesa.actividades) {
-      assert.deepEqual(desde(a.codigoItem, 6), [a.codigoItem, a.descripcion, a.unidadSimbolo, f(a.cantidad), f(a.precioUnitario), f(a.costoTotal)]);
+      assert.deepEqual(desde(a.codigoApu, 6), [a.codigoApu, a.descripcion, a.unidadSimbolo, f(a.cantidad), f(a.precioUnitario), f(a.costoTotal)]);
     }
+    // El orden de la mesa (D-75): bajo OBRA, el subcapítulo Muros va antes que
+    // el concreto, aunque el concreto se agregó primero.
+    const enOrden = ['PRELIMINARES', 'Director de obra', 'OBRA', 'Muros', 'Acero de refuerzo 60.000 PSI', 'Formaleta metálica', 'Concreto 3000 PSI para zapatas'];
+    const posiciones = enOrden.map((t) => pdf.indexOf(t));
+    assert.deepEqual(posiciones, [...posiciones].sort((a, b) => a - b), `el PDF no sigue el orden de la mesa: ${posiciones.join(', ')}`);
+    assert.ok(posiciones.every((i) => i >= 0));
     for (const [rotulo, valor] of pieEsperado(mesa, formato)) assert.deepEqual(desde(rotulo, 2), [rotulo, f(valor)]);
 
     // El Excel: los valores son números en la columna del total, redondeados una vez a los decimales de la empresa.
@@ -152,7 +159,7 @@ describe('las cifras de los archivos son las de la base, línea por línea (02 �
     };
     const numero = (v: string) => Number(redondear(v, formato.decimalesVista));
     for (const a of mesa.actividades) {
-      const fila = filaDe(a.codigoItem);
+      const fila = filaDe(a.codigoApu);
       assert.deepEqual(
         [fila.getCell(2).value, fila.getCell(4).value, fila.getCell(5).value, fila.getCell(6).value],
         [a.descripcion, numero(a.cantidad), numero(a.precioUnitario), numero(a.costoTotal)],

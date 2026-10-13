@@ -466,6 +466,19 @@ presupuestos y abrir uno para consultarlo.
   control que los usa.
 - **Todo lo que se pulsa mide 44 px**, también los botones de las filas de la
   mesa. Las filas quedan un poco más altas, y se aceptó.
+  **Corregido el 13 de octubre de 2026 (D-75):** el dueño pidió filas que
+  midan lo que la letra más un margen mínimo. Con mouse (`pointer: fine`), los
+  controles de la mesa miden 24 px, el mínimo de WCAG 2.5.8, y la fila queda en
+  unos 30 px. En pantallas táctiles siguen los 44 px.
+- **Densidad, 13 de octubre de 2026** (el dueño: «todo se ve muy grande»).
+  Con mouse (`pointer: fine`): letra de 15 px el cuerpo y 13 px lo
+  secundario y las tablas, controles de 36 px, barra superior de 56 px, celdas
+  de tabla de 6 × 12 px, y la cabecera de la mesa y su fila de agregar
+  actividad apretadas. En táctil no cambia nada. Los valores están en
+  `tokens.css` y al final de `componentes.css`.
+- **La columna «Código» de la mesa** (D-75): el número del capítulo o
+  subcapítulo, con ceros, o el código del APU de la actividad, en terracota y
+  alineado con los números. No hay columna aparte para el APU.
 
 - **Correcciones del dueño, 6 de octubre de 2026 (tarde):**
   - **«Proyectos», no «Presupuestos».** Proyecto es la cosa que se crea, se

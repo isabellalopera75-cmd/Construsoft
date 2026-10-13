@@ -173,8 +173,8 @@ describe('versiones: guardar manual, listar y consultar la fotografía (RF-VER-0
     assert.deepEqual(
       antes.fotografia.capitulos.map((c) => [c.codigoWbs, c.nombre, c.clasificacion, c.montoAcumulado]),
       [
-        ['1.0', 'OBRA', 'DIRECTO', '2000.000000'],
-        ['2.0', 'ESTUDIOS', 'INDIRECTO', '1000.000000'],
+        ['1', 'OBRA', 'DIRECTO', '2000.000000'],
+        ['2', 'ESTUDIOS', 'INDIRECTO', '1000.000000'],
       ],
     );
     // Con precisión completa: la cantidad de ceros es la escala de numeric, no un dato del presupuesto.
@@ -183,8 +183,8 @@ describe('versiones: guardar manual, listar y consultar la fotografía (RF-VER-0
     assert.deepEqual(
       antes.fotografia.items.map((i) => [i.codigoItem, i.codigoWbsPadre, i.cantidad, i.costoTotal]),
       [
-        ['1.1', '1.0', '2.000000', '2000.000000'],
-        ['2.1', '2.0', '1.000000', '1000.000000'],
+        ['1.1', '1', '2.000000', '2000.000000'],
+        ['2.1', '2', '1.000000', '1000.000000'],
       ],
     );
     assert.deepEqual(
@@ -215,10 +215,10 @@ describe('versiones: guardar manual, listar y consultar la fotografía (RF-VER-0
     assert.deepEqual(
       (await leerVersion(contexto(), guardada.id))!.fotografia.capitulos.map((c) => [c.codigoWbs, c.nombre, c.clasificacion]),
       [
-        ['1.0', 'ESTUDIOS', 'INDIRECTO'],
+        ['1', 'ESTUDIOS', 'INDIRECTO'],
         ['1.1', 'Suelos', 'INDIRECTO'],
         ['1.1.1', 'Sondeos', 'INDIRECTO'],
-        ['2.0', 'OBRA', 'DIRECTO'],
+        ['2', 'OBRA', 'DIRECTO'],
         ['2.1', 'Concretos', 'DIRECTO'],
       ],
     );

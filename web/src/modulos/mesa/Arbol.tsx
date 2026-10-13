@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useState, type KeyboardEvent } from 'react';
 import { conConsulta, ErrorDeApi, pedir } from '../../api/cliente.ts';
 import type { ActividadDeMesa, Apu, ApuEncontrado, ModoEstructura, NodoDeMesa } from '../../api/tipos.ts';
 import { Buscador } from '../../componentes/Buscador.tsx';
@@ -8,7 +8,7 @@ import { leerCifra, paraEditar, soloCifra } from '../../entrada.ts';
 import { formatearNumero } from '../../formato.ts';
 import { useSesion } from '../../sesion.tsx';
 import { FormularioDeApu } from '../apu/FormularioDeApu.tsx';
-import { cuantosHermanos, type Arbol as ArbolArmado, type Hijo } from './arbol.ts';
+import { limitesDe, type Arbol as ArbolArmado, type Limites } from './arbol.ts';
 
 /*
  * 02 §8.2 a §8.5 · La estructura de la mesa: capítulos, subcapítulos y
@@ -18,6 +18,11 @@ import { cuantosHermanos, type Arbol as ArbolArmado, type Hijo } from './arbol.t
  * reemplaza su estado por lo que llega: no hay numeración provisional ni un
  * árbol a medias. Por eso estas filas no guardan nada suyo salvo lo que se
  * está escribiendo.
+ *
+ * D-75 (13 de octubre de 2026) · La actividad no lleva número jerárquico: en
+ * la columna del código va el código de su APU, y la fila se entiende por el
+ * bloque en el que está. Los subcapítulos van antes que las actividades
+ * directas, y los números traen los ceros que les pone la base.
  */
 
 export interface OperacionesDeMesa {
@@ -39,31 +44,7 @@ interface Props {
   op: OperacionesDeMesa;
 }
 
-/*
- * Por debajo de este ancho de la TABLA —no de la ventana—, el código del APU
- * deja de tener columna propia y va junto a la descripción. Con las acciones
- * de 44 px por fila, la tabla completa no cabe en un portátil de 1366 y la
- * tabla tiene que caber: la mesa es la pantalla central.
- */
-const ANCHO_PARA_COLUMNA_DE_CODIGO = 1250;
-
-function useCompacta() {
-  const contenedor = useRef<HTMLDivElement>(null);
-  const [compacta, setCompacta] = useState(false);
-  useEffect(() => {
-    const elemento = contenedor.current;
-    if (!elemento) return;
-    const observador = new ResizeObserver(([entrada]) => {
-      if (entrada) setCompacta(entrada.contentRect.width < ANCHO_PARA_COLUMNA_DE_CODIGO);
-    });
-    observador.observe(elemento);
-    return () => observador.disconnect();
-  }, []);
-  return { contenedor, compacta };
-}
-
 export function Arbol({ arbol, editable, modo, ocupado, op }: Props) {
-  const { contenedor, compacta } = useCompacta();
   const [plegados, setPlegados] = useState<Set<string>>(new Set());
   const [agregandoEn, setAgregandoEn] = useState<string | null>(null);
 
@@ -76,10 +57,10 @@ export function Arbol({ arbol, editable, modo, ocupado, op }: Props) {
     });
 
   const filas: React.ReactNode[] = [];
-  const pintarNodo = (nodo: NodoDeMesa, hermanos: number) => {
+  const pintarNodo = (nodo: NodoDeMesa) => {
     const plegado = plegados.has(nodo.id);
     filas.push(
-      <FilaDeNodo key={nodo.id} nodo={nodo} hermanos={hermanos} plegado={plegado} alAlternar={() => alternar(nodo.id)} compacta={compacta}
+      <FilaDeNodo key={nodo.id} nodo={nodo} limites={limitesDe(arbol, nodo.padreId, 'nodo')} plegado={plegado} alAlternar={() => alternar(nodo.id)}
                   editable={editable} modo={modo} ocupado={ocupado} op={op}
                   alAgregarActividad={() => {
                     // Si el nivel estaba plegado, se despliega: la fila de agregar vive adentro.
@@ -93,28 +74,27 @@ export function Arbol({ arbol, editable, modo, ocupado, op }: Props) {
     );
     if (plegado) return;
     const hijos = arbol.hijos.get(nodo.id) ?? [];
-    for (const hijo of hijos) pintarHijo(hijo, hijos.length);
+    const limitesDeActividad = limitesDe(arbol, nodo.id, 'actividad');
+    for (const hijo of hijos) {
+      if (hijo.tipo === 'nodo') pintarNodo(hijo.nodo);
+      else filas.push(<FilaDeActividad key={hijo.actividad.id} actividad={hijo.actividad} nivel={nodo.nivel} limites={limitesDeActividad} editable={editable} ocupado={ocupado} op={op} />);
+    }
     if (editable) {
       filas.push(
-        <FilaDeAgregar key={`agregar-${nodo.id}`} nodo={nodo} abierta={agregandoEn === nodo.id} compacta={compacta}
+        <FilaDeAgregar key={`agregar-${nodo.id}`} nodo={nodo} abierta={agregandoEn === nodo.id}
                        alAbrir={() => setAgregandoEn(nodo.id)} alCerrar={() => setAgregandoEn(null)} op={op} />,
       );
     }
   };
-  const pintarHijo = (hijo: Hijo, hermanos: number) => {
-    if (hijo.tipo === 'nodo') pintarNodo(hijo.nodo, hermanos);
-    else filas.push(<FilaDeActividad key={hijo.actividad.id} actividad={hijo.actividad} hermanos={hermanos} editable={editable} ocupado={ocupado} op={op} compacta={compacta} />);
-  };
-  for (const raiz of arbol.raices) pintarNodo(raiz, cuantosHermanos(arbol, null));
+  for (const raiz of arbol.raices) pintarNodo(raiz);
 
   return (
-    <div className="tarjeta tarjeta-tabla tarjeta-mesa" ref={contenedor}>
+    <div className="tarjeta tarjeta-tabla tarjeta-mesa">
       <table className="tabla tabla-mesa" data-editable={editable ? 'si' : 'no'}>
         <caption className="solo-lectores">Estructura del presupuesto</caption>
         <thead>
           <tr>
-            <th scope="col" className="col-item">N.º</th>
-            {compacta ? null : <th scope="col" className="col-apu">Código</th>}
+            <th scope="col" className="col-item">Código</th>
             <th scope="col">Descripción</th>
             <th scope="col" className="col-und">Und.</th>
             <th scope="col" className="cifra col-cantidad">Cantidad</th>
@@ -132,7 +112,7 @@ export function Arbol({ arbol, editable, modo, ocupado, op }: Props) {
 
 function FilaDeNodo({
   nodo,
-  hermanos,
+  limites,
   plegado,
   alAlternar,
   editable,
@@ -140,11 +120,9 @@ function FilaDeNodo({
   ocupado,
   op,
   alAgregarActividad,
-  compacta,
 }: {
-  compacta: boolean;
   nodo: NodoDeMesa;
-  hermanos: number;
+  limites: Limites;
   plegado: boolean;
   alAlternar: () => void;
   editable: boolean;
@@ -164,7 +142,7 @@ function FilaDeNodo({
         </button>
         <span className="cifra-codigo">{nodo.codigoWbs}</span>
       </td>
-      <td colSpan={compacta ? 1 : 2} className="col-nombre-nodo" style={{ ['--sangria' as string]: `${(nodo.nivel - 1) * 16}px` }}>
+      <td className="col-nombre-nodo" style={{ ['--sangria' as string]: `${(nodo.nivel - 1) * 16}px` }}>
         <span className="nombre-nodo">{nodo.nombre}</span>
         {esRaiz ? (
           // La etiqueta va en la barra del capítulo (02 §8.4). Siempre con palabra.
@@ -191,7 +169,7 @@ function FilaDeNodo({
                 <Icono nombre="carpeta" tamano={18} />
               </button>
             ) : null}
-            <BotonesDeMover tipo="nodo" id={nodo.id} posicion={nodo.posicion} hermanos={hermanos} nombre={nodo.nombre} ocupado={ocupado} op={op} />
+            <BotonesDeMover tipo="nodo" id={nodo.id} posicion={nodo.posicion} limites={limites} nombre={nodo.nombre} ocupado={ocupado} op={op} />
             <button type="button" className="boton-icono boton-chico" title={esRaiz ? 'Renombrar o reclasificar' : 'Renombrar'} aria-label={`Renombrar ${nodo.nombre}`} disabled={ocupado} onClick={() => op.editarNodo(nodo)}>
               <Icono nombre="editar" tamano={18} />
             </button>
@@ -207,15 +185,16 @@ function FilaDeNodo({
 
 function FilaDeActividad({
   actividad,
-  hermanos,
+  nivel,
+  limites,
   editable,
   ocupado,
   op,
-  compacta,
 }: {
-  compacta: boolean;
   actividad: ActividadDeMesa;
-  hermanos: number;
+  /** El nivel de su capítulo o subcapítulo: la descripción se sangra debajo de él. */
+  nivel: number;
+  limites: Limites;
   editable: boolean;
   ocupado: boolean;
   op: OperacionesDeMesa;
@@ -270,12 +249,9 @@ function FilaDeActividad({
 
   return (
     <tr className="fila-actividad">
-      <td className="col-item"><span className="cifra-codigo">{actividad.codigoItem}</span></td>
-      {compacta ? null : <td className="col-apu"><span className="cifra-codigo cifra-apu">{actividad.codigoApu}</span></td>}
-      <td className="col-descripcion">
-        {compacta ? <span className="cifra-codigo cifra-apu codigo-en-descripcion">{actividad.codigoApu}</span> : null}
-        {actividad.descripcion}
-      </td>
+      {/* D-75 · El código del APU, no un número jerárquico. */}
+      <td className="col-item"><span className="cifra-codigo cifra-apu">{actividad.codigoApu}</span></td>
+      <td className="col-descripcion" style={{ ['--sangria' as string]: `${nivel * 16}px` }}>{actividad.descripcion}</td>
       <td className="col-und">{actividad.unidadSimbolo}</td>
       <td className="cifra col-cantidad">
         {editable ? (
@@ -308,7 +284,7 @@ function FilaDeActividad({
       {editable ? (
         <td className="col-acciones">
           <div className="acciones-de-fila">
-            <BotonesDeMover tipo="actividad" id={actividad.id} posicion={actividad.posicion} hermanos={hermanos} nombre={actividad.descripcion} ocupado={ocupado} op={op} />
+            <BotonesDeMover tipo="actividad" id={actividad.id} posicion={actividad.posicion} limites={limites} nombre={actividad.descripcion} ocupado={ocupado} op={op} />
             <button type="button" className="boton-icono boton-chico boton-icono-peligro" title="Quitar del proyecto" aria-label={`Quitar ${actividad.descripcion}`} disabled={ocupado} onClick={() => op.eliminarActividad(actividad)}>
               <Icono nombre="basura" tamano={18} />
             </button>
@@ -319,12 +295,16 @@ function FilaDeActividad({
   );
 }
 
-/** Subir y bajar: se manda la posición FINAL, no un «subir» (CONTRATO §1.4). */
+/**
+ * Subir y bajar: se manda la posición FINAL, no un «subir» (CONTRATO §1.4).
+ * Desde D-75 cada uno se mueve dentro de su grupo: los subcapítulos entre los
+ * subcapítulos, las actividades entre las actividades.
+ */
 function BotonesDeMover({
   tipo,
   id,
   posicion,
-  hermanos,
+  limites,
   nombre,
   ocupado,
   op,
@@ -332,17 +312,17 @@ function BotonesDeMover({
   tipo: 'nodo' | 'actividad';
   id: string;
   posicion: number;
-  hermanos: number;
+  limites: Limites;
   nombre: string;
   ocupado: boolean;
   op: OperacionesDeMesa;
 }) {
   return (
     <>
-      <button type="button" className="boton-icono boton-chico" title="Subir" aria-label={`Subir ${nombre}`} disabled={ocupado || posicion <= 1} onClick={() => op.mover(tipo, id, posicion - 1)}>
+      <button type="button" className="boton-icono boton-chico" title="Subir" aria-label={`Subir ${nombre}`} disabled={ocupado || posicion <= limites.primera} onClick={() => op.mover(tipo, id, posicion - 1)}>
         <Icono nombre="subir" tamano={18} />
       </button>
-      <button type="button" className="boton-icono boton-chico" title="Bajar" aria-label={`Bajar ${nombre}`} disabled={ocupado || posicion >= hermanos} onClick={() => op.mover(tipo, id, posicion + 1)}>
+      <button type="button" className="boton-icono boton-chico" title="Bajar" aria-label={`Bajar ${nombre}`} disabled={ocupado || posicion >= limites.ultima} onClick={() => op.mover(tipo, id, posicion + 1)}>
         <Icono nombre="bajar" tamano={18} />
       </button>
     </>
@@ -360,9 +340,7 @@ function FilaDeAgregar({
   alAbrir,
   alCerrar,
   op,
-  compacta,
 }: {
-  compacta: boolean;
   nodo: NodoDeMesa;
   abierta: boolean;
   alAbrir: () => void;
@@ -415,7 +393,7 @@ function FilaDeAgregar({
     return (
       <tr className="fila-agregar">
         <td />
-        <td colSpan={compacta ? 7 : 8} style={{ ['--sangria' as string]: `${nodo.nivel * 16}px` }} className="col-agregar">
+        <td colSpan={7} style={{ ['--sangria' as string]: `${nodo.nivel * 16}px` }} className="col-agregar">
           {/* Dice a qué nivel pertenece: un subcapítulo con hijos deja su fila de
               agregar pegada a la del capítulo de arriba, y sin el código no se
               sabe cuál es cuál. */}
@@ -433,7 +411,7 @@ function FilaDeAgregar({
     return (
       <tr className="fila-agregar">
         <td />
-        <td colSpan={compacta ? 7 : 8} className="col-agregar">
+        <td colSpan={7} className="col-agregar">
           <p className="campo-ayuda">
             Para agregar actividades hay que poder consultar los APU, y su rol no tiene ese permiso.{' '}
             <button type="button" className="enlace-de-fila" onClick={cerrar}>Cerrar</button>
@@ -446,7 +424,7 @@ function FilaDeAgregar({
   return (
     <tr className="fila-agregar fila-agregar-abierta">
       <td />
-      <td colSpan={compacta ? 7 : 8} className="col-agregar" style={{ ['--sangria' as string]: `${nodo.nivel * 16}px` }}>
+      <td colSpan={7} className="col-agregar" style={{ ['--sangria' as string]: `${nodo.nivel * 16}px` }}>
         <div className="agregar-actividad">
           {elegido === null ? (
             <Buscador<ApuEncontrado>

@@ -113,7 +113,7 @@ describe('EDT: capítulos, subcapítulos, clasificación, reordenar y eliminar',
     return creado.id;
   }
 
-  test('los capítulos se numeran solos 1.0, 2.0, 3.0 y nacen con la clasificación elegida (RF-PRE-11/12/19)', async () => {
+  test('los capítulos se numeran solos 1, 2, 3 (sin «.0», D-75) y nacen con la clasificación elegida (RF-PRE-11/12/19)', async () => {
     const presupuestoId = await nuevoPresupuesto();
     const preliminares = await agregarCapitulo(contexto(), presupuestoId, {
       nombre: 'PRELIMINARES',
@@ -124,12 +124,12 @@ describe('EDT: capítulos, subcapítulos, clasificación, reordenar y eliminar',
 
     assert.deepEqual(
       { codigo: preliminares.codigoWbs, nivel: preliminares.nivel, padre: preliminares.padreId },
-      { codigo: '1.0', nivel: 1, padre: null },
+      { codigo: '1', nivel: 1, padre: null },
     );
     assert.deepEqual(forma(await leerEdt(contexto(), presupuestoId)), [
-      ['1.0', 'PRELIMINARES', 1, 'INDIRECTO'],
-      ['2.0', 'CIMENTACIÓN', 1, 'DIRECTO'],
-      ['3.0', 'ESTRUCTURA', 1, 'DIRECTO'],
+      ['1', 'PRELIMINARES', 1, 'INDIRECTO'],
+      ['2', 'CIMENTACIÓN', 1, 'DIRECTO'],
+      ['3', 'ESTRUCTURA', 1, 'DIRECTO'],
     ]);
   });
 
@@ -145,8 +145,8 @@ describe('EDT: capítulos, subcapítulos, clasificación, reordenar y eliminar',
     await agregarSubcapitulo(contexto(), concretos.id, { nombre: 'Zapatas' });
 
     assert.deepEqual(forma(await leerEdt(contexto(), presupuestoId)), [
-      ['1.0', 'PRELIMINARES', 1, 'INDIRECTO'],
-      ['2.0', 'CIMENTACIÓN', 1, 'DIRECTO'],
+      ['1', 'PRELIMINARES', 1, 'INDIRECTO'],
+      ['2', 'CIMENTACIÓN', 1, 'DIRECTO'],
       ['2.1', 'Concretos', 2, 'DIRECTO'],
       ['2.1.1', 'Zapatas', 3, 'DIRECTO'],
       ['2.2', 'Aceros', 2, 'DIRECTO'],
@@ -172,8 +172,8 @@ describe('EDT: capítulos, subcapítulos, clasificación, reordenar y eliminar',
     await renombrarNivel(contexto(), segundo.id, 'CIMENTACIÓN');
 
     assert.deepEqual(forma(await leerEdt(contexto(), presupuestoId)), [
-      ['1.0', 'PRELIMINARES', 1, 'INDIRECTO'],
-      ['2.0', 'CIMENTACIÓN', 1, 'DIRECTO'],
+      ['1', 'PRELIMINARES', 1, 'INDIRECTO'],
+      ['2', 'CIMENTACIÓN', 1, 'DIRECTO'],
     ]);
   });
 
@@ -184,13 +184,13 @@ describe('EDT: capítulos, subcapítulos, clasificación, reordenar y eliminar',
 
     await reclasificarCapitulo(contexto(), capitulo.id, 'INDIRECTO');
     assert.deepEqual(forma(await leerEdt(contexto(), presupuestoId)), [
-      ['1.0', 'ESTUDIOS', 1, 'INDIRECTO'],
+      ['1', 'ESTUDIOS', 1, 'INDIRECTO'],
       ['1.1', 'Suelos', 2, 'INDIRECTO'],
     ]);
 
     await assert.rejects(reclasificarCapitulo(contexto(), sub.id, 'DIRECTO'), /vive solo en el capítulo raíz/);
     assert.deepEqual(forma(await leerEdt(contexto(), presupuestoId)), [
-      ['1.0', 'ESTUDIOS', 1, 'INDIRECTO'],
+      ['1', 'ESTUDIOS', 1, 'INDIRECTO'],
       ['1.1', 'Suelos', 2, 'INDIRECTO'],
     ]);
   });
@@ -204,9 +204,9 @@ describe('EDT: capítulos, subcapítulos, clasificación, reordenar y eliminar',
 
     await moverEnEdt(contexto(), c.id, 1);
     const esperado: Array<[string, string, number, string]> = [
-      ['1.0', 'C', 1, 'INDIRECTO'],
-      ['2.0', 'A', 1, 'DIRECTO'],
-      ['3.0', 'B', 1, 'DIRECTO'],
+      ['1', 'C', 1, 'INDIRECTO'],
+      ['2', 'A', 1, 'DIRECTO'],
+      ['3', 'B', 1, 'DIRECTO'],
       ['3.1', 'B hijo', 2, 'DIRECTO'],
     ];
     assert.deepEqual(forma(await leerEdt(contexto(), presupuestoId)), esperado);
@@ -239,8 +239,8 @@ describe('EDT: capítulos, subcapítulos, clasificación, reordenar y eliminar',
 
     await eliminarNivel(contexto(), b.id);
     assert.deepEqual(forma(await leerEdt(contexto(), presupuestoId)), [
-      ['1.0', 'A', 1, 'DIRECTO'],
-      ['2.0', 'C', 1, 'INDIRECTO'],
+      ['1', 'A', 1, 'DIRECTO'],
+      ['2', 'C', 1, 'INDIRECTO'],
     ]);
   });
 

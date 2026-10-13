@@ -15,6 +15,90 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-13 · martes, pedido del dueño
+
+**Lo que necesito** (no me bloquea; es tuyo, está en `web/`)
+
+- **Los campos de precio muestran los separadores de miles mientras se
+  escribe.** El dueño lo pidió con una captura del filtro «Precio total ·
+  Desde» de Recursos: hoy se lee `142577` y tiene que leerse `142.577`.
+  Vale para todo campo donde se escribe un precio o un monto.
+  - El separador es el de la empresa (`formatoNumerico` del arranque), no un
+    punto fijo: una empresa con `,` de miles ve `142,577`.
+  - **El contrato no cambia.** A la API el valor sigue llegando como `Dinero`
+    en texto, con punto decimal y sin separadores de miles (regla 1.1). Si
+    llega `142.577` en un campo de precio, se lee como ciento cuarenta y dos
+    con 577 milésimas: el formato es solo de la pantalla.
+  - Ojo con los decimales: un precio admite hasta seis, y con la preferencia
+    colombiana la coma decimal es la otra tecla. Escribir «1.000,5» tiene que
+    llegar como `1000.5`.
+
+---
+
+## 2026-10-13 · martes, verificación
+
+- **`construsoft` ya está recargada con D-75.** Corrige la entrada de abajo.
+  Las ocho pruebas de psql pasan (fase 0 con sus 3 rechazos, EDT 15, D-65 a
+  D-68 49, D-71 19, D-72 27, D-73 25, D-74 52, D-75 19) y los verificadores
+  dan cero. La demo está sembrada.
+- **La columna del PDF y del Excel se llama «Código»**, como en la mesa.
+  Lo decidió el dueño el 13 de octubre, contestando la pregunta de la
+  entrada de abajo.
+- **Revisé el §16.** Pasan 516 de 516. `filas.ts` solo ordena y elige qué
+  código mostrar, sin calcular nada, y el presupuesto de referencia sigue
+  cerrando en $180.590.155.
+
+---
+
+## 2026-10-13 · martes
+
+**Hecho** (516/516, sin commit)
+
+- **D-75 cargado en `construsoft_test`.** Las ocho baterías de psql dan
+  verde: fase 0 con sus 3 rechazos, EDT 15, D-65 a D-68 49, D-71 19,
+  D-72 27, D-73 25, D-74 52 y D-75 19. Los tres verificadores dan cero.
+- **`construsoft` NO quedó recargada con D-75.** El permiso de esta
+  terminal volvió a negar el `dropdb`. Le toca al dueño.
+- **Las pruebas que esperaban «1.0»** (siete archivos) ahora esperan «1».
+  La de D-42 cambió de sentido, no solo de número: ahora espera el
+  subcapítulo en `1.1`, su actividad en `1.1.1` y las directas en `1.2` y
+  `1.3`.
+- **CONTRATO §16 en el PDF y el Excel.** Todo vive en `filasDeLaOferta`,
+  que usan los dos:
+  - en la columna del número, la actividad lleva su `codigoApu`;
+  - el capítulo lleva su `codigoWbs` tal cual: «01», sin «.0»;
+  - el nivel de la actividad es el de su capítulo más uno, como pediste.
+  - El orden sigue saliendo de `codigoWbs` y `codigoItem` leídos como
+    enteros. Con D-75 eso da el orden de la mesa: los subcapítulos ocupan
+    `1…n`. Una versión aprobada antes conserva sus códigos y su orden
+    (RN-04), y también está probada.
+  - En el PDF la columna del número pasó de 42 a 50 pt, a costa de la
+    descripción, para que quepa «APU-10000» en negrita.
+- **El movimiento que rechaza D-75 ya salía como 422**, sin `campo` y con el
+  mensaje de la base. No hizo falta cambiar código; quedó una prueba por
+  HTTP que lo fija.
+- Comprobé que las pruebas muerden: mostrar el número de ítem en vez del
+  código del APU tumba 11 pruebas; ordenar por el código que se muestra
+  tumba 7.
+
+**Qué divergió**
+
+- Nada del contrato. La cabecera del §16 todavía dice «sin construir».
+
+**Lo que necesito** (no me bloquea)
+
+- **El título de esa columna en el PDF y el Excel sigue siendo «Ítem»**,
+  pero ahora trae el código del APU, y la mesa la llama «Código». Es un
+  texto que lee el cliente: decime cuál va y lo cambio.
+
+**Lo que conviene que sepas**
+
+- **El dueño tiene que recargar `construsoft`** con la secuencia del README
+  (pasos 1, 2 y 4), correr las ocho baterías y `npm run demo`, y volver a
+  crear su superadministrador con `npm run superadmin`.
+
+---
+
 ## 2026-10-12 · lunes, verificación
 
 **Hecho** (513/513, sin commit)

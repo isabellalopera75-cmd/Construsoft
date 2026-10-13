@@ -6,8 +6,10 @@ import type { ActividadDeMesa, Mesa, NodoDeMesa } from '../../api/tipos.ts';
  * ordena por `posicion`, que manda el servidor. Nunca se ordena por el texto
  * del código: «1.10» iría antes de «1.2».
  *
- * Nodos y actividades comparten el contador de su padre (D-42), así que bajo
- * un mismo padre se intercalan por esa misma posición.
+ * Nodos y actividades comparten el contador de su padre (D-42), pero desde
+ * D-75 (13 de octubre de 2026) los subcapítulos van siempre primero y las
+ * actividades directas después. El servidor ya los manda así; se ordena aquí
+ * también para que la pantalla no dependa de eso.
  */
 
 export type Hijo = { tipo: 'nodo'; nodo: NodoDeMesa } | { tipo: 'actividad'; actividad: ActividadDeMesa };
@@ -32,16 +34,30 @@ export function armarArbol(mesa: Mesa): Arbol {
   for (const actividad of mesa.actividades) agregar(actividad.nodoId, { tipo: 'actividad', actividad });
 
   raices.sort((a, b) => a.posicion - b.posicion);
-  for (const lista of hijos.values()) lista.sort((a, b) => posicionDe(a) - posicionDe(b));
+  for (const lista of hijos.values()) lista.sort((a, b) => grupo(a) - grupo(b) || posicionDe(a) - posicionDe(b));
   return { raices, hijos };
 }
+
+const grupo = (hijo: Hijo) => (hijo.tipo === 'nodo' ? 0 : 1);
 
 export function posicionDe(hijo: Hijo): number {
   return hijo.tipo === 'nodo' ? hijo.nodo.posicion : hijo.actividad.posicion;
 }
 
-/** Cuántos hermanos tiene una fila, contándose: el tope para «bajar». */
-export function cuantosHermanos(arbol: Arbol, padreId: string | null): number {
-  return padreId === null ? arbol.raices.length : (arbol.hijos.get(padreId)?.length ?? 0);
+/**
+ * D-75 · Entre qué posiciones se puede mover una fila: un subcapítulo entre los
+ * subcapítulos de su padre (1 … n), una actividad entre las actividades
+ * (n + 1 … total). Las posiciones son las del contador compartido.
+ */
+export interface Limites {
+  primera: number;
+  ultima: number;
+}
+
+export function limitesDe(arbol: Arbol, padreId: string | null, tipo: Hijo['tipo']): Limites {
+  if (padreId === null) return { primera: 1, ultima: arbol.raices.length };
+  const hijos = arbol.hijos.get(padreId) ?? [];
+  const nodos = hijos.filter((h) => h.tipo === 'nodo').length;
+  return tipo === 'nodo' ? { primera: 1, ultima: nodos } : { primera: nodos + 1, ultima: hijos.length };
 }
 

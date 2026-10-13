@@ -29,6 +29,11 @@ function filaDelPdf(texto: string[], descripcion: string): string[] {
   return texto.slice(i - 1, i + 5);
 }
 
+/** La primera celda de una actividad es el código de su APU (CONTRATO §16), el que guardó la fotografía. */
+function apuDe(documento: DocumentoExportable, descripcion: string): string {
+  return documento.fotografia.items.find((i) => i.descripcion === descripcion)!.codigoApu;
+}
+
 async function valorTotalDelExcel(documento: DocumentoExportable): Promise<unknown> {
   const libro = new ExcelJS.Workbook();
   await libro.xlsx.load((await generarExcel(documento, null)) as unknown as ArrayBuffer);
@@ -70,7 +75,7 @@ describe('cierre de la fase 5: el presupuesto de referencia exportado desde sus 
     assert.ok(texto.some((t) => t.startsWith('Versión 1 · ')));
     assert.ok(texto.includes('180.590.155,00'));
     assert.deepEqual(filaDelPdf(texto, 'Excavación manual'), [
-      '2.1',
+      apuDe(version1, 'Excavación manual'),
       'Excavación manual',
       'm³',
       '120,00',
@@ -84,7 +89,7 @@ describe('cierre de la fase 5: el presupuesto de referencia exportado desde sus 
     assert.ok(texto.some((t) => t.startsWith('Versión 3 · ')));
     assert.ok(texto.includes('181.055.812,50'));
     assert.deepEqual(filaDelPdf(texto, 'Excavación manual'), [
-      '2.1',
+      apuDe(version3, 'Excavación manual'),
       'Excavación manual',
       'm³',
       '130,00',

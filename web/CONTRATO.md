@@ -1049,7 +1049,7 @@ Pago = { id, fecha, concepto, monto: Dinero, moneda, metodo,
 - Un pago que ya no está pendiente: 422 «Ese pago no está esperando
   verificación.».
 
-## 15. El ciclo de vida de la suscripción (PROPUESTO el 12 de octubre de 2026, sin construir)
+## 15. El ciclo de vida de la suscripción (propuesto el 12 de octubre de 2026, construido: `3ca3a87`)
 
 Decisión del dueño, 11 y 12 de octubre de 2026. La base lo sostiene con D-74
 (`docs/prueba-d74.sql`, 52 casos). Todo sale de una función,
@@ -1172,3 +1172,37 @@ Devuelve `(tenant_id, razon_social, motivo)` por cada una. **La prueba vencida
 no la toca**: sigue siendo a mano (RF-SAD-13). Tiene que correr una vez al día,
 después de medianoche en Bogotá, con un comando para correrla a mano
 (`npm run purgar`), que imprima lo que eliminó.
+
+## 16. La numeración de la EDT (PROPUESTO el 13 de octubre de 2026, sin construir)
+
+Decisión del dueño, 13 de octubre de 2026. La base lo sostiene con D-75
+(`docs/prueba-d75.sql`, 19 casos), y `docs/prueba-edt.sql` cambió en dos casos.
+**No cambia ninguna forma ni ninguna ruta**: cambian los valores que ya viajan.
+
+- **Subcapítulos primero.** Bajo un mismo padre van primero los subcapítulos y
+  después las actividades directas, a cualquier profundidad. El contador sigue
+  siendo compartido (D-42), pero los subcapítulos ocupan las posiciones
+  `1 … n` y las actividades `n + 1 … total`. `posicion` en
+  `NodoDeMesa` y `ActividadDeMesa` lo refleja.
+- **Mover dentro del grupo.** `fn_mover_en_edt` rechaza un subcapítulo que
+  baja a las actividades o una actividad que sube a los subcapítulos (P0001,
+  sin `campo`). Va como 422, igual que una posición que no existe. La interfaz
+  ya no lo ofrece.
+- **Ceros a la izquierda.** `codigoWbs` lleva tantas cifras como pida el padre
+  con más subcapítulos en ese nivel: de 10 a 99 son dos (`01` … `12`), de 100 a
+  999 son tres. **El capítulo pierde el «.0»**: es `01`, y sus hijos `01.1` o
+  `01.01`. `string_to_array(codigo, '.')::int[]` sigue ordenando bien.
+- **La actividad se identifica por el código del APU.** `codigoItem` se sigue
+  derivando y no repite un código de subcapítulo, pero no se muestra. En la
+  mesa la columna «Código» trae el `codigoApu` de cada actividad.
+- **Las exportaciones** (PDF y Excel) tienen que hacer lo mismo:
+  - en la columna del número, la actividad lleva su `codigoApu`;
+  - el capítulo lleva su código con ceros y sin «.0»;
+  - el orden es el de la mesa.
+
+  `src/exportacion/filas.ts` saca hoy el nivel de la actividad de
+  `codigoItem`. Ese cálculo sigue dando el mismo número, pero es mejor tomarlo
+  del nivel del padre más uno.
+- Los presupuestos ACTIVOS o CERRADOS no se renumeran (RN-04): conservan los
+  códigos con que se aprobaron. Esto solo pasa con presupuestos anteriores a
+  esta decisión.

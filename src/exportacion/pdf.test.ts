@@ -131,15 +131,15 @@ describe('PDF de un presupuesto largo: la paginación', () => {
   test('ochenta actividades en varias páginas, cada una exactamente una vez y en orden', async () => {
     const paginas = leerPdf(await generarPdf(presupuestoLargo(), null)).paginas;
     assert.ok(paginas.length >= 3, `páginas: ${paginas.length}`);
-    const actividades = paginas.flat().filter((t) => /^\d+\.(?!0$)\d+$/.test(t));
-    const esperadas = [1, 2, 3, 4, 5].flatMap((c) => Array.from({ length: 16 }, (_, a) => `${c}.${a + 1}`));
+    const actividades = paginas.flat().filter((t) => /^APU-\d+$/.test(t));
+    const esperadas = [1, 2, 3, 4, 5].flatMap((c) => Array.from({ length: 16 }, (_, a) => `APU-${c}${String(a + 1).padStart(2, '0')}`));
     assert.deepEqual(actividades, esperadas);
   });
 
   test('cada página repite quién emite, qué presupuesto es y los títulos de las columnas, y dice «Página i de n»', async () => {
     const paginas = leerPdf(await generarPdf(presupuestoLargo(), null)).paginas;
     paginas.forEach((pagina, i) => {
-      for (const t of ['Constructora Paginación SAS', 'PRE-LARGO — Edificio de prueba de paginación', 'Ítem', 'Descripción', 'Precio unitario', `Página ${i + 1} de ${paginas.length}`]) {
+      for (const t of ['Constructora Paginación SAS', 'PRE-LARGO — Edificio de prueba de paginación', 'Código', 'Descripción', 'Precio unitario', `Página ${i + 1} de ${paginas.length}`]) {
         assert.ok(pagina.includes(t), `la página ${i + 1} no trae «${t}»`);
       }
     });
@@ -160,7 +160,7 @@ describe('PDF de un presupuesto largo: la paginación', () => {
       const conPie = paginas.filter((p) => p.includes('VALOR TOTAL') || p.includes('Total costo indirecto'));
       assert.equal(conPie.length, 1, `con ${n} actividades el pie quedó partido en ${conPie.length} páginas`);
       assert.ok(
-        conPie[0]!.some((t) => /^\d+\.\d+$/.test(t)),
+        conPie[0]!.some((t) => /^APU-\d+$/.test(t)),
         `con ${n} actividades la página del pie no trae ninguna fila de la EDT`,
       );
     }

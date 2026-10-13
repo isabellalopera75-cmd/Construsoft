@@ -90,9 +90,9 @@ describe('cierre de la fase 3: el presupuesto de referencia (06 §8)', () => {
     assert.deepEqual(
       edt.map((n) => [n.codigoWbs, n.nombre, n.clasificacion, n.montoAcumulado]),
       [
-        ['1.0', 'PRELIMINARES', 'INDIRECTO', '53000000.000000'],
-        ['2.0', 'CIMENTACIÓN', 'DIRECTO', '68295000.000000'],
-        ['3.0', 'ESTRUCTURA', 'DIRECTO', '37195000.000000'],
+        ['1', 'PRELIMINARES', 'INDIRECTO', '53000000.000000'],
+        ['2', 'CIMENTACIÓN', 'DIRECTO', '68295000.000000'],
+        ['3', 'ESTRUCTURA', 'DIRECTO', '37195000.000000'],
       ],
     );
     // Precisión completa, sin redondear (06 §2.2): la pantalla redondea al mostrar.
@@ -124,7 +124,7 @@ describe('cierre de la fase 3: el presupuesto de referencia (06 §8)', () => {
 
     assert.deepEqual(
       (await leerEdt(contexto, soloIndirectos.id)).map((n) => [n.codigoWbs, n.montoAcumulado, n.incidenciaPct]),
-      [['1.0', '45000000.000000', null]],
+      [['1', '45000000.000000', null]],
     );
     assert.deepEqual(
       { cd: p.totalCostoDirecto, aiu: p.totalAiu, total: p.valorTotal, sinBaseAiu: p.sinBaseAiu },

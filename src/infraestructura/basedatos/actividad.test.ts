@@ -164,7 +164,7 @@ describe('actividades: agregar, cantidad, reordenar y eliminar', () => {
     });
   });
 
-  test('capítulos y actividades comparten contador: 1.1 actividad, 1.2 subcapítulo, 1.2.1 su actividad, 1.3 (D-42)', async () => {
+  test('capítulos y actividades comparten contador, los subcapítulos primero: 1.1 subcapítulo, 1.1.1 su actividad, 1.2 y 1.3 las directas (D-42, D-75)', async () => {
     const { presupuestoId, capituloId } = await presupuestoConCapitulo();
     await agregarActividad(contexto(), capituloId, apuMil.id, '1');
     const sub = await agregarSubcapitulo(contexto(), capituloId, { nombre: 'Concretos' });
@@ -172,13 +172,13 @@ describe('actividades: agregar, cantidad, reordenar y eliminar', () => {
     await agregarActividad(contexto(), capituloId, apuMil.id, '3');
 
     assert.deepEqual(forma(await leerActividades(contexto(), presupuestoId)), [
-      ['1.1', 'Actividad de mil', '1.000000'],
-      ['1.2.1', 'Actividad de precio fino', '2.000000'],
+      ['1.1.1', 'Actividad de precio fino', '2.000000'],
+      ['1.2', 'Actividad de mil', '1.000000'],
       ['1.3', 'Actividad de mil', '3.000000'],
     ]);
     assert.deepEqual(
       (await leerEdt(contexto(), presupuestoId)).map((n) => n.codigoWbs),
-      ['1.0', '1.2'],
+      ['1', '1.1'],
     );
   });
 
@@ -192,7 +192,7 @@ describe('actividades: agregar, cantidad, reordenar y eliminar', () => {
     assert.equal((await leerPresupuesto(contexto(), presupuestoId))!.totalCostoDirecto, '7000.000000');
     assert.deepEqual(
       (await leerEdt(contexto(), presupuestoId)).map((n) => [n.codigoWbs, n.montoAcumulado, n.incidenciaPct?.slice(0, 6)]),
-      [['1.0', '7000.000000', '100.00']],
+      [['1', '7000.000000', '100.00']],
     );
   });
 

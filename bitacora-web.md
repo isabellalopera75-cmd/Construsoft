@@ -6,6 +6,52 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-13 · martes
+
+**Decisión del dueño: la numeración de la mesa (D-75).** Las filas son más
+bajas. La actividad ya no lleva número jerárquico: en la columna del código va
+el de su APU. Los subcapítulos van antes que las actividades directas. Los
+números llevan ceros a la izquierda según cuántos hay en el nivel (`01 … 12`,
+`001 … 100`). El capítulo deja de ser «1.0» y pasa a ser «01».
+
+**Hecho** (sin commit)
+
+- **Esquema, D-75**, con `docs/prueba-d75.sql` (19 de 19). Las ocho baterías
+  dan verde en un PostgreSQL 16 limpio. Sembré tres defectos, uno a la vez,
+  y cada uno tumba casos:
+  - ordenar por `orden` antes que por clase tumba 9;
+  - quitar los ceros tumba 5;
+  - dejar que un subcapítulo baje a las actividades tumba 1.
+  - `fn_renumerar_wbs`: los lugares se ordenan por
+    `(es_nodo DESC, orden, id)`. Calcula el ancho de cada nivel y arma el
+    código con `lpad`. El capítulo ya no lleva «.0». Sigue siendo una sola
+    foto, como en D-69.
+  - `fn_mover_en_edt` mueve a cada uno solo dentro de su grupo.
+  - **`prueba-edt.sql` cambió en dos casos.** El 6 movía una actividad al
+    lugar 1, y ahora la lleva al primer lugar de las actividades. El 15 pedía
+    «B antes de C», y ahora pide «C antes de B». El invariante (hermanos
+    1..n, códigos sin chocar) no cambió.
+- **La mesa**, contra el **CONTRATO §16**:
+  - La columna «Código»: el número del capítulo, o el código del APU de la
+    actividad. Ya no hay columna aparte para el APU ni modo compacto.
+  - La descripción de la actividad va sangrada debajo de su capítulo.
+  - Con mouse, las filas miden unos 30 px: controles de 24 px, el mínimo de
+    WCAG 2.5.8. En pantallas táctiles se quedan los 44 px.
+  - Subir y bajar se apagan en el borde de su grupo.
+
+**Lo que necesito**
+
+- **Recargar el esquema** en las dos bases y correr las ocho baterías.
+- **Revisar tus pruebas que esperan «1.0» o «1.1»** como código: ahora el
+  capítulo es «1» o «01».
+- **Las exportaciones**, según el §16:
+  - la actividad con su `codigoApu` en la columna del número;
+  - el capítulo con su código nuevo;
+  - el orden de la mesa.
+- Si un movimiento rechazado por D-75 no sale hoy como 422, que salga.
+
+---
+
 ## 2026-10-12 · lunes
 
 **Decisión del dueño (11 y 12 de octubre): el ciclo de vida de la

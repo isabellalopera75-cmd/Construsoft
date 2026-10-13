@@ -39,7 +39,7 @@ async function enviar(metodo: 'POST' | 'PATCH' | 'DELETE', url: string, cookie: 
   return { estado: r.statusCode, cuerpo: r.json<Mesa & { mensaje?: string; campo?: string }>(), crudo: r.body };
 }
 
-/** El árbol como texto, en orden de presentación: «1.0 OBRA (DIRECTO)», «1.1 Excavación», … */
+/** El árbol como texto, en orden de presentación: «1 OBRA (DIRECTO)», «1.1 Excavación», … */
 function arbol(m: Mesa): string[] {
   const hijos = (padre: string | null): string[] =>
     [
@@ -66,9 +66,9 @@ describe('estructura de la mesa: cada mutación responde con la mesa completa re
     const r = await enviar('POST', `/api/presupuestos/${wbs}/capitulos`, duena.cookie, { nombre: 'PRELIMINARES', clasificacion: 'INDIRECTO' });
     assert.equal(r.estado, 201, r.crudo);
     assert.equal(r.cuerpo.cabecera.id, wbs);
-    assert.deepEqual(arbol(r.cuerpo), ['1.0 PRELIMINARES (INDIRECTO)']);
+    assert.deepEqual(arbol(r.cuerpo), ['1 PRELIMINARES (INDIRECTO)']);
     const r2 = await enviar('POST', `/api/presupuestos/${wbs}/capitulos`, duena.cookie, { nombre: 'OBRA', clasificacion: 'DIRECTO' });
-    assert.deepEqual(arbol(r2.cuerpo), ['1.0 PRELIMINARES (INDIRECTO)', '2.0 OBRA (DIRECTO)']);
+    assert.deepEqual(arbol(r2.cuerpo), ['1 PRELIMINARES (INDIRECTO)', '2 OBRA (DIRECTO)']);
   });
 
   test('la clasificación es obligatoria y sin valor por defecto: 422 que marca el campo (02 §8.4)', async () => {
@@ -86,7 +86,7 @@ describe('estructura de la mesa: cada mutación responde con la mesa completa re
     const cubierta = mesa.nodos.find((n) => n.nombre === 'CUBIERTA')!;
     const r = await enviar('POST', `/api/nodos/${cubierta.id}/subniveles`, duena.cookie, { nombre: 'Tejas' });
     assert.equal(r.estado, 201, r.crudo);
-    assert.ok(arbol(r.cuerpo).includes(`${cubierta.codigoWbs.replace('.0', '.1')} Tejas (DIRECTO)`), arbol(r.cuerpo).join(' | '));
+    assert.ok(arbol(r.cuerpo).includes(`${cubierta.codigoWbs}.1 Tejas (DIRECTO)`), arbol(r.cuerpo).join(' | '));
 
     const conClase = await enviar('POST', `/api/nodos/${cubierta.id}/subniveles`, duena.cookie, { nombre: 'X', clasificacion: 'INDIRECTO' });
     assert.deepEqual([conClase.estado, conClase.cuerpo.campo], [422, 'clasificacion']);
@@ -106,10 +106,10 @@ describe('estructura de la mesa: cada mutación responde con la mesa completa re
 
     const renombrado = await enviar('PATCH', `/api/nodos/${sub.id}`, duena.cookie, { nombre: 'Muros de carga' });
     assert.equal(renombrado.estado, 200, renombrado.crudo);
-    assert.deepEqual(arbol(renombrado.cuerpo), ['1.0 OBRA (DIRECTO)', '1.1 Muros de carga (DIRECTO)']);
+    assert.deepEqual(arbol(renombrado.cuerpo), ['1 OBRA (DIRECTO)', '1.1 Muros de carga (DIRECTO)']);
 
     const reclasificado = await enviar('PATCH', `/api/nodos/${cap.id}`, duena.cookie, { clasificacion: 'INDIRECTO' });
-    assert.deepEqual(arbol(reclasificado.cuerpo), ['1.0 OBRA (INDIRECTO)', '1.1 Muros de carga (INDIRECTO)']);
+    assert.deepEqual(arbol(reclasificado.cuerpo), ['1 OBRA (INDIRECTO)', '1.1 Muros de carga (INDIRECTO)']);
 
     // Un subnivel no se reclasifica: lo rechaza la base (D-8).
     const sobreSub = await enviar('PATCH', `/api/nodos/${sub.id}`, duena.cookie, { clasificacion: 'DIRECTO' });
@@ -120,7 +120,7 @@ describe('estructura de la mesa: cada mutación responde con la mesa completa re
     await enviar('PATCH', `/api/nodos/${cap.id}`, duena.cookie, { nombre: 'OBRA GRIS' });
     const dosVeces = await enviar('PATCH', `/api/nodos/${cap.id}`, duena.cookie, { clasificacion: 'DIRECTO' });
     assert.equal(dosVeces.estado, 200, dosVeces.crudo);
-    assert.deepEqual(arbol(dosVeces.cuerpo), ['1.0 OBRA GRIS (DIRECTO)', '1.1 Muros de carga (DIRECTO)']);
+    assert.deepEqual(arbol(dosVeces.cuerpo), ['1 OBRA GRIS (DIRECTO)', '1.1 Muros de carga (DIRECTO)']);
 
     for (const cuerpo of [{}, { nombre: 'A', clasificacion: 'DIRECTO' }]) {
       assert.equal((await enviar('PATCH', `/api/nodos/${cap.id}`, duena.cookie, cuerpo)).estado, 422);
@@ -135,7 +135,7 @@ describe('estructura de la mesa: cada mutación responde con la mesa completa re
 
     const r1 = await enviar('POST', `/api/nodos/${c.id}/mover`, duena.cookie, { posicion: 1 });
     assert.equal(r1.estado, 200, r1.crudo);
-    assert.deepEqual(arbol(r1.cuerpo), ['1.0 C (INDIRECTO)', '2.0 A (DIRECTO)', '3.0 B (DIRECTO)']);
+    assert.deepEqual(arbol(r1.cuerpo), ['1 C (INDIRECTO)', '2 A (DIRECTO)', '3 B (DIRECTO)']);
     const r2 = await enviar('POST', `/api/nodos/${c.id}/mover`, duena.cookie, { posicion: 1 });
     assert.deepEqual(arbol(r2.cuerpo), arbol(r1.cuerpo));
 
@@ -146,9 +146,27 @@ describe('estructura de la mesa: cada mutación responde con la mesa completa re
     assert.match(fuera.cuerpo.mensaje!, /1 a 3/);
     // El borde: la última posición existe.
     const alFinal = await enviar('POST', `/api/nodos/${c.id}/mover`, duena.cookie, { posicion: 3 });
-    assert.deepEqual([alFinal.estado, arbol(alFinal.cuerpo)], [200, ['1.0 A (DIRECTO)', '2.0 B (DIRECTO)', '3.0 C (INDIRECTO)']]);
+    assert.deepEqual([alFinal.estado, arbol(alFinal.cuerpo)], [200, ['1 A (DIRECTO)', '2 B (DIRECTO)', '3 C (INDIRECTO)']]);
     const noEntero = await enviar('POST', `/api/nodos/${c.id}/mover`, duena.cookie, { posicion: 1.5 });
     assert.deepEqual([noEntero.estado, noEntero.cuerpo.campo], [422, 'posicion']);
+  });
+
+  test('cada uno se mueve dentro de su grupo: el subcapítulo no baja a las actividades ni la actividad sube (D-75, CONTRATO §16)', async () => {
+    const p = (await crearPresupuesto(duena.contexto, { codigo: 'EST-GRUPO', nombre: 'Grupos', ubicacion: 'Itagüí', modoEstructura: 'WBS' })).id;
+    const obra = await agregarCapitulo(duena.contexto, p, { nombre: 'OBRA', clasificacion: 'DIRECTO' });
+    const directa = await agregarActividad(duena.contexto, obra.id, referencia.concreto.id, '1');
+    const muros = await agregarSubcapitulo(duena.contexto, obra.id, { nombre: 'Muros' });
+
+    const mesa = await enviar('POST', `/api/nodos/${muros.id}/mover`, duena.cookie, { posicion: 1 });
+    assert.deepEqual(arbol(mesa.cuerpo), ['1 OBRA (DIRECTO)', '1.1 Muros (DIRECTO)', '1.2'], 'el subcapítulo va primero aunque llegó después');
+
+    const baja = await enviar('POST', `/api/nodos/${muros.id}/mover`, duena.cookie, { posicion: 2 });
+    const sube = await enviar('POST', `/api/actividades/${directa.id}/mover`, duena.cookie, { posicion: 1 });
+    for (const r of [baja, sube]) {
+      assert.equal(r.estado, 422, r.crudo);
+      assert.equal(r.cuerpo.campo, undefined, 'es una regla de la EDT, no un dato mal escrito');
+      assert.ok(r.cuerpo.mensaje, 'el mensaje de la base llega tal cual');
+    }
   });
 
   test('eliminar con contenido pide confirmación: 409 con los conteos en el mensaje; con ?confirmado=si se borra', async () => {
@@ -165,7 +183,7 @@ describe('estructura de la mesa: cada mutación responde con la mesa completa re
 
     const confirmado = await enviar('DELETE', `/api/nodos/${cap.id}?confirmado=si`, duena.cookie);
     assert.equal(confirmado.estado, 200, confirmado.crudo);
-    assert.deepEqual(arbol(confirmado.cuerpo), ['1.0 VACÍO (DIRECTO)']);
+    assert.deepEqual(arbol(confirmado.cuerpo), ['1 VACÍO (DIRECTO)']);
 
     // Un nivel sin nada debajo se borra sin pedir confirmación.
     const sinNada = await enviar('DELETE', `/api/nodos/${vacio.id}`, duena.cookie);
@@ -265,6 +283,6 @@ describe('aislamiento: la estructura de otra empresa no existe (RN-01)', () => {
     }
 
     const mesaDeB = await app.inject({ method: 'GET', url: `/api/presupuestos/${deB}/mesa`, remoteAddress: otraIp(), headers: { cookie: b.cookie } });
-    assert.deepEqual(arbol(mesaDeB.json<Mesa>()), ['1.0 DE B (DIRECTO)', '2.0 OTRO DE B (DIRECTO)']);
+    assert.deepEqual(arbol(mesaDeB.json<Mesa>()), ['1 DE B (DIRECTO)', '2 OTRO DE B (DIRECTO)']);
   });
 });

@@ -701,7 +701,6 @@ textarea { min-height: 88px; padding: var(--e2) var(--e3); resize: vertical; wid
 .tabla-mesa { font-size: var(--letra-sm); }
 .tabla-mesa td, .tabla-mesa th { padding: var(--e2); vertical-align: middle; }
 .tabla-mesa .col-item { white-space: nowrap; width: 1%; }
-.tabla-mesa .col-apu { white-space: nowrap; width: 1%; }
 .tabla-mesa .col-und { width: 1%; white-space: nowrap; color: var(--texto-segundo); }
 .tabla-mesa .col-incidencia { width: 1%; white-space: nowrap; }
 .tabla-mesa .col-acciones { width: 1%; white-space: nowrap; }
@@ -717,7 +716,10 @@ textarea { min-height: 88px; padding: var(--e2) var(--e3); resize: vertical; wid
 .flecha[data-plegado='si'] { transform: none; }
 .insignia-clasificacion[data-clasificacion='DIRECTO'] { color: var(--terracota); background: var(--terracota-velo); }
 .insignia-clasificacion[data-clasificacion='INDIRECTO'] { color: var(--texto-segundo); background: color-mix(in srgb, var(--texto-segundo) 12%, transparent); }
-.fila-actividad .col-descripcion { padding-left: var(--e5); min-width: 14rem; }
+.fila-actividad .col-descripcion { padding-left: calc(var(--e3) + var(--sangria, 0px)) !important; min-width: 14rem; }
+/* D-75 · El código del APU, alineado con los números de capítulo: corre lo
+   que ocupa el botón de plegar de la fila de arriba. */
+.fila-actividad .col-item .cifra-codigo { padding-left: calc(var(--ancho-plegar) + var(--e1)); }
 .acciones-de-fila { display: inline-flex; gap: 2px; }
 .fila-agregar td { border-bottom: 1px solid var(--borde-tenue); }
 .col-agregar { padding-left: calc(var(--e3) + var(--sangria, 0px)) !important; }
@@ -887,7 +889,6 @@ textarea { min-height: 88px; padding: var(--e2) var(--e3); resize: vertical; wid
   .acciones-de-encabezado { flex-direction: column-reverse; }
   .acciones-de-encabezado .boton { width: 100%; }
 }
-.codigo-en-descripcion { display: block; margin-bottom: 2px; }
 /* La mesa en un portátil de 1280: la descripción y la cantidad ceden lo que
    haga falta para que no haya que desplazarse de lado. */
 @container (max-width: 1100px) {
@@ -1070,4 +1071,69 @@ textarea { min-height: 88px; padding: var(--e2) var(--e3); resize: vertical; wid
   .barra-de-cuenta-detenida .quien-soy-texto { display: none; }
   .aviso-de-cuenta { padding: var(--e4); }
   .aviso-de-cuenta > .icono { display: none; }
+}
+
+/* --- Densidad (decisión del dueño, 13 de octubre de 2026) -----------------
+   Las tablas y la cabecera de la mesa ocupaban demasiado. Con mouse se
+   aprietan: celdas de 6 × 12 px, controles de 28 a 30 px. En pantallas táctiles
+   no cambia nada: ahí los 44 px del DISENO §6 hacen falta. Va antes del bloque
+   de la mesa, que aprieta todavía más sus filas. */
+@media (pointer: fine) {
+  h1 { font-size: var(--letra-xl); }
+  .contenido { padding-top: var(--e5); }
+  .encabezado-de-pantalla { margin-bottom: var(--e4); gap: var(--e3); }
+  .encabezado-con-volver { gap: var(--e2); }
+  .bajada { font-size: var(--letra-sm); }
+  .pestana { min-height: 32px; padding-top: 0; padding-bottom: 0; font-size: var(--letra-sm); }
+  .tabla th { padding: 6px var(--e3); }
+  .tabla td { padding: 6px var(--e3); }
+  .tabla .boton-icono,
+  .tabla .boton-chico { width: 28px; min-height: 28px; border-radius: var(--radio-sm); }
+  .tabla .boton, .tabla .boton-chico-texto { min-height: 28px; padding: 0 var(--e3); }
+  .tabla input, .tabla select { min-height: 28px; }
+  .tabla .insignia { padding-top: 0; padding-bottom: 0; }
+
+  /* La cabecera de la mesa: una franja, no una tarjeta alta. Las acciones van
+     en una sola fila que se parte si no cabe. */
+  .mesa { gap: var(--e3); }
+  .encabezado-de-mesa { padding: var(--e3) var(--e4); gap: var(--e2); }
+  .encabezado-de-mesa-arriba { gap: var(--e2); }
+  .encabezado-de-mesa .boton-volver { min-height: 28px; }
+  .codigo-de-mesa { padding: 0 var(--e2); font-size: var(--letra-sm); }
+  .titulo-de-mesa { font-size: var(--letra-lg); }
+  .datos-de-mesa { font-size: var(--letra-xs); gap: var(--e1) var(--e4); }
+  .acciones-de-mesa { display: flex; flex-wrap: wrap; gap: var(--e2); padding-top: var(--e2); }
+  .acciones-de-mesa-grupo { gap: var(--e1); }
+  .encabezado-de-mesa .boton,
+  .acciones-secundarias .boton { min-height: 30px; padding: 0 var(--e3); font-size: var(--letra-xs); gap: var(--e1); }
+  .encabezado-de-mesa .boton .icono { width: 16px; height: 16px; }
+  .barra-de-estructura .boton { min-height: 30px; padding: 0 var(--e3); }
+
+  /* Agregar una actividad: el buscador y la cantidad del alto de una fila. */
+  .agregar-actividad .control-con-icono input,
+  .agregar-elegido input,
+  .agregar-elegido .boton { min-height: 28px; }
+  .agregar-actividad .control-con-icono .icono { width: 16px; height: 16px; }
+  .agregar-actividad .control-con-icono input { padding-left: calc(var(--e3) + 16px + var(--e2)); font-size: var(--letra-sm); }
+  .agregar-actividad > .boton-icono { width: 28px; min-height: 28px; }
+  .agregar-elegido { gap: var(--e2); }
+  .agregar-elegido-apu { font-size: var(--letra-sm); }
+  .tabla-mesa .fila-agregar-abierta td { padding-top: var(--e1); padding-bottom: var(--e1); }
+}
+
+/* --- D-75 · La mesa más apretada (decisión del dueño, 13 de octubre) -------
+   Con mouse, cada fila mide lo que la letra más un margen mínimo: los
+   controles de 44 px del DISENO §3 se quedan para las pantallas táctiles, donde
+   sí hace falta el dedo. 24 px es el mínimo de WCAG 2.5.8. */
+.tabla-mesa { --ancho-plegar: var(--toque-minimo); }
+@media (pointer: fine) {
+  .tabla-mesa { --ancho-plegar: 24px; --alto-control-mesa: 24px; }
+  .tabla-mesa td { padding-top: 1px; padding-bottom: 1px; }
+  .tabla-mesa th { padding-top: var(--e1); padding-bottom: var(--e1); }
+  .tabla-mesa .boton-icono,
+  .tabla-mesa .boton-chico { width: var(--alto-control-mesa); min-height: var(--alto-control-mesa); border-radius: var(--radio-sm); }
+  .tabla-mesa .boton-plegar { width: var(--ancho-plegar); min-height: var(--alto-control-mesa); }
+  .tabla-mesa .campo-compacto { min-height: var(--alto-control-mesa); height: var(--alto-control-mesa); border-radius: var(--radio-sm); }
+  .tabla-mesa .boton-agregar-actividad { min-height: var(--alto-control-mesa); }
+  .tabla-mesa .insignia-clasificacion { padding-top: 0; padding-bottom: 0; }
 }

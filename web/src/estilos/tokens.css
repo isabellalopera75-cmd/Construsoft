@@ -215,3 +215,20 @@
     --sombra-flotante: 0 8px 30px rgba(0, 0, 0, 0.15);
   }
 }
+
+/* Densidad (decisión del dueño, 13 de octubre de 2026). Con mouse, el
+   alto mínimo de botones y campos baja a 36 px y la letra un punto: la
+   pantalla se veía grande, y la pauta de 44 px es para el dedo. En pantallas
+   táctiles todo sigue como arriba. El cuerpo queda en 15 px y el texto
+   secundario en 13, que sigue siendo legible en un portátil. */
+@media (pointer: fine) {
+  :root {
+    --toque-minimo: 36px;
+    --letra-sm: 0.8125rem;  /* 13px */
+    --letra-md: 0.9375rem;  /* 15px */
+    --letra-lg: 1.0625rem;  /* 17px */
+    --letra-xl: 1.375rem;   /* 22px */
+    --letra-2xl: 1.75rem;   /* 28px */
+    --alto-barra: 56px;
+  }
+}

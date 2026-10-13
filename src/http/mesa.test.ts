@@ -72,9 +72,9 @@ describe('GET /api/presupuestos/:id/mesa: la lectura única de la mesa de trabaj
     assert.deepEqual(
       cuerpo.nodos.map((n) => [n.codigoWbs, n.posicion, n.nivel, n.nombre, n.clasificacion, n.padreId]),
       [
-        ['1.0', 1, 1, 'PRELIMINARES', 'INDIRECTO', null],
-        ['2.0', 2, 1, 'CIMENTACIÓN', 'DIRECTO', null],
-        ['3.0', 3, 1, 'ESTRUCTURA', 'DIRECTO', null],
+        ['1', 1, 1, 'PRELIMINARES', 'INDIRECTO', null],
+        ['2', 2, 1, 'CIMENTACIÓN', 'DIRECTO', null],
+        ['3', 3, 1, 'ESTRUCTURA', 'DIRECTO', null],
       ],
     );
     const preliminares = cuerpo.nodos[0]!;
@@ -85,13 +85,13 @@ describe('GET /api/presupuestos/:id/mesa: la lectura única de la mesa de trabaj
     assert.deepEqual(
       cuerpo.actividades.map((a) => [capituloDe.get(a.nodoId), a.codigoItem, a.posicion, a.descripcion]),
       [
-        ['1.0', '1.1', 1, 'Topografía y replanteo'],
-        ['1.0', '1.2', 2, 'Estudio de suelos'],
-        ['1.0', '1.3', 3, 'Director de obra'],
-        ['2.0', '2.1', 1, 'Excavación manual'],
-        ['2.0', '2.2', 2, 'Concreto 3000 PSI para zapatas'],
-        ['3.0', '3.1', 1, 'Acero de refuerzo 60.000 PSI'],
-        ['3.0', '3.2', 2, 'Formaleta metálica'],
+        ['1', '1.1', 1, 'Topografía y replanteo'],
+        ['1', '1.2', 2, 'Estudio de suelos'],
+        ['1', '1.3', 3, 'Director de obra'],
+        ['2', '2.1', 1, 'Excavación manual'],
+        ['2', '2.2', 2, 'Concreto 3000 PSI para zapatas'],
+        ['3', '3.1', 1, 'Acero de refuerzo 60.000 PSI'],
+        ['3', '3.2', 2, 'Formaleta metálica'],
       ],
     );
     const concreto = cuerpo.actividades[4]!;

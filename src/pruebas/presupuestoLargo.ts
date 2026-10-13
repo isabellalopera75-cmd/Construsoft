@@ -17,7 +17,7 @@ export function presupuestoLargo(totalActividades = 80): DocumentoExportable {
     const n = c + 1;
     capitulos.push({
       id: `cap-${n}`,
-      codigoWbs: `${n}.0`,
+      codigoWbs: `${n}`,
       padreCodigo: null,
       nivel: 1,
       nombre,
@@ -33,8 +33,9 @@ export function presupuestoLargo(totalActividades = 80): DocumentoExportable {
         id: `item-${n}-${a}`,
         wbsNodoId: `cap-${n}`,
         codigoItem: `${n}.${a}`,
-        codigoWbsPadre: `${n}.0`,
-        codigoApu: `APU-${n}${a}`,
+        codigoWbsPadre: `${n}`,
+        // Ordenable y sin choques: APU-101 … APU-516. Es lo que imprime la columna del ítem (CONTRATO §16).
+        codigoApu: `APU-${n}${String(a).padStart(2, '0')}`,
         descripcion: larga
           ? `Actividad ${n}.${a}: suministro, transporte e instalación con todos los elementos necesarios para su correcto funcionamiento`
           : `Actividad ${n}.${a}`,

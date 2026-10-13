@@ -137,8 +137,11 @@ VALUES (:'t', :'p', :'c1','S3') RETURNING id AS s3 \gset
 INSERT INTO r VALUES ('5 · agregar un subcapítulo al final', pg_temp.mirar(:'p'), 'OK');
 
 -- mover
-SELECT app.fn_mover_en_edt(:'x1', 1) AS _ \gset y_
-INSERT INTO r VALUES ('6 · mover una actividad al lugar 1', pg_temp.mirar(:'p'), 'OK');
+-- D-75 · Una actividad solo se mueve entre las actividades: su primer lugar
+-- es el que sigue al último subcapítulo.
+SELECT count(*) + 1 AS primera_act FROM app.wbs_nodo WHERE padre_id = :'c1' \gset
+SELECT app.fn_mover_en_edt(:'x1', :primera_act) AS _ \gset y_
+INSERT INTO r VALUES ('6 · mover una actividad al primer lugar de las actividades', pg_temp.mirar(:'p'), 'OK');
 SELECT app.fn_mover_en_edt(:'s2', 2) AS _ \gset y_
 INSERT INTO r VALUES ('7 · mover un subcapítulo al lugar 2', pg_temp.mirar(:'p'), 'OK');
 
@@ -182,22 +185,23 @@ INSERT INTO r VALUES ('13 · [nodo, actividad, nodo] recién armados', pg_temp.m
 DELETE FROM app.wbs_nodo WHERE id = :'na';
 INSERT INTO r VALUES ('14 · borrar el PRIMERO de [nodo, actividad, nodo]', pg_temp.mirar(:'p'), 'OK');
 
--- Y que el orden que la persona había armado se conserve: la actividad B venía
--- antes del nodo C, y tiene que seguir antes.
+-- D-75 · Los subcapítulos van antes que las actividades: borrado A, el nodo C
+-- queda primero y la actividad B después. (Antes de D-75 se pedía lo
+-- contrario, «B antes de C», porque así lo había armado la persona.)
 -- Se compara el orden y no los códigos literales: los códigos dependen de lo
 -- que pasó antes en este mismo guion —CAP 3 queda como «2.0» porque el caso 12
 -- borró CAP 2— y una expectativa escrita a mano se rompe al agregar un caso.
 -- Lo que importa es la relación, no el número.
 INSERT INTO r
-SELECT '15 · B sigue antes que C, que es el orden que la persona armó',
-       CASE WHEN (SELECT orden FROM app.presupuesto_item WHERE id = :'nb')
-                 < (SELECT orden FROM app.wbs_nodo WHERE id = :'nc')
-            THEN 'B antes de C'
+SELECT '15 · el subcapítulo C va antes que la actividad B (D-75)',
+       CASE WHEN (SELECT orden FROM app.wbs_nodo WHERE id = :'nc')
+                 < (SELECT orden FROM app.presupuesto_item WHERE id = :'nb')
+            THEN 'C antes de B'
             ELSE 'ORDEN INVERTIDO: '
                  || (SELECT codigo_item FROM app.presupuesto_item WHERE id = :'nb')
                  || ' y ' || (SELECT codigo_wbs FROM app.wbs_nodo WHERE id = :'nc')
        END,
-       'B antes de C';
+       'C antes de B';
 
 \echo ''
 \echo '=== Casos que no dieron OK (lo correcto es ninguno) ==='

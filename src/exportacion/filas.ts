@@ -11,6 +11,7 @@ import { formatearNumero } from '../comun/formatoNumerico.js';
  */
 export interface FilaOferta {
   tipo: 'capitulo' | 'actividad';
+  /** El número del capítulo, o el código del APU de la actividad (CONTRATO §16). */
   codigo: string;
   /** 1 el capítulo; 2 lo que cuelga de él; y así hacia abajo. */
   nivel: number;
@@ -21,7 +22,7 @@ export interface FilaOferta {
   total: string;
 }
 
-/** «1.2.10» → [1, 2, 10]. Leído como enteros, el 1.10 va después del 1.9. */
+/** «01.02.10» → [1, 2, 10]. Leído como enteros, el 1.10 va después del 1.9, con ceros o sin ellos. */
 function comoEnteros(codigo: string): number[] {
   return codigo.split('.').map((parte) => Number.parseInt(parte, 10));
 }
@@ -38,34 +39,48 @@ function compararCodigos(a: string, b: string): number {
 
 /**
  * La fotografía trae capítulos y actividades en dos listas; la oferta los
- * lleva intercalados. Ordenar es todo lo que hace esta función: no suma ni
- * calcula, y el nivel de una actividad es el de su número de ítem (D-42), que
- * la base ya derivó. El capítulo se numera «1.0» y su primer hijo «1.1»: como
- * ningún hijo lleva el índice 0, comparar [1, 0] con [1, 1] deja al capítulo
- * delante de lo que cuelga de él.
+ * lleva intercalados, en el orden de la mesa. No suma ni calcula.
+ *
+ * El orden sale de los códigos que la base ya derivó: el del capítulo y el
+ * número de ítem de la actividad (D-42), que se sigue derivando aunque no se
+ * muestre. Desde D-75 los subcapítulos ocupan las primeras posiciones bajo su
+ * padre y las actividades las siguientes, así que ordenar esos códigos da el
+ * orden de la mesa. Una versión aprobada antes de D-75 conserva sus códigos
+ * —«1.0», la actividad antes que el subcapítulo— y con ellos su orden (RN-04):
+ * comparar [1, 0] con [1, 1] deja al capítulo delante de sus hijos.
+ *
+ * Lo que se muestra es otra cosa: la actividad se identifica por el código de
+ * su APU (CONTRATO §16), y su nivel es el de su capítulo más uno.
  */
 export function filasDeLaOferta(fotografia: FotografiaPresupuesto): FilaOferta[] {
-  const capitulos: FilaOferta[] = fotografia.capitulos.map((c) => ({
-    tipo: 'capitulo',
-    codigo: c.codigoWbs,
-    nivel: c.nivel,
-    descripcion: c.nombre,
-    unidad: null,
-    cantidad: null,
-    precioUnitario: null,
-    total: c.montoAcumulado,
+  const nivelDe = new Map(fotografia.capitulos.map((c) => [c.id, c.nivel]));
+  const capitulos = fotografia.capitulos.map((c) => ({
+    orden: c.codigoWbs,
+    fila: {
+      tipo: 'capitulo' as const,
+      codigo: c.codigoWbs,
+      nivel: c.nivel,
+      descripcion: c.nombre,
+      unidad: null,
+      cantidad: null,
+      precioUnitario: null,
+      total: c.montoAcumulado,
+    },
   }));
-  const actividades: FilaOferta[] = fotografia.items.map((i) => ({
-    tipo: 'actividad',
-    codigo: i.codigoItem,
-    nivel: comoEnteros(i.codigoItem).length,
-    descripcion: i.descripcion,
-    unidad: i.unidad,
-    cantidad: i.cantidad,
-    precioUnitario: i.precioUnitario,
-    total: i.costoTotal,
+  const actividades = fotografia.items.map((i) => ({
+    orden: i.codigoItem,
+    fila: {
+      tipo: 'actividad' as const,
+      codigo: i.codigoApu,
+      nivel: (nivelDe.get(i.wbsNodoId) ?? comoEnteros(i.codigoWbsPadre).length) + 1,
+      descripcion: i.descripcion,
+      unidad: i.unidad,
+      cantidad: i.cantidad,
+      precioUnitario: i.precioUnitario,
+      total: i.costoTotal,
+    },
   }));
-  return [...capitulos, ...actividades].sort((a, b) => compararCodigos(a.codigo, b.codigo));
+  return [...capitulos, ...actividades].sort((a, b) => compararCodigos(a.orden, b.orden)).map((x) => x.fila);
 }
 
 /** Una línea del pie financiero: el concepto, con su porcentaje visible cuando lo tiene, y el importe en texto. */

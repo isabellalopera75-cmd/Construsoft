@@ -68,18 +68,47 @@ describe('Excel de la oferta (RF-PRE-29/31, RF-VER-07, 02 §9.5)', () => {
     version1 = (await leerVersionParaExportar(contexto, v1!.id))!;
   });
 
-  test('una sola hoja, en el orden de la oferta: capítulos y actividades intercalados', async () => {
+  /** El código del APU con que la fotografía guardó la actividad de esa descripción. */
+  const apuDe = (descripcion: string) => vivo.fotografia.items.find((i) => i.descripcion === descripcion)!.codigoApu;
+
+  /** Las dos primeras columnas de la tabla, desde la fila de títulos hasta la primera vacía. */
+  function tabla(hoja: ExcelJS.Worksheet): string[][] {
+    const filas: string[][] = [];
+    let dentro = false;
+    hoja.eachRow({ includeEmpty: true }, (f) => {
+      const primera = f.getCell(1).text;
+      if (primera === 'Código') return void (dentro = true);
+      if (!dentro) return;
+      if (primera === '') return void (dentro = false);
+      filas.push([primera, f.getCell(2).text]);
+    });
+    return filas;
+  }
+
+  test('una sola hoja, en el orden de la mesa: el capítulo con su número, la actividad con el código de su APU (CONTRATO §16)', async () => {
     const libro = await abrir(await generarExcel(vivo, null));
     assert.equal(libro.worksheets.length, 1);
     const hoja = libro.worksheets[0]!;
-    const codigos = textos(hoja).filter((t) => /^\d+\.\d+$/.test(t));
-    assert.deepEqual(codigos, ['1.0', '1.1', '1.2', '1.3', '2.0', '2.1', '2.2', '3.0', '3.1', '3.2']);
+    const actividad = (descripcion: string) => [apuDe(descripcion), descripcion];
+    assert.deepEqual(tabla(hoja), [
+      ['1', 'PRELIMINARES'],
+      actividad('Topografía y replanteo'),
+      actividad('Estudio de suelos'),
+      actividad('Director de obra'),
+      ['2', 'CIMENTACIÓN'],
+      actividad('Excavación manual'),
+      actividad('Concreto 3000 PSI para zapatas'),
+      ['3', 'ESTRUCTURA'],
+      actividad('Acero de refuerzo 60.000 PSI'),
+      actividad('Formaleta metálica'),
+    ]);
+    assert.ok(!textos(hoja).some((t) => /^\d+\.\d+$/.test(t)), 'el número de ítem de la actividad ya no se muestra');
   });
 
   test('agrupamiento nativo por nivel, con el resumen arriba: el capítulo encima de lo que cuelga de él', async () => {
     const hoja = (await abrir(await generarExcel(vivo, null))).worksheets[0]!;
     assert.deepEqual(
-      ['1.0', '1.1', '2.0', '2.2'].map((c) => fila(hoja, c).outlineLevel ?? 0),
+      ['1', apuDe('Topografía y replanteo'), '2', apuDe('Concreto 3000 PSI para zapatas')].map((c) => fila(hoja, c).outlineLevel ?? 0),
       [0, 1, 0, 1],
     );
     assert.equal(hoja.properties.outlineProperties?.summaryBelow, false);
@@ -87,12 +116,12 @@ describe('Excel de la oferta (RF-PRE-29/31, RF-VER-07, 02 §9.5)', () => {
 
   test('valores numéricos planos, sin una sola fórmula, con los decimales de la empresa', async () => {
     const hoja = (await abrir(await generarExcel(vivo, null))).worksheets[0]!;
-    const concreto = fila(hoja, '2.2');
+    const concreto = fila(hoja, apuDe('Concreto 3000 PSI para zapatas'));
     assert.deepEqual(
       [2, 3, 4, 5, 6].map((c) => concreto.getCell(c).value),
       ['Concreto 3000 PSI para zapatas', 'm³', 100, 636750, 63675000],
     );
-    assert.equal(fila(hoja, '2.0').getCell(6).value, 68295000);
+    assert.equal(fila(hoja, '2').getCell(6).value, 68295000);
     assert.equal(concreto.getCell(6).numFmt, '#,##0.00');
     hoja.eachRow((f) =>
       f.eachCell((celda) => assert.notEqual(celda.type, ExcelJS.ValueType.Formula, `fórmula en ${celda.address}`)),

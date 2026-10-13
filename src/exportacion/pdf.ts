@@ -30,8 +30,9 @@ const FILAS_QUE_ACOMPANAN_AL_PIE = 3;
 
 /** Columnas de la tabla: x, ancho y alineación. Carta, 612 puntos de ancho. */
 const COLUMNAS = [
-  { titulo: 'Ítem', x: 40, ancho: 42, alinear: 'left' },
-  { titulo: 'Descripción', x: 84, ancho: 206, alinear: 'left' },
+  // 50 y no 42: la actividad lleva el código de su APU («APU-0001», CONTRATO §16).
+  { titulo: 'Código', x: 40, ancho: 50, alinear: 'left' },
+  { titulo: 'Descripción', x: 92, ancho: 198, alinear: 'left' },
   { titulo: 'Unidad', x: 292, ancho: 40, alinear: 'left' },
   { titulo: 'Cantidad', x: 334, ancho: 62, alinear: 'right' },
   { titulo: 'Precio unitario', x: 398, ancho: 80, alinear: 'right' },

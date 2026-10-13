@@ -9,7 +9,7 @@ export interface Logo {
   tipo: 'png' | 'jpeg';
 }
 
-const COLUMNAS = ['Ítem', 'Descripción', 'Unidad', 'Cantidad', 'Precio unitario', 'Total'];
+const COLUMNAS = ['Código', 'Descripción', 'Unidad', 'Cantidad', 'Precio unitario', 'Total'];
 
 /**
  * Un importe listo para una celda numérica de Excel. Es el único Number() del

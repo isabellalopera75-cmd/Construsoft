@@ -35,7 +35,7 @@
 --  ---------------------------------------------------------------------------
 --  LAS DECISIONES DE DISEÑO QUE ESTE ESQUEMA IMPLEMENTA
 --
---  Son setenta y tres: D-1 a D-74, sin la D-10, que no existe. El motivo de
+--  Son setenta y cuatro: D-1 a D-75, sin la D-10, que no existe. El motivo de
 --  cada una está en la sección 14 del documento de alcance. Aquí va el
 --  enunciado, y cada decisión vuelve a aparecer anotada en el punto del esquema
 --  donde vive. Las ocho últimas están al final de esta lista y tienen fecha:
@@ -173,7 +173,9 @@
 --         mismo árbol: ITEMS solo prohíbe los subcapítulos. La numeración la
 --         deriva la base —capítulo 1.0, hijos 1.1, 1.2, nietos 1.1.1— y
 --         capítulos y actividades comparten contador, que es lo que permite
---         mezclarlos sin que los códigos choquen.
+--         mezclarlos sin que los códigos choquen. D-75 cambia la forma: el
+--         capítulo es «01», los subcapítulos van antes que las actividades y
+--         llevan ceros a la izquierda.
 --
 --  ---------------------------------------------------------------------------
 --  LO QUE SALIÓ DE LA AUDITORÍA EXTERNA DEL 24 DE SEPTIEMBRE DE 2026
@@ -585,6 +587,23 @@
 --         con la suspensión, y la fecha desde la que una empresa se puede
 --         eliminar. fn_eliminar_tenant usa la segunda, así que el botón del
 --         panel y el rechazo de la base no pueden discrepar.
+--   D-75  (posterior a la auditoría · cambia la numeración de D-42) Decisión
+--         del dueño, 13 de octubre de 2026. Tres reglas para la EDT:
+--            1. Bajo un mismo padre van primero los subcapítulos y después las
+--         actividades directas, a cualquier profundidad. Capítulos y
+--         actividades siguen compartiendo contador, así que los códigos no
+--         chocan; lo que cambia es que los subcapítulos ocupan siempre los
+--         primeros lugares. fn_mover_en_edt mueve a cada uno solo dentro de su
+--         grupo.
+--            2. Los capítulos y subcapítulos llevan ceros a la izquierda según
+--         cuántos hay en su nivel: de 10 a 99, dos cifras (01 … 12); de 100 a
+--         999, tres. Se cuenta el padre con más subcapítulos de ese nivel, para
+--         que todos los códigos del nivel tengan el mismo ancho. El capítulo
+--         pierde el «.0»: es «01», y su primer subcapítulo «01.1» u «01.01».
+--            3. La actividad no muestra número jerárquico: en la pantalla, y
+--         en lo que se exporte, la identifica el código del APU. codigo_item se
+--         sigue derivando (padre + lugar, sin ceros) porque es la llave estable
+--         de la fila y la que ordena; ya no es lo que lee el cliente.
 --   D-74  (posterior a la auditoría · el ciclo de vida de la suscripción)
 --         Decisión del dueño, 11 de octubre de 2026. Cinco reglas:
 --            1. Al vencer, una cuenta paga tiene DOS DÍAS HÁBILES para pagar
@@ -1997,7 +2016,10 @@ CREATE TABLE app.wbs_nodo (
     -- D-42 · El capítulo se numera «1.0» y los niveles inferiores «1.1»,
     -- «1.1.1». El cero del capítulo no es decoración: deja libre el 1.1 para
     -- su primer hijo, sea un subcapítulo o una actividad, y por eso capítulos
-    -- y actividades pueden convivir bajo el mismo padre sin chocar. Lo deriva
+    -- y actividades pueden convivir bajo el mismo padre sin chocar.
+    -- D-75 · Ya no: el capítulo es «01», con ceros a la izquierda según
+    -- cuántos hay en el nivel, y no choca porque los subcapítulos toman los
+    -- primeros lugares del contador y las actividades los siguientes. Lo deriva
     -- app.fn_renumerar_wbs del propio árbol; la aplicación no lo escribe.
     -- Sin NOT NULL, igual que codigo_item y por el mismo motivo: lo deriva
     -- app.fn_renumerar_wbs DESPUES de insertar, en el AFTER de la misma
@@ -2005,7 +2027,7 @@ CREATE TABLE app.wbs_nodo (
     -- inventar un codigo provisional que no choque con el UNIQUE, y ese codigo
     -- inventado seria un dato falso durante el rato que dura la transaccion.
     -- Los nulos no chocan entre si en un indice unico.
-    codigo_wbs       text,                                  -- '1.0', '1.2', '1.2.3' — RF-PRE-12
+    codigo_wbs       text,                                  -- '01', '01.02', '01.02.3' — RF-PRE-12, D-75
     nombre           text        NOT NULL,
     -- D-16: un capítulo es de costo DIRECTO (obra física) o INDIRECTO
     -- (topografía, dirección de obra, estudios, pólizas). Es obligatorio y no
@@ -3294,6 +3316,10 @@ CREATE TRIGGER tg_version_por_transicion
 --  no una entrada del usuario. El orden solo cuando llega nulo, para que
 --  fn_duplicar_presupuesto pueda conservar el del original.
 -- -----------------------------------------------------------------------------
+-- D-75 · El número que sale de aquí es solo para que el nuevo quede último
+-- entre los de su clase: fn_renumerar_wbs pone después los subcapítulos
+-- antes que las actividades, así que un subcapítulo nuevo con el máximo +1
+-- termina detrás de los demás subcapítulos y delante de las actividades.
 CREATE OR REPLACE FUNCTION app.fn_siguiente_orden_edt(
     p_presupuesto_id uuid, p_padre_id uuid)
 RETURNS integer LANGUAGE plpgsql AS $$
@@ -5347,13 +5373,14 @@ COMMENT ON FUNCTION app.fn_eliminar_recurso(uuid) IS
 --  chocar con los subcapítulos, que es justo lo que el modo EDT tiene que
 --  permitir:
 --
---      1.0  CIMENTACIÓN              (capítulo)
---      1.1  Excavación manual        (actividad colgada del capítulo)
---      1.2  Concretos                (subcapítulo)
---      1.2.1  Concreto de zapatas    (actividad del subcapítulo)
+--      01     CIMENTACIÓN              (capítulo)
+--      01.1   Concretos                (subcapítulo: van primero, D-75)
+--      01.1.1 Concreto de zapatas      (actividad del subcapítulo)
+--      01.2   Excavación manual        (actividad colgada del capítulo)
 --
+--  La actividad se muestra con el código de su APU, no con el suyo (D-75).
 --  En modo ITEMS el árbol solo tiene capítulos y actividades, así que la
---  numeración se queda en dos niveles: 1.0 y 1.1, 1.2, 1.3…
+--  numeración se queda en dos niveles: 01 y 01.1, 01.2, 01.3…
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION app.fn_renumerar_wbs(p_presupuesto_id uuid)
 RETURNS integer LANGUAGE plpgsql SECURITY DEFINER
@@ -5427,6 +5454,9 @@ BEGIN
         DELETE FROM z_renumerar;
     END IF;
 
+    -- D-75 · Tres pasos sobre la misma foto. Primero el lugar de cada uno
+    -- entre sus hermanos, con los subcapítulos delante de las actividades.
+    -- Después cuántas cifras lleva cada nivel. Y al final los códigos.
     INSERT INTO z_renumerar (id, es_nodo, orden, nivel, codigo)
     WITH RECURSIVE hijos AS (
         SELECT n.id, n.padre_id AS padre, true AS es_nodo, n.orden
@@ -5436,20 +5466,35 @@ BEGIN
           FROM app.presupuesto_item i WHERE i.presupuesto_id = p_presupuesto_id
     ), lugares AS (
         SELECT h.*, row_number() OVER (PARTITION BY h.padre
-                    ORDER BY h.orden, h.es_nodo DESC, h.id) AS lugar
+                    ORDER BY h.es_nodo DESC, h.orden, h.id) AS lugar
           FROM hijos h
-    ), arbol AS (
-        SELECT l.id, l.es_nodo, l.lugar::integer AS orden,
-               1::smallint AS nivel, l.lugar::text AS prefijo
+    ), niveles AS (
+        SELECT l.id, l.padre, l.es_nodo, l.lugar, 1 AS nivel
           FROM lugares l WHERE l.padre IS NULL
         UNION ALL
-        SELECT c.id, c.es_nodo, c.lugar::integer, (a.nivel + 1)::smallint,
-               a.prefijo || '.' || c.lugar
-          FROM lugares c JOIN arbol a ON c.padre = a.id AND a.es_nodo
+        SELECT c.id, c.padre, c.es_nodo, c.lugar, a.nivel + 1
+          FROM lugares c JOIN niveles a ON c.padre = a.id AND a.es_nodo
+    ), cifras AS (
+        -- El padre con más subcapítulos de cada nivel fija el ancho del nivel.
+        SELECT nivel, length(max(cuantos)::text) AS cifras
+          FROM (SELECT nivel, count(*) AS cuantos FROM niveles
+                 WHERE es_nodo GROUP BY nivel, padre) x
+         GROUP BY nivel
+    ), arbol AS (
+        SELECT v.id, v.es_nodo, v.lugar, v.nivel,
+               lpad(v.lugar::text, c.cifras, '0') AS codigo
+          FROM niveles v JOIN cifras c ON c.nivel = v.nivel
+         WHERE v.padre IS NULL
+        UNION ALL
+        SELECT v.id, v.es_nodo, v.lugar, v.nivel,
+               a.codigo || '.' || CASE WHEN v.es_nodo
+                                       THEN lpad(v.lugar::text, c.cifras, '0')
+                                       ELSE v.lugar::text END
+          FROM niveles v
+          JOIN arbol a ON v.padre = a.id AND a.es_nodo
+          LEFT JOIN cifras c ON c.nivel = v.nivel
     )
-    SELECT id, es_nodo, orden, nivel,
-           CASE WHEN es_nodo AND nivel = 1 THEN prefijo || '.0' ELSE prefijo END
-      FROM arbol;
+    SELECT id, es_nodo, lugar::integer, nivel::smallint, codigo FROM arbol;
 
     -- Los capítulos, de arriba hacia abajo por el motivo del comentario de
     -- arriba. Los números salen de la foto, no de la tabla.
@@ -5505,7 +5550,7 @@ CREATE OR REPLACE FUNCTION app.fn_mover_en_edt(p_id uuid, p_posicion integer)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = app, pg_temp AS $$
 DECLARE v_pres uuid; v_padre uuid; v_es_nodo boolean;
-        v_tenant uuid; v_estado text; v_n integer;
+        v_tenant uuid; v_estado text; v_n integer; v_nodos integer;
 BEGIN
     -- Bajo RLS, un id de otra empresa sencillamente no aparece.
     SELECT n.presupuesto_id, n.padre_id, true
@@ -5545,6 +5590,21 @@ BEGIN
           'posicion va de 1 a %.', p_posicion, v_n, v_n;
     END IF;
 
+    -- D-75 · Los subcapitulos ocupan los primeros lugares y las actividades
+    -- los ultimos. Cada uno se mueve solo dentro de su grupo.
+    SELECT count(*) INTO v_nodos FROM app.wbs_nodo n
+     WHERE n.presupuesto_id = v_pres AND n.padre_id IS NOT DISTINCT FROM v_padre;
+    IF v_es_nodo AND p_posicion > v_nodos THEN
+        RAISE EXCEPTION
+          'Un subcapitulo va antes que las actividades de su nivel: su posicion '
+          'va de 1 a % (D-75).', v_nodos;
+    END IF;
+    IF NOT v_es_nodo AND p_posicion <= v_nodos THEN
+        RAISE EXCEPTION
+          'Una actividad va despues de los subcapitulos de su nivel: su posicion '
+          'va de % a % (D-75).', v_nodos + 1, v_n;
+    END IF;
+
     SET CONSTRAINTS app.presupuesto_item_wbs_nodo_id_orden_key DEFERRED;
     -- Sin la bandera, cada UPDATE de aqui dispararia una renumeracion completa
     -- del presupuesto. Se renumera una sola vez, al final.
@@ -5561,7 +5621,7 @@ BEGIN
            AND i.wbs_nodo_id IS NOT DISTINCT FROM v_padre
     ), resto AS (
         SELECT h.id, h.es_nodo,
-               row_number() OVER (ORDER BY h.orden, h.es_nodo DESC, h.id) AS lugar
+               row_number() OVER (ORDER BY h.es_nodo DESC, h.orden, h.id) AS lugar
           FROM hermanos h WHERE h.id <> p_id
     )
     SELECT id, es_nodo,
