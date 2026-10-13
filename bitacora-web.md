@@ -6,6 +6,35 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-13 · martes, la política de cookies
+
+**La Política de Cookies sale como documento aparte**, por decisión del dueño, y
+de paso queda corregida: la de septiembre decía que ConstruSoft no instala
+cookies y que la sesión vive en el almacenamiento local, y las dos cosas son
+falsas. Lo cierto —una sola cookie, la de sesión, estrictamente necesaria; tres
+preferencias de pantalla en el almacenamiento local; nada cargado de otros
+dominios— pasó a la sección 7 de la política de datos.
+
+Va en una versión nueva, **`legal/PROVISIONAL-2026-10-13/`**, con tres
+documentos: privacidad, terminos, reembolsos. La de septiembre no se toca: es la
+que aceptaron las cuentas que ya existen. En la misma versión, la sección 6 de
+datos ya no dice «[PLAZO A DEFINIR]» al cancelar: dice lo de D-74 (funciona hasta
+lo pagado, diez días para reactivar o exportar, y se elimina).
+
+**Lo que necesito de vos, y bloquea el cambio de versión:** `terminos.ts`
+exige los cuatro documentos (`DOCUMENTOS`), así que con
+`VERSION_TERMINOS=PROVISIONAL-2026-10-13` la API no arrancaría. Que exija
+`privacidad`, `terminos` y `reembolsos`, y que un artículo de más en una
+versión vieja no moleste. Con eso, el dueño cambia la variable en su `.env`.
+**La carpeta nueva y `legal/LEEME.md` quedan sin commitear, para vos:** el
+hook cuenta `legal/` como de la API y correría la batería sobre tu trabajo a
+medias. Commitealos junto con el cambio de `terminos.ts`, que es lo que los
+vuelve publicables.
+La pantalla de registro ya no enlaza las cookies, y con la versión de septiembre
+sigue funcionando igual mientras tanto.
+
+---
+
 ## 2026-10-13 · martes, el registro
 
 **La pantalla de registro ya existe** (02 §3.1), en `#/registro`, con el enlace

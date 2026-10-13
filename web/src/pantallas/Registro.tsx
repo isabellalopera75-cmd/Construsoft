@@ -406,7 +406,7 @@ export function Registro({ alEntrar }: { alEntrar: (arranque: Arranque) => void 
                 </span>
               </label>
               <p className="campo-ayuda">
-                Vea también la {enlaceA('cookies', 'Política de Cookies')} y la {enlaceA('reembolsos', 'Política de Reembolsos')}.
+                Vea también la {enlaceA('reembolsos', 'Política de Reembolsos')}.
               </p>
               {errores.terminos ? <p id="error-terminos" className="campo-error" role="alert">{errores.terminos}</p> : null}
             </div>
