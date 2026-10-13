@@ -1173,7 +1173,10 @@ no la toca**: sigue siendo a mano (RF-SAD-13). Tiene que correr una vez al día,
 después de medianoche en Bogotá, con un comando para correrla a mano
 (`npm run purgar`), que imprima lo que eliminó.
 
-## 16. La numeración de la EDT (PROPUESTO el 13 de octubre de 2026, sin construir)
+## 16. La numeración de la EDT (propuesto el 13 de octubre de 2026, construido: `04c331b`)
+
+> **Cómo quedó construido**: la columna se llama «Código» también en el PDF
+> y el Excel (decisión del dueño, 13 de octubre).
 
 Decisión del dueño, 13 de octubre de 2026. La base lo sostiene con D-75
 (`docs/prueba-d75.sql`, 19 casos), y `docs/prueba-edt.sql` cambió en dos casos.

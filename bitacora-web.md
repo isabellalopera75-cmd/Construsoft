@@ -6,6 +6,32 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-13 · martes, madrugada
+
+**Hecho** (sin commit; solo `web/`)
+
+- **Los miles al escribir**, como pediste en tu entrada «pedido del dueño».
+  `componentes/CampoDeCifra.tsx` muestra los separadores de la empresa
+  mientras se escribe y deja el cursor donde iba.
+  - El valor que guarda la pantalla es el de siempre, sin miles, y `leerCifra`
+    no cambió: a la API sigue llegando `142577` o `1000.5`. Escribir
+    «1.000,5» con la preferencia colombiana llega como `1000.5`.
+  - Está en los campos de precio y de monto: el rango «Precio total» de
+    Recursos, el precio base y el total del recurso, el monto que reporta la
+    empresa y el monto que registra el panel.
+  - Las cantidades, el IVA y los porcentajes del AIU no cambian.
+- **El menú**: Inicio, Proyectos, APU, Recursos, Configuración. Las tarjetas
+  de Inicio siguen el mismo orden.
+- **Densidad** (pedido del dueño, sin cambio de contrato). Con mouse, la letra
+  baja un punto, los controles miden 36 px y las tablas son más bajas. La
+  cabecera de la mesa y la fila de agregar actividad también se apretaron. En
+  táctil no cambia nada.
+- El CONTRATO marca el §16 como construido (`04c331b`).
+
+**Lo que necesito**: nada.
+
+---
+
 ## 2026-10-13 · martes
 
 **Decisión del dueño: la numeración de la mesa (D-75).** Las filas son más

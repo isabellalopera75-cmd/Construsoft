@@ -1,10 +1,11 @@
+import { CampoDeCifra } from '../../componentes/CampoDeCifra.tsx';
 import { useEffect, useState } from 'react';
 import { ErrorDeApi, pedir } from '../../api/cliente.ts';
 import { useAvisos } from '../../componentes/Avisos.tsx';
 import { Campo } from '../../componentes/Campo.tsx';
 import { Capa } from '../../componentes/Capa.tsx';
 import { Icono } from '../../componentes/Icono.tsx';
-import { leerCifra, soloCifra } from '../../entrada.ts';
+import { leerCifra } from '../../entrada.ts';
 import { dinero, fechaSola, hoy, NOMBRE_DE_METODO, NOMBRE_DE_PLAN, SEPARADOR_DECIMAL } from '../comun.tsx';
 import type { CodigoDePlan, FichaDeEmpresa, MetodoDePago, PagoDePlataforma } from '../tipos.ts';
 
@@ -119,7 +120,7 @@ export function RegistrarPago({ ficha, alCerrar, alRegistrar }: { ficha: FichaDe
       </p>
       <div className="fila-de-campos">
         <Campo etiqueta="Monto recibido (COP)" error={errores.monto}>
-          {(a) => <input {...a} inputMode="decimal" autoComplete="off" value={monto} onChange={(e) => setMonto(soloCifra(e.target.value, SEPARADOR_DECIMAL))} />}
+          {(a) => <CampoDeCifra {...a} valor={monto} alCambiar={setMonto} formato={{ separadorMiles: '.', separadorDecimal: SEPARADOR_DECIMAL }} />}
         </Campo>
         <Campo etiqueta="Fecha del pago" error={errores.fecha}>
           {(a) => <input {...a} type="date" max={hoy()} value={fecha} onChange={(e) => setFecha(e.target.value)} />}

@@ -1,3 +1,4 @@
+import { CampoDeCifra } from '../../componentes/CampoDeCifra.tsx';
 import { useState } from 'react';
 import { ErrorDeApi, pedir } from '../../api/cliente.ts';
 import type { DetalleDeSuscripcion, EstadoDePago, EstadoSuscripcion, Pago } from '../../api/tipos.ts';
@@ -6,7 +7,7 @@ import { Campo } from '../../componentes/Campo.tsx';
 import { Capa } from '../../componentes/Capa.tsx';
 import { Confirmacion } from '../../componentes/Confirmacion.tsx';
 import { Icono } from '../../componentes/Icono.tsx';
-import { leerCifra, soloCifra } from '../../entrada.ts';
+import { leerCifra } from '../../entrada.ts';
 import { fechaDelDia } from '../../fechas.ts';
 import { formatearNumero } from '../../formato.ts';
 import { useSesion } from '../../sesion.tsx';
@@ -333,7 +334,6 @@ const MAXIMO = 5 * 1024 * 1024;
 
 function ReportarPago({ reactivar, alCerrar, alReportar }: { reactivar: boolean; alCerrar: () => void; alReportar: (d: DetalleDeSuscripcion) => void }) {
   const { arranque } = useSesion();
-  const separador = arranque.formatoNumerico.separadorDecimal;
   const [monto, setMonto] = useState('');
   const [fecha, setFecha] = useState(hoy());
   const [metodo, setMetodo] = useState('TRANSFERENCIA');
@@ -391,7 +391,7 @@ function ReportarPago({ reactivar, alCerrar, alReportar }: { reactivar: boolean;
       </p>
       <div className="fila-de-campos">
         <Campo etiqueta="Monto pagado" error={errores.monto}>
-          {(a) => <input {...a} inputMode="decimal" autoComplete="off" value={monto} onChange={(e) => setMonto(soloCifra(e.target.value, separador))} />}
+          {(a) => <CampoDeCifra {...a} valor={monto} alCambiar={setMonto} formato={arranque.formatoNumerico} />}
         </Campo>
         <Campo etiqueta="Fecha del pago" error={errores.fecha}>
           {(a) => <input {...a} type="date" max={hoy()} value={fecha} onChange={(e) => setFecha(e.target.value)} />}

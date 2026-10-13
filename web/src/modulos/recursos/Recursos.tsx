@@ -1,3 +1,4 @@
+import { CampoDeCifra } from '../../componentes/CampoDeCifra.tsx';
 import { useEffect, useRef, useState } from 'react';
 import { conConsulta, ErrorDeApi, pedir } from '../../api/cliente.ts';
 import type { Recurso, TipoRecurso, Unidad } from '../../api/tipos.ts';
@@ -5,7 +6,7 @@ import { useAvisos } from '../../componentes/Avisos.tsx';
 import { BotonVolver } from '../../cascaron/Cascaron.tsx';
 import { Icono } from '../../componentes/Icono.tsx';
 import { Pestanas } from '../../componentes/Pestanas.tsx';
-import { leerCifra, soloCifra } from '../../entrada.ts';
+import { leerCifra } from '../../entrada.ts';
 import { formatearNumero } from '../../formato.ts';
 import { useSesion } from '../../sesion.tsx';
 import { FormularioDeRecurso, NOMBRES_DE_TIPO } from './FormularioDeRecurso.tsx';
@@ -155,11 +156,11 @@ export function Recursos() {
           <div className="control-rango" role="group" aria-labelledby="etiqueta-rango">
             <label className="etiqueta-en-linea">
               Desde
-              <input inputMode="decimal" value={precioMin} onChange={(e) => setPrecioMin(soloCifra(e.target.value, formato.separadorDecimal))} />
+              <CampoDeCifra valor={precioMin} alCambiar={setPrecioMin} formato={formato} />
             </label>
             <label className="etiqueta-en-linea">
               hasta
-              <input inputMode="decimal" value={precioMax} onChange={(e) => setPrecioMax(soloCifra(e.target.value, formato.separadorDecimal))} />
+              <CampoDeCifra valor={precioMax} alCambiar={setPrecioMax} formato={formato} />
             </label>
           </div>
           {rango.error ? <p className="campo-error" role="alert">{rango.error}</p> : null}

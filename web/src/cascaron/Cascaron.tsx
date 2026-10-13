@@ -29,14 +29,18 @@ export interface Modulo {
   permiso: Permiso | null;
 }
 
-/** 02 §4, en su orden. Lo que el rol no permite no se muestra, ni deshabilitado. */
+/**
+ * El orden lo fijó el dueño el 13 de octubre de 2026: Proyectos, APU,
+ * Recursos, Configuración (antes era el del 02 §4, con Recursos primero).
+ * Lo que el rol no permite no se muestra, ni deshabilitado.
+ */
 export const MODULOS: readonly Modulo[] = [
   {
-    ruta: { pantalla: 'recursos' },
-    nombre: 'Recursos',
-    icono: 'recursos',
-    descripcion: 'Catálogo maestro de materiales, equipos, personal y actividades a todo costo',
-    permiso: 'RECURSOS.VER',
+    ruta: { pantalla: 'presupuestos' },
+    nombre: 'Proyectos',
+    icono: 'presupuestos',
+    descripcion: 'Lista de proyectos y mesa de trabajo',
+    permiso: 'PRESUPUESTOS.VER',
   },
   {
     ruta: { pantalla: 'apu' },
@@ -46,11 +50,11 @@ export const MODULOS: readonly Modulo[] = [
     permiso: 'APU.VER',
   },
   {
-    ruta: { pantalla: 'presupuestos' },
-    nombre: 'Proyectos',
-    icono: 'presupuestos',
-    descripcion: 'Lista de proyectos y mesa de trabajo',
-    permiso: 'PRESUPUESTOS.VER',
+    ruta: { pantalla: 'recursos' },
+    nombre: 'Recursos',
+    icono: 'recursos',
+    descripcion: 'Catálogo maestro de materiales, equipos, personal y actividades a todo costo',
+    permiso: 'RECURSOS.VER',
   },
   {
     ruta: { pantalla: 'configuracion' },

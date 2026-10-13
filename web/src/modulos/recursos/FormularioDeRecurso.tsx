@@ -1,3 +1,4 @@
+import { CampoDeCifra } from '../../componentes/CampoDeCifra.tsx';
 import { useEffect, useState } from 'react';
 import { ErrorDeApi, pedir } from '../../api/cliente.ts';
 import type {
@@ -306,9 +307,9 @@ export function FormularioDeRecurso({ recurso, tipoInicial, nombreInicial, alCer
                 {...(bloqueadoBase ? { ayuda: 'Calculado desde el total.' } : {})}
               >
                 {(a) => (
-                  <input {...a} data-campo="precioBase" inputMode="decimal" className="cifra-editable" autoComplete="off"
-                         value={datos.precioBase} readOnly={bloqueadoBase} aria-readonly={bloqueadoBase}
-                         onChange={(e) => cambiar('precioBase', soloCifra(e.target.value, formato.separadorDecimal))} />
+                  <CampoDeCifra {...a} data-campo="precioBase" className="cifra-editable" formato={formato}
+                                valor={datos.precioBase} readOnly={bloqueadoBase} aria-readonly={bloqueadoBase}
+                                alCambiar={(v) => cambiar('precioBase', v)} />
                 )}
               </Campo>
               <Campo etiqueta="IVA %" ayuda="19 % en material y equipo; vacío es 0 %." error={errores.ivaPct}>
@@ -323,9 +324,9 @@ export function FormularioDeRecurso({ recurso, tipoInicial, nombreInicial, alCer
                 {...(bloqueadoTotal ? { ayuda: 'Calculado desde el base.' } : {})}
               >
                 {(a) => (
-                  <input {...a} data-campo="precioTotal" inputMode="decimal" className="cifra-editable" autoComplete="off"
-                         value={datos.precioTotal} readOnly={bloqueadoTotal} aria-readonly={bloqueadoTotal}
-                         onChange={(e) => cambiar('precioTotal', soloCifra(e.target.value, formato.separadorDecimal))} />
+                  <CampoDeCifra {...a} data-campo="precioTotal" className="cifra-editable" formato={formato}
+                                valor={datos.precioTotal} readOnly={bloqueadoTotal} aria-readonly={bloqueadoTotal}
+                                alCambiar={(v) => cambiar('precioTotal', v)} />
                 )}
               </Campo>
             </div>
