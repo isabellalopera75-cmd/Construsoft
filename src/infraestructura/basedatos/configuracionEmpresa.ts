@@ -466,15 +466,6 @@ export async function leerSuscripcion(contexto: ContextoTenant): Promise<Suscrip
  */
 export async function cancelarSuscripcionEmpresa(contexto: ContextoTenant, motivo: string | null): Promise<Suscripcion> {
   return ejecutarConPermiso(contexto, 'CONFIG.SUSCRIPCION', async (cliente) => {
-    // fn_cancelar_suscripcion_empresa busca la suscripción por el estado
-    // GUARDADO, y la prueba que terminó sin pago sigue guardada EN_PRUEBA
-    // (D-76): cancelarla otra vez le abriría diez días nuevos para reactivar.
-    // Hasta que la base lo rechace, se le pregunta a ella misma —el estado que
-    // deriva— y se responde lo que respondería con una cancelada.
-    const { rows } = await cliente.query<{ estado: string }>('SELECT estado FROM plataforma.fn_estado_suscripcion($1)', [
-      contexto.tenantId,
-    ]);
-    if (rows[0]?.estado === 'CANCELADA') throw new ErrorParaElUsuario('La suscripción ya está cancelada.', 'RECHAZADO');
     await cliente.query('SELECT plataforma.fn_cancelar_suscripcion_empresa($1)', [motivo]);
     return pestanaDeSuscripcion(cliente, contexto);
   });

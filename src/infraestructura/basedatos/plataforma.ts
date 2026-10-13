@@ -643,6 +643,8 @@ export async function registrarPago(autor: string, tenantId: string, pago: PagoN
         throw new ErrorParaElUsuario('Ese comprobante no existe. Súbalo otra vez.', 'RECHAZADO', 'soporteId');
       }
     }
+    // El SAVEPOINT deja consultar después de un rechazo, que aborta la transacción.
+    await c.query('SAVEPOINT registrar');
     try {
       await c.query(
         `SELECT plataforma.fn_registrar_pago($1, $2::date, $3, $4::numeric, $5, $6, $7::smallint, $8,
@@ -661,10 +663,14 @@ export async function registrarPago(autor: string, tenantId: string, pago: PagoN
         ],
       );
     } catch (error) {
-      // Con la fecha escrita a mano, el único rechazo de la función es que ya
-      // pasó (D-36): su mensaje va tal cual, marcando el campo.
+      // La fecha escrita a mano que ya pasó (D-36) marca su campo. Pero no es
+      // el único rechazo de la función: una suscripción cancelada, guardada o
+      // derivada (D-74, D-76), también lo es, y ese no es culpa de la fecha.
+      // Se distingue mirando la fecha, como en confirmarPago, no el texto.
       if (pago.cubreHasta && (error as { code?: string }).code === 'P0001') {
-        throw new ErrorParaElUsuario((error as Error).message, 'RECHAZADO', 'cubreHasta');
+        await c.query('ROLLBACK TO SAVEPOINT registrar');
+        const { rows } = await c.query<{ pasada: boolean }>('SELECT $1::date < current_date AS pasada', [pago.cubreHasta]);
+        if (rows[0]!.pasada) throw new ErrorParaElUsuario((error as Error).message, 'RECHAZADO', 'cubreHasta');
       }
       throw error;
     }

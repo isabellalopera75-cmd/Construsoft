@@ -49,7 +49,7 @@ after(async () => {
   await app.close();
 });
 
-async function llamar(metodo: 'GET' | 'POST' | 'DELETE', url: string, cookie: string, cuerpo?: unknown) {
+async function llamar(metodo: 'GET' | 'POST' | 'PUT' | 'DELETE', url: string, cookie: string, cuerpo?: unknown) {
   const r = await app.inject({
     method: metodo,
     url,
@@ -324,6 +324,44 @@ describe('la prueba gratuita: 15 días con todo, 10 de solo lectura (CONTRATO §
     const resumen = (await llamar('GET', '/api/superadmin/resumen', panel)).cuerpo;
     assert.ok(resumen.porEliminar.some((x: { id: string }) => x.id === e.contexto.tenantId));
     assert.ok(!resumen.pruebasSinConvertir.some((x: { id: string }) => x.id === e.contexto.tenantId));
+  });
+});
+
+describe('una cancelada, guardada o derivada, no se revive: ni la empresa ni el panel (D-76)', () => {
+  test('los cinco caminos sobre la prueba muerta dan 422 con el mensaje de la base, sin campo, y sigue muerta', async () => {
+    const e = await registrar('Constructora Prueba Muerta', '900000466-6', 'ciclo.prueba.muerta@construsoft.test');
+    await moverVencimiento(e.contexto.tenantId, -11);
+    const empresa = `/api/superadmin/empresas/${e.contexto.tenantId}`;
+    const pago = { fecha: HOY, concepto: 'Plan mensual', monto: '150000', metodo: 'TRANSFERENCIA', referencia: 'TRX-M' };
+
+    const intentos: [string, Awaited<ReturnType<typeof llamar>>, RegExp][] = [
+      ['la empresa cancela', await cancelar(e), /^La suscripción ya está cancelada\.$/],
+      ['el panel cancela', await llamar('POST', `${empresa}/suscripcion/cancelar`, panel, { motivo: 'Otra vez' }), /^La suscripción ya está cancelada\.$/],
+      ['el panel corre el vencimiento', await llamar('PUT', `${empresa}/suscripcion`, panel, { planCodigo: 'EMPRESARIAL', venceEl: '2099-01-31', motivo: 'Cortesía' }), /no admite cambios de plan ni de vencimiento/],
+      ['el panel cambia el plan', await llamar('PUT', `${empresa}/suscripcion`, panel, { planCodigo: 'PERSONAL', venceEl: '2099-01-31', motivo: 'Bajar' }), /no admite cambios de plan ni de vencimiento/],
+      ['el panel registra un pago por meses', await llamar('POST', `${empresa}/pagos`, panel, { ...pago, periodoMeses: 1, cubreHasta: null }), /^La suscripción está cancelada: solo el Administrador/],
+      ['el panel registra un pago con la fecha escrita', await llamar('POST', `${empresa}/pagos`, panel, { ...pago, periodoMeses: null, cubreHasta: '2099-01-31' }), /^La suscripción está cancelada: solo el Administrador/],
+    ];
+    for (const [quien, r, mensaje] of intentos) {
+      assert.equal(r.estado, 422, `${quien}: ${r.crudo}`);
+      assert.match(r.cuerpo.mensaje, mensaje, quien);
+      assert.equal(r.cuerpo.campo, undefined, `${quien}: es el estado de la cuenta, no un dato mal escrito`);
+    }
+
+    const s = await sesion(e);
+    assert.deepEqual([s.estado, s.acceso, s.canceladaPor, s.seEliminaEl], ['CANCELADA', 'NINGUNO', 'PRUEBA', HOY]);
+    assert.equal((await ficha(e.contexto.tenantId)).pagos.length, 0);
+  });
+
+  test('de control: el panel sí corre el vencimiento de una prueba viva', async () => {
+    const e = await registrar('Constructora Prueba Viva', '900000467-7', 'ciclo.prueba.viva@construsoft.test');
+    const r = await llamar('PUT', `/api/superadmin/empresas/${e.contexto.tenantId}/suscripcion`, panel, {
+      planCodigo: 'EMPRESARIAL',
+      venceEl: '2099-01-31',
+      motivo: 'Cortesía comercial',
+    });
+    assert.equal(r.estado, 200, r.crudo);
+    assert.equal(r.cuerpo.suscripcion.venceEl, '2099-01-31');
   });
 });
 

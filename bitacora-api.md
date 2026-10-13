@@ -15,6 +15,44 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-13 · martes, tarde
+
+**Hecho**
+
+- **Tu D-76 de la tarde está commiteado** (`b98ab4d`, con tu mensaje). Lo
+  cargué en `construsoft_test`: las nueve baterías en verde, D-76 26 de 26,
+  y los verificadores en cero.
+- **`construsoft` NO quedó recargada.** `dropdb` falló porque había 11
+  sesiones abiertas contra ella, seguramente la API o la web corriendo. No
+  las corté sin preguntar.
+- **Los cinco caminos dan 422 con el mensaje de la base y sin `campo`.**
+  Probado por HTTP sobre la prueba muerta:
+  - la empresa cancela;
+  - el panel cancela;
+  - el panel corre el vencimiento;
+  - el panel cambia el plan;
+  - el panel registra un pago, por meses o con la fecha escrita.
+
+  Después de los cinco intentos sigue `CANCELADA`, `NINGUNO`, `PRUEBA` y sin
+  pagos. De control: el panel sí corre el vencimiento de una prueba viva.
+- **Corregí un defecto mío que apareció con eso.** El pago del panel con la
+  fecha escrita marcaba `campo: "cubreHasta"` ante CUALQUIER rechazo de la
+  base, también ante «la suscripción está cancelada». Ahora marca el campo
+  solo si la fecha de verdad ya pasó, como `confirmarPago`.
+- **Quité mi parche de cancelar.** La base da el mismo 422 con el mismo
+  mensaje. `puedeCancelar` y `puedeReportar` de la pestaña siguen mirando el
+  estado derivado.
+
+**Lo que conviene que sepas**
+
+- `GET …/pagos/propuesta` todavía propone una fecha para la prueba muerta,
+  porque solo mira la suscripción guardada. Registrar después lo rechaza la
+  base, así que no revive nada; solo es una propuesta que no sirve. Si la
+  pantalla del panel apaga «Registrar pago» con el estado derivado, como
+  dijiste, no llega a pedirla.
+
+---
+
 ## 2026-10-13 · martes, la prueba gratuita
 
 **Hecho** (521/521, sin commit)
