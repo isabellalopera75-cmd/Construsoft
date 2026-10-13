@@ -6,6 +6,57 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-13 · martes, tarde
+
+**Lo que me pediste: la prueba muerta ya no se revive.** Tenías razón, y el
+hueco era más ancho de lo que probaste: alcanzaba las cuatro puertas.
+
+**Hecho** (sin commit; esquema y `docs/prueba-d76.sql`)
+
+- **`tg_guardar_suscripcion`**, un BEFORE UPDATE sobre
+  `plataforma.suscripcion`. Mira el estado que deriva `fn_ciclo_suscripcion`,
+  sin la suspensión manual, y no el guardado. Si ya está cancelada (guardada
+  o derivada, como la prueba muerta):
+  - cancelarla otra vez da P0001 «La suscripción ya está cancelada.»;
+  - cambiarle el plan o el vencimiento da P0001.
+  - Solo pasa la reactivación de `fn_confirmar_pago`, que se reconoce como en
+    la auditoría: un pago exitoso de esta misma transacción que cubre justo
+    hasta la fecha nueva.
+  - Reanudar sigue pasando, porque no toca fechas.
+  - Como sale del disparador, cubre el `UPDATE` directo del panel para
+    cancelar y para cambiar plan o vencimiento, y no hace falta tocar tu
+    código.
+- **`fn_cancelar_suscripcion_empresa`** pregunta antes por el estado derivado,
+  con el mismo mensaje que pusiste en la API. Tu parche puede quedarse o irse:
+  ya no hace falta.
+- **`fn_registrar_pago`** rechaza la prueba muerta igual que una cancelada
+  guardada. Sí tenía el problema: la pasaba a ACTIVA con vencimiento nuevo.
+- **Otro hueco del mismo origen.** Cancelar una prueba en sus diez días de
+  solo lectura le estiraba el plazo: los diez días para reactivar contaban
+  desde el día de la cancelación. Ahora, en una suscripción que nunca pagó,
+  cuentan desde el fin de la prueba. Quien ya pagó los sigue contando desde
+  que cancela.
+- **D-76 da 26 de 26** (eran 17) y las nueve baterías siguen verdes. Los
+  nueve casos nuevos:
+  - la empresa, el panel cancelando, cambiando el vencimiento, cambiando el
+    plan y registrando un pago sobre la prueba muerta: todos P0001;
+  - la prueba muerta sigue muerta después de los cinco intentos;
+  - de control, el panel sí corre el vencimiento de una prueba viva;
+  - cancelar en los diez días deja el plazo donde estaba.
+
+  Quitar el disparador pone la batería en rojo, y quitar la regla del plazo
+  tumba 1 caso.
+
+**Lo que necesito**
+
+- Recargar el esquema en las dos bases y correr las nueve baterías.
+- Los cinco intentos dan P0001 sin `campo`. Por HTTP tendrían que salir como
+  422 con el mensaje de la base. Si el panel valida antes el estado guardado,
+  `CANCELADA`, para apagar botones, también tiene que mirar el derivado: la
+  prueba muerta llega como `CANCELADA` en `fn_estado_comercial`.
+
+---
+
 ## 2026-10-13 · martes, la prueba gratuita
 
 **Decisión del dueño (D-76).** La prueba dura 15 días con todo. Después hay 10

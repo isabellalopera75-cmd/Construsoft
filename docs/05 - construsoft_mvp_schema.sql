@@ -599,6 +599,11 @@
 --         prueba vencida, la empresa puede llevarse sus proyectos en PDF y
 --         Excel hasta que se eliminen. app.fn_presupuestos_exportables le da la
 --         lista sin abrirle la consulta.
+--            Y lo derivado manda también al escribir (encontrado por la API
+--         el 13 de octubre): tg_guardar_suscripcion no deja cancelar otra vez,
+--         ni cambiar plan o vencimiento, a lo que fn_ciclo_suscripcion ya da
+--         por cancelado, aunque la fila siga guardada EN_PRUEBA. Cancelar una
+--         prueba no le estira el plazo.
 --   D-75  (posterior a la auditoría · cambia la numeración de D-42) Decisión
 --         del dueño, 13 de octubre de 2026. Tres reglas para la EDT:
 --            1. Bajo un mismo padre van primero los subcapítulos y después las
@@ -1333,6 +1338,62 @@ BEGIN
 END $$;
 CREATE TRIGGER tg_auditar_suscripcion AFTER UPDATE ON plataforma.suscripcion
     FOR EACH ROW EXECUTE FUNCTION plataforma.fn_auditar_suscripcion();
+
+-- -----------------------------------------------------------------------------
+--  D-76 · Una suscripción que ya terminó no se revive por la puerta de atrás.
+--
+--  La prueba que pasó sus diez días sin pago queda cancelada, pero DERIVADA:
+--  la fila sigue guardada EN_PRUEBA (D-25: nada cambia estados solo). Todo lo
+--  que buscaba por el estado guardado la veía viva. Lo encontró la API el 13
+--  de octubre: cancelar esa prueba la revivía con diez días para reactivarla,
+--  y lo mismo pasaba si el panel la cancelaba, le cambiaba el vencimiento o
+--  le registraba un pago.
+--
+--  Por eso la regla vive aquí, antes de escribir, y mira el estado que deriva
+--  fn_ciclo_suscripcion (sin la suspensión manual, que no cancela nada):
+--    · cancelar algo que ya está cancelado, guardado o derivado, no se puede;
+--    · cambiar el plan o el vencimiento de algo cancelado tampoco, salvo el
+--      pago reportado que la reactiva (fn_confirmar_pago), que se reconoce
+--      igual que en fn_auditar_suscripcion: un pago exitoso en esta misma
+--      transacción cubre justo hasta la fecha nueva.
+--  Reanudar (CANCELADA → vigente sin tocar fechas) sigue pasando: lo cuida
+--  fn_reanudar_suscripcion.
+--  El superusuario sin SET ROLE pasa, igual que en fn_firma_del_panel: es
+--  quien arma los escenarios de las pruebas, no la aplicación.
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION plataforma.fn_guardar_suscripcion() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = plataforma, app, pg_temp AS $$
+DECLARE v_estado text;
+BEGIN
+    IF COALESCE((SELECT r.rolsuper FROM pg_roles r WHERE r.rolname = session_user), false)
+       AND COALESCE(current_setting('role', true), 'none') = 'none' THEN
+        RETURN NEW;
+    END IF;
+    SELECT c.estado INTO v_estado FROM plataforma.fn_ciclo_suscripcion(OLD.tenant_id, false) c;
+    IF v_estado IS DISTINCT FROM 'CANCELADA' THEN
+        RETURN NEW;
+    END IF;
+    IF NEW.estado = 'CANCELADA' AND (OLD.estado <> 'CANCELADA'
+         OR NEW.cancelada_en IS DISTINCT FROM OLD.cancelada_en) THEN
+        RAISE EXCEPTION 'La suscripción ya está cancelada.';
+    END IF;
+    IF (NEW.plan_id IS DISTINCT FROM OLD.plan_id
+        OR NEW.fecha_vencimiento IS DISTINCT FROM OLD.fecha_vencimiento)
+       AND NOT EXISTS (SELECT 1 FROM plataforma.pago p
+                        WHERE p.suscripcion_id = NEW.id
+                          AND p.estado = 'EXITOSO'
+                          AND p.cubre_hasta = NEW.fecha_vencimiento
+                          AND (p.registrado_en = now() OR p.verificado_en = now())) THEN
+        RAISE EXCEPTION
+          'La suscripción está cancelada: no admite cambios de plan ni de '
+          'vencimiento. Solo el Administrador de la empresa la reactiva, '
+          'reportando un pago en su plazo (D-74, D-76).';
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER tg_guardar_suscripcion BEFORE UPDATE ON plataforma.suscripcion
+    FOR EACH ROW EXECUTE FUNCTION plataforma.fn_guardar_suscripcion();
 
 
 -- =============================================================================
@@ -6482,7 +6543,13 @@ BEGIN
                                   THEN 'PLATAFORMA' ELSE 'EMPRESA' END;
             -- Diez días desde que deja de funcionar: lo pagado, o el día de la
             -- cancelación si ya estaba vencida.
-            v_limite := greatest(s.fecha_vencimiento, s.cancelada_en::date) + 10;
+            -- D-76 · Una prueba que se cancela no estira su plazo: los diez
+            -- días cuentan desde el fin de la prueba, no desde el día en que
+            -- se canceló. Quien ya pagó alguna vez sí los cuenta desde ahí.
+            v_limite := CASE WHEN EXISTS (SELECT 1 FROM plataforma.pago p
+                                           WHERE p.suscripcion_id = s.id AND p.estado = 'EXITOSO')
+                             THEN greatest(s.fecha_vencimiento, s.cancelada_en::date)
+                             ELSE s.fecha_vencimiento END + 10;
             FOR r IN SELECT p.registrado_en::date AS reportado, p.verificado_en::date AS rechazado
                        FROM plataforma.pago p
                       WHERE p.suscripcion_id = s.id
@@ -6632,10 +6699,13 @@ BEGIN
     END IF;
     -- D-74 · Reactivar una cancelada es solo del Administrador de la empresa,
     -- reportando su pago. El panel no la revive registrando uno.
-    IF v_estado = 'CANCELADA' THEN
+    -- D-76 · También la prueba que terminó sin pago, guardada EN_PRUEBA.
+    IF v_estado = 'CANCELADA' OR EXISTS (
+           SELECT 1 FROM plataforma.fn_ciclo_suscripcion(v_tenant, false) c
+            WHERE c.estado = 'CANCELADA') THEN
         RAISE EXCEPTION
           'La suscripción está cancelada: solo el Administrador de la empresa '
-          'puede reactivarla, reportando su pago (D-74).';
+          'puede reactivarla, reportando su pago (D-74, D-76).';
     END IF;
     IF p_cubre_hasta IS NULL AND p_periodo_meses IS NULL THEN
         RAISE EXCEPTION
@@ -7089,7 +7159,11 @@ BEGIN
     SELECT * INTO v_susc FROM plataforma.suscripcion
      WHERE tenant_id = app.fn_tenant_actual() AND estado IN ('EN_PRUEBA','ACTIVA')
        FOR UPDATE;
-    IF v_susc.id IS NULL THEN
+    -- D-76 · Por el estado DERIVADO, no solo el guardado: la prueba que pasó
+    -- sus diez días sigue guardada EN_PRUEBA y ya está cancelada.
+    IF v_susc.id IS NULL OR EXISTS (
+           SELECT 1 FROM plataforma.fn_ciclo_suscripcion(app.fn_tenant_actual(), false) c
+            WHERE c.estado = 'CANCELADA') THEN
         RAISE EXCEPTION 'La suscripción ya está cancelada.';
     END IF;
     -- Si no, confirmar ese pago después reactivaría lo que se acaba de cancelar.
@@ -7452,6 +7526,7 @@ ALTER FUNCTION plataforma.fn_evento_plataforma(uuid,text,text,text,jsonb,uuid)
     OWNER TO construsoft_super;
 ALTER FUNCTION plataforma.fn_auditar_tenant()                   OWNER TO construsoft_super;
 ALTER FUNCTION plataforma.fn_auditar_suscripcion()              OWNER TO construsoft_super;
+ALTER FUNCTION plataforma.fn_guardar_suscripcion()              OWNER TO construsoft_super;
 ALTER FUNCTION plataforma.fn_alta_usuario_plataforma(citext,text,text) OWNER TO construsoft_super;
 ALTER FUNCTION plataforma.fn_clave_usuario_plataforma(citext,text)     OWNER TO construsoft_super;
 ALTER FUNCTION plataforma.fn_subir_comprobante_empresa(text,text,bytea) OWNER TO construsoft_super;

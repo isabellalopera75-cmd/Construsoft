@@ -93,6 +93,59 @@ INSERT INTO resultado VALUES
    pg_temp.correr(format('SELECT plataforma.fn_reportar_pago(current_date, 100, %L, NULL, 1::smallint, %L)', 'PSE', :'sop3')), 'P0001');
 RESET ROLE;
 
+-- ============================================================================
+--  Lo que la API encontró el 13 de octubre: la prueba muerta sigue guardada
+--  EN_PRUEBA, y nada que mire solo lo guardado puede revivirla.
+-- ============================================================================
+SELECT id AS plan_personal FROM plataforma.plan WHERE codigo = 'PERSONAL' \gset
+SET ROLE construsoft_app;
+SELECT set_config('app.tenant_id', :'t', true) AS _ \gset x_
+SELECT set_config('app.usuario_id', :'u', true) AS _ \gset x_
+INSERT INTO resultado VALUES
+  ('muerta · la empresa no la cancela otra vez',
+   pg_temp.correr($$SELECT plataforma.fn_cancelar_suscripcion_empresa('otra vez')$$), 'P0001');
+RESET ROLE;
+SET ROLE construsoft_superadmin;
+SELECT set_config('plataforma.usuario_id', :'sp', true), set_config('plataforma.motivo', 'Prueba', true) \gset x_
+INSERT INTO resultado VALUES
+  ('muerta · el panel no la cancela',
+   pg_temp.correr(format($$UPDATE plataforma.suscripcion SET estado = 'CANCELADA', cancelada_en = now(), cancelada_motivo = 'x' WHERE id = %L$$, :'s')), 'P0001'),
+  ('muerta · el panel no le corre el vencimiento',
+   pg_temp.correr(format($$UPDATE plataforma.suscripcion SET fecha_vencimiento = current_date + 30 WHERE id = %L$$, :'s')), 'P0001'),
+  ('muerta · el panel no le cambia el plan',
+   pg_temp.correr(format($$UPDATE plataforma.suscripcion SET plan_id = %s WHERE id = %L$$, :plan_personal, :'s')), 'P0001'),
+  ('muerta · el panel no le registra un pago',
+   pg_temp.correr(format($$SELECT plataforma.fn_registrar_pago(%L, current_date, 'x', 1, 'PSE', NULL, 1::smallint, %L)$$, :'s', :'sp')), 'P0001');
+RESET ROLE;
+INSERT INTO resultado
+SELECT 'muerta · sigue igual de muerta', pg_temp.ea(:'t') || '/' || cancelada_por, 'CANCELADA/NINGUNO/PRUEBA'
+  FROM plataforma.fn_estado_suscripcion(:'t');
+
+-- Y el candado no sobra: con una prueba viva el panel sí corre el vencimiento,
+-- y cancelar una prueba en sus diez días no le estira el plazo.
+SELECT id_tenant AS t3, id_usuario AS u3 FROM app.fn_alta_tenant(
+  'Prueba F SAS','901.776.003-3','EMPRESARIAL','Fabio Admin','fabio@d76.co','hash_F') \gset
+SELECT id AS s3 FROM plataforma.suscripcion WHERE tenant_id = :'t3' \gset
+UPDATE plataforma.suscripcion SET fecha_inicio = current_date - 30 WHERE id = :'s3';
+SET ROLE construsoft_superadmin;
+SELECT set_config('plataforma.usuario_id', :'sp', true), set_config('plataforma.motivo', 'Prueba', true) \gset x_
+INSERT INTO resultado VALUES
+  ('viva · el panel sí le corre el vencimiento',
+   pg_temp.correr(format($$UPDATE plataforma.suscripcion SET fecha_vencimiento = current_date - 5 WHERE id = %L$$, :'s3')), 'OK');
+RESET ROLE;
+SET ROLE construsoft_app;
+SELECT set_config('app.tenant_id', :'t3', true) AS _ \gset x_
+SELECT set_config('app.usuario_id', :'u3', true) AS _ \gset x_
+INSERT INTO resultado VALUES
+  ('decidiendo · la empresa sí puede cancelar su prueba',
+   pg_temp.correr($$SELECT plataforma.fn_cancelar_suscripcion_empresa('No la necesitamos')$$), 'OK');
+RESET ROLE;
+INSERT INTO resultado
+SELECT 'decidiendo · cancelada, sus diez días cuentan desde el fin de la prueba',
+       estado || '/' || (reactivable_hasta = current_date + 5) || '/' || (se_elimina_el = current_date + 6),
+       'CANCELADA/true/true'
+  FROM plataforma.fn_estado_suscripcion(:'t3');
+
 -- Un pago reportado a tiempo la protege mientras se verifica.
 UPDATE plataforma.suscripcion SET fecha_vencimiento = current_date - 5 WHERE id = :'s';
 SET ROLE construsoft_app;
