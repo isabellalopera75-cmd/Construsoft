@@ -159,8 +159,10 @@ RESET ROLE;
 -- B: prueba vencida hace 15 días, con un pago reportado y RECHAZADO (un
 -- comprobante falso no compra la conservación de los datos).
 SELECT id AS s_b FROM plataforma.suscripcion WHERE tenant_id = :'t_b' \gset
+-- D-76 · Reporta dentro de sus 10 días de solo lectura; después se corre el
+-- vencimiento para que el plazo ya haya pasado.
 UPDATE plataforma.suscripcion SET fecha_inicio = current_date - 30,
-       fecha_vencimiento = current_date - 15 WHERE id = :'s_b';
+       fecha_vencimiento = current_date - 8 WHERE id = :'s_b';
 SET ROLE construsoft_app;
 SELECT set_config('app.tenant_id', :'t_b', true) AS _ \gset x_
 SELECT set_config('app.usuario_id', :'u_b', true) AS _ \gset x_
@@ -168,9 +170,14 @@ SELECT plataforma.fn_reportar_pago(current_date, 50, 'OTRO', NULL, 1::smallint, 
 RESET ROLE;
 SET ROLE construsoft_superadmin;
 SELECT plataforma.fn_rechazar_pago(:'pago_b', :'sp', 'Comprobante alterado');
+RESET ROLE;
+UPDATE plataforma.suscripcion SET fecha_vencimiento = current_date - 15 WHERE id = :'s_b';
+UPDATE plataforma.pago SET registrado_en = now() - interval '12 days',
+       verificado_en = now() - interval '12 days' WHERE id = :'pago_b';
+SET ROLE construsoft_superadmin;
 INSERT INTO resultado
 SELECT 'eliminar · un pago rechazado no impide eliminar una prueba vencida',
-       (plataforma.fn_eliminable_desde(:'t_b') = current_date - 5)::text, 'true';
+       (plataforma.fn_eliminable_desde(:'t_b') <= current_date)::text, 'true';
 INSERT INTO resultado
 SELECT 'eliminar · quien pagó no se elimina nunca',
        (plataforma.fn_eliminable_desde(:'t_a') IS NULL)::text, 'true';

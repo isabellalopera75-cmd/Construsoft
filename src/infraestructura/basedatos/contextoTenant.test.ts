@@ -708,9 +708,11 @@ describe('leerArranqueDeSesion', () => {
   test('trae el estado de la suscripción tal como lo da la base: en prueba, con sus días (D-65)', async () => {
     const { suscripcion } = await leerArranqueDeSesion({ tenantId: empresaR.tenantId, usuarioId: empresaR.usuarioId });
     assert.ok(suscripcion);
-    const { venceEl, seEliminaEl, ...resto } = suscripcion;
+    const { venceEl, seEliminaEl, pagarAMasTardar, ...resto } = suscripcion;
     assert.match(venceEl, /^\d{4}-\d{2}-\d{2}$/);
-    assert.match(seEliminaEl!, /^\d{4}-\d{2}-\d{2}$/, 'una prueba se elimina a mano a los 10 días de vencer');
+    // D-76 (CONTRATO §17): diez días de solo lectura después de los quince, y la purga al día siguiente.
+    const despues = (dias: number) => new Date(Date.parse(`${venceEl}T00:00:00Z`) + dias * 86_400_000).toISOString().slice(0, 10);
+    assert.deepEqual([pagarAMasTardar, seEliminaEl], [despues(10), despues(11)]);
     assert.deepEqual(resto, {
       estado: 'EN_PRUEBA',
       soloLectura: false,
@@ -719,7 +721,6 @@ describe('leerArranqueDeSesion', () => {
       // D-74 (CONTRATO §15.1)
       acceso: 'COMPLETO',
       suspension: null,
-      pagarAMasTardar: null,
       suspendidaDesde: null,
       reactivableHasta: null,
       canceladaPor: null,

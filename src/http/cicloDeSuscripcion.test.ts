@@ -53,6 +53,10 @@ async function llamar(metodo: 'GET' | 'POST', url: string, cookie: string, cuerp
 
 const HOY = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
 
+/** aaaa-mm-dd más `dias`, en calendario: sin horas, para no cruzar husos. */
+const sumarDias = (fecha: string, dias: number) =>
+  new Date(Date.parse(`${fecha}T00:00:00Z`) + dias * 86_400_000).toISOString().slice(0, 10);
+
 const sesion = async (c: Cuenta | string) => (await llamar('GET', '/api/sesion', typeof c === 'string' ? c : c.cookie)).cuerpo.suscripcion;
 const detalle = async (c: Cuenta | string) => (await llamar('GET', '/api/configuracion/suscripcion', typeof c === 'string' ? c : c.cookie)).cuerpo;
 const ficha = async (tenantId: string) => (await llamar('GET', `/api/superadmin/empresas/${tenantId}`, panel)).cuerpo;
@@ -79,14 +83,16 @@ async function reportar(cookie: string) {
 }
 
 describe('el arranque trae el ciclo (CONTRATO §15.1)', () => {
-  test('al día: acceso completo y los plazos en nulo', async () => {
+  test('en prueba: acceso completo, sin suspensión, y desde el primer día la fecha límite para pagar (D-76)', async () => {
     const e = await registrar('Constructora Ciclo Al Dia', '900000440-0', 'ciclo.aldia@construsoft.test');
     const s = await sesion(e);
     assert.deepEqual(
-      [s.estado, s.soloLectura, s.acceso, s.suspension, s.pagarAMasTardar, s.suspendidaDesde, s.reactivableHasta, s.canceladaPor, s.pagoEnVerificacion],
-      ['EN_PRUEBA', false, 'COMPLETO', null, null, null, null, null, false],
+      [s.estado, s.soloLectura, s.acceso, s.suspension, s.suspendidaDesde, s.reactivableHasta, s.canceladaPor, s.pagoEnVerificacion],
+      ['EN_PRUEBA', false, 'COMPLETO', null, null, null, null, false],
     );
-    assert.match(s.seEliminaEl, /^\d{4}-\d{2}-\d{2}$/, 'una prueba se elimina a mano a los 10 días de vencer');
+    // §17: quince días con todo y diez de solo lectura; sin pago, la purga la toma al día siguiente.
+    assert.equal(s.pagarAMasTardar, sumarDias(s.venceEl, 10));
+    assert.equal(s.seEliminaEl, sumarDias(s.venceEl, 11));
   });
 
   test('vencida y en sus dos días hábiles: POR_PAGAR con la fecha límite, y sigue trabajando', async () => {

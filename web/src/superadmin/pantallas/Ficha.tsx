@@ -140,7 +140,7 @@ export function Ficha({ id }: { id: string }) {
               ) : null}
               {suscripcion.estado === 'CANCELADA' ? (
                 <>
-                  <div><dt>Cancelada por</dt><dd>{suscripcion.canceladaPor === 'EMPRESA' ? 'La empresa' : 'El panel'}</dd></div>
+                  <div><dt>Cancelada por</dt><dd>{suscripcion.canceladaPor === 'EMPRESA' ? 'La empresa' : suscripcion.canceladaPor === 'PRUEBA' ? 'Prueba sin pago' : 'El panel'}</dd></div>
                   {suscripcion.reactivableHasta ? (
                     <div><dt>Reactivable hasta</dt><dd>{fechaSola(suscripcion.reactivableHasta)}</dd></div>
                   ) : null}
@@ -276,7 +276,7 @@ export function Ficha({ id }: { id: string }) {
                 : eliminable
                   ? 'Ya se cumplió su plazo (D-74, RF-SAD-13). Borra todo lo de la empresa y no se puede deshacer.'
                   : suscripcion?.estado === 'VENCIDA'
-                    ? `Se podrá a partir del ${fechaSola(datos.eliminableDesde)}, 10 días después de vencer la prueba.`
+                    ? `Su prueba terminó. Si no paga, se cancela y la purga diaria borra sus datos el ${fechaSola(datos.eliminableDesde)} (D-76).`
                     : `Si nada cambia, la purga diaria borra sus datos el ${fechaSola(datos.eliminableDesde)}.`}
             </p>
           </div>

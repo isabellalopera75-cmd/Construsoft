@@ -1,8 +1,10 @@
-import type { ReactNode } from 'react';
-import type { Suscripcion } from '../api/tipos.ts';
+import { useEffect, useState, type ReactNode } from 'react';
+import { ErrorDeApi, pedir } from '../api/cliente.ts';
+import type { EstadoPresupuesto, Suscripcion } from '../api/tipos.ts';
 import { Icono, type NombreDeIcono } from '../componentes/Icono.tsx';
 import { fechaDelDia } from '../fechas.ts';
 import { SuscripcionPestana } from '../modulos/configuracion/Suscripcion.tsx';
+import { enlaceDeExportacion } from '../modulos/mesa/Versiones.tsx';
 import { useSesion } from '../sesion.tsx';
 
 /*
@@ -16,6 +18,11 @@ import { useSesion } from '../sesion.tsx';
  *
  * Quién la ve la decide `acceso`, que manda la base (SOLO_PAGO o NINGUNO). La
  * pantalla no lo deduce de las fechas.
+ *
+ * Exportar se deja en todos los casos (decisión del dueño, 13 de octubre de
+ * 2026, D-76): los datos son de la empresa y tiene que poder llevárselos antes
+ * de que se eliminen. Por eso, debajo, la lista de sus proyectos con su PDF y
+ * su Excel (CONTRATO §17.1).
  */
 export function CuentaDetenida() {
   const { arranque, puede, salir } = useSesion();
@@ -67,8 +74,74 @@ export function CuentaDetenida() {
             </p>
           )
         ) : null}
+
+        {puede('PRESUPUESTOS.EXPORTAR') ? <SusProyectos /> : null}
       </main>
     </div>
+  );
+}
+
+interface Exportable {
+  id: string;
+  codigo: string;
+  nombre: string;
+  estado: EstadoPresupuesto;
+  archivado: boolean;
+}
+
+/** Sus proyectos, para descargarlos en PDF o Excel aunque la cuenta esté detenida. */
+function SusProyectos() {
+  const [lista, setLista] = useState<Exportable[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    pedir<{ presupuestos: Exportable[] }>('/api/presupuestos/exportables')
+      .then((r) => setLista(r.presupuestos))
+      .catch((e: unknown) => setError(e instanceof ErrorDeApi ? e.message : 'No se pudo traer la lista de proyectos.'));
+  }, []);
+
+  return (
+    <section className="tarjeta seccion-de-config" aria-labelledby="titulo-sus-proyectos">
+      <h2 id="titulo-sus-proyectos">Sus proyectos</h2>
+      <p className="campo-ayuda">Sus datos son suyos: descárguelos en PDF o en Excel mientras la cuenta exista.</p>
+      {error ? <p className="aviso-error" role="alert">{error}</p> : null}
+      {lista === null && !error ? <p className="campo-ayuda">Cargando…</p> : null}
+      {lista !== null && lista.length === 0 ? <p className="campo-ayuda">La empresa no tiene proyectos.</p> : null}
+      {lista !== null && lista.length > 0 ? (
+        <div className="tarjeta-tabla tabla-con-borde">
+          <table className="tabla">
+            <caption className="solo-lectores">Proyectos para exportar</caption>
+            <thead>
+              <tr>
+                <th scope="col">Código</th>
+                <th scope="col">Proyecto</th>
+                <th scope="col"><span className="solo-lectores">Descargar</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {lista.map((p) => (
+                <tr key={p.id}>
+                  <td className="cifra-codigo">{p.codigo}</td>
+                  <td>
+                    {p.nombre}
+                    {p.archivado ? <span className="dato-de-apoyo">Archivado</span> : null}
+                  </td>
+                  <td className="col-descargas"><div>
+                    <a className="boton boton-secundario" href={enlaceDeExportacion('presupuestos', p.id, 'pdf')} download>
+                      <Icono nombre="descargar" />
+                      PDF
+                    </a>
+                    <a className="boton boton-secundario" href={enlaceDeExportacion('presupuestos', p.id, 'xlsx')} download>
+                      <Icono nombre="descargar" />
+                      Excel
+                    </a>
+                  </div></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -99,6 +172,22 @@ function queDecir(s: Suscripcion, empresa: string): Aviso {
   }
 
   if (s.estado === 'CANCELADA') {
+    // D-76 · La prueba gratuita que pasó sus 10 días de solo lectura sin pago.
+    if (s.canceladaPor === 'PRUEBA') {
+      return {
+        titulo: `La prueba de ${empresa} terminó`,
+        texto: (
+          <p>
+            La prueba gratuita terminó sin pago y los 10 días para decidir ya pasaron, así que quedó cancelada. Los datos de la
+            empresa se eliminan hoy y no se podrán recuperar: descargue abajo los proyectos que quiera conservar. Si quiere seguir
+            usando ConstruSoft, escríbanos.
+          </p>
+        ),
+        plazos: [],
+        tono: 'peligro',
+        icono: 'aviso',
+      };
+    }
     if (s.acceso === 'NINGUNO') {
       return {
         titulo: `La suscripción de ${empresa} terminó`,

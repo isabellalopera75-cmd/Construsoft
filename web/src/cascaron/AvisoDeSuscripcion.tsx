@@ -38,6 +38,22 @@ export function AvisoDeSuscripcion() {
     );
   }
 
+  // D-76 · La prueba terminó: diez días de solo lectura para decidir.
+  if (suscripcion.estado === 'VENCIDA') {
+    return suscripcion.pagoEnVerificacion ? (
+      <Franja tono="neutro" icono="reloj">
+        Su prueba gratuita terminó y su pago está en verificación. Mientras lo revisamos puede consultar y exportar todo lo que
+        tiene. <a href={aSuscripcion}>Ver la suscripción</a>
+      </Franja>
+    ) : (
+      <Franja tono="aviso" icono="candado">
+        Su prueba gratuita terminó. Puede consultar y exportar, pero no guardar cambios. Tiene hasta el{' '}
+        {fechaDelDia(suscripcion.pagarAMasTardar ?? suscripcion.venceEl)} para pagar y seguir; si no, la prueba se cancela y los
+        datos se eliminan. <a href={aSuscripcion}>Pagar ahora</a>
+      </Franja>
+    );
+  }
+
   if (suscripcion.soloLectura) {
     return (
       <Franja tono="aviso" icono="candado">

@@ -79,11 +79,11 @@ export function Resumen() {
       ) : null}
       <ListaDeAccion
         titulo="Pruebas vencidas sin pago"
-        ayuda="Empresas que terminaron la prueba sin pagar. Sus datos se pueden eliminar a partir de 10 días después del vencimiento, siempre a mano (RF-SAD-13)."
+        ayuda="Empresas en sus 10 días de solo lectura después de la prueba. Si no pagan, la prueba se cancela y la purga diaria borra sus datos en la fecha de la derecha (D-76)."
         vacio="No hay pruebas vencidas sin pago."
         filas={datos.pruebasSinConvertir}
-        columnaFinal={(f) => (f.eliminableDesde ? `Desde el ${fechaSola(f.eliminableDesde)}` : '—')}
-        tituloFinal="Se puede eliminar"
+        columnaFinal={(f) => (f.eliminableDesde ? fechaSola(f.eliminableDesde) : 'Pago en verificación')}
+        tituloFinal="Se eliminan el"
       />
     </>
   );

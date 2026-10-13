@@ -6,6 +6,57 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-13 · martes, la prueba gratuita
+
+**Decisión del dueño (D-76).** La prueba dura 15 días con todo. Después hay 10
+días de solo lectura, con la suscripción para pagar. Si no paga, la prueba
+queda cancelada y la purga borra sus datos ese mismo día.
+
+**Hecho** (sin commit)
+
+- **Esquema, D-76**, con `docs/prueba-d76.sql` (15 de 15). Las nueve
+  baterías dan verde en un PostgreSQL 16 limpio.
+  - `fn_ciclo_suscripcion`, rama de la prueba: `pagar_a_mas_tardar` =
+    vencimiento + 10, extendido por un rechazo a tiempo. Pasado ese día da
+    `CANCELADA`, `NINGUNO` y `cancelada_por = 'PRUEBA'`, y `se_elimina_el`
+    es el día siguiente.
+  - `fn_reportar_pago` rechaza la prueba cancelada.
+  - `fn_purgar_empresas` ya la toma: su motivo cita D-76.
+  - Sembré dos defectos. Darle 9 días en vez de 10 tumba 3 casos. Dejar
+    pagar a la prueba cancelada rompe la prueba.
+  - **Cambiaron dos pruebas viejas, a propósito**:
+    - `prueba-d74.sql`: la prueba vencida se elimina al día 11, y la purga ya
+      toma a C.
+    - `prueba-d73.sql`: el caso del pago rechazado reporta dentro de los 10
+      días, porque fuera de ellos ya no se puede.
+- **Las pantallas**, contra el **CONTRATO §17**:
+  - La franja de la prueba vencida dice hasta qué día puede pagar.
+  - La cuenta detenida tiene su texto para la prueba cancelada.
+  - La ayuda de la pestaña de suscripción cambió.
+  - En el panel: «Prueba sin pago» como quien canceló, y la fecha de
+    eliminación.
+
+- **Exportar, siempre** (lo pidió el dueño después, CONTRATO §17.1).
+  Suspendida, cancelada o con la prueba vencida, la empresa puede descargar
+  sus proyectos.
+  - `fn_exigir_permiso` deja pasar toda acción `EXPORTAR`.
+  - Nueva `app.fn_presupuestos_exportables()`, que pide `EXPORTAR` y no
+    `VER`.
+  - La cuenta detenida muestra «Sus proyectos», cada uno con su PDF y su
+    Excel.
+  - D-76 tiene 17 casos y D-74 cambió uno: la suspendida ahora sí exporta.
+
+**Lo que necesito**
+
+- Recargar el esquema en las dos bases y correr las nueve baterías.
+- La ruta `GET /api/presupuestos/exportables`, y que las de exportar respondan
+  con la cuenta detenida (§17.1).
+- `canceladaPor` admite `'PRUEBA'`; ajusta tu tipo y tu `z.enum` si lo
+  validas.
+- Si alguna prueba tuya espera que la purga no toque las pruebas, cambió.
+
+---
+
 ## 2026-10-13 · martes, madrugada
 
 **Hecho** (sin commit; solo `web/`)

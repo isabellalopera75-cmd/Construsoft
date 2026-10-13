@@ -1137,3 +1137,7 @@ textarea { min-height: 88px; padding: var(--e2) var(--e3); resize: vertical; wid
   .tabla-mesa .boton-agregar-actividad { min-height: var(--alto-control-mesa); }
   .tabla-mesa .insignia-clasificacion { padding-top: 0; padding-bottom: 0; }
 }
+
+/* D-76 · La descarga de los proyectos en la cuenta detenida. */
+.col-descargas { width: 1%; white-space: nowrap; }
+.col-descargas > div { display: flex; gap: var(--e2); justify-content: flex-end; }

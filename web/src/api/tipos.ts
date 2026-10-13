@@ -47,7 +47,8 @@ export interface CicloDeSuscripcion {
   reactivableHasta: string | null;
   /** Desde cuándo se eliminan los datos si nada cambia; nulo si no corre ese plazo. */
   seEliminaEl: string | null;
-  canceladaPor: 'EMPRESA' | 'PLATAFORMA' | null;
+  /** PRUEBA: la prueba gratuita pasó sus 10 días de solo lectura sin pago (D-76). */
+  canceladaPor: 'EMPRESA' | 'PLATAFORMA' | 'PRUEBA' | null;
   pagoEnVerificacion: boolean;
 }
 

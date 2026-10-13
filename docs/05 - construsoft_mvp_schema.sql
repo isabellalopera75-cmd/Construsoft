@@ -35,7 +35,7 @@
 --  ---------------------------------------------------------------------------
 --  LAS DECISIONES DE DISEÑO QUE ESTE ESQUEMA IMPLEMENTA
 --
---  Son setenta y cuatro: D-1 a D-75, sin la D-10, que no existe. El motivo de
+--  Son setenta y cinco: D-1 a D-76, sin la D-10, que no existe. El motivo de
 --  cada una está en la sección 14 del documento de alcance. Aquí va el
 --  enunciado, y cada decisión vuelve a aparecer anotada en el punto del esquema
 --  donde vive. Las ocho últimas están al final de esta lista y tienen fecha:
@@ -587,6 +587,18 @@
 --         con la suspensión, y la fecha desde la que una empresa se puede
 --         eliminar. fn_eliminar_tenant usa la segunda, así que el botón del
 --         panel y el rechazo de la base no pueden discrepar.
+--   D-76  (posterior a la auditoría · la prueba gratuita) Decisión del dueño,
+--         13 de octubre de 2026. La prueba dura 15 días con todo. Después hay
+--         10 días de solo lectura, con la suscripción a la mano para pagar. Si
+--         no paga, al día siguiente la prueba queda cancelada: nadie entra y
+--         la purga diaria borra sus datos ese mismo día. Un pago reportado
+--         dentro de esos 10 días la protege mientras se verifica; si se
+--         rechaza, quedan dos días hábiles para reenviarlo, como en D-74.
+--         Cambia RF-SAD-13: la eliminación de la prueba ya no es a mano.
+--            Y exportar se deja en todos los casos: suspendida, cancelada o
+--         prueba vencida, la empresa puede llevarse sus proyectos en PDF y
+--         Excel hasta que se eliminen. app.fn_presupuestos_exportables le da la
+--         lista sin abrirle la consulta.
 --   D-75  (posterior a la auditoría · cambia la numeración de D-42) Decisión
 --         del dueño, 13 de octubre de 2026. Tres reglas para la EDT:
 --            1. Bajo un mismo padre van primero los subcapítulos y después las
@@ -5098,11 +5110,17 @@ BEGIN
     v_acceso := COALESCE((SELECT c.acceso
                             FROM plataforma.fn_ciclo_suscripcion(app.fn_tenant_actual()) c),
                          'NINGUNO');
-    IF v_acceso IN ('SOLO_PAGO','NINGUNO') AND p_permiso_codigo <> 'CONFIG.SUSCRIPCION' THEN
+    -- D-76 (13 de octubre) · Exportar se deja SIEMPRE: los datos son de la
+    -- empresa, y una cuenta suspendida o cancelada tiene que poder llevárselos
+    -- antes de que se eliminen. Para elegir qué exportar no hace falta VER:
+    -- app.fn_presupuestos_exportables da la lista mínima.
+    IF v_acceso IN ('SOLO_PAGO','NINGUNO')
+       AND p_permiso_codigo <> 'CONFIG.SUSCRIPCION' AND v_accion <> 'EXPORTAR' THEN
         RAISE EXCEPTION
           'La cuenta de la empresa está suspendida o cancelada: mientras tanto '
-          'solo se puede entrar a la suscripción, para pagar o reactivarla '
-          '(D-74). La acción «%» queda rechazada.', p_permiso_codigo
+          'solo se puede entrar a la suscripción, para pagar o reactivarla, y '
+          'exportar sus proyectos (D-74, D-76). La acción «%» queda rechazada.',
+          p_permiso_codigo
           USING ERRCODE = 'CS006';
     END IF;
     IF v_acceso <> 'COMPLETO' AND v_accion NOT IN ('VER','EXPORTAR') THEN
@@ -5126,7 +5144,24 @@ COMMENT ON FUNCTION app.fn_exigir_permiso(text) IS
   'CS003 la cuenta no está ACTIVA; '
   'CS004 el rol no tiene el permiso; '
   'CS005 la suscripción no está vigente y la acción escribe; '
-  'CS006 la cuenta está suspendida o cancelada y la acción no es la suscripción (D-74).';
+  'CS006 la cuenta está suspendida o cancelada y la acción no es la suscripción ni exportar (D-74, D-76).';
+
+-- D-76 · Lo mínimo para elegir qué exportar con la cuenta detenida: código,
+-- nombre y estado de cada proyecto, archivados incluidos. Pide EXPORTAR, no
+-- VER, así que funciona en cualquier estado de la suscripción. Corre con los
+-- permisos de quien llama: la RLS deja solo los de su empresa.
+CREATE OR REPLACE FUNCTION app.fn_presupuestos_exportables()
+RETURNS TABLE (id uuid, codigo text, nombre text, estado text, archivado boolean)
+LANGUAGE plpgsql STABLE
+SET search_path = app, pg_temp AS $$
+BEGIN
+    PERFORM app.fn_exigir_permiso('PRESUPUESTOS.EXPORTAR');
+    RETURN QUERY
+        SELECT p.id, p.codigo, p.nombre, p.estado, p.archivado_en IS NOT NULL
+          FROM app.presupuesto p
+         WHERE p.tenant_id = app.fn_tenant_actual()
+         ORDER BY p.codigo;
+END $$;
 
 -- Las tres transiciones pasan por funciones SECURITY DEFINER de
 -- construsoft_super —que SÍ tiene BYPASSRLS; este comentario decía
@@ -6321,7 +6356,8 @@ END $$;
 --    NINGUNO       cancelada fuera de plazo: espera la purga.
 --
 --  estado: EN_PRUEBA, ACTIVA, POR_PAGAR (vencida y dentro de los dos días
---  hábiles), VENCIDA (prueba vencida), SUSPENDIDA, CANCELADA, SIN_SUSCRIPCION.
+--  hábiles), VENCIDA (prueba en sus 10 días de solo lectura), SUSPENDIDA,
+--  CANCELADA (también la prueba que pasó esos 10 días, D-76), SIN_SUSCRIPCION.
 --
 --  Un pago reportado y rechazado da dos días hábiles desde el rechazo, pero
 --  solo si se reportó cuando todavía estaba a tiempo: reportar un comprobante
@@ -6383,14 +6419,34 @@ BEGIN
         pago_en_verificacion := v_pendiente;
 
         IF s.estado = 'EN_PRUEBA' THEN
-            -- La prueba no cambia con D-74 (RF-SAD-13).
+            -- D-76 · Quince días con todo, diez de solo lectura para decidir
+            -- y, sin pago, cancelada y eliminada al día siguiente. Un rechazo
+            -- de un pago reportado a tiempo da dos días hábiles, como en D-74.
+            v_limite := s.fecha_vencimiento + 10;
+            FOR r IN SELECT p.registrado_en::date AS reportado, p.verificado_en::date AS rechazado
+                       FROM plataforma.pago p
+                      WHERE p.suscripcion_id = s.id
+                        AND p.origen = 'REPORTADO' AND p.estado = 'RECHAZADO'
+                      ORDER BY p.verificado_en LOOP
+                IF r.reportado <= v_limite THEN
+                    v_limite := greatest(v_limite,
+                                         plataforma.fn_sumar_dias_habiles(r.rechazado, 2));
+                END IF;
+            END LOOP;
+            v_a_tiempo := EXISTS (SELECT 1 FROM plataforma.pago p
+                                   WHERE p.suscripcion_id = s.id
+                                     AND p.origen = 'REPORTADO' AND p.estado = 'PENDIENTE'
+                                     AND p.registrado_en::date <= v_limite);
+            pagar_a_mas_tardar := v_limite;
             IF v_hoy <= s.fecha_vencimiento THEN
                 estado := 'EN_PRUEBA'; acceso := 'COMPLETO';
-            ELSE
+            ELSIF v_hoy <= v_limite OR v_a_tiempo THEN
                 estado := 'VENCIDA';   acceso := 'SOLO_LECTURA';
+            ELSE
+                estado := 'CANCELADA'; acceso := 'NINGUNO';
+                cancelada_por := 'PRUEBA';
             END IF;
-            se_elimina_el := CASE WHEN v_pendiente THEN NULL
-                                  ELSE s.fecha_vencimiento + 10 END;
+            se_elimina_el := CASE WHEN v_pendiente THEN NULL ELSE v_limite + 1 END;
 
         ELSIF s.estado = 'ACTIVA' THEN
             v_limite := plataforma.fn_sumar_dias_habiles(s.fecha_vencimiento, 2);
@@ -6847,6 +6903,12 @@ BEGIN
     IF v_susc.id IS NULL THEN
         RAISE EXCEPTION 'Su empresa no tiene suscripción.';
     END IF;
+    -- D-76 · La prueba que terminó sin pago ya no se paga: se canceló.
+    IF v_susc.estado = 'EN_PRUEBA' AND EXISTS (
+           SELECT 1 FROM plataforma.fn_ciclo_suscripcion(v_tenant) c WHERE c.acceso = 'NINGUNO') THEN
+        RAISE EXCEPTION
+          'La prueba terminó sin pago y quedó cancelada: ya no admite pagos.';
+    END IF;
     IF v_susc.estado = 'CANCELADA' THEN
         -- Reactivar es del Administrador, y solo en sus diez días.
         PERFORM plataforma.fn_admin_de_la_empresa();
@@ -7085,8 +7147,8 @@ BEGIN
 END $$;
 
 -- La purga diaria. Toma lo que los plazos de D-74 ya cumplieron —suspendida
--- 60 días, o cancelada fuera de su plazo para reactivar— y nada más: la prueba
--- vencida sigue siendo decisión del superadministrador (RF-SAD-13). Pasa por
+-- 60 días, o cancelada fuera de su plazo para reactivar— y, desde D-76, la
+-- prueba que pasó sus 10 días de solo lectura sin pago. Pasa por
 -- fn_eliminar_tenant, que vuelve a comprobar la fecha y deja el evento.
 CREATE OR REPLACE FUNCTION plataforma.fn_purgar_empresas()
 RETURNS TABLE (tenant_id uuid, razon_social text, motivo text)
@@ -7096,7 +7158,7 @@ SET search_path = plataforma, app, pg_temp AS $$
 DECLARE r record;
 BEGIN
     FOR r IN SELECT t.id, t.razon_social, c.estado, c.suspendida_desde,
-                    c.reactivable_hasta, c.se_elimina_el
+                    c.reactivable_hasta, c.se_elimina_el, c.cancelada_por, c.pagar_a_mas_tardar
                FROM plataforma.tenant t
               CROSS JOIN LATERAL plataforma.fn_ciclo_suscripcion(t.id, false) c
               WHERE c.se_elimina_el <= current_date
@@ -7108,9 +7170,12 @@ BEGIN
             WHEN 'SUSPENDIDA' THEN format(
                 'Eliminación automática (D-74): suspendida por falta de pago '
                 'desde el %s y pasaron 60 días.', r.suspendida_desde)
-            ELSE format(
+            WHEN 'CANCELADA' THEN CASE WHEN r.cancelada_por = 'PRUEBA' THEN format(
+                'Eliminación automática (D-76): la prueba terminó sin pago; '
+                'sus 10 días de solo lectura vencieron el %s.', r.pagar_a_mas_tardar)
+              ELSE format(
                 'Eliminación automática (D-74): cancelada, y el plazo para '
-                'reactivarla venció el %s.', r.reactivable_hasta) END;
+                'reactivarla venció el %s.', r.reactivable_hasta) END END;
         PERFORM app.fn_eliminar_tenant(r.id, motivo, NULL);
         RETURN NEXT;
     END LOOP;

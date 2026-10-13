@@ -149,8 +149,8 @@ SELECT set_config('app.usuario_id', :'u_a', true) AS _ \gset x_
 INSERT INTO resultado VALUES
   ('suspendida · no consulta presupuestos',
    pg_temp.correr($$SELECT app.fn_exigir_permiso('PRESUPUESTOS.VER')$$), 'CS006'),
-  ('suspendida · no exporta',
-   pg_temp.correr($$SELECT app.fn_exigir_permiso('PRESUPUESTOS.EXPORTAR')$$), 'CS006'),
+  ('suspendida · sí exporta (D-76: los datos son suyos)',
+   pg_temp.correr($$SELECT app.fn_exigir_permiso('PRESUPUESTOS.EXPORTAR')$$), 'OK'),
   ('suspendida · sí entra a la suscripción',
    pg_temp.correr($$SELECT app.fn_exigir_permiso('CONFIG.SUSCRIPCION')$$), 'OK'),
   ('suspendida · puede reportar su pago',
@@ -344,13 +344,13 @@ INSERT INTO resultado VALUES
                          :'s_b', :'sp')), 'P0001');
 
 -- ============================================================================
---  C · La prueba no cambia
+--  C · La prueba (D-76 cambió sus plazos: ver prueba-d76.sql)
 -- ============================================================================
 UPDATE plataforma.suscripcion SET fecha_inicio = current_date - 40,
        fecha_vencimiento = current_date - 3 WHERE id = :'s_c';
 INSERT INTO resultado
-SELECT 'prueba · vencida es solo lectura y se elimina a los 10 días',
-       pg_temp.ea(:'t_c') || '/' || (se_elimina_el = current_date + 7), 'VENCIDA/SOLO_LECTURA/true'
+SELECT 'prueba · vencida es solo lectura; sin pago, se elimina al día 11 (D-76)',
+       pg_temp.ea(:'t_c') || '/' || (se_elimina_el = current_date + 8), 'VENCIDA/SOLO_LECTURA/true'
   FROM plataforma.fn_estado_suscripcion(:'t_c');
 SET ROLE construsoft_app;
 SELECT set_config('app.tenant_id', :'t_c', true) AS _ \gset x_
@@ -364,7 +364,7 @@ RESET ROLE;
 --  La purga diaria
 -- ============================================================================
 -- A: suspendida hace más de 60 días. B: cancelada fuera de plazo. C: prueba
--- vencida hace un mes, que la purga NO toca.
+-- vencida hace un mes, que desde D-76 la purga también toma.
 UPDATE plataforma.suscripcion SET fecha_inicio = current_date - 200,
        fecha_vencimiento = current_date - 100 WHERE id = :'s_a';
 UPDATE plataforma.suscripcion SET fecha_inicio = current_date - 200,
@@ -384,15 +384,15 @@ INSERT INTO resultado VALUES
 RESET ROLE;
 SET ROLE construsoft_superadmin;
 INSERT INTO resultado
-SELECT 'purga · elimina A y B, y no C', string_agg(razon_social, ',' ORDER BY razon_social), 'Cancela B SAS,Paga A SAS'
+SELECT 'purga · elimina A, B y la prueba C (D-76)', string_agg(razon_social, ',' ORDER BY razon_social), 'Cancela B SAS,Paga A SAS,Prueba C SAS'
   FROM plataforma.fn_purgar_empresas();
 RESET ROLE;
 INSERT INTO resultado
-SELECT 'purga · C sigue', count(*)::text, '1' FROM plataforma.tenant WHERE id = :'t_c';
+SELECT 'purga · C ya no está', count(*)::text, '0' FROM plataforma.tenant WHERE id = :'t_c';
 INSERT INTO resultado
 SELECT 'purga · el rastro queda, sin superadministrador',
        string_agg(datos->>'razon_social' || ':' || (usuario_plataforma_id IS NULL)::text, ',' ORDER BY datos->>'razon_social'),
-       'Cancela B SAS:true,Paga A SAS:true'
+       'Cancela B SAS:true,Paga A SAS:true,Prueba C SAS:true'
   FROM plataforma.evento_plataforma WHERE tipo = 'TENANT_ELIMINADO';
 
 -- ============================================================================

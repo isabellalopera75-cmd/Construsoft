@@ -110,7 +110,7 @@ export interface FichaDeEmpresa {
     canceladaEn: Instante | null;
     canceladaMotivo: string | null;
     // D-74 · Los plazos que calcula la base.
-    canceladaPor: 'EMPRESA' | 'PLATAFORMA' | null;
+    canceladaPor: 'EMPRESA' | 'PLATAFORMA' | 'PRUEBA' | null;
     pagarAMasTardar: Fecha | null;
     suspendidaDesde: Fecha | null;
     reactivableHasta: Fecha | null;

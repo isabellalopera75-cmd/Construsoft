@@ -195,7 +195,7 @@ export function SuscripcionPestana() {
             </p>
             <p className="campo-ayuda">
               {datos.estado === 'EN_PRUEBA' || datos.estado === 'VENCIDA'
-                ? 'Si la prueba termina sin pago, la empresa queda en solo lectura: puede consultar y exportar, no editar. A los 10 días, sus datos se pueden eliminar.'
+                ? 'Si la prueba termina sin pago, tiene 10 días en solo lectura para decidir: puede consultar, exportar y pagar aquí. Si no paga, la prueba se cancela y los datos se eliminan.'
                 : 'Si la suscripción vence sin pago, tiene dos días hábiles para pagar. Después, la cuenta se suspende y solo se puede entrar a esta pantalla; a los 60 días de suspendida, los datos se eliminan.'}
             </p>
             {datos.puedeReportar && !pendiente ? (

@@ -1209,3 +1209,44 @@ Decisión del dueño, 13 de octubre de 2026. La base lo sostiene con D-75
 - Los presupuestos ACTIVOS o CERRADOS no se renumeran (RN-04): conservan los
   códigos con que se aprobaron. Esto solo pasa con presupuestos anteriores a
   esta decisión.
+
+## 17. La prueba gratuita (PROPUESTO el 13 de octubre de 2026, sin construir)
+
+Decisión del dueño, 13 de octubre de 2026. La base lo sostiene con D-76
+(`docs/prueba-d76.sql`, 15 casos). **No cambia ninguna ruta ni ninguna
+forma**: cambian los valores que ya trae el §15.
+
+- **Días 1 a 15**: `EN_PRUEBA`, acceso `COMPLETO`.
+- **Días 16 a 25**: `VENCIDA`, acceso `SOLO_LECTURA`, con la suscripción a la
+  mano para pagar. `pagarAMasTardar` es el último de esos diez días y
+  `seEliminaEl` el siguiente.
+- **Día 26 sin pago**: `CANCELADA`, acceso `NINGUNO`, `canceladaPor: 'PRUEBA'`
+  (valor nuevo). `fn_purgar_empresas` la borra ese mismo día. Un reporte de
+  pago en ese estado es 422 («La prueba terminó sin pago…»).
+- Un pago reportado dentro de los diez días mantiene la solo lectura mientras
+  se verifica y detiene la eliminación. Si se rechaza, quedan dos días hábiles
+  para reenviarlo, como en D-74.
+- En el panel, `fn_estado_comercial` devuelve `CANCELADA` para esa prueba, y
+  aparece en `porEliminar`. `pruebasSinConvertir` son las que están en sus diez
+  días (`VENCIDA`).
+- Cambia RF-SAD-13: la prueba ya no se elimina a mano a los 10 días. La purga
+  la toma al día siguiente de esos diez. El panel puede eliminarla desde esa
+  fecha, igual que antes.
+
+### 17.1 Exportar, siempre
+
+Decisión del dueño, 13 de octubre de 2026: exportar funciona en todos los
+casos (suspendida, cancelada, prueba vencida o cancelada), porque los datos son
+de la empresa. `fn_exigir_permiso` ya no da CS006 a una acción `EXPORTAR`.
+
+| Método y ruta | Respuesta |
+|---|---|
+| `GET /api/presupuestos/exportables` | 200 `{ presupuestos: { id, codigo, nombre, estado, archivado }[] }` |
+
+- Sale de `app.fn_presupuestos_exportables()`, que exige
+  `PRESUPUESTOS.EXPORTAR`, no VER. Es la lista mínima para elegir qué
+  descargar en la cuenta detenida, y no abre la consulta.
+- Las rutas de exportación de siempre (`…/presupuestos/:id/exportar` y
+  `…/versiones/:id/exportar`) tienen que responder con la cuenta en
+  `SOLO_PAGO` o `NINGUNO`. Si alguna pasa antes por un VER, ese VER sobra
+  allí.
