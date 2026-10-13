@@ -81,7 +81,7 @@ const esquemaIngreso = z.object({
 
 const esquemaFiltros = z.object({
   texto: z.string().optional(),
-  estado: z.enum(['EN_PRUEBA', 'ACTIVA', 'VENCIDA', 'CANCELADA', 'SIN_SUSCRIPCION', 'SUSPENDIDA'], 'Ese estado no existe.').optional(),
+  estado: z.enum(['EN_PRUEBA', 'ACTIVA', 'POR_PAGAR', 'VENCIDA', 'SUSPENDIDA', 'CANCELADA', 'SIN_SUSCRIPCION'], 'Ese estado no existe.').optional(),
   plan: z.enum(['PERSONAL', 'EMPRESARIAL'], 'Ese plan no existe.').optional(),
 });
 

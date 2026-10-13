@@ -196,9 +196,11 @@ SELECT 'estado · en prueba, quince días', estado || '/' || solo_lectura || '/'
 UPDATE plataforma.suscripcion
    SET estado = 'CANCELADA', cancelada_en = now(), cancelada_motivo = 'prueba'
  WHERE tenant_id = :'t_a';
+-- D-74 · La cancelación surte efecto en la fecha pagada: hasta ahí la cuenta
+-- funciona. Antes de D-74 esperaba CANCELADA/true.
 INSERT INTO resultado
-SELECT 'estado · cancelada, aunque la fecha no llegó',
-       estado || '/' || solo_lectura, 'CANCELADA/true'
+SELECT 'estado · cancelada, funciona hasta la fecha pagada (D-74)',
+       estado || '/' || solo_lectura, 'CANCELADA/false'
   FROM plataforma.fn_estado_suscripcion(:'t_a');
 
 -- Las CANCELADA no tienen tope —solo ux_suscripcion_activa limita las vigentes—,

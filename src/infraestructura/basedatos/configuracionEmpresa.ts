@@ -1,5 +1,11 @@
 import { createHash } from 'node:crypto';
-import { ejecutarConPermiso, type ContextoTenant } from './contextoTenant.js';
+import { COLUMNAS_DEL_CICLO } from './columnasDelCiclo.js';
+import {
+  ejecutarConPermiso,
+  type ContextoTenant,
+  type ClienteEnContexto,
+  type Suscripcion as CicloDeSuscripcion,
+} from './contextoTenant.js';
 import { ErrorParaElUsuario } from './errorParaElUsuario.js';
 
 /**
@@ -342,72 +348,128 @@ export interface PagoRealizado {
 }
 
 /**
- * La pestaña Suscripción (02 §11.3). El estado, los días restantes y el
- * vencimiento salen de plataforma.fn_estado_suscripcion, la MISMA función
- * que usan el arranque de sesión y fn_exigir_permiso: la pestaña no puede
- * decir «activa» mientras el rechazo dice «vencida». Y cubre todos los
- * estados —VENCIDA, CANCELADA, SUSPENDIDA, SIN_SUSCRIPCION—, no solo los
- * vigentes: es justo cuando no está vigente que la persona viene a mirarla.
+ * La pestaña Suscripción (02 §11.3, CONTRATO §15.3). El estado, el acceso y
+ * los plazos salen de plataforma.fn_estado_suscripcion, la MISMA función que
+ * usan el arranque de sesión y fn_exigir_permiso: la pestaña no puede decir
+ * «activa» mientras el rechazo dice «suspendida». Y cubre todos los estados,
+ * no solo los vigentes: es justo cuando no está vigente que la persona viene
+ * a mirarla, y por eso responde también con la cuenta detenida.
  */
-export interface Suscripcion {
-  estado: string;
+export interface Suscripcion
+  extends Pick<
+    CicloDeSuscripcion,
+    | 'estado'
+    | 'acceso'
+    | 'suspension'
+    | 'pagarAMasTardar'
+    | 'suspendidaDesde'
+    | 'reactivableHasta'
+    | 'seEliminaEl'
+    | 'canceladaPor'
+    | 'pagoEnVerificacion'
+  > {
   plan: string | null;
   /** Texto aaaa-mm-dd; null sin suscripción. */
   venceEl: string | null;
   diasRestantes: number | null;
   pagos: PagoRealizado[];
   /**
-   * La suscripción no está cancelada (CONTRATO §14.1). Quien lee esta pestaña
-   * ya tiene CONFIG.SUSCRIPCION, que es lo otro que pide fn_reportar_pago. Con
-   * la suscripción vencida es verdadero: es justo cuando hace falta.
+   * Quien lee esta pestaña ya tiene CONFIG.SUSCRIPCION, que es lo que pide
+   * fn_reportar_pago (§14.1). Con la suscripción vencida es verdadero: es
+   * justo cuando hace falta. Cancelada, reportar es reactivar, y eso es solo
+   * del Administrador y dentro de su plazo (D-74).
    */
   puedeReportar: boolean;
+  /** Administrador, la suscripción en prueba o activa (incluye POR_PAGAR) y ningún pago esperando. */
+  puedeCancelar: boolean;
+  /** Administrador, y cancelada pero todavía dentro de lo pagado. */
+  puedeReanudar: boolean;
+}
+
+type FilaDelCiclo = CicloDeSuscripcion & {
+  puedeReanudar: boolean;
+  puedeReactivar: boolean;
+  vigente: boolean;
+  esAdministrador: boolean;
+};
+
+/**
+ * Lee la pestaña dentro de una transacción ya abierta con su permiso: la
+ * usan la lectura y las dos acciones, que responden con la pestaña al día.
+ */
+async function pestanaDeSuscripcion(cliente: ClienteEnContexto, contexto: ContextoTenant): Promise<Suscripcion> {
+  const { rows: filasEstado } = await cliente.query<FilaDelCiclo>(
+    `SELECT ${COLUMNAS_DEL_CICLO},
+            puede_reanudar AS "puedeReanudar", puede_reactivar AS "puedeReactivar",
+            EXISTS (SELECT 1 FROM plataforma.suscripcion
+                     WHERE tenant_id = $1 AND estado IN ('EN_PRUEBA','ACTIVA')) AS vigente,
+            EXISTS (SELECT 1 FROM app.usuario u JOIN app.rol r ON r.id = u.rol_id
+                     WHERE u.id = $2 AND r.tipo = 'ADMIN') AS "esAdministrador"
+       FROM plataforma.fn_estado_suscripcion($1)`,
+    [contexto.tenantId, contexto.usuarioId],
+  );
+  const fila = filasEstado[0];
+  if (!fila) {
+    // Cero filas es «sin acceso a ese inquilino», nunca «al día».
+    throw new ErrorParaElUsuario('La empresa no existe en esta instalación.', 'NO_EXISTE');
+  }
+
+  // Por registro y no por fecha del pago: el último rechazo y el pendiente
+  // se leen primero (CONTRATO §14.1).
+  const { rows: pagos } = await cliente.query<PagoRealizado>(
+    `SELECT pg.id, pg.fecha::text AS fecha, pg.concepto, pg.monto, pg.moneda, pg.metodo,
+            pg.estado, pg.origen, pg.periodo_meses AS "periodoMeses",
+            pg.cubre_hasta::text AS "cubreHasta", pg.rechazo_motivo AS "rechazoMotivo",
+            pg.factura_numero AS "facturaNumero"
+       FROM plataforma.pago pg
+       JOIN plataforma.suscripcion s ON s.id = pg.suscripcion_id
+      WHERE s.tenant_id = $1
+      ORDER BY pg.registrado_en DESC, pg.id DESC`,
+    [contexto.tenantId],
+  );
+
+  return {
+    estado: fila.estado,
+    plan: fila.planCodigo,
+    venceEl: fila.venceEl,
+    diasRestantes: fila.diasRestantes,
+    acceso: fila.acceso,
+    suspension: fila.suspension,
+    pagarAMasTardar: fila.pagarAMasTardar,
+    suspendidaDesde: fila.suspendidaDesde,
+    reactivableHasta: fila.reactivableHasta,
+    seEliminaEl: fila.seEliminaEl,
+    canceladaPor: fila.canceladaPor,
+    pagoEnVerificacion: fila.pagoEnVerificacion,
+    pagos,
+    puedeReportar: fila.vigente || (fila.esAdministrador && fila.puedeReactivar),
+    puedeCancelar: fila.esAdministrador && fila.vigente && !fila.pagoEnVerificacion,
+    puedeReanudar: fila.esAdministrador && fila.puedeReanudar,
+  };
 }
 
 export async function leerSuscripcion(contexto: ContextoTenant): Promise<Suscripcion> {
+  return ejecutarConPermiso(contexto, 'CONFIG.SUSCRIPCION', (cliente) => pestanaDeSuscripcion(cliente, contexto));
+}
+
+/**
+ * CONTRATO §15.3 · Cancelar es definitivo: la cuenta funciona hasta lo pagado
+ * y después tiene diez días para reactivarla pagando. Que sea el
+ * Administrador, que no esté ya cancelada y que no haya un pago esperando lo
+ * decide plataforma.fn_cancelar_suscripcion_empresa. CONFIG.SUSCRIPCION es de
+ * VER: pasa también con la cuenta vencida o detenida.
+ */
+export async function cancelarSuscripcionEmpresa(contexto: ContextoTenant, motivo: string | null): Promise<Suscripcion> {
   return ejecutarConPermiso(contexto, 'CONFIG.SUSCRIPCION', async (cliente) => {
-    const { rows: filasEstado } = await cliente.query<{
-      estado: string;
-      plan_codigo: string | null;
-      vence_el: string | null;
-      dias_restantes: number | null;
-    }>(
-      `SELECT estado, plan_codigo, vence_el::text AS vence_el, dias_restantes
-         FROM plataforma.fn_estado_suscripcion($1)`,
-      [contexto.tenantId],
-    );
-    const estado = filasEstado[0];
-    if (!estado) {
-      // Cero filas es «sin acceso a ese inquilino», nunca «al día».
-      throw new ErrorParaElUsuario('La empresa no existe en esta instalación.', 'NO_EXISTE');
-    }
+    await cliente.query('SELECT plataforma.fn_cancelar_suscripcion_empresa($1)', [motivo]);
+    return pestanaDeSuscripcion(cliente, contexto);
+  });
+}
 
-    // Por registro y no por fecha del pago: el último rechazo y el pendiente
-    // se leen primero (CONTRATO §14.1).
-    const { rows: pagos } = await cliente.query<PagoRealizado>(
-      `SELECT pg.id, pg.fecha::text AS fecha, pg.concepto, pg.monto, pg.moneda, pg.metodo,
-              pg.estado, pg.origen, pg.periodo_meses AS "periodoMeses",
-              pg.cubre_hasta::text AS "cubreHasta", pg.rechazo_motivo AS "rechazoMotivo",
-              pg.factura_numero AS "facturaNumero"
-         FROM plataforma.pago pg
-         JOIN plataforma.suscripcion s ON s.id = pg.suscripcion_id
-        WHERE s.tenant_id = $1
-        ORDER BY pg.registrado_en DESC, pg.id DESC`,
-      [contexto.tenantId],
-    );
-    const { rows: vigente } = await cliente.query<{ hay: boolean }>(
-      `SELECT EXISTS (SELECT 1 FROM plataforma.suscripcion
-                       WHERE tenant_id = $1 AND estado IN ('EN_PRUEBA','ACTIVA')) AS hay`,
-      [contexto.tenantId],
-    );
-
-    return {
-      estado: estado.estado,
-      plan: estado.plan_codigo,
-      venceEl: estado.vence_el,
-      diasRestantes: estado.dias_restantes,
-      pagos,
-      puedeReportar: vigente[0]!.hay,
-    };
+/** CONTRATO §15.3 · Desistir de la cancelación antes de la fecha pagada; no pide pago. */
+export async function reanudarSuscripcion(contexto: ContextoTenant): Promise<Suscripcion> {
+  return ejecutarConPermiso(contexto, 'CONFIG.SUSCRIPCION', async (cliente) => {
+    await cliente.query('SELECT plataforma.fn_reanudar_suscripcion()');
+    return pestanaDeSuscripcion(cliente, contexto);
   });
 }

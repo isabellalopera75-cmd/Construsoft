@@ -804,6 +804,7 @@ textarea { min-height: 88px; padding: var(--e2) var(--e3); resize: vertical; wid
 .datos-en-rejilla { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
 .vista-previa-formato { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--e3); padding: var(--e3) var(--e4); border-radius: var(--radio-md); background: var(--bg-app); }
 .tabla-con-borde { border: 1px solid var(--borde-tenue); border-radius: var(--radio-md); }
+.como-pagar { display: grid; gap: var(--e3); justify-items: start; }
 .como-pagar p { margin: 0; }
 .insignia-suscripcion { color: var(--texto-segundo); }
 .insignia-suscripcion[data-estado='ACTIVA'] { color: var(--exito); background: color-mix(in srgb, var(--exito) 10%, transparent); }
@@ -1032,3 +1033,41 @@ textarea { min-height: 88px; padding: var(--e2) var(--e3); resize: vertical; wid
 .seccion-por-verificar { border: 1px solid var(--terracota); box-shadow: inset 4px 0 0 var(--terracota); }
 .opciones-de-periodo.sin-sangria { padding-left: 0; }
 .casilla-de-verificacion { font-size: var(--letra-md); }
+
+/* --- D-74 · El ciclo de vida de la suscripción ---------------------------- */
+.insignia-suscripcion[data-estado='POR_PAGAR'] { color: var(--aviso); background: color-mix(in srgb, var(--aviso) 12%, transparent); }
+.franja-por-pagar { border-left-color: var(--aviso); }
+.franja-por-pagar .icono { color: var(--aviso); }
+
+/* La cuenta detenida: sin barra lateral, porque no hay adónde ir. */
+.cuenta-detenida { min-height: 100vh; background: var(--bg-app); }
+.barra-de-cuenta-detenida {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--e4);
+  min-height: var(--alto-barra); padding: var(--e2) var(--e5);
+  background: var(--bg-barra); border-bottom: 1px solid var(--borde-tenue);
+}
+.contenido-detenido { max-width: var(--ancho-lectura); display: grid; gap: var(--e5); }
+.aviso-de-cuenta {
+  display: flex; gap: var(--e4); align-items: flex-start;
+  padding: var(--e5) var(--e6); border-radius: var(--radio-lg);
+  background: var(--bg-tarjeta); border: 1px solid var(--borde-tenue); border-left: 4px solid var(--peligro);
+  box-shadow: var(--sombra-tarjeta);
+}
+.aviso-de-cuenta > .icono { flex: none; width: 28px; height: 28px; margin-top: 4px; color: var(--peligro); }
+.aviso-de-cuenta[data-tono='aviso'] { border-left-color: var(--aviso); }
+.aviso-de-cuenta[data-tono='aviso'] > .icono { color: var(--aviso); }
+.aviso-de-cuenta h1 { font-size: var(--letra-xl); margin-bottom: var(--e3); }
+.aviso-de-cuenta p { margin: 0; max-width: 68ch; }
+.plazos-de-cuenta {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--e3);
+  margin: var(--e4) 0 0; padding-top: var(--e4); border-top: 1px solid var(--borde-tenue);
+}
+.plazos-de-cuenta div { display: grid; gap: 2px; }
+.plazos-de-cuenta dt { font-size: var(--letra-sm); color: var(--texto-segundo); }
+.plazos-de-cuenta dd { margin: 0; font-weight: var(--peso-fuerte); }
+@media (max-width: 640px) {
+  .barra-de-cuenta-detenida { padding: var(--e2) var(--e4); }
+  .barra-de-cuenta-detenida .quien-soy-texto { display: none; }
+  .aviso-de-cuenta { padding: var(--e4); }
+  .aviso-de-cuenta > .icono { display: none; }
+}

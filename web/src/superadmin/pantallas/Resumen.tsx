@@ -31,7 +31,8 @@ export function Resumen() {
       <section className="cifras-del-panel" aria-label="Estado de las empresas">
         <Cifra titulo="Pagando" valor={e.activas} estado="ACTIVA" enlace="#/empresas?estado=ACTIVA" />
         <Cifra titulo="En prueba" valor={e.enPrueba} estado="EN_PRUEBA" enlace="#/empresas?estado=EN_PRUEBA" />
-        <Cifra titulo="Vencidas" valor={e.vencidas} estado="VENCIDA" enlace="#/empresas?estado=VENCIDA" />
+        <Cifra titulo="Por pagar" valor={e.porPagar} estado="POR_PAGAR" enlace="#/empresas?estado=POR_PAGAR" />
+        <Cifra titulo="Pruebas vencidas" valor={e.vencidas} estado="VENCIDA" enlace="#/empresas?estado=VENCIDA" />
         <Cifra titulo="Suspendidas" valor={e.suspendidas} estado="SUSPENDIDA" enlace="#/empresas?estado=SUSPENDIDA" />
       </section>
 
@@ -66,6 +67,16 @@ export function Resumen() {
         columnaFinal={(f) => (f.venceEl ? <>{fechaSola(f.venceEl)} <span className="dato-de-apoyo">{textoDeDias(f.diasRestantes)}</span></> : '—')}
         tituloFinal="Vence"
       />
+      {datos.porEliminar.length > 0 ? (
+        <ListaDeAccion
+          titulo="Sus datos se eliminan pronto"
+          ayuda="Suspendidas por falta de pago o canceladas sin reactivar. Si nada cambia, la purga diaria borra sus datos en la fecha de la derecha (D-74). Un pago reportado detiene el plazo."
+          vacio=""
+          filas={datos.porEliminar}
+          columnaFinal={(f) => (f.eliminableDesde ? fechaSola(f.eliminableDesde) : '—')}
+          tituloFinal="Se eliminan el"
+        />
+      ) : null}
       <ListaDeAccion
         titulo="Pruebas vencidas sin pago"
         ayuda="Empresas que terminaron la prueba sin pagar. Sus datos se pueden eliminar a partir de 10 días después del vencimiento, siempre a mano (RF-SAD-13)."

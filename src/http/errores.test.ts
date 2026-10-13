@@ -12,7 +12,7 @@ function errorDeLaBase(code: string, message = 'mensaje de la base', constraint?
 
 describe('traducirError: el único lugar donde un rechazo se vuelve HTTP (04 §8.4, D-66)', () => {
   test('la tabla de SQLSTATE de fn_exigir_permiso, código por código', () => {
-    const tabla = ['CS000', 'CS001', 'CS002', 'CS003', 'CS004', 'CS005'].map((codigo) => {
+    const tabla = ['CS000', 'CS001', 'CS002', 'CS003', 'CS004', 'CS005', 'CS006'].map((codigo) => {
       const r = traducirError(errorDeLaBase(codigo, `texto de ${codigo}`));
       return [codigo, r.estado, r.borrarCookie];
     });
@@ -23,11 +23,12 @@ describe('traducirError: el único lugar donde un rechazo se vuelve HTTP (04 §8
       ['CS003', 403, true],
       ['CS004', 403, false],
       ['CS005', 402, false],
+      ['CS006', 423, false],
     ]);
   });
 
-  test('esNegacionDePermiso: «no puede» es el rol sin el permiso o la suscripción sin escritura; nada más', () => {
-    const clasificados = ['CS000', 'CS001', 'CS002', 'CS003', 'CS004', 'CS005', 'P0001', '23505'].map((codigo) => [
+  test('esNegacionDePermiso: «no puede» es el rol sin el permiso, la suscripción sin escritura o la cuenta detenida; nada más', () => {
+    const clasificados = ['CS000', 'CS001', 'CS002', 'CS003', 'CS004', 'CS005', 'CS006', 'P0001', '23505'].map((codigo) => [
       codigo,
       esNegacionDePermiso(errorDeLaBase(codigo)),
     ]);
@@ -38,6 +39,7 @@ describe('traducirError: el único lugar donde un rechazo se vuelve HTTP (04 §8
       ['CS003', false],
       ['CS004', true],
       ['CS005', true],
+      ['CS006', true],
       ['P0001', false],
       ['23505', false],
     ]);
@@ -77,8 +79,8 @@ describe('traducirError: el único lugar donde un rechazo se vuelve HTTP (04 §8
     assert.doesNotMatch(r.mensaje, /catálogo/);
   });
 
-  test('CS003, CS004 y CS005 llegan con el mensaje de la base, que ya dice qué pasó y qué hacer', () => {
-    for (const codigo of ['CS003', 'CS004', 'CS005']) {
+  test('CS003 a CS006 llegan con el mensaje de la base, que ya dice qué pasó y qué hacer', () => {
+    for (const codigo of ['CS003', 'CS004', 'CS005', 'CS006']) {
       assert.equal(traducirError(errorDeLaBase(codigo, `explicación de ${codigo}`)).mensaje, `explicación de ${codigo}`);
     }
   });

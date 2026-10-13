@@ -22,8 +22,15 @@
  * Además, las de las tres conexiones a la base (APP_DB_*, AUTH_DB_* y, para el
  * panel del superadministrador, SUPERADMIN_DB_*), que leen los módulos de la
  * capa de datos. La del panel se abre recién la primera vez que alguien entra
- * a /api/superadmin.
+ * a /api/superadmin, o cuando corre la purga.
+ *
+ * La purga diaria (CONTRATO §15.5) corre aquí, a las 00:05 de Bogotá, por la
+ * conexión del panel: es la única a la que la base le concede
+ * fn_purgar_empresas. Lo que elimina queda en este registro y, en la base,
+ * como un evento TENANT_ELIMINADO. Para correrla a mano: npm run purgar.
  */
+import { purgarEmpresas } from '../infraestructura/basedatos/plataforma.js';
+import { programarPurgaDiaria } from '../purga/purgaDiaria.js';
 import { leerConfiguracion } from './configuracion.js';
 import { construirServidor } from './servidor.js';
 
@@ -36,3 +43,4 @@ if (configuracion.terminosProvisionales) {
 const puerto = Number(process.env.PUERTO ?? 3000);
 await app.listen({ port: puerto, host: '127.0.0.1' });
 console.log(`→ API de Construsoft escuchando en http://127.0.0.1:${puerto}`);
+programarPurgaDiaria({ purgar: purgarEmpresas, avisar: (texto) => console.log(`[${new Date().toISOString()}] ${texto}`) });

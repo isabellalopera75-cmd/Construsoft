@@ -11,6 +11,7 @@ import {
   actualizarDatosEmpresa,
   actualizarPreferencias,
   actualizarUnidad,
+  cancelarSuscripcionEmpresa,
   crearUnidad,
   eliminarUnidad,
   leerDatosEmpresa,
@@ -18,6 +19,7 @@ import {
   leerSuscripcion,
   listarUnidades,
   quitarLogo,
+  reanudarSuscripcion,
   subirLogo,
 } from '../infraestructura/basedatos/configuracionEmpresa.js';
 import { ErrorParaElUsuario } from '../infraestructura/basedatos/errorParaElUsuario.js';
@@ -51,6 +53,15 @@ const esquemaReporteDePago = z.strictObject(
     periodoMeses: z.union([z.literal(1), z.literal(3), z.literal(6), z.literal(12)], 'Elija cuántos meses paga: 1, 3, 6 o 12.'),
     comprobanteId: z.string().nullable().optional(),
   },
+  SIN_CAMPOS_DE_MAS,
+);
+
+/**
+ * Cancelar (CONTRATO §15.3). La interfaz exige el motivo; la base lo admite
+ * vacío, así que aquí tampoco se exige.
+ */
+const esquemaCancelacion = z.strictObject(
+  { motivo: z.string().trim().nullable().optional().transform((v) => v || null) },
   SIN_CAMPOS_DE_MAS,
 );
 
@@ -197,6 +208,18 @@ export function registrarRutasDeConfiguracion(app: FastifyInstance, sesionDe: Se
     }
     await reportarPago(contexto, { ...pago, comprobanteId });
     return reply.code(201).send(await leerSuscripcion(contexto));
+  });
+
+  // --- CONTRATO §15.3 · Cancelar y reanudar: solo el Administrador (lo exige la base) -----
+  // Reactivar no es una ruta: es reportar un pago sobre la cancelada (§14.1).
+  app.post('/api/configuracion/suscripcion/cancelar', async (request, reply) => {
+    const contexto = await sesionDe(request, reply);
+    const { motivo } = esquemaCancelacion.parse(request.body ?? {});
+    return reply.send(await cancelarSuscripcionEmpresa(contexto, motivo));
+  });
+
+  app.post('/api/configuracion/suscripcion/reanudar', async (request, reply) => {
+    return reply.send(await reanudarSuscripcion(await sesionDe(request, reply)));
   });
 
   // --- 02 §11.5 · Preferencias del sistema ---------------------------------------

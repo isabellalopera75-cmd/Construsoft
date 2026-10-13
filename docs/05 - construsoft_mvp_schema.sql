@@ -35,7 +35,7 @@
 --  ---------------------------------------------------------------------------
 --  LAS DECISIONES DE DISEÑO QUE ESTE ESQUEMA IMPLEMENTA
 --
---  Son setenta y dos: D-1 a D-73, sin la D-10, que no existe. El motivo de
+--  Son setenta y tres: D-1 a D-74, sin la D-10, que no existe. El motivo de
 --  cada una está en la sección 14 del documento de alcance. Aquí va el
 --  enunciado, y cada decisión vuelve a aparecer anotada en el punto del esquema
 --  donde vive. Las ocho últimas están al final de esta lista y tienen fecha:
@@ -585,6 +585,36 @@
 --         con la suspensión, y la fecha desde la que una empresa se puede
 --         eliminar. fn_eliminar_tenant usa la segunda, así que el botón del
 --         panel y el rechazo de la base no pueden discrepar.
+--   D-74  (posterior a la auditoría · el ciclo de vida de la suscripción)
+--         Decisión del dueño, 11 de octubre de 2026. Cinco reglas:
+--            1. Al vencer, una cuenta paga tiene DOS DÍAS HÁBILES para pagar
+--         (lunes a viernes, sin festivos de Colombia) y sigue funcionando
+--         completa mientras tanto. Si no paga, queda SUSPENDIDA: solo puede
+--         entrar a la suscripción para pagar. Reportar el pago dentro del plazo
+--         la protege mientras se verifica.
+--            2. Suspendida por falta de pago, aguanta 60 días. Al día 61 sus
+--         datos se eliminan (fn_purgar_empresas, que corre a diario).
+--            3. Si el superadministrador rechaza un pago reportado a tiempo, la
+--         empresa tiene dos días hábiles más, contados desde el rechazo, para
+--         reenviar el comprobante. Si no, se suspende igual que en 1.
+--            4. Cancelar lo hacen el Administrador de la empresa o el
+--         superadministrador, y es definitivo: la cuenta funciona hasta la
+--         fecha que ya pagó y después no se le pide más pago; solo deja de
+--         entrar. Desde ese día hay 10 días en que SOLO el Administrador puede
+--         reactivarla, reportando un pago que el panel confirma; antes de esa
+--         fecha puede reanudarla sin pagar. Pasados los 10 días, los datos se
+--         eliminan. Un rechazo dentro del plazo también da dos días hábiles.
+--            5. Todo se deriva de fechas, como «vencida» en D-25: no hay un
+--         proceso que cambie estados. fn_ciclo_suscripcion es la única que
+--         calcula; fn_suscripcion_vigente, fn_estado_suscripcion,
+--         fn_exigir_permiso, fn_estado_comercial y fn_eliminable_desde leen de
+--         ella, así que la pantalla, el rechazo y el panel no pueden discrepar.
+--            Cambian de paso dos cosas: la empresa que pagó alguna vez ya no
+--         conserva sus datos para siempre (D-14 seguía valiendo solo para quien
+--         estaba al día), y la suspensión manual del superadministrador deja de
+--         ser solo lectura: tampoco deja ver más que la suscripción. La prueba
+--         gratuita no cambia: vencida queda en solo lectura y se puede eliminar
+--         a los 10 días, a mano, como decía RF-SAD-13.
 --
 --  ---------------------------------------------------------------------------
 --  LO QUE SIGUE ABIERTO, A PROPÓSITO
@@ -936,6 +966,10 @@ CREATE TABLE plataforma.suscripcion (               -- RF-SAD-07
                                       CHECK (estado IN ('EN_PRUEBA','ACTIVA','CANCELADA')),
     cancelada_en          timestamptz,
     cancelada_motivo      text,
+    -- D-74 · Quién canceló: el Administrador de la empresa (su usuario) o el
+    -- superadministrador (nulo). La llave a app.usuario se declara después,
+    -- cuando la tabla existe.
+    cancelada_por_usuario uuid,
     -- RF-CFG-21 pide dos avisos: a −2 días del fin de prueba y a −5 del
     -- vencimiento de la suscripción. Son dos marcas y no una: con una sola, el
     -- segundo aviso no volvería a salir después del primero.
@@ -954,11 +988,15 @@ CREATE TABLE plataforma.suscripcion (               -- RF-SAD-07
     creado_en             timestamptz NOT NULL DEFAULT now(),
     CHECK (fecha_vencimiento >= fecha_inicio),
     CONSTRAINT ck_suscripcion_cancelacion
-        CHECK ((estado = 'CANCELADA') = (cancelada_en IS NOT NULL))
+        CHECK ((estado = 'CANCELADA') = (cancelada_en IS NOT NULL)),
+    CONSTRAINT ck_suscripcion_cancelada_por
+        CHECK (cancelada_por_usuario IS NULL OR estado = 'CANCELADA')
 );
 COMMENT ON COLUMN plataforma.suscripcion.cancelada_en IS
-  'La cancelación es manual y comercial (D-25): nunca la escribe un proceso '
-  'automático. «Vencida» no es un estado, es fecha_vencimiento < hoy.';
+  'La cancelación es manual (D-25): la deciden el Administrador de la empresa o '
+  'el superadministrador, nunca un proceso automático. Surte efecto en '
+  'fecha_vencimiento: hasta ahí la cuenta funciona (D-74). «Vencida» no es un '
+  'estado, es fecha_vencimiento < hoy.';
 COMMENT ON COLUMN plataforma.suscripcion.aviso_prueba_en IS
   'Aviso de fin del período de prueba, dos días antes (RF-CFG-21, D-14).';
 COMMENT ON COLUMN plataforma.suscripcion.aviso_vencimiento_en IS
@@ -1112,7 +1150,8 @@ CREATE TABLE plataforma.evento_plataforma (
                                        ('TENANT_CREADO','TENANT_SUSPENDIDO','TENANT_REACTIVADO',
                                         'TENANT_ELIMINADO','PLAN_CAMBIADO','SUSCRIPCION_CANCELADA',
                                         'PAGO_REGISTRADO','ADMIN_DESIGNADO',
-                                        'PAGO_REPORTADO','PAGO_RECHAZADO')),   -- D-73
+                                        'PAGO_REPORTADO','PAGO_RECHAZADO',     -- D-73
+                                        'SUSCRIPCION_REANUDADA','SUSCRIPCION_REACTIVADA')),  -- D-74
     descripcion            text        NOT NULL,
     justificacion          text,
     datos                  jsonb,
@@ -1227,6 +1266,20 @@ BEGIN
     IF NOT (v_plan OR v_fecha OR v_cancel) THEN
         RETURN NEW;                      -- avisos marcados y similares
     END IF;
+    -- D-74 · La cancela el Administrador de la empresa: no hay firma del panel
+    -- que pedir. El autor va en «datos», porque usuario_plataforma_id es solo
+    -- para superadministradores.
+    IF v_cancel AND NOT v_plan AND NOT v_fecha AND NEW.cancelada_por_usuario IS NOT NULL THEN
+        PERFORM plataforma.fn_evento_plataforma(NEW.tenant_id,
+            'SUSCRIPCION_CANCELADA',
+            format('Suscripción cancelada por la empresa; funciona hasta el %s',
+                   NEW.fecha_vencimiento),
+            NEW.cancelada_motivo,
+            jsonb_build_object('cancelada_por',
+                (SELECT nombre FROM app.usuario WHERE id = NEW.cancelada_por_usuario)),
+            NULL);
+        RETURN NEW;
+    END IF;
     f := plataforma.fn_firma_del_panel();
     IF v_plan OR v_fecha THEN
         PERFORM plataforma.fn_evento_plataforma(NEW.tenant_id, 'PLAN_CAMBIADO',
@@ -1241,7 +1294,8 @@ BEGIN
     IF v_cancel THEN
         PERFORM plataforma.fn_evento_plataforma(NEW.tenant_id,
             'SUSCRIPCION_CANCELADA',
-            'Suscripción cancelada por el superadministrador',
+            format('Suscripción cancelada por el superadministrador; funciona hasta el %s',
+                   NEW.fecha_vencimiento),
             COALESCE(NEW.cancelada_motivo, f.motivo), NULL, f.autor);
     END IF;
     RETURN NEW;
@@ -1344,6 +1398,10 @@ ALTER TABLE plataforma.soporte_pago
 ALTER TABLE plataforma.pago
     ADD CONSTRAINT fk_pago_reportado_por
     FOREIGN KEY (reportado_por) REFERENCES app.usuario(id) ON DELETE SET NULL;
+-- D-74 · Y la de quien canceló desde la empresa.
+ALTER TABLE plataforma.suscripcion
+    ADD CONSTRAINT fk_suscripcion_cancelada_por
+    FOREIGN KEY (cancelada_por_usuario) REFERENCES app.usuario(id) ON DELETE SET NULL;
 
 -- -----------------------------------------------------------------------------
 --  D-67 · El sello de credenciales se mueve solo, y solo cuando corresponde.
@@ -4800,8 +4858,9 @@ REVOKE EXECUTE ON FUNCTION
 --  RN-10) se quedan como están: solo esta función los sortea, y solo porque
 --  borra a los hijos primero.
 --
---  Es el ÚNICO camino por el que se borran datos de un cliente. Ningún proceso
---  automático la invoca.
+--  Es el ÚNICO camino por el que se borran datos de un cliente. D-74 · La
+--  invocan el superadministrador y fn_purgar_empresas, que corre a diario y
+--  solo toma lo que los plazos ya cumplieron.
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION app.fn_eliminar_tenant(
     p_tenant_id uuid, p_justificacion text,
@@ -4820,14 +4879,17 @@ BEGIN
     -- Antes la promesa vivía solo en el procedimiento de soporte.
     -- D-73 · La regla vive en fn_eliminable_desde, que el panel también lee
     -- para ofrecer el botón: los dos no pueden discrepar.
+    -- D-74 · Ya no es «quien pagó conserva para siempre»: los plazos los da
+    -- fn_ciclo_suscripcion.
     IF plataforma.fn_eliminable_desde(p_tenant_id) IS NULL THEN
         RAISE EXCEPTION
-          'La empresa pagó o dejó de estar en prueba: conserva sus datos '
-          '(§8 del documento 01). Suspéndala, no la elimine.';
+          'Esta empresa no se puede eliminar: está al día, en su plazo para '
+          'pagar, o tiene un pago esperando verificación (D-74).';
     END IF;
     IF plataforma.fn_eliminable_desde(p_tenant_id) > current_date THEN
         RAISE EXCEPTION
-          'La prueba no lleva 10 días vencida: aún no es eliminable (RF-SAD-13).';
+          'Todavía no: sus datos se pueden eliminar desde el % (D-74).',
+          plataforma.fn_eliminable_desde(p_tenant_id);
     END IF;
 
     -- D-38 · El evento va ANTES del borrado, mientras la empresa todavía
@@ -4872,8 +4934,8 @@ BEGIN
     PERFORM set_config('app.purga_tenant', '', true);
 END $$;
 COMMENT ON FUNCTION app.fn_eliminar_tenant(uuid, text, uuid) IS
-  'Acción manual y deliberada del superadministrador (RF-SAD-13, RNF-23). '
-  'Es el ÚNICO camino por el que se borran datos de un cliente.';
+  'Acción del superadministrador o de fn_purgar_empresas cuando vence un plazo '
+  '(RF-SAD-13, RNF-23, D-74). Es el ÚNICO camino por el que se borran datos de un cliente.';
 
 
 -- -----------------------------------------------------------------------------
@@ -4935,6 +4997,7 @@ END $$;
 CREATE OR REPLACE FUNCTION app.fn_exigir_permiso(p_permiso_codigo text)
 RETURNS void LANGUAGE plpgsql STABLE AS $$
 DECLARE v_usuario uuid := app.fn_usuario_actual(); v_estado text; v_accion text;
+        v_acceso text;
 BEGIN
     -- Un código que no existe en el catálogo es un error de programación, no
     -- una falta de autorización. Sin esta rama falla cerrado igual —no aparece
@@ -5001,13 +5064,22 @@ BEGIN
     --  de arriba le responde lo que es verdad sobre él, y esta rama solo
     --  aparece para quien sí podía hacerlo.
     --
-    --  La condición de la acción va primero a propósito: plpgsql corta el AND en
-    --  cuanto es falso, así que consultar y exportar no pagan la consulta de
-    --  vigencia. Lo que se cobra, se cobra en las escrituras.
+    --  D-74 · Ya no basta con mirar si escribe: una cuenta suspendida o
+    --  cancelada fuera de plazo tampoco consulta. Lo único que le queda es la
+    --  suscripción, para pagar o reactivar; todo lo demás es CS006. La prueba
+    --  vencida sigue como en D-65: consulta y exporta, no escribe (CS005).
     -- -------------------------------------------------------------------------
-    IF v_accion NOT IN ('VER','EXPORTAR')
-       AND NOT plataforma.fn_suscripcion_vigente(app.fn_tenant_actual())
-    THEN
+    v_acceso := COALESCE((SELECT c.acceso
+                            FROM plataforma.fn_ciclo_suscripcion(app.fn_tenant_actual()) c),
+                         'NINGUNO');
+    IF v_acceso IN ('SOLO_PAGO','NINGUNO') AND p_permiso_codigo <> 'CONFIG.SUSCRIPCION' THEN
+        RAISE EXCEPTION
+          'La cuenta de la empresa está suspendida o cancelada: mientras tanto '
+          'solo se puede entrar a la suscripción, para pagar o reactivarla '
+          '(D-74). La acción «%» queda rechazada.', p_permiso_codigo
+          USING ERRCODE = 'CS006';
+    END IF;
+    IF v_acceso <> 'COMPLETO' AND v_accion NOT IN ('VER','EXPORTAR') THEN
         RAISE EXCEPTION
           'La suscripción de la empresa no está vigente. Mientras no lo esté '
           'solo se puede consultar y exportar: la acción «%» escribe y queda '
@@ -5027,7 +5099,8 @@ COMMENT ON FUNCTION app.fn_exigir_permiso(text) IS
   'CS002 el usuario del contexto no es de esta empresa o no existe; '
   'CS003 la cuenta no está ACTIVA; '
   'CS004 el rol no tiene el permiso; '
-  'CS005 la suscripción no está vigente y la acción escribe.';
+  'CS005 la suscripción no está vigente y la acción escribe; '
+  'CS006 la cuenta está suspendida o cancelada y la acción no es la suscripción (D-74).';
 
 -- Las tres transiciones pasan por funciones SECURITY DEFINER de
 -- construsoft_super —que SÍ tiene BYPASSRLS; este comentario decía
@@ -6109,22 +6182,243 @@ COMMENT ON FUNCTION app.fn_propagar_recurso(uuid, uuid[]) IS
   'ABIERTOS que se le pasen (D-22, RF-REC-12, RF-APU-15..17).';
 
 -- -----------------------------------------------------------------------------
+--  D-74 · Días hábiles de Colombia.
+--
+--  «Dos días hábiles» es lunes a viernes sin festivos. Los festivos se
+--  calculan, no se cargan: una tabla que alguien tiene que llenar cada
+--  diciembre es una tabla que un año queda vacía. La Ley 51 de 1983 (Emiliani)
+--  corre al lunes siguiente siete de ellos, y cinco dependen de la Pascua.
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION plataforma.fn_pascua(p_anio integer)
+RETURNS date LANGUAGE plpgsql IMMUTABLE AS $$
+DECLARE a int; b int; c int; d int; e int; f int; g int; h int; i int; k int;
+        l int; m int; mes int; dia int;
+BEGIN
+    -- Algoritmo anónimo gregoriano (Meeus/Jones/Butcher).
+    a := p_anio % 19;  b := p_anio / 100;  c := p_anio % 100;
+    d := b / 4;        e := b % 4;         f := (b + 8) / 25;
+    g := (b - f + 1) / 3;
+    h := (19 * a + b - d - g + 15) % 30;
+    i := c / 4;        k := c % 4;
+    l := (32 + 2 * e + 2 * i - h - k) % 7;
+    m := (a + 11 * h + 22 * l) / 451;
+    mes := (h + l - 7 * m + 114) / 31;
+    dia := ((h + l - 7 * m + 114) % 31) + 1;
+    RETURN make_date(p_anio, mes, dia);
+END $$;
+
+CREATE OR REPLACE FUNCTION plataforma.fn_festivos_colombia(p_anio integer)
+RETURNS SETOF date LANGUAGE sql IMMUTABLE AS $$
+    WITH p AS (SELECT plataforma.fn_pascua(p_anio) AS pascua),
+    -- El lunes siguiente, o el mismo día si ya es lunes.
+    emiliani AS (
+        SELECT d + ((8 - extract(isodow FROM d)::int) % 7) AS fecha
+          FROM unnest(ARRAY[make_date(p_anio, 1, 6),  make_date(p_anio, 3, 19),
+                            make_date(p_anio, 6, 29), make_date(p_anio, 8, 15),
+                            make_date(p_anio, 10, 12), make_date(p_anio, 11, 1),
+                            make_date(p_anio, 11, 11)]) AS d)
+    SELECT unnest(ARRAY[make_date(p_anio, 1, 1),  make_date(p_anio, 5, 1),
+                        make_date(p_anio, 7, 20), make_date(p_anio, 8, 7),
+                        make_date(p_anio, 12, 8), make_date(p_anio, 12, 25)])
+    UNION SELECT fecha FROM emiliani
+    -- Jueves y Viernes Santo; Ascensión, Corpus Christi y Sagrado Corazón ya
+    -- caen en lunes con estos desplazamientos.
+    UNION SELECT pascua + x FROM p, unnest(ARRAY[-3, -2, 43, 64, 71]) AS x;
+$$;
+
+CREATE OR REPLACE FUNCTION plataforma.fn_es_dia_habil(p_fecha date)
+RETURNS boolean LANGUAGE sql IMMUTABLE AS $$
+    SELECT extract(isodow FROM p_fecha) < 6
+       AND p_fecha NOT IN (SELECT plataforma.fn_festivos_colombia(
+                                      extract(year FROM p_fecha)::int));
+$$;
+
+-- El n-ésimo día hábil DESPUÉS de p_desde (p_desde no cuenta).
+CREATE OR REPLACE FUNCTION plataforma.fn_sumar_dias_habiles(p_desde date, p_dias integer)
+RETURNS date LANGUAGE plpgsql IMMUTABLE AS $$
+DECLARE v date := p_desde; n int := 0;
+BEGIN
+    WHILE n < p_dias LOOP
+        v := v + 1;
+        IF plataforma.fn_es_dia_habil(v) THEN n := n + 1; END IF;
+    END LOOP;
+    RETURN v;
+END $$;
+
+-- -----------------------------------------------------------------------------
+--  D-74 · El ciclo de vida de la suscripción, en un solo sitio.
+--
+--  Deriva de fechas todo lo que la empresa y el panel necesitan saber. Nada de
+--  esto se guarda: como «vencida» en D-25, cambia sola con el calendario y se
+--  revierte sola cuando entra un pago. Si un proceso tuviera que pasar
+--  cuentas a «suspendida», el día que no corriera nadie se suspendería.
+--
+--  acceso:
+--    COMPLETO      trabaja normal.
+--    SOLO_LECTURA  consulta y exporta (la prueba vencida, como en D-65).
+--    SOLO_PAGO     solo entra a la suscripción: suspendida, o cancelada en sus
+--                  diez días para reactivar.
+--    NINGUNO       cancelada fuera de plazo: espera la purga.
+--
+--  estado: EN_PRUEBA, ACTIVA, POR_PAGAR (vencida y dentro de los dos días
+--  hábiles), VENCIDA (prueba vencida), SUSPENDIDA, CANCELADA, SIN_SUSCRIPCION.
+--
+--  Un pago reportado y rechazado da dos días hábiles desde el rechazo, pero
+--  solo si se reportó cuando todavía estaba a tiempo: reportar un comprobante
+--  falso estando ya suspendida no compra plazo. Uno pendiente reportado a
+--  tiempo protege el acceso; cualquier pendiente detiene la eliminación.
+--
+--  p_con_suspension = false deja fuera la suspensión manual del
+--  superadministrador, que el panel muestra aparte (fn_estado_comercial).
+--
+--  Cero filas si el llamador no ve a ese inquilino (RLS): sin acceso, nunca
+--  «al día».
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION plataforma.fn_ciclo_suscripcion(
+    p_tenant_id uuid, p_con_suspension boolean DEFAULT true)
+RETURNS TABLE (estado text, acceso text, suspension text, vence_el date,
+               dias_restantes integer, plan_codigo text,
+               pagar_a_mas_tardar date, suspendida_desde date,
+               reactivable_hasta date, se_elimina_el date, cancelada_por text,
+               pago_en_verificacion boolean, puede_reanudar boolean,
+               puede_reactivar boolean)
+LANGUAGE plpgsql STABLE
+SET search_path = plataforma, app, pg_temp AS $$
+#variable_conflict use_column
+DECLARE
+    v_hoy        date := current_date;
+    v_tenant     text;
+    s            record;
+    r            record;
+    v_limite     date;
+    v_pendiente  boolean;
+    v_a_tiempo   boolean;
+BEGIN
+    SELECT t.estado INTO v_tenant FROM plataforma.tenant t WHERE t.id = p_tenant_id;
+    IF NOT FOUND THEN
+        RETURN;
+    END IF;
+
+    SELECT sx.*, pl.codigo AS plan INTO s
+      FROM plataforma.suscripcion sx JOIN plataforma.plan pl ON pl.id = sx.plan_id
+     WHERE sx.tenant_id = p_tenant_id
+     ORDER BY (sx.estado IN ('EN_PRUEBA','ACTIVA')) DESC,
+              sx.fecha_vencimiento DESC, sx.creado_en DESC, sx.id DESC
+     LIMIT 1;
+
+    pago_en_verificacion := false;
+    puede_reanudar       := false;
+    puede_reactivar      := false;
+
+    IF s.id IS NULL THEN
+        estado := 'SIN_SUSCRIPCION';
+        acceso := 'SOLO_LECTURA';
+    ELSE
+        vence_el       := s.fecha_vencimiento;
+        dias_restantes := s.fecha_vencimiento - v_hoy;
+        plan_codigo    := s.plan;
+        v_pendiente := EXISTS (SELECT 1 FROM plataforma.pago p
+                                WHERE p.suscripcion_id = s.id
+                                  AND p.origen = 'REPORTADO' AND p.estado = 'PENDIENTE');
+        pago_en_verificacion := v_pendiente;
+
+        IF s.estado = 'EN_PRUEBA' THEN
+            -- La prueba no cambia con D-74 (RF-SAD-13).
+            IF v_hoy <= s.fecha_vencimiento THEN
+                estado := 'EN_PRUEBA'; acceso := 'COMPLETO';
+            ELSE
+                estado := 'VENCIDA';   acceso := 'SOLO_LECTURA';
+            END IF;
+            se_elimina_el := CASE WHEN v_pendiente THEN NULL
+                                  ELSE s.fecha_vencimiento + 10 END;
+
+        ELSIF s.estado = 'ACTIVA' THEN
+            v_limite := plataforma.fn_sumar_dias_habiles(s.fecha_vencimiento, 2);
+            FOR r IN SELECT p.registrado_en::date AS reportado, p.verificado_en::date AS rechazado
+                       FROM plataforma.pago p
+                      WHERE p.suscripcion_id = s.id
+                        AND p.origen = 'REPORTADO' AND p.estado = 'RECHAZADO'
+                      ORDER BY p.verificado_en LOOP
+                IF r.reportado <= v_limite THEN
+                    v_limite := greatest(v_limite,
+                                         plataforma.fn_sumar_dias_habiles(r.rechazado, 2));
+                END IF;
+            END LOOP;
+            v_a_tiempo := EXISTS (SELECT 1 FROM plataforma.pago p
+                                   WHERE p.suscripcion_id = s.id
+                                     AND p.origen = 'REPORTADO' AND p.estado = 'PENDIENTE'
+                                     AND p.registrado_en::date <= v_limite);
+            pagar_a_mas_tardar := v_limite;
+            IF v_hoy <= s.fecha_vencimiento THEN
+                estado := 'ACTIVA';    acceso := 'COMPLETO';
+            ELSIF v_hoy <= v_limite OR v_a_tiempo THEN
+                estado := 'POR_PAGAR'; acceso := 'COMPLETO';
+            ELSE
+                estado := 'SUSPENDIDA'; acceso := 'SOLO_PAGO';
+                suspension       := 'FALTA_DE_PAGO';
+                suspendida_desde := v_limite + 1;
+                se_elimina_el    := CASE WHEN v_pendiente THEN NULL ELSE v_limite + 61 END;
+            END IF;
+
+        ELSE  -- CANCELADA
+            estado := 'CANCELADA';
+            cancelada_por := CASE WHEN s.cancelada_por_usuario IS NULL
+                                  THEN 'PLATAFORMA' ELSE 'EMPRESA' END;
+            -- Diez días desde que deja de funcionar: lo pagado, o el día de la
+            -- cancelación si ya estaba vencida.
+            v_limite := greatest(s.fecha_vencimiento, s.cancelada_en::date) + 10;
+            FOR r IN SELECT p.registrado_en::date AS reportado, p.verificado_en::date AS rechazado
+                       FROM plataforma.pago p
+                      WHERE p.suscripcion_id = s.id
+                        AND p.origen = 'REPORTADO' AND p.estado = 'RECHAZADO'
+                        AND p.registrado_en >= s.cancelada_en
+                      ORDER BY p.verificado_en LOOP
+                IF r.reportado <= v_limite THEN
+                    v_limite := greatest(v_limite,
+                                         plataforma.fn_sumar_dias_habiles(r.rechazado, 2));
+                END IF;
+            END LOOP;
+            reactivable_hasta := v_limite;
+            IF v_hoy <= s.fecha_vencimiento THEN
+                acceso := 'COMPLETO';
+                puede_reanudar := true;
+            ELSIF v_hoy <= v_limite OR v_pendiente THEN
+                acceso := 'SOLO_PAGO';
+                puede_reactivar := NOT v_pendiente AND v_hoy <= v_limite;
+            ELSE
+                acceso := 'NINGUNO';
+            END IF;
+            se_elimina_el := CASE WHEN v_pendiente THEN NULL ELSE v_limite + 1 END;
+        END IF;
+    END IF;
+
+    -- La suspensión del superadministrador tapa el estado y el acceso, no los
+    -- plazos: esos siguen corriendo por su cuenta.
+    IF p_con_suspension AND v_tenant = 'SUSPENDIDO' THEN
+        estado     := 'SUSPENDIDA';
+        suspension := 'PLATAFORMA';
+        IF acceso <> 'NINGUNO' THEN acceso := 'SOLO_PAGO'; END IF;
+    END IF;
+    RETURN NEXT;
+END $$;
+COMMENT ON FUNCTION plataforma.fn_ciclo_suscripcion(uuid, boolean) IS
+  'D-74. El único sitio que calcula estado, acceso y plazos de una empresa: dos '
+  'días hábiles de gracia, 60 días suspendida, 10 días para reactivar una '
+  'cancelada, dos días hábiles más tras un rechazo. Todo derivado de fechas.';
+
+-- -----------------------------------------------------------------------------
 --  D-25 · Vigencia de la suscripción.
 --
 --  La vigencia incluye tenant.estado: sin él, una empresa suspendida por el
 --  superadministrador seguiría dando «vigente». El backend consulta ESTA
 --  función en cada petición (RN-18).
 -- -----------------------------------------------------------------------------
+--  D-74 · Vigente es tener acceso COMPLETO según fn_ciclo_suscripcion: al día,
+--  en los dos días hábiles de gracia, o cancelada pero dentro de lo pagado.
 CREATE OR REPLACE FUNCTION plataforma.fn_suscripcion_vigente(p_tenant_id uuid)
 RETURNS boolean LANGUAGE sql STABLE AS $$
-    SELECT COALESCE(bool_or(
-               t.estado = 'ACTIVO'
-           AND s.estado IN ('EN_PRUEBA','ACTIVA')
-           AND s.fecha_vencimiento >= current_date), false)
-      FROM plataforma.tenant t
-      LEFT JOIN plataforma.suscripcion s
-             ON s.tenant_id = t.id AND s.estado IN ('EN_PRUEBA','ACTIVA')
-     WHERE t.id = p_tenant_id;
+    SELECT COALESCE((SELECT c.acceso = 'COMPLETO'
+                       FROM plataforma.fn_ciclo_suscripcion(p_tenant_id) c), false);
 $$;
 
 -- -----------------------------------------------------------------------------
@@ -6150,39 +6444,24 @@ $$;
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION plataforma.fn_estado_suscripcion(p_tenant_id uuid)
 RETURNS TABLE (estado text, solo_lectura boolean, dias_restantes integer,
-               vence_el date, plan_codigo text)
+               vence_el date, plan_codigo text,
+               -- D-74
+               acceso text, suspension text, pagar_a_mas_tardar date,
+               suspendida_desde date, reactivable_hasta date, se_elimina_el date,
+               cancelada_por text, pago_en_verificacion boolean,
+               puede_reanudar boolean, puede_reactivar boolean)
 LANGUAGE sql STABLE AS $$
-    SELECT CASE
-             -- El orden es de afuera hacia adentro y no es casual: la suspensión
-             -- es del inquilino y tapa cualquier estado de su suscripción.
-             WHEN t.estado = 'SUSPENDIDO'            THEN 'SUSPENDIDA'
-             WHEN s.id IS NULL                       THEN 'SIN_SUSCRIPCION'
-             WHEN s.estado = 'CANCELADA'             THEN 'CANCELADA'
-             WHEN s.fecha_vencimiento < current_date THEN 'VENCIDA'
-             WHEN s.estado = 'EN_PRUEBA'             THEN 'EN_PRUEBA'
-             ELSE                                         'ACTIVA'
-           END,
-           NOT plataforma.fn_suscripcion_vigente(t.id),
-           (s.fecha_vencimiento - current_date)::integer,
-           s.fecha_vencimiento,
-           pl.codigo
-      FROM plataforma.tenant t
-      -- ux_suscripcion_activa garantiza UNA sola en EN_PRUEBA o ACTIVA, pero las
-      -- CANCELADA no tienen tope: un inquilino puede acumularlas. Sin este
-      -- LATERAL con LIMIT 1, el que acumuló dos cancelaciones recibía dos filas
-      -- y la API leía la primera que llegara. El ORDER BY pone la vigente
-      -- primero si existe y, si no, la cancelación más reciente.
-      LEFT JOIN LATERAL (
-               SELECT sx.* FROM plataforma.suscripcion sx
-                WHERE sx.tenant_id = t.id
-                ORDER BY (sx.estado IN ('EN_PRUEBA','ACTIVA')) DESC,
-                         sx.fecha_vencimiento DESC, sx.creado_en DESC, sx.id DESC
-                LIMIT 1) s ON true
-      LEFT JOIN plataforma.plan pl ON pl.id = s.plan_id
-     WHERE t.id = p_tenant_id;
+    -- D-74 · Todo sale de fn_ciclo_suscripcion. solo_lectura se conserva para
+    -- quien ya lo leía: es «el acceso no es COMPLETO».
+    SELECT c.estado, c.acceso <> 'COMPLETO', c.dias_restantes, c.vence_el,
+           c.plan_codigo, c.acceso, c.suspension, c.pagar_a_mas_tardar,
+           c.suspendida_desde, c.reactivable_hasta, c.se_elimina_el,
+           c.cancelada_por, c.pago_en_verificacion, c.puede_reanudar,
+           c.puede_reactivar
+      FROM plataforma.fn_ciclo_suscripcion(p_tenant_id) c;
 $$;
 COMMENT ON FUNCTION plataforma.fn_estado_suscripcion(uuid) IS
-  'D-65, 02 §3.4. Lo que el arranque de sesión necesita para elegir pantalla. '
+  'D-65, D-74, 02 §3.4. Lo que el arranque de sesión necesita para elegir pantalla. '
   'solo_lectura sale de fn_suscripcion_vigente, la misma que usa '
   'fn_exigir_permiso, para que la pantalla y el rechazo no se contradigan. Cero '
   'filas = sin acceso a ese inquilino, nunca «al día».';
@@ -6228,12 +6507,19 @@ CREATE OR REPLACE FUNCTION plataforma.fn_registrar_pago(
     p_cubre_hasta date DEFAULT NULL, p_soporte_ruta text DEFAULT NULL)
 RETURNS date LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = plataforma, app, pg_temp AS $$
-DECLARE v_anterior date; v_nueva date; v_tenant uuid;
+DECLARE v_anterior date; v_nueva date; v_tenant uuid; v_estado text;
 BEGIN
-    SELECT fecha_vencimiento, tenant_id INTO v_anterior, v_tenant
+    SELECT fecha_vencimiento, tenant_id, estado INTO v_anterior, v_tenant, v_estado
       FROM plataforma.suscripcion WHERE id = p_suscripcion_id FOR UPDATE;
     IF v_anterior IS NULL THEN
         RAISE EXCEPTION 'La suscripción % no existe.', p_suscripcion_id;
+    END IF;
+    -- D-74 · Reactivar una cancelada es solo del Administrador de la empresa,
+    -- reportando su pago. El panel no la revive registrando uno.
+    IF v_estado = 'CANCELADA' THEN
+        RAISE EXCEPTION
+          'La suscripción está cancelada: solo el Administrador de la empresa '
+          'puede reactivarla, reportando su pago (D-74).';
     END IF;
     IF p_cubre_hasta IS NULL AND p_periodo_meses IS NULL THEN
         RAISE EXCEPTION
@@ -6487,21 +6773,42 @@ DECLARE
     v_usuario uuid := plataforma.fn_quien_reporta();
     v_tenant  uuid := app.fn_tenant_actual();
     v_susc    record;
+    v_ciclo   record;
     v_id      uuid;
 BEGIN
-    SELECT s.id, s.estado, pl.codigo AS plan INTO v_susc
+    -- D-74 · La misma elección que fn_ciclo_suscripcion: la vigente y, si no
+    -- hay, la última cancelada.
+    SELECT s.id, s.estado, s.fecha_vencimiento, pl.codigo AS plan INTO v_susc
       FROM plataforma.suscripcion s JOIN plataforma.plan pl ON pl.id = s.plan_id
-     WHERE s.tenant_id = v_tenant AND s.estado IN ('EN_PRUEBA','ACTIVA');
+     WHERE s.tenant_id = v_tenant
+     ORDER BY (s.estado IN ('EN_PRUEBA','ACTIVA')) DESC, s.fecha_vencimiento DESC,
+              s.creado_en DESC, s.id DESC
+     LIMIT 1;
     IF v_susc.id IS NULL THEN
-        RAISE EXCEPTION
-          'La suscripción de su empresa está cancelada: escríbanos para '
-          'reactivarla antes de reportar un pago.';
+        RAISE EXCEPTION 'Su empresa no tiene suscripción.';
+    END IF;
+    IF v_susc.estado = 'CANCELADA' THEN
+        -- Reactivar es del Administrador, y solo en sus diez días.
+        PERFORM plataforma.fn_admin_de_la_empresa();
+        IF current_date <= v_susc.fecha_vencimiento THEN
+            RAISE EXCEPTION
+              'Su suscripción está cancelada pero funciona hasta el %. Si quiere '
+              'seguir, reanúdela: no hace falta pagar todavía.', v_susc.fecha_vencimiento;
+        END IF;
+        SELECT * INTO v_ciclo FROM plataforma.fn_ciclo_suscripcion(v_tenant);
+        IF NOT v_ciclo.pago_en_verificacion AND NOT v_ciclo.puede_reactivar THEN
+            RAISE EXCEPTION
+              'Pasó el plazo para reactivar la suscripción: era hasta el %.',
+              v_ciclo.reactivable_hasta;
+        END IF;
     END IF;
     IF p_fecha IS NULL OR p_fecha > current_date THEN
-        RAISE EXCEPTION 'La fecha del pago no puede ser futura.';
+        RAISE EXCEPTION 'La fecha del pago no puede ser futura.'
+            USING COLUMN = 'fecha';   -- la API lo lleva a «campo» (CONTRATO §14.1)
     END IF;
     IF p_monto IS NULL OR p_monto <= 0 THEN
-        RAISE EXCEPTION 'El monto tiene que ser mayor que cero.';
+        RAISE EXCEPTION 'El monto tiene que ser mayor que cero.'
+            USING COLUMN = 'monto';   -- la API lo lleva a «campo» (CONTRATO §14.1)
     END IF;
     IF p_periodo_meses IS NULL OR p_periodo_meses < 1 THEN
         RAISE EXCEPTION 'Indique cuántos meses paga.';
@@ -6510,7 +6817,8 @@ BEGIN
            SELECT 1 FROM plataforma.soporte_pago sp
             WHERE sp.id = p_soporte_id AND sp.tenant_id = v_tenant)
        OR EXISTS (SELECT 1 FROM plataforma.pago p WHERE p.soporte_ruta = p_soporte_id::text) THEN
-        RAISE EXCEPTION 'Adjunte el comprobante del pago.';
+        RAISE EXCEPTION 'Adjunte el comprobante del pago.'
+            USING COLUMN = 'comprobante';   -- la API lo lleva a «campo» (CONTRATO §14.1)
     END IF;
     IF EXISTS (SELECT 1 FROM plataforma.pago p
                 WHERE p.suscripcion_id = v_susc.id
@@ -6546,7 +6854,7 @@ CREATE OR REPLACE FUNCTION plataforma.fn_confirmar_pago(
     p_cubre_hasta date DEFAULT NULL, p_periodo_meses smallint DEFAULT NULL)
 RETURNS date LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = plataforma, app, pg_temp AS $$
-DECLARE v_pago record; v_susc record; v_nueva date;
+DECLARE v_pago record; v_susc record; v_nueva date; v_reactiva boolean;
 BEGIN
     SELECT * INTO v_pago FROM plataforma.pago WHERE id = p_pago_id FOR UPDATE;
     IF v_pago.id IS NULL OR v_pago.origen <> 'REPORTADO' OR v_pago.estado <> 'PENDIENTE' THEN
@@ -6557,11 +6865,10 @@ BEGIN
         RAISE EXCEPTION 'Quien verifica no es un superadministrador activo (D-73).';
     END IF;
     SELECT * INTO v_susc FROM plataforma.suscripcion WHERE id = v_pago.suscripcion_id FOR UPDATE;
-    IF v_susc.estado = 'CANCELADA' THEN
-        RAISE EXCEPTION
-          'La suscripción de esta empresa está cancelada: no admite pagos ni '
-          'cambios de plan.';
-    END IF;
+    -- D-74 · Un pago reportado sobre una cancelada solo pudo entrar en los diez
+    -- días y de mano del Administrador (fn_reportar_pago): confirmarlo la
+    -- reactiva.
+    v_reactiva := v_susc.estado = 'CANCELADA';
     v_nueva := COALESCE(p_cubre_hasta,
                         plataforma.fn_proponer_cubre_hasta(
                             v_susc.id, COALESCE(p_periodo_meses, v_pago.periodo_meses)));
@@ -6578,9 +6885,15 @@ BEGIN
      WHERE id = p_pago_id;
     UPDATE plataforma.suscripcion
        SET estado = 'ACTIVA', fecha_vencimiento = v_nueva,
-           aviso_prueba_en = NULL, aviso_vencimiento_en = NULL
+           aviso_prueba_en = NULL, aviso_vencimiento_en = NULL,
+           cancelada_en = NULL, cancelada_motivo = NULL, cancelada_por_usuario = NULL
      WHERE id = v_susc.id;
 
+    IF v_reactiva THEN
+        PERFORM plataforma.fn_evento_plataforma(v_susc.tenant_id, 'SUSCRIPCION_REACTIVADA',
+            format('Suscripción reactivada con un pago verificado; cubre hasta %s', v_nueva),
+            NULL, jsonb_build_object('pago_id', p_pago_id), p_verificado_por);
+    END IF;
     PERFORM plataforma.fn_evento_plataforma(v_susc.tenant_id, 'PAGO_REGISTRADO',
         format('Pago reportado de %s por %s, verificado; cubre hasta %s',
                v_pago.monto, v_pago.metodo, v_nueva),
@@ -6621,6 +6934,129 @@ BEGIN
 END $$;
 
 -- -----------------------------------------------------------------------------
+--  D-74 · Cancelar, reanudar y la purga diaria.
+-- -----------------------------------------------------------------------------
+
+-- Cancelar, reanudar y reactivar son del Administrador y de nadie más: ni un
+-- rol con CONFIG.SUSCRIPCION, que sí puede reportar un pago (D-73).
+CREATE OR REPLACE FUNCTION plataforma.fn_admin_de_la_empresa() RETURNS uuid
+LANGUAGE plpgsql STABLE
+SET search_path = app, plataforma, pg_temp AS $$
+DECLARE v_tenant uuid := app.fn_tenant_actual(); v_usuario uuid := app.fn_usuario_actual();
+BEGIN
+    IF v_tenant IS NULL OR v_usuario IS NULL OR NOT EXISTS (
+           SELECT 1 FROM app.usuario u JOIN app.rol r ON r.id = u.rol_id
+            WHERE u.id = v_usuario AND u.tenant_id = v_tenant
+              AND u.estado = 'ACTIVO' AND r.tipo = 'ADMIN') THEN
+        RAISE EXCEPTION
+          'Cancelar, reanudar o reactivar la suscripción es solo del '
+          'Administrador de la empresa (D-74).'
+          USING ERRCODE = 'CS004';
+    END IF;
+    RETURN v_usuario;
+END $$;
+
+-- Devuelve el último día en que la cuenta funciona.
+CREATE OR REPLACE FUNCTION plataforma.fn_cancelar_suscripcion_empresa(p_motivo text)
+RETURNS date LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = plataforma, app, pg_temp AS $$
+DECLARE
+    v_usuario uuid := plataforma.fn_admin_de_la_empresa();
+    v_susc    record;
+BEGIN
+    SELECT * INTO v_susc FROM plataforma.suscripcion
+     WHERE tenant_id = app.fn_tenant_actual() AND estado IN ('EN_PRUEBA','ACTIVA')
+       FOR UPDATE;
+    IF v_susc.id IS NULL THEN
+        RAISE EXCEPTION 'La suscripción ya está cancelada.';
+    END IF;
+    -- Si no, confirmar ese pago después reactivaría lo que se acaba de cancelar.
+    IF EXISTS (SELECT 1 FROM plataforma.pago p
+                WHERE p.suscripcion_id = v_susc.id
+                  AND p.origen = 'REPORTADO' AND p.estado = 'PENDIENTE') THEN
+        RAISE EXCEPTION
+          'Hay un pago esperando verificación. Espere a que lo revisemos antes '
+          'de cancelar.';
+    END IF;
+    UPDATE plataforma.suscripcion
+       SET estado = 'CANCELADA', cancelada_en = now(),
+           cancelada_motivo = NULLIF(btrim(p_motivo), ''),
+           cancelada_por_usuario = v_usuario
+     WHERE id = v_susc.id;
+    RETURN greatest(v_susc.fecha_vencimiento, current_date);
+END $$;
+
+-- Desistir de la cancelación mientras la cuenta todavía funciona: no pide
+-- pago, porque el período sigue pagado. Vale también si canceló el panel.
+CREATE OR REPLACE FUNCTION plataforma.fn_reanudar_suscripcion()
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = plataforma, app, pg_temp AS $$
+DECLARE
+    v_usuario uuid := plataforma.fn_admin_de_la_empresa();
+    v_tenant  uuid := app.fn_tenant_actual();
+    v_susc    record;
+BEGIN
+    SELECT * INTO v_susc FROM plataforma.suscripcion
+     WHERE tenant_id = v_tenant
+     ORDER BY (estado IN ('EN_PRUEBA','ACTIVA')) DESC, fecha_vencimiento DESC,
+              creado_en DESC, id DESC
+     LIMIT 1 FOR UPDATE;
+    IF v_susc.id IS NULL OR v_susc.estado <> 'CANCELADA' THEN
+        RAISE EXCEPTION 'La suscripción no está cancelada.';
+    END IF;
+    IF current_date > v_susc.fecha_vencimiento THEN
+        RAISE EXCEPTION
+          'La suscripción dejó de funcionar el %: para reactivarla, reporte su '
+          'pago.', v_susc.fecha_vencimiento;
+    END IF;
+    UPDATE plataforma.suscripcion
+       SET estado = CASE WHEN EXISTS (SELECT 1 FROM plataforma.pago p
+                                       WHERE p.suscripcion_id = v_susc.id
+                                         AND p.estado = 'EXITOSO')
+                         THEN 'ACTIVA' ELSE 'EN_PRUEBA' END,
+           cancelada_en = NULL, cancelada_motivo = NULL, cancelada_por_usuario = NULL
+     WHERE id = v_susc.id;
+    PERFORM plataforma.fn_evento_plataforma(v_tenant, 'SUSCRIPCION_REANUDADA',
+        format('La empresa reanudó su suscripción; sigue hasta el %s',
+               v_susc.fecha_vencimiento),
+        NULL,
+        jsonb_build_object('reanudada_por', (SELECT nombre FROM app.usuario WHERE id = v_usuario)),
+        NULL);
+END $$;
+
+-- La purga diaria. Toma lo que los plazos de D-74 ya cumplieron —suspendida
+-- 60 días, o cancelada fuera de su plazo para reactivar— y nada más: la prueba
+-- vencida sigue siendo decisión del superadministrador (RF-SAD-13). Pasa por
+-- fn_eliminar_tenant, que vuelve a comprobar la fecha y deja el evento.
+CREATE OR REPLACE FUNCTION plataforma.fn_purgar_empresas()
+RETURNS TABLE (tenant_id uuid, razon_social text, motivo text)
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = plataforma, app, pg_temp AS $$
+#variable_conflict use_column
+DECLARE r record;
+BEGIN
+    FOR r IN SELECT t.id, t.razon_social, c.estado, c.suspendida_desde,
+                    c.reactivable_hasta, c.se_elimina_el
+               FROM plataforma.tenant t
+              CROSS JOIN LATERAL plataforma.fn_ciclo_suscripcion(t.id, false) c
+              WHERE c.se_elimina_el <= current_date
+                AND c.estado IN ('SUSPENDIDA','CANCELADA')
+              ORDER BY c.se_elimina_el, t.id LOOP
+        tenant_id    := r.id;
+        razon_social := r.razon_social;
+        motivo := CASE r.estado
+            WHEN 'SUSPENDIDA' THEN format(
+                'Eliminación automática (D-74): suspendida por falta de pago '
+                'desde el %s y pasaron 60 días.', r.suspendida_desde)
+            ELSE format(
+                'Eliminación automática (D-74): cancelada, y el plazo para '
+                'reactivarla venció el %s.', r.reactivable_hasta) END;
+        PERFORM app.fn_eliminar_tenant(r.id, motivo, NULL);
+        RETURN NEXT;
+    END LOOP;
+END $$;
+
+-- -----------------------------------------------------------------------------
 --  D-73 · Para el panel: el estado comercial sin la suspensión encima, y desde
 --  cuándo una empresa se puede eliminar. fn_estado_suscripcion pone la
 --  suspensión primero porque es lo que la empresa ve; el panel las muestra
@@ -6628,41 +7064,20 @@ END $$;
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION plataforma.fn_estado_comercial(p_tenant_id uuid)
 RETURNS text LANGUAGE sql STABLE AS $$
-    SELECT CASE
-             WHEN s.id IS NULL                       THEN 'SIN_SUSCRIPCION'
-             WHEN s.estado = 'CANCELADA'             THEN 'CANCELADA'
-             WHEN s.fecha_vencimiento < current_date THEN 'VENCIDA'
-             WHEN s.estado = 'EN_PRUEBA'             THEN 'EN_PRUEBA'
-             ELSE                                         'ACTIVA'
-           END
-      FROM plataforma.tenant t
-      LEFT JOIN LATERAL (
-               SELECT sx.* FROM plataforma.suscripcion sx
-                WHERE sx.tenant_id = t.id
-                ORDER BY (sx.estado IN ('EN_PRUEBA','ACTIVA')) DESC,
-                         sx.fecha_vencimiento DESC, sx.creado_en DESC, sx.id DESC
-                LIMIT 1) s ON true
-     WHERE t.id = p_tenant_id;
+    -- D-74 · Sin la suspensión manual encima: esa el panel la muestra aparte.
+    -- SUSPENDIDA aquí es la suspensión por falta de pago.
+    SELECT c.estado FROM plataforma.fn_ciclo_suscripcion(p_tenant_id, false) c;
 $$;
 
--- Nulo: no se puede eliminar nunca (pagó, o salió de la prueba). Una fecha:
--- desde ese día (RF-SAD-13, 10 días después de vencida la prueba). Un pago
--- reportado y rechazado no cuenta como pago: un comprobante falso no compra la
--- conservación de los datos.
+-- D-74 · Nulo: hoy no corre ningún plazo de eliminación (está al día, en
+-- gracia, o tiene un pago esperando verificación). Una fecha: desde ese día se
+-- pueden eliminar sus datos. Prueba vencida: +10 días (RF-SAD-13). Suspendida
+-- por falta de pago: el día 61. Cancelada: el día siguiente al último en que se
+-- podía reactivar. Un pago rechazado no cuenta: un comprobante falso no compra
+-- la conservación de los datos.
 CREATE OR REPLACE FUNCTION plataforma.fn_eliminable_desde(p_tenant_id uuid)
 RETURNS date LANGUAGE sql STABLE AS $$
-    SELECT CASE
-             WHEN EXISTS (SELECT 1 FROM plataforma.pago p
-                            JOIN plataforma.suscripcion s ON s.id = p.suscripcion_id
-                           WHERE s.tenant_id = p_tenant_id AND p.estado = 'EXITOSO')
-               OR EXISTS (SELECT 1 FROM plataforma.suscripcion
-                           WHERE tenant_id = p_tenant_id AND estado <> 'EN_PRUEBA')
-               OR NOT EXISTS (SELECT 1 FROM plataforma.suscripcion
-                               WHERE tenant_id = p_tenant_id)
-             THEN NULL
-             ELSE (SELECT max(fecha_vencimiento) + 10 FROM plataforma.suscripcion
-                    WHERE tenant_id = p_tenant_id AND estado = 'EN_PRUEBA')
-           END;
+    SELECT c.se_elimina_el FROM plataforma.fn_ciclo_suscripcion(p_tenant_id, false) c;
 $$;
 
 -- D-72 · Para buscar empresas sin distinguir mayúsculas ni tildes.
@@ -6918,6 +7333,11 @@ ALTER FUNCTION plataforma.fn_subir_comprobante_empresa(text,text,bytea) OWNER TO
 ALTER FUNCTION plataforma.fn_reportar_pago(date,numeric,text,text,smallint,uuid) OWNER TO construsoft_super;
 ALTER FUNCTION plataforma.fn_confirmar_pago(uuid,uuid,date,smallint)    OWNER TO construsoft_super;
 ALTER FUNCTION plataforma.fn_rechazar_pago(uuid,uuid,text)              OWNER TO construsoft_super;
+-- D-74 · Cancelar, reanudar y la purga diaria: escriben la suscripción, que
+-- ningún rol de conexión puede tocar así, o cruzan inquilinos.
+ALTER FUNCTION plataforma.fn_cancelar_suscripcion_empresa(text) OWNER TO construsoft_super;
+ALTER FUNCTION plataforma.fn_reanudar_suscripcion()             OWNER TO construsoft_super;
+ALTER FUNCTION plataforma.fn_purgar_empresas()                  OWNER TO construsoft_super;
 ALTER FUNCTION plataforma.fn_marcar_aviso(uuid,text)            OWNER TO construsoft_super;
 
 -- 16.3 · Estas SÍ reciben un id arbitrario del cliente, así que su dueño es
@@ -7054,6 +7474,9 @@ REVOKE EXECUTE ON FUNCTION plataforma.fn_subir_comprobante_empresa(text,text,byt
 REVOKE EXECUTE ON FUNCTION plataforma.fn_reportar_pago(date,numeric,text,text,smallint,uuid) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION plataforma.fn_confirmar_pago(uuid,uuid,date,smallint)    FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION plataforma.fn_rechazar_pago(uuid,uuid,text)              FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION plataforma.fn_cancelar_suscripcion_empresa(text) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION plataforma.fn_reanudar_suscripcion()             FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION plataforma.fn_purgar_empresas()                  FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION plataforma.fn_registrar_pago_pasarela(uuid,numeric,text,text,text,jsonb,smallint,date,text,date) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION plataforma.fn_evento_plataforma(uuid,text,text,text,jsonb,uuid) FROM PUBLIC;
 GRANT  EXECUTE ON FUNCTION app.fn_alta_tenant(text,text,text,text,citext,text,citext) TO construsoft_app;
@@ -7150,6 +7573,13 @@ GRANT EXECUTE ON FUNCTION plataforma.fn_confirmar_pago(uuid,uuid,date,smallint) 
 GRANT EXECUTE ON FUNCTION plataforma.fn_rechazar_pago(uuid,uuid,text)              TO construsoft_superadmin;
 GRANT EXECUTE ON FUNCTION plataforma.fn_estado_comercial(uuid)                     TO construsoft_superadmin;
 GRANT EXECUTE ON FUNCTION plataforma.fn_eliminable_desde(uuid)                     TO construsoft_superadmin;
+-- D-74 · La empresa cancela y reanuda; el panel corre la purga diaria. El
+-- ciclo lo leen los dos, cada uno con su RLS.
+GRANT EXECUTE ON FUNCTION plataforma.fn_cancelar_suscripcion_empresa(text) TO construsoft_app;
+GRANT EXECUTE ON FUNCTION plataforma.fn_reanudar_suscripcion()             TO construsoft_app;
+GRANT EXECUTE ON FUNCTION plataforma.fn_purgar_empresas()                  TO construsoft_superadmin;
+GRANT EXECUTE ON FUNCTION plataforma.fn_ciclo_suscripcion(uuid,boolean)    TO construsoft_app, construsoft_superadmin;
+GRANT EXECUTE ON FUNCTION plataforma.fn_sumar_dias_habiles(date,integer)   TO construsoft_app, construsoft_superadmin;
 -- El webhook de la pasarela (D-40) se atiende con el rol del panel, no con el
 -- de la aplicación: quien confirma un pago no puede ser el mismo rol que
 -- atiende a los inquilinos.

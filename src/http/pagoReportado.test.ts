@@ -99,7 +99,7 @@ describe('la empresa reporta su pago (CONTRATO §14.1)', () => {
     assert.deepEqual(((r) => [r.estado, r.cuerpo.campo])(await reportar(e, { monto: '0.00' })), [422, 'monto']);
     assert.deepEqual(((r) => [r.estado, r.cuerpo.campo])(await reportar(e, { comprobanteId: null })), [422, 'comprobante']);
     assert.deepEqual(((r) => [r.estado, r.cuerpo.campo])(await reportar(e, { periodoMeses: 2 })), [422, 'periodoMeses']);
-    assert.equal((await reportar(e, { fecha: '2099-01-01' })).estado, 422, 'fecha futura');
+    assert.deepEqual(((r) => [r.estado, r.cuerpo.campo])(await reportar(e, { fecha: '2099-01-01' })), [422, 'fecha']);
     const svg = await subirComprobante(e.cookie, Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>'));
     assert.deepEqual([svg.estado, svg.cuerpo.campo], [422, 'comprobante']);
   });
@@ -125,7 +125,7 @@ describe('la empresa reporta su pago (CONTRATO §14.1)', () => {
     const b = await registrar('Constructora Reporta B', '900000435-5', 'reporte.b@construsoft.test');
     const deB = (await subirComprobante(b.cookie)).cuerpo.id;
     const r = await reportar(a, { comprobanteId: deB });
-    assert.equal(r.estado, 422);
+    assert.deepEqual([r.estado, r.cuerpo.campo], [422, 'comprobante']);
     assert.equal((await llamar('GET', '/api/configuracion/suscripcion', a.cookie)).cuerpo.pagos.length, 0);
   });
 });

@@ -50,7 +50,9 @@ export const NOMBRE_DE_METODO: Record<MetodoDePago, string> = {
 const NOMBRE_DE_ESTADO: Record<EstadoComercial, string> = {
   EN_PRUEBA: 'En prueba',
   ACTIVA: 'Activa',
+  POR_PAGAR: 'Por pagar',
   VENCIDA: 'Vencida',
+  SUSPENDIDA: 'Suspendida por falta de pago',
   CANCELADA: 'Cancelada',
   SIN_SUSCRIPCION: 'Sin suscripción',
 };
@@ -63,7 +65,7 @@ export function InsigniasDeEmpresa({ estado, suspendida }: { estado: EstadoComer
   return (
     <span className="insignias">
       <span className="insignia insignia-suscripcion" data-estado={estado}>{NOMBRE_DE_ESTADO[estado]}</span>
-      {suspendida ? <span className="insignia insignia-suscripcion" data-estado="SUSPENDIDA">Suspendida</span> : null}
+      {suspendida ? <span className="insignia insignia-suscripcion" data-estado="SUSPENDIDA">Suspendida por el panel</span> : null}
     </span>
   );
 }

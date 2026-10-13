@@ -15,6 +15,97 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-12 · lunes, verificación
+
+**Hecho** (513/513, sin commit)
+
+- **Revisé el §15 contra el contrato y contra D-74. Está bien construido.**
+  - La API lee los plazos de la base y no recalcula ninguno.
+  - CS006 → 423 se traduce solo en `errores.ts`.
+  - Los cambios a las pruebas que ya existían las dejan iguales o más
+    estrictas, ninguna más débil.
+- **`construsoft` ya está recargada con D-74.** Esto corrige la entrada de
+  abajo.
+  - Las siete pruebas de psql pasan (fase 0 con sus 3 rechazos, EDT 15,
+    D-65 a D-68 49, D-71 19, D-72 27, D-73 25, D-74 52) y los verificadores
+    dan cero.
+  - La demo está sembrada.
+  - `npm run purgar` contra la base de desarrollo responde «ninguna empresa
+    cumplió su plazo».
+- **Gracias por los `USING COLUMN` de `fn_reportar_pago`.** Las pruebas del
+  §14 ahora exigen `campo: "fecha"` y `campo: "comprobante"` (el de otra
+  empresa), y no solo el 422.
+
+**Sigue abierto**: la decisión de abajo sobre el panel que cancela con un
+pago pendiente.
+
+---
+
+## 2026-10-12 · lunes
+
+**Hecho** (513/513, sin commit: tu D-74 y mi §15 quedan juntos en el árbol)
+
+- **D-74 cargado en `construsoft_test`.** Las siete pruebas de psql en verde
+  (fase 0 con sus tres rechazos, EDT 15, D-65 a D-68 49, D-71 19, D-72 27,
+  D-73 25, D-74 52) y los tres verificadores en cero.
+- **`construsoft` NO quedó recargada.** El permiso de esta terminal me negó
+  borrar la base de desarrollo. Le queda al dueño (ver abajo).
+- **CONTRATO §15 completo.**
+  - CS006 → **423** con `{ mensaje }`. Probado consultando y escribiendo con
+    la cuenta suspendida; la pestaña, `GET /api/sesion`, Mi cuenta y
+    reportar un pago siguen respondiendo.
+  - `GET /api/sesion`: `suscripcion` trae todos los campos del §15.1, tal
+    cual de `fn_estado_suscripcion`. `estado` puede ser `POR_PAGAR`.
+  - `GET /api/configuracion/suscripcion` trae el §15.3 completo, con
+    `puedeCancelar` y `puedeReanudar`.
+  - `POST …/suscripcion/cancelar` (`{ motivo }`, admite vacío como la base) y
+    `POST …/suscripcion/reanudar`: 200 con `DetalleDeSuscripcion`. Si no es
+    el Administrador, 403, aunque tenga `CONFIG.SUSCRIPCION`. Ya cancelada,
+    con un pago pendiente, o reanudar pasada la fecha: 422 sin `campo`.
+  - Panel: `EstadoComercial` suma `POR_PAGAR` y `SUSPENDIDA`; el filtro
+    acepta `POR_PAGAR`; `estado=SUSPENDIDA` trae las dos suspensiones;
+    `Resumen.empresas.porPagar`; `suspendidas` cuenta las dos;
+    `Resumen.porEliminar`; la ficha suma `canceladaPor`, `pagarAMasTardar`,
+    `suspendidaDesde` y `reactivableHasta`.
+  - `GET …/pagos/propuesta` responde para una cancelada con un pago reportado
+    pendiente. Probé de punta a punta: cancela, se pasa la fecha, el
+    Administrador reporta, el panel confirma, vuelve ACTIVA y queda el evento
+    `SUSCRIPCION_REACTIVADA`.
+- **La purga diaria.**
+  - La API la corre sola cada día a las **00:05 de Bogotá**, por la conexión
+    del panel. No corre al arrancar: un día perdido lo recoge el siguiente.
+  - `npm run purgar` la corre a mano e imprime cada empresa eliminada con su
+    motivo.
+  - Comprobé que la aplicación (`construsoft_app`) no la puede ejecutar:
+    permiso denegado.
+- Comprobé que las pruebas muerden: tres mutaciones, una a la vez (reactivar
+  sin ser Administrador, `porEliminar` con pruebas vencidas, la propuesta sin
+  la cancelada), y cada una tumbó una prueba.
+
+**Qué divergió**
+
+- Nada del contrato. La cabecera del §15 todavía dice «sin construir»: ya
+  está construido.
+
+**Lo que necesito** (no me bloquea)
+
+- **Decidir qué pasa si el panel cancela con un pago reportado pendiente.**
+  `fn_cancelar_suscripcion_empresa` lo rechaza, pero la cancelación del panel
+  es un `UPDATE` firmado y la base no lo frena. Si después el panel confirma
+  ese pago, `fn_confirmar_pago` la reactiva: es justo lo que el comentario de
+  D-74 quiere evitar del lado de la empresa. ¿Rechazarlo en la base para los
+  dos lados, o dejarlo así a propósito? No lo arreglo en la API sin que lo
+  digas.
+
+**Lo que conviene que sepas**
+
+- **El dueño tiene que recargar `construsoft`** con la secuencia del README
+  (pasos 1, 2 y 4), correr las siete pruebas de psql, `npm run demo`, y crear
+  otra vez su superadministrador con `npm run superadmin`.
+- La API escribe cada corrida de la purga en su consola, con fecha y hora.
+
+---
+
 ## 2026-10-11 · domingo, noche
 
 **Hecho** (494/494)

@@ -56,6 +56,45 @@ export async function moverVencimiento(tenantId: string, dias: number): Promise<
   );
 }
 
+/**
+ * Deja la suscripción ACTIVA, como si hubiera pagado, vencida o por vencer a
+ * `dias` de hoy. Los plazos de D-74 —dos días hábiles, 60 días suspendida—
+ * solo corren para una ACTIVA; la prueba vencida sigue su regla de siempre.
+ */
+export async function activarYMoverVencimiento(tenantId: string, dias: number): Promise<void> {
+  await comoSuperusuario((cliente) =>
+    cliente.query(`UPDATE plataforma.suscripcion SET estado = 'ACTIVA' WHERE tenant_id = $1 AND estado = 'EN_PRUEBA'`, [tenantId]),
+  );
+  await moverVencimiento(tenantId, dias);
+}
+
+/** Corre hacia atrás la fecha en que se canceló: `dias` negativo es hace tantos días. */
+export async function moverCancelacion(tenantId: string, dias: number): Promise<void> {
+  await comoSuperusuario((cliente) =>
+    cliente.query(
+      `UPDATE plataforma.suscripcion SET cancelada_en = now() + make_interval(days => $2::int)
+        WHERE tenant_id = $1 AND estado = 'CANCELADA'`,
+      [tenantId, dias],
+    ),
+  );
+}
+
+/**
+ * Corre la purga como el rol de la aplicación, para comprobar que NO puede:
+ * es irreversible y solo la llama el panel (CONTRATO §15.5).
+ */
+export async function purgarComoLaAplicacion(): Promise<void> {
+  await comoSuperusuario(async (cliente) => {
+    await cliente.query('BEGIN');
+    try {
+      await cliente.query('SET LOCAL ROLE construsoft_app');
+      await cliente.query('SELECT * FROM plataforma.fn_purgar_empresas()');
+    } finally {
+      await cliente.query('ROLLBACK');
+    }
+  });
+}
+
 /** Desactiva a un superadministrador: no hay ruta ni comando que lo haga todavía. */
 export async function desactivarSuperadmin(email: string): Promise<void> {
   await comoSuperusuario((cliente) =>

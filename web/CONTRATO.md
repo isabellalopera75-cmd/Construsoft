@@ -85,6 +85,7 @@ traduce. La interfaz solo ve el estado HTTP y el mensaje:
 |---|---|---|
 | 401 | No hay sesión, o la cookie es vieja (sello de credenciales) | Manda al ingreso |
 | 402 | La suscripción no está vigente y la acción escribe | Pantalla de suscripción, y la mesa queda en solo lectura |
+| 423 | La cuenta está suspendida o cancelada y la acción no es la suscripción (CS006, D-74, §15) | Relee el arranque y muestra la cuenta detenida |
 | 403 | El rol no tiene el permiso | Muestra el mensaje; el control no debería haber estado visible |
 | 404 | No existe, o es de otra empresa | Indistinguibles a propósito |
 | 409 | El código del presupuesto ya existe (23505), o los términos cambiaron | Muestra el mensaje |
@@ -963,7 +964,11 @@ de la vigente.
   cambiado de logo después. El logo se encaja en su espacio del encabezado
   conservando la proporción. Sin logo, el encabezado queda como hoy.
 
-## 14. El pago que reporta la empresa (PROPUESTO el 11 de octubre de 2026, sin construir)
+## 14. El pago que reporta la empresa (propuesto el 11 de octubre de 2026, construido: `1dfa5b2`)
+
+> **Cómo quedó construido**: confirmar o rechazar un id que no existe da 404
+> «Ese pago no existe.». Desde D-74, la base marca `campo` (`fecha`, `monto`,
+> `comprobante`) con `USING COLUMN`.
 
 Decisión del dueño, 11 de octubre de 2026. La empresa paga por fuera
 —transferencia o PSE— y **reporta** el pago con su comprobante. El pago queda
@@ -1043,3 +1048,127 @@ Pago = { id, fecha, concepto, monto: Dinero, moneda, metodo,
   es 422 con `campo: "motivo"`. La empresa lee ese motivo tal cual.
 - Un pago que ya no está pendiente: 422 «Ese pago no está esperando
   verificación.».
+
+## 15. El ciclo de vida de la suscripción (PROPUESTO el 12 de octubre de 2026, sin construir)
+
+Decisión del dueño, 11 y 12 de octubre de 2026. La base lo sostiene con D-74
+(`docs/prueba-d74.sql`, 52 casos). Todo sale de una función,
+`plataforma.fn_ciclo_suscripcion`: la API **no calcula plazos**, los lee.
+
+| Situación | Estado | Acceso |
+|---|---|---|
+| Al día | `ACTIVA` / `EN_PRUEBA` | `COMPLETO` |
+| Venció, y faltan días de sus **dos días hábiles** (lunes a viernes sin festivos de Colombia) | `POR_PAGAR` | `COMPLETO` |
+| Pasó el plazo sin pagar | `SUSPENDIDA` (`suspension: FALTA_DE_PAGO`) | `SOLO_PAGO` |
+| 60 días suspendida | — | la purga elimina sus datos |
+| Un rechazo de un pago reportado **a tiempo** | vuelve a contar: dos días hábiles desde el rechazo | — |
+| Cancelada (por la empresa o el panel), dentro de lo pagado | `CANCELADA` | `COMPLETO` |
+| Cancelada, pasada la fecha pagada, en sus **10 días** | `CANCELADA` | `SOLO_PAGO`: solo el Administrador reactiva, pagando |
+| Cancelada, fuera de plazo | `CANCELADA` | `NINGUNO`: espera la purga |
+| Suspendida por el panel | `SUSPENDIDA` (`suspension: PLATAFORMA`) | `SOLO_PAGO` |
+| Prueba vencida (sin cambios) | `VENCIDA` | `SOLO_LECTURA`; se elimina a mano a los 10 días |
+
+Un pago reportado a tiempo y pendiente mantiene el acceso. Cualquier pago
+pendiente detiene el plazo de eliminación.
+
+### 15.1 El arranque, `GET /api/sesion`
+
+`suscripcion` suma lo que devuelve `plataforma.fn_estado_suscripcion`, que
+ahora trae más columnas (las de antes siguen igual):
+
+```
+Suscripcion = { estado, soloLectura, diasRestantes, venceEl, planCodigo,
+                acceso: 'COMPLETO' | 'SOLO_LECTURA' | 'SOLO_PAGO' | 'NINGUNO',
+                suspension: 'FALTA_DE_PAGO' | 'PLATAFORMA' | null,
+                pagarAMasTardar: Fecha | null,
+                suspendidaDesde: Fecha | null,
+                reactivableHasta: Fecha | null,
+                seEliminaEl: Fecha | null,
+                canceladaPor: 'EMPRESA' | 'PLATAFORMA' | null,
+                pagoEnVerificacion: boolean }
+```
+
+- `estado` suma `POR_PAGAR`. `soloLectura` es «`acceso` no es `COMPLETO`».
+- Con `SOLO_PAGO` o `NINGUNO`, la interfaz muestra solo la cuenta detenida y
+  la pestaña de suscripción (`web/src/pantallas/CuentaDetenida.tsx`).
+
+### 15.2 El rechazo nuevo: CS006 → **423**
+
+`fn_exigir_permiso` levanta **CS006** cuando el acceso es `SOLO_PAGO` o
+`NINGUNO` y el permiso no es `CONFIG.SUSCRIPCION`; también para VER y
+EXPORTAR. Va como **423** con `{ mensaje }`. La interfaz, al recibir un 423,
+vuelve a leer el arranque y muestra la cuenta detenida. Esto suma una fila a la
+tabla del §2:
+
+| 423 | La cuenta está suspendida o cancelada y la acción no es la suscripción | Relee el arranque y muestra la cuenta detenida |
+
+`GET /api/configuracion/suscripcion` y las dos rutas de §14.1 siguen
+funcionando en `SOLO_PAGO`. También salir, `GET /api/sesion` y Mi cuenta.
+
+### 15.3 La pestaña, `GET /api/configuracion/suscripcion`
+
+```
+DetalleDeSuscripcion = { estado, plan, venceEl, diasRestantes, pagos,
+                         acceso, suspension, pagarAMasTardar, suspendidaDesde,
+                         reactivableHasta, seEliminaEl, canceladaPor,
+                         pagoEnVerificacion,
+                         puedeReportar, puedeCancelar, puedeReanudar }
+```
+
+- `puedeReportar`: como en §14.1, salvo que la suscripción esté cancelada.
+  Cancelada, es verdadero solo para el **Administrador** (rol tipo ADMIN) y
+  cuando `fn_ciclo_suscripcion(...).puede_reactivar`.
+- `puedeCancelar`: es Administrador, la suscripción está en `EN_PRUEBA` o
+  `ACTIVA` (almacenado; incluye POR_PAGAR) y no hay un pago pendiente.
+- `puedeReanudar`: es Administrador y `fn_ciclo_suscripcion(...).puede_reanudar`.
+
+| Método y ruta | Cuerpo | Respuesta |
+|---|---|---|
+| `POST /api/configuracion/suscripcion/cancelar` | `{ motivo }` | 200 `DetalleDeSuscripcion` |
+| `POST /api/configuracion/suscripcion/reanudar` | — | 200 `DetalleDeSuscripcion` |
+
+- **Cancelar**: `plataforma.fn_cancelar_suscripcion_empresa(motivo)`. Devuelve
+  el último día que la cuenta funciona. Si no es Administrador, 403 (CS004). Si
+  ya está cancelada o hay un pago pendiente, 422 sin `campo`. La interfaz exige
+  el motivo; la base lo admite vacío.
+- **Reanudar**: `plataforma.fn_reanudar_suscripcion()`, solo antes de la fecha
+  pagada; no pide pago. Si pasó la fecha, 422: tiene que reactivar pagando.
+- **Reactivar** no es una ruta: es reportar un pago (§14.1) sobre la cancelada.
+  `fn_reportar_pago` lo deja solo al Administrador y en el plazo. Al
+  confirmarlo, `fn_confirmar_pago` la vuelve ACTIVA y deja el evento
+  `SUSCRIPCION_REACTIVADA`.
+
+### 15.4 El panel
+
+- `EstadoComercial` suma `POR_PAGAR` y `SUSPENDIDA` (por falta de pago). La
+  suspensión del panel sigue aparte, en `suspendida`. Sale de
+  `fn_estado_comercial`, que ya calcula con D-74. El filtro
+  `estado=SUSPENDIDA` trae las dos.
+- `Resumen.empresas` suma `porPagar`. `suspendidas` cuenta las dos
+  suspensiones.
+- `Resumen.porEliminar: FilaDeEmpresa[]`: las que tienen `eliminableDesde` en
+  los próximos 7 días o antes y no son pruebas vencidas, ordenadas por fecha.
+- `FichaDeEmpresa.suscripcion` suma `canceladaPor`, `pagarAMasTardar`,
+  `suspendidaDesde` y `reactivableHasta`, de `fn_ciclo_suscripcion(id, false)`.
+- `eliminableDesde` sigue saliendo de `fn_eliminable_desde`, que ahora es la
+  fecha del plazo que corra, o nulo si no corre ninguno. **Ya no es «pagó
+  alguna vez → nulo»**.
+- **Una cancelada no admite pagos del panel** (`fn_registrar_pago` la
+  rechaza) **ni cambio de plan.** Pero **sí** admite confirmar el pago
+  reportado que la reactiva, y por eso `GET …/pagos/propuesta` tiene que
+  responder cuando hay un pago pendiente aunque esté cancelada.
+- Cancelar desde el panel no cambia de ruta ni de forma. Ahora surte efecto en
+  la fecha pagada, y el panel no la revive.
+- Eventos nuevos en la bitácora: `SUSCRIPCION_REANUDADA` y
+  `SUSCRIPCION_REACTIVADA`. Una cancelación de la empresa llega sin
+  `usuario_plataforma_id`; quién la hizo está en `datos.cancelada_por`.
+
+### 15.5 La purga diaria
+
+`plataforma.fn_purgar_empresas()` está concedida al rol del panel. Elimina con
+`app.fn_eliminar_tenant` a las suspendidas que cumplieron 60 días y a las
+canceladas fuera de plazo, dejando el evento `TENANT_ELIMINADO` sin autor.
+Devuelve `(tenant_id, razon_social, motivo)` por cada una. **La prueba vencida
+no la toca**: sigue siendo a mano (RF-SAD-13). Tiene que correr una vez al día,
+después de medianoche en Bogotá, con un comando para correrla a mano
+(`npm run purgar`), que imprima lo que eliminó.

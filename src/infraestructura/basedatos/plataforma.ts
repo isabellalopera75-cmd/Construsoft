@@ -151,7 +151,11 @@ export async function cambiarClaveSuperadmin(email: string, hash: string): Promi
 
 // --- Las formas (CONTRATO §12.2) ---------------------------------------------------
 
-export type EstadoComercial = 'EN_PRUEBA' | 'ACTIVA' | 'VENCIDA' | 'CANCELADA' | 'SIN_SUSCRIPCION';
+/**
+ * fn_estado_comercial (D-74): sin la suspensión del panel encima, que va
+ * aparte en `suspendida`. SUSPENDIDA aquí es la suspensión por falta de pago.
+ */
+export type EstadoComercial = 'EN_PRUEBA' | 'ACTIVA' | 'POR_PAGAR' | 'VENCIDA' | 'SUSPENDIDA' | 'CANCELADA' | 'SIN_SUSCRIPCION';
 export type EstadoDePago = 'EXITOSO' | 'PENDIENTE' | 'RECHAZADO';
 
 export interface FilaDeEmpresa {
@@ -269,8 +273,8 @@ const EVENTOS = `
 
 export interface FiltrosDeEmpresas {
   texto?: string;
-  /** Uno de EstadoComercial, o SUSPENDIDA. */
-  estado?: EstadoComercial | 'SUSPENDIDA';
+  /** Uno de EstadoComercial. SUSPENDIDA trae las dos suspensiones: la del panel y la de falta de pago. */
+  estado?: EstadoComercial;
   plan?: 'PERSONAL' | 'EMPRESARIAL';
 }
 
@@ -295,7 +299,16 @@ export async function listarEmpresas(filtros: FiltrosDeEmpresas = {}): Promise<F
 }
 
 export interface Resumen {
-  empresas: { total: number; enPrueba: number; activas: number; vencidas: number; canceladas: number; suspendidas: number };
+  empresas: {
+    total: number;
+    enPrueba: number;
+    activas: number;
+    porPagar: number;
+    vencidas: number;
+    canceladas: number;
+    /** Las dos suspensiones: la del panel y la de falta de pago. */
+    suspendidas: number;
+  };
   nuevasEsteMes: number;
   ingresosDelMes: string;
   moneda: 'COP';
@@ -305,13 +318,20 @@ export interface Resumen {
   porVerificar: PagoDePlataforma[];
   porVencer: FilaDeEmpresa[];
   pruebasSinConvertir: FilaDeEmpresa[];
+  /**
+   * Las que se pueden eliminar en los próximos 7 días o antes, por fecha
+   * (CONTRATO §15.4). Las pruebas vencidas no: esas siguen en
+   * pruebasSinConvertir y se eliminan a mano.
+   */
+  porEliminar: FilaDeEmpresa[];
 }
 
 /** RF-SAD-02 y RF-SAD-10. Son decenas de empresas: se cuentan sobre la misma lista. */
 export async function leerResumen(): Promise<Resumen> {
   const filas = await listarEmpresas();
-  const [cifras] = await consultar<{ nuevas: number; ingresos: string; proyectos: number }>(
-    `SELECT (SELECT count(*)::int FROM plataforma.tenant
+  const [cifras] = await consultar<{ nuevas: number; ingresos: string; proyectos: number; enUnaSemana: string }>(
+    `SELECT (current_date + 7)::text AS "enUnaSemana",
+            (SELECT count(*)::int FROM plataforma.tenant
               WHERE date_trunc('month', creado_en) = date_trunc('month', now())) AS nuevas,
             (SELECT COALESCE(sum(monto), 0)::text FROM plataforma.pago
               WHERE estado = 'EXITOSO' AND moneda = 'COP'
@@ -325,9 +345,10 @@ export async function leerResumen(): Promise<Resumen> {
       total: filas.length,
       enPrueba: cuantas((f) => f.estado === 'EN_PRUEBA'),
       activas: cuantas((f) => f.estado === 'ACTIVA'),
+      porPagar: cuantas((f) => f.estado === 'POR_PAGAR'),
       vencidas: cuantas((f) => f.estado === 'VENCIDA'),
       canceladas: cuantas((f) => f.estado === 'CANCELADA'),
-      suspendidas: cuantas((f) => f.suspendida),
+      suspendidas: cuantas((f) => f.suspendida || f.estado === 'SUSPENDIDA'),
     },
     nuevasEsteMes: cifras!.nuevas,
     ingresosDelMes: cifras!.ingresos,
@@ -344,6 +365,10 @@ export async function leerResumen(): Promise<Resumen> {
       .filter((f) => (f.estado === 'EN_PRUEBA' || f.estado === 'ACTIVA') && f.diasRestantes !== null && f.diasRestantes <= 7)
       .sort(porVencimiento),
     pruebasSinConvertir: filas.filter((f) => f.estado === 'VENCIDA' && f.eliminableDesde !== null).sort(porVencimiento),
+    // Las fechas aaaa-mm-dd se ordenan y se comparan como texto; «hoy» es el de la base.
+    porEliminar: filas
+      .filter((f) => f.estado !== 'VENCIDA' && f.eliminableDesde !== null && f.eliminableDesde <= cifras!.enUnaSemana)
+      .sort((a, b) => a.eliminableDesde!.localeCompare(b.eliminableDesde!)),
   };
 }
 
@@ -367,6 +392,11 @@ export interface FichaDeEmpresa {
     diasRestantes: number;
     canceladaEn: Date | null;
     canceladaMotivo: string | null;
+    /** D-74, de fn_ciclo_suscripcion(id, false): los plazos, sin la suspensión del panel encima. */
+    canceladaPor: 'EMPRESA' | 'PLATAFORMA' | null;
+    pagarAMasTardar: string | null;
+    suspendidaDesde: string | null;
+    reactivableHasta: string | null;
   } | null;
   usuarios: {
     id: string;
@@ -393,11 +423,15 @@ export async function leerFicha(tenantId: string): Promise<FichaDeEmpresa | null
               'id', s.id, 'planCodigo', pl.codigo, 'estado', f.estado,
               'fechaInicio', s.fecha_inicio::text, 'venceEl', s.fecha_vencimiento::text,
               'diasRestantes', s.fecha_vencimiento - current_date,
-              'canceladaEn', s.cancelada_en, 'canceladaMotivo', s.cancelada_motivo) END AS suscripcion,
+              'canceladaEn', s.cancelada_en, 'canceladaMotivo', s.cancelada_motivo,
+              'canceladaPor', c.cancelada_por, 'pagarAMasTardar', c.pagar_a_mas_tardar::text,
+              'suspendidaDesde', c.suspendida_desde::text,
+              'reactivableHasta', c.reactivable_hasta::text) END AS suscripcion,
             row_to_json(f) AS fila
        FROM plataforma.tenant t
        ${SUSCRIPCION_QUE_CUENTA}
        JOIN (${FILAS_DE_EMPRESA}) f ON f.id = t.id
+       LEFT JOIN LATERAL plataforma.fn_ciclo_suscripcion(t.id, false) c ON true
       WHERE t.id = $1`,
     [tenantId],
   );
@@ -560,10 +594,24 @@ export async function cancelarSuscripcion(firma: Firma, tenantId: string): Promi
   });
 }
 
-/** La fecha que dejaría un pago de `meses`: la calcula la base, no la pantalla. */
+/**
+ * La fecha que dejaría un pago de `meses`: la calcula la base, no la pantalla.
+ * Una cancelada no admite pagos del panel, pero sí confirmar el pago reportado
+ * que la reactiva (CONTRATO §15.4): con uno pendiente, la propuesta es sobre
+ * esa suscripción, la misma que tomará fn_confirmar_pago.
+ */
 export async function proponerCubreHasta(tenantId: string, meses: number): Promise<string> {
   return enTransaccion(null, async (c) => {
-    const suscripcion = await suscripcionVigente(c, tenantId);
+    const { rows: porReactivar } = await c.query<{ id: string }>(
+      `SELECT s.id FROM plataforma.suscripcion s
+        WHERE s.tenant_id = $1 AND s.estado = 'CANCELADA'
+          AND EXISTS (SELECT 1 FROM plataforma.pago p
+                       WHERE p.suscripcion_id = s.id AND p.origen = 'REPORTADO' AND p.estado = 'PENDIENTE')
+          AND NOT EXISTS (SELECT 1 FROM plataforma.suscripcion v
+                           WHERE v.tenant_id = s.tenant_id AND v.estado IN ('EN_PRUEBA','ACTIVA'))`,
+      [tenantId],
+    );
+    const suscripcion = porReactivar[0]?.id ?? (await suscripcionVigente(c, tenantId));
     const { rows } = await c.query<{ fecha: string }>(
       'SELECT plataforma.fn_proponer_cubre_hasta($1, $2::smallint)::text AS fecha',
       [suscripcion, meses],
@@ -731,5 +779,30 @@ export async function rechazarPago(autor: string, pagoId: string, motivo: string
     if (!empresa) throw pagoNoExiste();
     await c.query('SELECT plataforma.fn_rechazar_pago($1, $2, $3)', [pagoId, autor, motivo]);
     return empresa;
+  });
+}
+
+// --- La purga diaria (D-74, CONTRATO §15.5) -----------------------------------------
+
+export interface EmpresaPurgada {
+  tenantId: string;
+  razonSocial: string;
+  motivo: string;
+}
+
+/**
+ * Elimina, con plataforma.fn_purgar_empresas, las suspendidas que cumplieron
+ * 60 días y las canceladas fuera de su plazo para reactivar. Es IRREVERSIBLE.
+ * Solo el rol del panel la puede ejecutar (la base no se la concede a la
+ * aplicación), y por eso vive en esta conexión y en ninguna otra. Qué empresa
+ * cumplió su plazo lo decide la base; la prueba vencida no la toca.
+ */
+export async function purgarEmpresas(): Promise<EmpresaPurgada[]> {
+  return enTransaccion(null, async (c) => {
+    const { rows } = await c.query<EmpresaPurgada>(
+      `SELECT tenant_id AS "tenantId", razon_social AS "razonSocial", motivo
+         FROM plataforma.fn_purgar_empresas()`,
+    );
+    return rows;
   });
 }

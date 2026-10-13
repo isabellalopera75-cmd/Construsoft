@@ -40,3 +40,21 @@ export function paraAtributo(instante: string): string {
 function limpiar(texto: string): string {
   return texto.replace(/\b(\p{L}+)\./gu, '$1').replace(/\s+de\s+/g, ' ');
 }
+
+const MESES: Record<string, string> = {
+  '01': 'enero', '02': 'febrero', '03': 'marzo', '04': 'abril', '05': 'mayo', '06': 'junio',
+  '07': 'julio', '08': 'agosto', '09': 'septiembre', '10': 'octubre', '11': 'noviembre', '12': 'diciembre',
+};
+
+/**
+ * Una fecha SIN hora («2026-10-16», un vencimiento o un plazo) en palabras:
+ * «16 de octubre de 2026». Se corta y no se parsea, al revés que los
+ * instantes: un día del calendario no tiene zona, y convertirlo a Date lo
+ * pondría en la medianoche UTC, que en Bogotá es el día anterior.
+ */
+export function fechaDelDia(texto: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(texto);
+  if (!m) return texto;
+  const [, anio = '', mes = '', dia = ''] = m;
+  return `${dia.replace(/^0/, '')} de ${MESES[mes] ?? mes} de ${anio}`;
+}

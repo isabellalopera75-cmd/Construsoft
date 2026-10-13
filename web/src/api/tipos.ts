@@ -20,11 +20,38 @@ export interface FormatoNumerico {
   decimalesVista: number;
 }
 
+/**
+ * D-74 · POR_PAGAR: venció y está en sus dos días hábiles para pagar, con
+ * acceso completo. VENCIDA es solo la prueba vencida. SUSPENDIDA es por falta
+ * de pago o por la plataforma: lo dice `suspension`.
+ */
 export type EstadoSuscripcion =
-  | 'EN_PRUEBA' | 'ACTIVA' | 'VENCIDA' | 'CANCELADA' | 'SUSPENDIDA' | 'SIN_SUSCRIPCION';
+  | 'EN_PRUEBA' | 'ACTIVA' | 'POR_PAGAR' | 'VENCIDA' | 'CANCELADA' | 'SUSPENDIDA' | 'SIN_SUSCRIPCION';
 
-export interface Suscripcion {
+/**
+ * Qué deja hacer la suscripción (D-74, CONTRATO §15). Lo decide la base y no
+ * se recalcula aquí: COMPLETO trabaja normal; SOLO_LECTURA consulta y exporta;
+ * SOLO_PAGO solo entra a la suscripción; NINGUNO espera la eliminación.
+ */
+export type Acceso = 'COMPLETO' | 'SOLO_LECTURA' | 'SOLO_PAGO' | 'NINGUNO';
+
+/** Los plazos del ciclo de vida (D-74). Todas las fechas son aaaa-mm-dd o nulas. */
+export interface CicloDeSuscripcion {
   estado: EstadoSuscripcion;
+  acceso: Acceso;
+  suspension: 'FALTA_DE_PAGO' | 'PLATAFORMA' | null;
+  /** Último día para pagar sin que la cuenta se suspenda. Solo en una suscripción pagada. */
+  pagarAMasTardar: string | null;
+  suspendidaDesde: string | null;
+  /** Una cancelada: hasta cuándo el Administrador puede reactivarla pagando. */
+  reactivableHasta: string | null;
+  /** Desde cuándo se eliminan los datos si nada cambia; nulo si no corre ese plazo. */
+  seEliminaEl: string | null;
+  canceladaPor: 'EMPRESA' | 'PLATAFORMA' | null;
+  pagoEnVerificacion: boolean;
+}
+
+export interface Suscripcion extends CicloDeSuscripcion {
   /** Sale de la misma función de la base que rechaza las escrituras (D-65). No se recalcula. */
   soloLectura: boolean;
   diasRestantes: number;
@@ -396,14 +423,21 @@ export interface Pago {
   facturaNumero: string | null;
 }
 
-export interface DetalleDeSuscripcion {
-  estado: EstadoSuscripcion;
+export interface DetalleDeSuscripcion extends CicloDeSuscripcion {
   plan: string;
   venceEl: string;
   diasRestantes: number;
   pagos: Pago[];
-  /** Si esta persona puede reportar un pago ahora (CONTRATO §14.1). */
+  /**
+   * Si esta persona puede reportar un pago ahora (CONTRATO §14.1). Con la
+   * suscripción cancelada, solo el Administrador y en su plazo para
+   * reactivarla (D-74).
+   */
   puedeReportar: boolean;
+  /** CONTRATO §15 · Solo el Administrador, con la suscripción vigente y sin un pago esperando. */
+  puedeCancelar: boolean;
+  /** CONTRATO §15 · Solo el Administrador, con la suscripción cancelada y antes de la fecha pagada. */
+  puedeReanudar: boolean;
 }
 
 // --- CONTRATO §11 · Usuarios y roles (02 §11.4) -------------------------------

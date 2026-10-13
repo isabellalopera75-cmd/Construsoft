@@ -49,6 +49,16 @@ export function cuandoSePierdaLaSesion(accion: () => void): void {
   alPerderLaSesion = accion;
 }
 
+/*
+ * D-74 · Un 423 es la cuenta que se suspendió o cuya cancelación surtió efecto
+ * mientras la persona trabajaba (CONTRATO §15). La aplicación vuelve a leer el
+ * arranque y muestra la pantalla de la cuenta detenida.
+ */
+let alDetenerseLaCuenta: (() => void) | null = null;
+export function cuandoSeDetengaLaCuenta(accion: () => void): void {
+  alDetenerseLaCuenta = accion;
+}
+
 interface Opciones {
   metodo?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   cuerpo?: unknown;
@@ -115,6 +125,7 @@ export async function pedir<T>(ruta: string, opciones: Opciones = {}): Promise<T
   const campo = typeof error?.campo === 'string' ? error.campo : undefined;
 
   if (respuesta.status === 401 && !el401EsDeLaPantalla) alPerderLaSesion?.();
+  if (respuesta.status === 423) alDetenerseLaCuenta?.();
 
   const rechazo = new ErrorDeApi(respuesta.status, mensaje, campo, segundosDeEspera(respuesta));
   if (Array.isArray(error?.errores)) rechazo.errores = error.errores as ErrorDeFila[];

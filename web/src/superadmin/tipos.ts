@@ -8,7 +8,11 @@ import type { Instante } from '../api/tipos.ts';
 export type Fecha = string;
 export type Dinero = string;
 export type CodigoDePlan = 'PERSONAL' | 'EMPRESARIAL';
-export type EstadoComercial = 'EN_PRUEBA' | 'ACTIVA' | 'VENCIDA' | 'CANCELADA' | 'SIN_SUSCRIPCION';
+/**
+ * D-74 · POR_PAGAR: venció y corre su plazo de dos días hábiles. SUSPENDIDA
+ * aquí es por falta de pago; la del panel va aparte, en `suspendida`.
+ */
+export type EstadoComercial = 'EN_PRUEBA' | 'ACTIVA' | 'POR_PAGAR' | 'VENCIDA' | 'SUSPENDIDA' | 'CANCELADA' | 'SIN_SUSCRIPCION';
 export type MetodoDePago = 'TRANSFERENCIA' | 'PSE' | 'EFECTIVO' | 'OTRO';
 
 export interface Superadministrador {
@@ -32,7 +36,8 @@ export interface FilaDeEmpresa {
 }
 
 export interface Resumen {
-  empresas: { total: number; enPrueba: number; activas: number; vencidas: number; canceladas: number; suspendidas: number };
+  /** `suspendidas` cuenta las dos suspensiones: por el panel y por falta de pago (D-74). */
+  empresas: { total: number; enPrueba: number; activas: number; porPagar: number; vencidas: number; canceladas: number; suspendidas: number };
   nuevasEsteMes: number;
   ingresosDelMes: Dinero;
   moneda: string;
@@ -42,6 +47,11 @@ export interface Resumen {
   pruebasSinConvertir: FilaDeEmpresa[];
   /** Pagos que reportaron las empresas y esperan verificación (CONTRATO §14). */
   porVerificar: PagoDePlataforma[];
+  /**
+   * D-74 · Suspendidas por falta de pago o canceladas cuyos datos se eliminan
+   * en los próximos 7 días (o ya debían): la purga diaria las borra sola.
+   */
+  porEliminar: FilaDeEmpresa[];
 }
 
 export type EstadoDePago = 'EXITOSO' | 'PENDIENTE' | 'RECHAZADO';
@@ -99,6 +109,11 @@ export interface FichaDeEmpresa {
     diasRestantes: number;
     canceladaEn: Instante | null;
     canceladaMotivo: string | null;
+    // D-74 · Los plazos que calcula la base.
+    canceladaPor: 'EMPRESA' | 'PLATAFORMA' | null;
+    pagarAMasTardar: Fecha | null;
+    suspendidaDesde: Fecha | null;
+    reactivableHasta: Fecha | null;
   } | null;
   usuarios: { id: string; nombre: string; email: string; rolNombre: string; rolTipo: string; estado: string; ultimoAcceso: Instante | null }[];
   cifras: { proyectos: number; recursos: number; apus: number };

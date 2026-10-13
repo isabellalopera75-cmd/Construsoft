@@ -4,8 +4,10 @@ import type { DetalleDeSuscripcion, EstadoDePago, EstadoSuscripcion, Pago } from
 import { useAvisos } from '../../componentes/Avisos.tsx';
 import { Campo } from '../../componentes/Campo.tsx';
 import { Capa } from '../../componentes/Capa.tsx';
+import { Confirmacion } from '../../componentes/Confirmacion.tsx';
 import { Icono } from '../../componentes/Icono.tsx';
 import { leerCifra, soloCifra } from '../../entrada.ts';
+import { fechaDelDia } from '../../fechas.ts';
 import { formatearNumero } from '../../formato.ts';
 import { useSesion } from '../../sesion.tsx';
 import { ErrorDeSeccion, Seccion, useLectura } from './piezas.tsx';
@@ -21,12 +23,19 @@ import { ErrorDeSeccion, Seccion, useLectura } from './piezas.tsx';
  * lee el motivo aquí mismo.
  *
  * Se puede reportar con la suscripción vencida, que es justo cuando hace
- * falta; no con una cancelada ni mientras otro pago espera verificación.
+ * falta; no mientras otro pago espera verificación.
+ *
+ * D-74 (12 de octubre de 2026) · El ciclo de vida: al vencer hay dos días
+ * hábiles para pagar; después la cuenta se suspende y, a los 60 días, sus
+ * datos se eliminan. El Administrador puede cancelar: la cuenta funciona hasta
+ * lo pagado, y después tiene diez días para reactivarla pagando. Antes de esa
+ * fecha la reanuda sin pagar. Los plazos los calcula la base y llegan aquí.
  */
 
 const NOMBRES_DE_ESTADO: Record<EstadoSuscripcion, string> = {
   EN_PRUEBA: 'En prueba',
   ACTIVA: 'Activa',
+  POR_PAGAR: 'Por pagar',
   VENCIDA: 'Vencida',
   CANCELADA: 'Cancelada',
   SUSPENDIDA: 'Suspendida',
@@ -47,18 +56,8 @@ const METODOS = [
 ];
 const NOMBRE_DE_METODO: Record<string, string> = Object.fromEntries(METODOS.map((m) => [m.valor, m.nombre]));
 
-const MESES: Record<string, string> = {
-  '01': 'enero', '02': 'febrero', '03': 'marzo', '04': 'abril', '05': 'mayo', '06': 'junio',
-  '07': 'julio', '08': 'agosto', '09': 'septiembre', '10': 'octubre', '11': 'noviembre', '12': 'diciembre',
-};
-
-/** «2026-10-16» → «16 de octubre de 2026», sin pasar por la medianoche UTC. */
-function fechaSola(texto: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(texto);
-  if (!m) return texto;
-  const [, anio = '', mes = '', dia = ''] = m;
-  return `${dia.replace(/^0/, '')} de ${MESES[mes] ?? mes} de ${anio}`;
-}
+/** «2026-10-16» → «16 de octubre de 2026». */
+const fechaSola = fechaDelDia;
 
 function hoy(): string {
   const d = new Date();
@@ -68,9 +67,10 @@ function hoy(): string {
 
 export function SuscripcionPestana() {
   const { datos, error, releer, poner } = useLectura<DetalleDeSuscripcion>('/api/configuracion/suscripcion');
-  const { arranque } = useSesion();
+  const { arranque, recargar } = useSesion();
   const { avisar } = useAvisos();
   const [reportando, setReportando] = useState(false);
+  const [dialogo, setDialogo] = useState<'cancelar' | 'reanudar' | null>(null);
   const formato = arranque.formatoNumerico;
   if (error) return <ErrorDeSeccion mensaje={error} alReintentar={releer} />;
   if (!datos) return <p className="campo-ayuda">Cargando…</p>;
@@ -82,6 +82,16 @@ export function SuscripcionPestana() {
   const ultimoReportado = datos.pagos.find((p) => p.origen === 'REPORTADO' && p.estado !== 'PENDIENTE') ?? null;
   const rechazado = !pendiente && ultimoReportado?.estado === 'RECHAZADO' ? ultimoReportado : null;
   const dinero = (p: Pago) => `$ ${formatearNumero(p.monto, { ...formato, decimalesVista: 0 })}`;
+  const cancelada = datos.estado === 'CANCELADA';
+  // Tras un rechazo, hasta cuándo se puede reenviar sin perder el acceso (D-74).
+  const reenviarHasta = cancelada ? datos.reactivableHasta : datos.estado === 'POR_PAGAR' ? datos.pagarAMasTardar : null;
+  // Cancelar o reanudar cambian lo que dice el aviso de arriba: se relee el arranque.
+  const tras = async (detalle: DetalleDeSuscripcion, aviso: string) => {
+    poner(detalle);
+    setDialogo(null);
+    avisar(aviso);
+    await recargar();
+  };
 
   return (
     <>
@@ -111,24 +121,81 @@ export function SuscripcionPestana() {
             <Icono nombre="aviso" />
             <span>
               <strong>No pudimos confirmar su pago del {fechaSola(rechazado.fecha)}.</strong> {rechazado.rechazoMotivo} Si cree
-              que es un error, escríbanos o repórtelo de nuevo con el comprobante correcto.
+              que es un error, escríbanos o repórtelo de nuevo con el comprobante correcto
+              {reenviarHasta ? <>, <strong>a más tardar el {fechaSola(reenviarHasta)}</strong>{cancelada ? '' : ': después, la cuenta se suspende'}</> : null}.
             </span>
           </p>
         ) : null}
 
-        {datos.estado === 'SUSPENDIDA' ? (
+        {datos.estado === 'POR_PAGAR' && datos.pagarAMasTardar && !pendiente && !rechazado ? (
+          <p className="franja-de-estado franja-por-pagar" role="status">
+            <Icono nombre="reloj" />
+            <span>
+              <strong>Su suscripción venció el {fechaSola(datos.venceEl)}.</strong> Tiene hasta el {fechaSola(datos.pagarAMasTardar)} para
+              reportar el pago; después, la cuenta se suspende hasta que pague.
+            </span>
+          </p>
+        ) : null}
+
+        {datos.suspension === 'PLATAFORMA' ? (
           <p className="nota-pendiente">
             <Icono nombre="candado" />
             <span>El acceso de su empresa fue suspendido por la administración de ConstruSoft. Esto no se resuelve con un pago: escríbanos para conocer el motivo.</span>
           </p>
+        ) : cancelada && datos.acceso === 'COMPLETO' ? (
+          <div className="como-pagar">
+            <h3>Cancelada: funciona hasta el {fechaSola(datos.venceEl)}</h3>
+            <p>
+              {datos.canceladaPor === 'PLATAFORMA' ? 'La administración de ConstruSoft canceló la suscripción.' : 'Su empresa canceló la suscripción.'}{' '}
+              Hasta el {fechaSola(datos.venceEl)} todo funciona y no se le cobra nada más. Después, la cuenta deja de funcionar y solo el
+              Administrador podrá reactivarla, pagando, hasta el {fechaSola(datos.reactivableHasta ?? datos.venceEl)}. Pasado ese día, los
+              datos de la empresa se eliminan y no se pueden recuperar.
+            </p>
+            {datos.puedeReanudar ? (
+              <>
+                <p>¿Cambió de opinión? Reanúdela ahora: no tiene que pagar, porque el período sigue pagado.</p>
+                <div className="fila-de-botones fila-izquierda">
+                  <button type="button" className="boton boton-principal" onClick={() => setDialogo('reanudar')}>
+                    <Icono nombre="reanudar" />
+                    Reanudar la suscripción
+                  </button>
+                </div>
+              </>
+            ) : (
+              <p className="campo-ayuda">Solo el Administrador de la empresa puede reanudarla.</p>
+            )}
+          </div>
+        ) : cancelada ? (
+          <div className="como-pagar">
+            <h3>Reactivar la suscripción</h3>
+            <p>
+              Pague por transferencia o PSE y reporte aquí el pago con su comprobante. El equipo de ConstruSoft lo verifica y, al
+              confirmarlo, la suscripción vuelve a estar activa con todo lo que tenía.
+              {datos.reactivableHasta && !pendiente ? <> Puede hacerlo hasta el <strong>{fechaSola(datos.reactivableHasta)}</strong>.</> : null}
+            </p>
+            {datos.puedeReportar && !pendiente ? (
+              <div className="fila-de-botones fila-izquierda">
+                <button type="button" className="boton boton-principal" onClick={() => setReportando(true)}>
+                  <Icono nombre="subirArchivo" />
+                  Reportar el pago para reactivar
+                </button>
+              </div>
+            ) : !pendiente ? (
+              <p className="campo-ayuda">Reactivarla es solo del Administrador de la empresa.</p>
+            ) : null}
+          </div>
         ) : (
           <div className="como-pagar">
             <h3>Cómo pagar</h3>
             <p>
               {datos.estado === 'EN_PRUEBA' ? `Le ${dias === 1 ? 'queda 1 día' : `quedan ${dias} días`} de prueba. ` : ''}
               Pague por transferencia o PSE y reporte aquí el pago con su comprobante. El equipo de ConstruSoft lo verifica y, al
-              confirmarlo, extiende su suscripción. Mientras la suscripción no esté vigente, la empresa queda en solo lectura: sus
-              datos se conservan y se pueden exportar.
+              confirmarlo, extiende su suscripción.
+            </p>
+            <p className="campo-ayuda">
+              {datos.estado === 'EN_PRUEBA' || datos.estado === 'VENCIDA'
+                ? 'Si la prueba termina sin pago, la empresa queda en solo lectura: puede consultar y exportar, no editar. A los 10 días, sus datos se pueden eliminar.'
+                : 'Si la suscripción vence sin pago, tiene dos días hábiles para pagar. Después, la cuenta se suspende y solo se puede entrar a esta pantalla; a los 60 días de suspendida, los datos se eliminan.'}
             </p>
             {datos.puedeReportar && !pendiente ? (
               <div className="fila-de-botones fila-izquierda">
@@ -179,13 +246,81 @@ export function SuscripcionPestana() {
         )}
       </Seccion>
 
+      {/* En la cuenta detenida no se ofrece: lo que hay que hacer ahí es pagar. */}
+      {datos.puedeCancelar && datos.acceso === 'COMPLETO' ? (
+        <section className="tarjeta seccion-de-config zona-de-cuidado">
+          <h2>Zona de cuidado</h2>
+          <div className="accion-de-cuidado">
+            <div>
+              <h3>Cancelar la suscripción</h3>
+              <p className="campo-ayuda">
+                Es definitivo: {dias >= 0 ? `la cuenta funciona hasta el ${fechaSola(datos.venceEl)}` : 'como la suscripción ya venció, la cuenta deja de funcionar enseguida'} y
+                no se le cobra nada más. Después, tiene diez días para reactivarla pagando; pasados esos días, los datos de la empresa se
+                eliminan.
+              </p>
+            </div>
+            <button type="button" className="boton boton-peligroso" onClick={() => setDialogo('cancelar')}>
+              Cancelar suscripción
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {dialogo === 'cancelar' ? (
+        <Confirmacion
+          titulo="Cancelar la suscripción"
+          textoConfirmar="Cancelar suscripción"
+          textoEnviando="Cancelando…"
+          peligroso
+          pideTexto={{ etiqueta: 'Por qué la cancela', ayuda: 'Nos ayuda a mejorar. Queda guardado con la suscripción.', campo: 'motivo', vacio: 'Cuéntenos por qué la cancela.' }}
+          alCerrar={() => setDialogo(null)}
+          alConfirmar={async (motivo) => tras(
+            await pedir<DetalleDeSuscripcion>('/api/configuracion/suscripcion/cancelar', { metodo: 'POST', cuerpo: { motivo } }),
+            dias >= 0 ? `Suscripción cancelada. Funciona hasta el ${fechaSola(datos.venceEl)}.` : 'Suscripción cancelada.',
+          )}
+        >
+          {dias >= 0 ? (
+            <>
+              <p>
+                Todo sigue funcionando hasta el {fechaSola(datos.venceEl)} y no se le cobra nada más. Desde el día siguiente nadie de la
+                empresa podrá entrar, y el Administrador tendrá diez días para reactivarla pagando. Si no lo hace, los datos de la
+                empresa se eliminan y no se pueden recuperar.
+              </p>
+              <p>Mientras llega esa fecha puede reanudarla sin pagar.</p>
+            </>
+          ) : (
+            <p>
+              La suscripción ya venció, así que desde ahora nadie de la empresa podrá entrar. El Administrador tendrá diez días para
+              reactivarla pagando. Si no lo hace, los datos de la empresa se eliminan y no se pueden recuperar.
+            </p>
+          )}
+        </Confirmacion>
+      ) : null}
+      {dialogo === 'reanudar' ? (
+        <Confirmacion
+          titulo="Reanudar la suscripción"
+          textoConfirmar="Reanudar suscripción"
+          textoEnviando="Reanudando…"
+          alCerrar={() => setDialogo(null)}
+          alConfirmar={async () => tras(
+            await pedir<DetalleDeSuscripcion>('/api/configuracion/suscripcion/reanudar', { metodo: 'POST' }),
+            'Suscripción reanudada. Sigue como antes de cancelarla.',
+          )}
+        >
+          <p>La cancelación se anula y la suscripción sigue hasta el {fechaSola(datos.venceEl)}, como antes. No tiene que pagar nada ahora.</p>
+        </Confirmacion>
+      ) : null}
+
       {reportando ? (
         <ReportarPago
+          reactivar={cancelada}
           alCerrar={() => setReportando(false)}
           alReportar={(d) => {
             poner(d);
             setReportando(false);
             avisar('Pago reportado. Le avisaremos aquí cuando lo verifiquemos.');
+            // Reportado a tiempo, el aviso de arriba cambia (D-74).
+            void recargar();
           }}
         />
       ) : null}
@@ -196,7 +331,7 @@ export function SuscripcionPestana() {
 const TIPOS_DE_COMPROBANTE = ['image/png', 'image/jpeg', 'application/pdf'];
 const MAXIMO = 5 * 1024 * 1024;
 
-function ReportarPago({ alCerrar, alReportar }: { alCerrar: () => void; alReportar: (d: DetalleDeSuscripcion) => void }) {
+function ReportarPago({ reactivar, alCerrar, alReportar }: { reactivar: boolean; alCerrar: () => void; alReportar: (d: DetalleDeSuscripcion) => void }) {
   const { arranque } = useSesion();
   const separador = arranque.formatoNumerico.separadorDecimal;
   const [monto, setMonto] = useState('');
@@ -238,7 +373,7 @@ function ReportarPago({ alCerrar, alReportar }: { alCerrar: () => void; alReport
 
   return (
     <Capa
-      titulo="Reportar un pago"
+      titulo={reactivar ? 'Reportar el pago para reactivar' : 'Reportar un pago'}
       alCerrar={alCerrar}
       hayCambios={monto !== '' || referencia !== '' || archivo !== null}
       error={error}
@@ -251,8 +386,8 @@ function ReportarPago({ alCerrar, alReportar }: { alCerrar: () => void; alReport
       )}
     >
       <p className="campo-ayuda">
-        Cuéntenos qué pagó y adjunte el comprobante. El equipo de ConstruSoft lo verifica contra el banco y, al confirmarlo, extiende su
-        suscripción. Su acceso no cambia hasta entonces.
+        Cuéntenos qué pagó y adjunte el comprobante. El equipo de ConstruSoft lo verifica contra el banco y, al confirmarlo,{' '}
+        {reactivar ? 'reactiva su suscripción' : 'extiende su suscripción'}. Su acceso no cambia hasta entonces.
       </p>
       <div className="fila-de-campos">
         <Campo etiqueta="Monto pagado" error={errores.monto}>

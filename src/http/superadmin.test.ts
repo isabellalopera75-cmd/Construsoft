@@ -277,7 +277,9 @@ describe('las acciones del panel van firmadas (D-72)', () => {
     assert.deepEqual([mal.estado, mal.cuerpo.campo], [422, 'confirmacion']);
     const temprano = await panel('DELETE', ruta, cookie, { justificacion: 'Prueba abandonada', confirmacion: 'Constructora Se Elimina' });
     assert.equal(temprano.estado, 422);
-    assert.match(temprano.cuerpo.mensaje, /10 días/);
+    // D-74: el rechazo dice desde qué fecha, la misma que la ficha muestra.
+    const { eliminableDesde } = (await panel('GET', ruta, cookie)).cuerpo;
+    assert.match(temprano.cuerpo.mensaje, new RegExp(`desde el ${eliminableDesde}`));
 
     await moverVencimiento(e.contexto.tenantId, -11);
     const r = await panel('DELETE', ruta, cookie, { justificacion: 'Prueba abandonada', confirmacion: ' Constructora Se Elimina ' });

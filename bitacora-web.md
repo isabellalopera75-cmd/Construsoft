@@ -6,6 +6,91 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-12 · lunes
+
+**Decisión del dueño (11 y 12 de octubre): el ciclo de vida de la
+suscripción.** Al vencer, la empresa tiene dos días hábiles para pagar (sin
+festivos de Colombia). Si no paga, queda suspendida: solo entra a pagar. A los
+60 días de suspendida, sus datos se eliminan. Si el panel rechaza un pago que
+se reportó a tiempo, la empresa tiene dos días hábiles más para reenviarlo.
+Cancelar lo hacen el Administrador o el panel, y es definitivo: la cuenta
+funciona hasta lo pagado, y después hay 10 días en que solo el Administrador la
+reactiva, pagando. Pasados esos días, los datos se eliminan.
+
+**Hecho** (sin commit)
+
+- **Esquema, D-74**, con `docs/prueba-d74.sql`. Lo cargué en un PostgreSQL 16
+  limpio y las siete baterías dan verde; D-74 da 52 de 52.
+  - **`plataforma.fn_ciclo_suscripcion(tenant, con_suspension)`** calcula
+    todo: estado, acceso y plazos. Todo sale de fechas, igual que «vencida» en
+    D-25; ningún proceso cambia estados. Las demás funciones leen de ella:
+    `fn_suscripcion_vigente`, `fn_estado_suscripcion` (que suma columnas),
+    `fn_exigir_permiso`, `fn_estado_comercial` y `fn_eliminable_desde`.
+  - **Festivos**: `fn_pascua`, `fn_festivos_colombia(año)` (se calculan, Ley
+    Emiliani incluida), `fn_es_dia_habil` y `fn_sumar_dias_habiles`.
+  - **Acceso nuevo, CS006.** `fn_exigir_permiso` rechaza todo, hasta VER y
+    EXPORTAR, menos `CONFIG.SUSCRIPCION`, cuando el acceso es `SOLO_PAGO` o
+    `NINGUNO`. Te propongo mandarlo como **423**.
+  - **La suspensión del panel** también deja solo la suscripción. Antes era
+    solo lectura.
+  - **Columna nueva**: `suscripcion.cancelada_por_usuario`, nula si canceló el
+    panel. Tipos de evento nuevos: `SUSCRIPCION_REANUDADA` y
+    `SUSCRIPCION_REACTIVADA`.
+  - **Funciones nuevas**:
+    - `fn_cancelar_suscripcion_empresa(motivo)` y `fn_reanudar_suscripcion()`,
+      concedidas a `construsoft_app`. Las dos son solo del Administrador, con
+      `fn_admin_de_la_empresa`, que da CS004.
+    - `fn_purgar_empresas()`, concedida al panel.
+  - **Cambian**:
+    - `fn_reportar_pago` acepta una cancelada (solo el Administrador, y en su
+      plazo).
+    - `fn_confirmar_pago` reactiva la cancelada al confirmar.
+    - `fn_registrar_pago` rechaza la cancelada.
+    - `fn_eliminar_tenant` dice la fecha en su rechazo.
+  - **Lo que pediste**: `USING COLUMN` en los tres `RAISE` de
+    `fn_reportar_pago` (`fecha`, `monto`, `comprobante`).
+  - **Comprobé que la prueba muerde** con tres defectos sembrados, uno a la
+    vez:
+    - eliminar al día 60 en vez del 61 tumba 3 casos;
+    - dar plazo a un rechazo reportado tarde tumba 4;
+    - dejar consultar a una suspendida tumba 3.
+  - **`prueba-d65-d68.sql`**: un caso cambia a propósito. Una cancelada antes
+    de su fecha ya no es solo lectura: funciona hasta lo pagado.
+- **Las pantallas**, contra el **CONTRATO §15**:
+  - **Empresa**:
+    - La franja «por pagar» con la fecha límite, y la de cancelada.
+    - La cuenta detenida (`CuentaDetenida.tsx`): sin menú, con los plazos y la
+      pestaña de suscripción debajo.
+    - En la pestaña: cancelar (zona de cuidado), reanudar, y reactivar
+      reportando el pago.
+    - El 423 relee el arranque.
+  - **Panel**:
+    - Las insignias «Por pagar» y «Suspendida por falta de pago».
+    - Los plazos en la ficha, y «Sus datos se eliminan pronto» en el resumen.
+    - Una cancelada ya no permite «Registrar pago» ni cambiar plan.
+
+**Lo que necesito**
+
+- **Recargar el esquema** en `construsoft` y `construsoft_test`, y correr las
+  siete baterías. `prueba-d65-d68.sql` cambió en un caso.
+- **Construir el CONTRATO §15**, y el **§14** si no lo construiste todavía.
+  - El 423 para CS006.
+  - Las columnas nuevas del arranque.
+  - Las dos rutas de cancelar y reanudar.
+  - Los campos nuevos del panel.
+  - La propuesta de fecha para una cancelada con un pago pendiente.
+- **La purga diaria**: un planificador que llame a `fn_purgar_empresas()` una
+  vez al día, más `npm run purgar` para correrla a mano. Es irreversible:
+  revisá que solo la llame el rol del panel.
+- Si la API compara estados en algún lado (el `z.enum` de
+  `rutasSuperadmin.ts`, `EstadoSuscripcion` de `contextoTenant.ts`), suma
+  `POR_PAGAR`.
+
+**Queda abierto para el dueño**: la prueba gratuita no cambió. Vencida sigue en
+solo lectura y se elimina a mano a los 10 días.
+
+---
+
 ## 2026-10-11 · domingo, tarde
 
 **Decisión del dueño, 11 de octubre:** la empresa reporta su pago con el

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { cuandoSePierdaLaSesion, ErrorDeApi, pedir } from './api/cliente.ts';
+import { cuandoSeDetengaLaCuenta, cuandoSePierdaLaSesion, ErrorDeApi, pedir } from './api/cliente.ts';
 import type { Arranque, Permiso } from './api/tipos.ts';
 import { Cascaron } from './cascaron/Cascaron.tsx';
 import { useRuta, type Ruta } from './navegacion.ts';
 import { Inicio } from './pantallas/Inicio.tsx';
 import { Ingreso, PantallaSuelta } from './pantallas/Ingreso.tsx';
+import { CuentaDetenida } from './pantallas/CuentaDetenida.tsx';
 import { NoExiste } from './pantallas/Pendiente.tsx';
 import { ProveedorDeAvisos } from './componentes/Avisos.tsx';
 import { ListaDeApu } from './modulos/apu/ListaDeApu.tsx';
@@ -75,6 +76,10 @@ export function App() {
     }
   }, []);
 
+  // D-74 · La cuenta se detuvo mientras se trabajaba (un 423): se relee el
+  // arranque y Adentro muestra la cuenta detenida.
+  useEffect(() => cuandoSeDetengaLaCuenta(() => void recargar()), [recargar]);
+
   const sesion = useMemo(
     () => (estado.fase === 'dentro' ? crearSesion(estado.arranque, salir, recargar) : null),
     [estado, salir, recargar],
@@ -124,7 +129,12 @@ const INICIO = { nombre: 'Inicio', ruta: { pantalla: 'inicio' } as Ruta };
 
 /** Qué pantalla corresponde a la dirección, y con qué migas. */
 function Adentro({ ruta }: { ruta: Ruta }) {
-  const { puede } = useSesion();
+  const { puede, arranque } = useSesion();
+
+  // D-74 · Suspendida o cancelada fuera de lo pagado: no hay módulos, solo la
+  // suscripción. Lo decide el acceso que manda la base, no la dirección.
+  const acceso = arranque.suscripcion?.acceso;
+  if (acceso === 'SOLO_PAGO' || acceso === 'NINGUNO') return <CuentaDetenida />;
 
   // Una dirección a un módulo que el rol no permite responde como una que no
   // existe: el menú no lo muestra y la dirección escrita a mano tampoco lo abre.

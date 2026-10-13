@@ -80,14 +80,15 @@ function restriccionDe(error: unknown): string | undefined {
 
 /**
  * ¿El rechazo dice «esta persona no puede hacer esto ahora»? Es el rol sin el
- * permiso (CS004) o la suscripción que no deja escribir (CS005). Lo usa quien
+ * permiso (CS004), la suscripción que no deja escribir (CS005) o la cuenta
+ * detenida que solo entra a la suscripción (CS006). Lo usa quien
  * le PREGUNTA a fn_exigir_permiso para decidir qué mostrar —la mesa, para su
  * «editable»— en vez de replicar sus reglas. Cualquier otro rechazo no es un
  * «no», es un error, y se propaga.
  */
 export function esNegacionDePermiso(error: unknown): boolean {
   const codigo = codigoDe(error);
-  return codigo === 'CS004' || codigo === 'CS005';
+  return codigo === 'CS004' || codigo === 'CS005' || codigo === 'CS006';
 }
 
 /**
@@ -102,6 +103,7 @@ export function esNegacionDePermiso(error: unknown): boolean {
  *   CS003  la cuenta no está ACTIVA               → 403 y se borra la cookie
  *   CS004  el rol no tiene el permiso             → 403
  *   CS005  suscripción no vigente y la acción escribe → 402
+ *   CS006  cuenta suspendida o cancelada, y la acción no es la suscripción → 423
  */
 export function traducirError(error: unknown): RespuestaDeError {
   if (error instanceof ErrorParaElUsuario) {
@@ -125,6 +127,9 @@ export function traducirError(error: unknown): RespuestaDeError {
       return { estado: 403, mensaje: mensajeDeLaBase, borrarCookie: false };
     case 'CS005':
       return { estado: 402, mensaje: mensajeDeLaBase, borrarCookie: false };
+    // D-74 · La interfaz relee el arranque y muestra la cuenta detenida (CONTRATO §15.2).
+    case 'CS006':
+      return { estado: 423, mensaje: mensajeDeLaBase, borrarCookie: false };
     // Una regla de negocio levantada por un disparador: su texto está escrito
     // para la pantalla, que lo muestra tal cual (02 §2).
     case 'P0001': {

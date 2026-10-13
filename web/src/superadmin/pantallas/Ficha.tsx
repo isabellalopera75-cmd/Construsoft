@@ -60,8 +60,9 @@ export function Ficha({ id }: { id: string }) {
         <p className="franja-de-estado franja-suspendida">
           <Icono nombre="pausa" />
           <span>
-            <strong>Suspendida.</strong> La empresa entra pero no puede abrir Recursos, APU ni Proyectos, y ve que la suspendió la
-            administración de ConstruSoft. Sus datos están intactos. Registrar un pago no la reactiva: hay que reactivarla aquí.
+            <strong>Suspendida por el panel.</strong> La empresa entra pero solo ve una pantalla que dice que la suspendió la
+            administración de ConstruSoft: no abre Recursos, APU ni Proyectos. Sus datos están intactos y sus plazos siguen corriendo.
+            Registrar un pago no la reactiva: hay que reactivarla aquí.
           </span>
         </p>
       ) : null}
@@ -96,11 +97,12 @@ export function Ficha({ id }: { id: string }) {
       ) : null}
 
       <div className="acciones-de-ficha">
-        <button type="button" className="boton boton-principal" disabled={!suscripcion} onClick={() => setDialogo('pago')}>
+        {/* D-74 · Una cancelada la reactiva solo su Administrador, pagando: el panel no le registra pagos. */}
+        <button type="button" className="boton boton-principal" disabled={!suscripcion || suscripcion.estado === 'CANCELADA'} onClick={() => setDialogo('pago')}>
           <Icono nombre="pagos" />
           Registrar pago
         </button>
-        <button type="button" className="boton boton-secundario" disabled={!suscripcion} onClick={() => setDialogo('suscripcion')}>
+        <button type="button" className="boton boton-secundario" disabled={!suscripcion || suscripcion.estado === 'CANCELADA'} onClick={() => setDialogo('suscripcion')}>
           Cambiar plan o vencimiento
         </button>
         {empresa.suspendida ? (
@@ -129,6 +131,24 @@ export function Ficha({ id }: { id: string }) {
               <div><dt>Desde</dt><dd>{fechaSola(suscripcion.fechaInicio)}</dd></div>
               <div><dt>Vence</dt><dd>{fechaSola(suscripcion.venceEl)}</dd></div>
               <div><dt>Días</dt><dd>{textoDeDias(suscripcion.diasRestantes)}</dd></div>
+              {/* D-74 · Los plazos que corren, según el estado. */}
+              {suscripcion.estado === 'POR_PAGAR' || (suscripcion.estado === 'ACTIVA' && suscripcion.pagarAMasTardar) ? (
+                <div><dt>Paga a más tardar</dt><dd>{fechaSola(suscripcion.pagarAMasTardar ?? '')}</dd></div>
+              ) : null}
+              {suscripcion.suspendidaDesde ? (
+                <div><dt>Suspendida desde</dt><dd>{fechaSola(suscripcion.suspendidaDesde)}</dd></div>
+              ) : null}
+              {suscripcion.estado === 'CANCELADA' ? (
+                <>
+                  <div><dt>Cancelada por</dt><dd>{suscripcion.canceladaPor === 'EMPRESA' ? 'La empresa' : 'El panel'}</dd></div>
+                  {suscripcion.reactivableHasta ? (
+                    <div><dt>Reactivable hasta</dt><dd>{fechaSola(suscripcion.reactivableHasta)}</dd></div>
+                  ) : null}
+                </>
+              ) : null}
+              {datos.eliminableDesde && suscripcion.estado !== 'VENCIDA' ? (
+                <div><dt>Sus datos se eliminan el</dt><dd>{fechaSola(datos.eliminableDesde)}</dd></div>
+              ) : null}
               {suscripcion.canceladaMotivo ? (
                 <div className="dato-ancho"><dt>Motivo de la cancelación</dt><dd>{suscripcion.canceladaMotivo}</dd></div>
               ) : null}
@@ -238,7 +258,10 @@ export function Ficha({ id }: { id: string }) {
         <div className="accion-de-cuidado">
           <div>
             <h3>Cancelar la suscripción</h3>
-            <p className="campo-ayuda">Decisión comercial: la empresa queda en solo lectura y conserva todos sus datos. Se revierte registrando un pago.</p>
+            <p className="campo-ayuda">
+              Es definitivo (D-74): la empresa trabaja hasta la fecha que pagó y no se le cobra más. Después tiene diez días en que solo su
+              Administrador puede reactivarla, pagando; pasados esos días, la purga diaria elimina sus datos. El panel no la revive.
+            </p>
           </div>
           <button type="button" className="boton boton-peligroso" disabled={!suscripcion || suscripcion.estado === 'CANCELADA'} onClick={() => setDialogo('cancelar')}>
             Cancelar suscripción
@@ -249,10 +272,12 @@ export function Ficha({ id }: { id: string }) {
             <h3>Eliminar los datos de la empresa</h3>
             <p className="campo-ayuda">
               {datos.eliminableDesde === null
-                ? 'No se puede: la empresa pagó alguna vez o su prueba no ha vencido. Sus datos se conservan; si hace falta, suspéndala.'
+                ? 'No se puede: está al día, en su plazo para pagar o tiene un pago esperando verificación. Si hace falta, suspéndala.'
                 : eliminable
-                  ? 'Su prueba venció hace más de 10 días sin pago. Borra todo lo de la empresa y no se puede deshacer.'
-                  : `Se podrá a partir del ${fechaSola(datos.eliminableDesde)}, 10 días después de vencer la prueba.`}
+                  ? 'Ya se cumplió su plazo (D-74, RF-SAD-13). Borra todo lo de la empresa y no se puede deshacer.'
+                  : suscripcion?.estado === 'VENCIDA'
+                    ? `Se podrá a partir del ${fechaSola(datos.eliminableDesde)}, 10 días después de vencer la prueba.`
+                    : `Si nada cambia, la purga diaria borra sus datos el ${fechaSola(datos.eliminableDesde)}.`}
             </p>
           </div>
           <button type="button" className="boton boton-peligroso" disabled={!eliminable} onClick={() => setDialogo('eliminar')}>
@@ -299,7 +324,7 @@ export function Ficha({ id }: { id: string }) {
           alCerrar={cerrar}
           alConfirmar={async (motivo) => listo(await pedir<FichaDeEmpresa>(`${ruta}/suspender`, { metodo: 'POST', cuerpo: { motivo } }), 'Empresa suspendida. Sus usuarios lo verán en su siguiente acción.')}
         >
-          <p>Nadie de la empresa podrá abrir Recursos, APU ni Proyectos hasta que la reactive. Los datos no se tocan y la suscripción sigue corriendo.</p>
+          <p>Nadie de la empresa podrá abrir Recursos, APU ni Proyectos hasta que la reactive: al entrar, verán que la suspendió la administración. Los datos no se tocan y la suscripción y sus plazos siguen corriendo.</p>
         </Confirmacion>
       ) : null}
       {dialogo === 'reactivar' ? (
@@ -311,7 +336,7 @@ export function Ficha({ id }: { id: string }) {
           alCerrar={cerrar}
           alConfirmar={async (motivo) => listo(await pedir<FichaDeEmpresa>(`${ruta}/reactivar`, { metodo: 'POST', cuerpo: { motivo } }), 'Empresa reactivada.')}
         >
-          <p>La empresa recupera el acceso que le dé su suscripción: si está vencida, sigue en solo lectura hasta que pague.</p>
+          <p>La empresa recupera el acceso que le dé su suscripción: si está suspendida por falta de pago, sigue así hasta que pague.</p>
         </Confirmacion>
       ) : null}
       {dialogo === 'cancelar' ? (
@@ -324,7 +349,11 @@ export function Ficha({ id }: { id: string }) {
           alCerrar={cerrar}
           alConfirmar={async (motivo) => listo(await pedir<FichaDeEmpresa>(`${ruta}/suscripcion/cancelar`, { metodo: 'POST', cuerpo: { motivo } }), 'Suscripción cancelada.')}
         >
-          <p>La empresa queda en solo lectura desde ya: puede consultar y exportar, pero no editar. Sus datos se conservan.</p>
+          <p>
+            La empresa sigue trabajando hasta el {fechaSola(suscripcion?.venceEl ?? '')} y no se le cobra más. Desde el día siguiente no
+            entra, y solo su Administrador puede reactivarla, pagando, durante diez días. Después, sus datos se eliminan. Usted no podrá
+            revivirla registrando un pago.
+          </p>
         </Confirmacion>
       ) : null}
     </>
@@ -352,6 +381,8 @@ const NOMBRES_DE_EVENTO: Record<string, string> = {
   TENANT_ELIMINADO: 'Datos eliminados',
   PLAN_CAMBIADO: 'Suscripción cambiada',
   SUSCRIPCION_CANCELADA: 'Suscripción cancelada',
+  SUSCRIPCION_REANUDADA: 'Suscripción reanudada',
+  SUSCRIPCION_REACTIVADA: 'Suscripción reactivada',
   PAGO_REGISTRADO: 'Pago registrado',
   ADMIN_DESIGNADO: 'Administrador designado',
   PAGO_REPORTADO: 'Pago reportado por la empresa',

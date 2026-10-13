@@ -234,24 +234,46 @@ export async function ejecutarConPermiso<T>(
 // Vive en src/comun/ porque también lo usa la interfaz; se reexporta aquí para
 // quien ya lo importaba de la capa de datos.
 import type { FormatoNumerico } from '../../comun/formatoNumerico.js';
+import { COLUMNAS_DEL_CICLO } from './columnasDelCiclo.js';
 export type { FormatoNumerico };
 
-export type EstadoSuscripcion = 'EN_PRUEBA' | 'ACTIVA' | 'VENCIDA' | 'CANCELADA' | 'SUSPENDIDA' | 'SIN_SUSCRIPCION';
+export type EstadoSuscripcion =
+  | 'EN_PRUEBA'
+  | 'ACTIVA'
+  | 'POR_PAGAR'
+  | 'VENCIDA'
+  | 'CANCELADA'
+  | 'SUSPENDIDA'
+  | 'SIN_SUSCRIPCION';
+
+/** D-74 · Qué puede hacer la empresa hoy. SOLO_PAGO y NINGUNO solo entran a la suscripción: lo demás es 423. */
+export type AccesoDeSuscripcion = 'COMPLETO' | 'SOLO_LECTURA' | 'SOLO_PAGO' | 'NINGUNO';
 
 /**
- * plataforma.fn_estado_suscripcion tal cual (D-65). `soloLectura` sale de
- * fn_suscripcion_vigente, la MISMA función que usa fn_exigir_permiso para
- * rechazar las escrituras: la pantalla y el rechazo no pueden contradecirse.
- * No se recalcula en la interfaz.
+ * plataforma.fn_estado_suscripcion tal cual (D-65, D-74). Todo sale de
+ * fn_ciclo_suscripcion, la MISMA función que consulta fn_exigir_permiso para
+ * rechazar: la pantalla y el rechazo no pueden contradecirse. La API no
+ * calcula plazos, los lee (CONTRATO §15.1). Las fechas van en texto
+ * aaaa-mm-dd: un date de Postgres convertido a Date cae en la medianoche
+ * local.
  */
 export interface Suscripcion {
   estado: EstadoSuscripcion;
+  /** «acceso no es COMPLETO». */
   soloLectura: boolean;
   diasRestantes: number;
-  /** aaaa-mm-dd. Texto y no Date: un date de Postgres convertido a Date cae en la medianoche local. */
   venceEl: string;
   planCodigo: string;
+  acceso: AccesoDeSuscripcion;
+  suspension: 'FALTA_DE_PAGO' | 'PLATAFORMA' | null;
+  pagarAMasTardar: string | null;
+  suspendidaDesde: string | null;
+  reactivableHasta: string | null;
+  seEliminaEl: string | null;
+  canceladaPor: 'EMPRESA' | 'PLATAFORMA' | null;
+  pagoEnVerificacion: boolean;
 }
+
 
 /** Lo que la interfaz necesita antes de dibujar la primera pantalla, y nada más. */
 export interface ArranqueDeSesion {
@@ -313,18 +335,10 @@ export async function leerArranqueDeSesion(contexto: ContextoTenant): Promise<Ar
     );
     const identidad = filasIdentidad[0]!;
 
-    const { rows: filasSuscripcion } = await cliente.query<{
-      estado: EstadoSuscripcion;
-      solo_lectura: boolean;
-      dias_restantes: number;
-      vence_el: string;
-      plan_codigo: string;
-    }>(
-      `SELECT estado, solo_lectura, dias_restantes, vence_el::text AS vence_el, plan_codigo
-         FROM plataforma.fn_estado_suscripcion($1)`,
+    const { rows: filasSuscripcion } = await cliente.query<Suscripcion>(
+      `SELECT ${COLUMNAS_DEL_CICLO} FROM plataforma.fn_estado_suscripcion($1)`,
       [contexto.tenantId],
     );
-    const fila = filasSuscripcion[0];
 
     return {
       usuarioNombre: identidad.nombre,
@@ -336,15 +350,7 @@ export async function leerArranqueDeSesion(contexto: ContextoTenant): Promise<Ar
         decimalesVista: filaFormato.decimales_vista,
       },
       monedaBase: filaFormato.moneda_base,
-      suscripcion: fila
-        ? {
-            estado: fila.estado,
-            soloLectura: fila.solo_lectura,
-            diasRestantes: fila.dias_restantes,
-            venceEl: fila.vence_el,
-            planCodigo: fila.plan_codigo,
-          }
-        : null,
+      suscripcion: filasSuscripcion[0] ?? null,
     };
   });
 }

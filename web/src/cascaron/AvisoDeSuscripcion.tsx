@@ -1,4 +1,5 @@
 import { Icono } from '../componentes/Icono.tsx';
+import { fechaDelDia } from '../fechas.ts';
 import { enlaceA } from '../navegacion.ts';
 import { useSesion } from '../sesion.tsx';
 
@@ -42,6 +43,34 @@ export function AvisoDeSuscripcion() {
       <Franja tono="aviso" icono="candado">
         La suscripción de su empresa no está vigente: puede consultar y exportar todo lo que tiene, pero no
         guardar cambios. Sus datos se conservan intactos. <a href={aSuscripcion}>Ver cómo renovarla</a>
+      </Franja>
+    );
+  }
+
+  // D-74 · Venció y corre el plazo de dos días hábiles: todo funciona, pero
+  // hay que avisarlo en cada pantalla, porque al día siguiente se suspende.
+  if (suscripcion.estado === 'POR_PAGAR') {
+    return suscripcion.pagoEnVerificacion ? (
+      <Franja tono="neutro" icono="reloj">
+        Su suscripción venció el {fechaDelDia(suscripcion.venceEl)} y su pago está en verificación. Mientras lo revisamos, todo sigue
+        funcionando. <a href={aSuscripcion}>Ver la suscripción</a>
+      </Franja>
+    ) : (
+      <Franja tono="aviso" icono="reloj">
+        Su suscripción venció el {fechaDelDia(suscripcion.venceEl)}. Pague y repórtelo a más tardar el{' '}
+        {fechaDelDia(suscripcion.pagarAMasTardar ?? suscripcion.venceEl)}: después, la cuenta se suspende hasta que pague.{' '}
+        <a href={aSuscripcion}>Reportar el pago</a>
+      </Franja>
+    );
+  }
+
+  // Cancelada, pero todavía dentro de lo que pagó.
+  if (suscripcion.estado === 'CANCELADA') {
+    return (
+      <Franja tono="aviso" icono="reloj">
+        La suscripción está cancelada y funciona hasta el {fechaDelDia(suscripcion.venceEl)}. Después, solo el Administrador podrá
+        reactivarla, pagando, hasta el {fechaDelDia(suscripcion.reactivableHasta ?? suscripcion.venceEl)}; pasado ese día, los datos se
+        eliminan. <a href={aSuscripcion}>Ver la suscripción</a>
       </Franja>
     );
   }

@@ -708,9 +708,23 @@ describe('leerArranqueDeSesion', () => {
   test('trae el estado de la suscripción tal como lo da la base: en prueba, con sus días (D-65)', async () => {
     const { suscripcion } = await leerArranqueDeSesion({ tenantId: empresaR.tenantId, usuarioId: empresaR.usuarioId });
     assert.ok(suscripcion);
-    const { venceEl, ...resto } = suscripcion;
+    const { venceEl, seEliminaEl, ...resto } = suscripcion;
     assert.match(venceEl, /^\d{4}-\d{2}-\d{2}$/);
-    assert.deepEqual(resto, { estado: 'EN_PRUEBA', soloLectura: false, diasRestantes: 15, planCodigo: 'EMPRESARIAL' });
+    assert.match(seEliminaEl!, /^\d{4}-\d{2}-\d{2}$/, 'una prueba se elimina a mano a los 10 días de vencer');
+    assert.deepEqual(resto, {
+      estado: 'EN_PRUEBA',
+      soloLectura: false,
+      diasRestantes: 15,
+      planCodigo: 'EMPRESARIAL',
+      // D-74 (CONTRATO §15.1)
+      acceso: 'COMPLETO',
+      suspension: null,
+      pagarAMasTardar: null,
+      suspendidaDesde: null,
+      reactivableHasta: null,
+      canceladaPor: null,
+      pagoEnVerificacion: false,
+    });
   });
 
   test('vencida, la base dice solo lectura y la interfaz no tiene que calcular nada (D-65)', async () => {
