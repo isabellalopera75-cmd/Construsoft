@@ -1297,3 +1297,21 @@ button.paso-del-indicador:hover { color: var(--texto); }
 .documento-legal p, .documento-legal ul { margin: 0 0 var(--e3); }
 .documento-legal .legal-fecha { color: var(--texto-segundo); }
 .documento-legal .aviso-borrador { padding: var(--e3) var(--e4); border-radius: var(--radio-md); background: var(--terracota-velo); }
+
+/* --- Plazos del panel (D-78) ---------------------------------------------
+   Una tarjeta por plazo con su valor grande, como se lee una cifra que manda;
+   lo programado, debajo, con su botón para anularlo. */
+.regla-de-plazos { display: flex; align-items: flex-start; gap: var(--e2); margin: 0 0 var(--e4); }
+.regla-de-plazos .icono { flex: none; margin-top: 2px; color: var(--terracota); }
+.tarjetas-de-plazos { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: var(--e4); margin-bottom: var(--e5); }
+.tarjeta-de-plazo { display: grid; gap: var(--e2); align-content: start; padding: var(--e4); }
+.plazo-cabeza { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--e3); }
+.plazo-cabeza h2 { margin: 0; font-size: var(--letra-md); line-height: 1.3; }
+.plazo-valor { margin: 0; font-size: var(--letra-sm); color: var(--texto-segundo); }
+.plazo-valor .cifra { font-family: var(--fuente-titulo); font-size: 1.9rem; font-weight: var(--peso-fuerte); color: var(--texto); line-height: 1; }
+.plazo-programado {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--e3);
+  padding: var(--e2) var(--e3); border-radius: var(--radio-md); background: var(--terracota-velo); font-size: var(--letra-sm);
+}
+.plazo-terminos { display: flex; align-items: center; gap: var(--e1); margin: 0; font-size: var(--letra-sm); color: var(--texto-segundo); }
+.plazo-terminos .icono { width: 14px; height: 14px; color: var(--terracota); }

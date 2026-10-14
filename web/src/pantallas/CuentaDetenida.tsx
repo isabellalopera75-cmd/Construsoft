@@ -178,7 +178,7 @@ function queDecir(s: Suscripcion, empresa: string): Aviso {
         titulo: `La prueba de ${empresa} terminó`,
         texto: (
           <p>
-            La prueba gratuita terminó sin pago y los 10 días para decidir ya pasaron, así que quedó cancelada. Los datos de la
+            La prueba gratuita terminó sin pago y el plazo para decidir ya pasó, así que quedó cancelada. Los datos de la
             empresa se eliminan hoy y no se podrán recuperar: descargue abajo los proyectos que quiera conservar. Si quiere seguir
             usando ConstruSoft, escríbanos.
           </p>
@@ -233,7 +233,7 @@ function queDecir(s: Suscripcion, empresa: string): Aviso {
       </p>
     ) : (
       <p>
-        La suscripción venció el {d(s.venceEl)} y el pago no llegó en los dos días hábiles siguientes. Mientras esté suspendida, nadie
+        La suscripción venció el {d(s.venceEl)} y el pago no llegó a tiempo: el plazo era hasta el {d(s.pagarAMasTardar)}. Mientras esté suspendida, nadie
         de su empresa puede entrar a Recursos, APU ni Proyectos; sus datos siguen intactos. Pague y repórtelo abajo con el
         comprobante: al confirmarlo, todo vuelve a estar como lo dejó.
       </p>

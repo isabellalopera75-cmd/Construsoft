@@ -79,6 +79,39 @@ export interface PagoDePlataforma {
   empresa: { id: string; razonSocial: string };
 }
 
+/*
+ * D-78 · Los plazos del ciclo de suscripción (CONTRATO §18.3). `vigenteDesde`
+ * nulo es el valor inicial, que rige «desde siempre».
+ */
+export type UnidadDePlazo = 'DIAS' | 'DIAS_HABILES';
+export interface Plazo {
+  clave: string;
+  nombre: string;
+  descripcion: string;
+  unidad: UnidadDePlazo;
+  minimo: number;
+  maximo: number;
+  /** El plazo está escrito en los términos o en la política de datos. */
+  apareceEnTerminos: boolean;
+  valorHoy: number;
+  vigenteDesde: Fecha | null;
+  valorProgramado: number | null;
+  programadoDesde: Fecha | null;
+}
+export interface CambioDePlazo {
+  clave: string;
+  nombre: string;
+  valor: number;
+  vigenteDesde: Fecha | null;
+  motivo: string;
+  registradoPor: string | null;
+  registradoEn: Instante;
+}
+export interface Plazos {
+  parametros: Plazo[];
+  historial: CambioDePlazo[];
+}
+
 export interface EventoDePlataforma {
   id: string;
   tipo: string;

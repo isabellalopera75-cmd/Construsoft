@@ -541,6 +541,18 @@ presupuestos y abrir uno para consultarlo.
   sobre un fondo blanco fijo también en el tema oscuro: se imprime sobre
   papel blanco. Elegir el archivo lo sube; no hay «Guardar».
 
+### 14 de octubre de 2026 · Los plazos (D-78)
+
+- **Ningún texto escribe un plazo de memoria.** Los plazos del ciclo de
+  suscripción los cambia el superadministrador. Lo que ya pasa se dice con su
+  fecha («el plazo era hasta el 16 oct 2026»), y lo que pasaría se dice con
+  `plazos`, que manda la API. Sin ese dato, el texto no dice el número.
+- **La pantalla Plazos del panel** muestra una tarjeta por plazo con la cifra
+  grande, lo programado debajo con su botón para anularlo, y arriba, siempre
+  visible, la regla que lo hace seguro: un cambio solo alcanza a los plazos que
+  empiezan a correr. El que está escrito en la política de datos lo avisa en
+  la tarjeta y en el diálogo.
+
 ## 12. Lo que todavía no está decidido
 
 Para que nadie lo lea creyendo que está completo:

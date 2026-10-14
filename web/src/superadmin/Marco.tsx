@@ -16,6 +16,7 @@ const MODULOS: readonly { ruta: RutaDePlataforma; nombre: string; icono: NombreD
   { ruta: { pantalla: 'resumen' }, nombre: 'Resumen', icono: 'resumen' },
   { ruta: { pantalla: 'empresas' }, nombre: 'Empresas', icono: 'empresas' },
   { ruta: { pantalla: 'pagos' }, nombre: 'Pagos', icono: 'pagos' },
+  { ruta: { pantalla: 'plazos' }, nombre: 'Plazos', icono: 'reloj' },
   { ruta: { pantalla: 'bitacora' }, nombre: 'Bitácora', icono: 'historial' },
 ];
 

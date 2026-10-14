@@ -12,6 +12,7 @@ export type RutaDePlataforma =
   | { pantalla: 'empresa'; id: string }
   | { pantalla: 'pagos' }
   | { pantalla: 'bitacora' }
+  | { pantalla: 'plazos' }
   | { pantalla: 'no-existe' };
 
 export function leerRuta(hash: string): RutaDePlataforma {
@@ -23,6 +24,7 @@ export function leerRuta(hash: string): RutaDePlataforma {
   if (primera === 'empresas' && segunda !== undefined && partes.length === 2) return { pantalla: 'empresa', id: decodeURIComponent(segunda) };
   if (primera === 'pagos' && partes.length === 1) return { pantalla: 'pagos' };
   if (primera === 'bitacora' && partes.length === 1) return { pantalla: 'bitacora' };
+  if (primera === 'plazos' && partes.length === 1) return { pantalla: 'plazos' };
   return { pantalla: 'no-existe' };
 }
 
@@ -33,6 +35,7 @@ export function enlaceA(ruta: RutaDePlataforma): string {
     case 'empresa': return `#/empresas/${encodeURIComponent(ruta.id)}`;
     case 'pagos': return '#/pagos';
     case 'bitacora': return '#/bitacora';
+    case 'plazos': return '#/plazos';
     case 'no-existe': return '#/';
   }
 }

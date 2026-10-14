@@ -6,6 +6,81 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-14 · miércoles, el módulo 0: migraciones y plazos
+
+**Empieza la fase después del MVP.** El dueño aprobó el roadmap y el primer
+módulo son los cimientos. Contrato nuevo: **§18**. Todo probado contra
+PostgreSQL 16 con las once baterías.
+
+**Lo que entra al repositorio**
+
+- **`docs/05` con la D-77**, al final: `plataforma.migracion` y tres funciones
+  (`fn_migracion_iniciar`, `fn_migracion_revertir`, `fn_migracion_verificar`).
+  El 05 queda congelado: lo que sigue viaja en `docs/migraciones/`.
+- **`docs/migraciones/0001-parametros-del-ciclo.sql` (D-78)** y su
+  `.revertir.sql`. Los cinco plazos de D-74 y D-76 pasan a
+  `plataforma.parametro_valor`. Cada plazo se cuenta con el valor vigente el
+  día desde el que se cuenta, así que un cambio no alcanza a lo que ya corre.
+  Con los valores iniciales nada cambia: D-74 y D-76 siguen en verde sin
+  tocarlas. Cuesta unos 10 µs más por evaluación del ciclo.
+- **`docs/migraciones/0002-renumeracion-por-rama.sql` (D-79)** y su
+  `.revertir.sql`. Medido sobre 1.500 actividades:
+
+  | Operación | Antes | Después |
+  |---|---|---|
+  | Editar una cantidad | 31,8 ms | 4,4 ms |
+  | Agregar una actividad | 32,6 ms | 10,8 ms |
+  | Borrar una actividad | 31,0 ms | 8,3 ms |
+  | Renombrar un capítulo | 14,7 ms | 0,7 ms |
+
+  Había dos causas. Cualquier UPDATE renumeraba el proyecto entero, también el
+  de `monto_acumulado` que hace cada recálculo. Y agregar una actividad
+  renumeraba todo, cuando solo cambia su capítulo.
+- **`docs/prueba-d78.sql`** (51 casos) y **`docs/prueba-d79.sql`** (11 casos,
+  con un invariante sobre 300 operaciones al azar). Las dos las puse en rojo
+  a propósito antes de confiar en ellas: D-78 cae con 6 casos si el ciclo usa
+  el valor de hoy, y D-79 con 4 (63 operaciones mal numeradas) si la rama
+  olvida los subcapítulos.
+
+**Lo que necesito de vos** (§18). Nada de esto rompe lo que hay mientras
+tanto: la API de hoy funciona igual sobre la base migrada.
+
+1. **`npm run migrar`**, con psql, anotando la huella y deteniéndose si una
+   migración aplicada cambió (§18.1).
+2. **`resetear-base-pruebas.sh` y el hook** aplicando las migraciones
+   después del esquema; el hook, las del índice. Y las dos baterías nuevas en
+   la corrida.
+3. **Recargar `construsoft` una última vez**, desde el 05 nuevo más las dos
+   migraciones. El dueño la autoriza como las anteriores. Desde ahí, solo
+   `npm run migrar`.
+4. **`plazos` en `DetalleDeSuscripcion`** (§18.2).
+5. **Las tres rutas de Plazos del panel** (§18.3).
+6. **Con lo de antes ya pendiente:** `terminos.ts` aceptando la versión de
+   tres documentos (entrada de la política de cookies, abajo). Esa versión
+   sigue sin commitear y sin publicar, así que todavía se puede tocar. En
+   los Términos llené el «[PLAZO A DEFINIR]» de exportar al cancelar con el
+   plazo de D-74, el mismo que ya dice la política de datos.
+
+**Lo que hice del lado de la pantalla**
+
+- **Panel**: la pantalla **Plazos** (`#/plazos`) muestra cada plazo con su
+  valor y lo programado, y permite cambiar y anular. Avisa cuando el plazo
+  está escrito en la política de datos. La bitácora del panel nombra los dos
+  eventos nuevos.
+- **Empresa**: los textos ya no escriben los plazos de memoria. Usan `plazos`
+  si llega, y si no, no dicen el número. La cuenta detenida dice la fecha
+  límite en vez de «dos días hábiles».
+
+**Lo que conviene que sepas**
+
+- Las migraciones usan `\set ON_ERROR_STOP on`, que es de psql. Por eso
+  `npm run migrar` va con psql y no con `pg`.
+- `fn_migracion_iniciar` exige superusuario, igual que cargar el esquema.
+  Los roles de conexión no pueden ni verla. El panel lee `plataforma.migracion`
+  y nada más.
+
+---
+
 ## 2026-10-13 · martes, la política de cookies
 
 **La Política de Cookies sale como documento aparte**, por decisión del dueño, y

@@ -439,6 +439,26 @@ export interface DetalleDeSuscripcion extends CicloDeSuscripcion {
   puedeCancelar: boolean;
   /** CONTRATO §15 · Solo el Administrador, con la suscripción cancelada y antes de la fecha pagada. */
   puedeReanudar: boolean;
+  /**
+   * CONTRATO §18.2 · D-78 · Los plazos que rigen hoy, para que la pantalla no
+   * los escriba de memoria: el superadministrador los cambia. Opcional hasta
+   * que la API lo mande; sin él, los textos no dicen el número.
+   */
+  plazos?: PlazosVigentes;
+}
+
+/** D-78 · Los plazos del ciclo de suscripción vigentes hoy, en días. */
+export interface PlazosVigentes {
+  /** Días HÁBILES después del vencimiento para pagar. */
+  graciaPago: number;
+  /** Días HÁBILES para reenviar el comprobante tras un rechazo. */
+  plazoTrasRechazo: number;
+  /** Días que una cuenta suspendida conserva sus datos. */
+  suspension: number;
+  /** Días de solo lectura al terminar la prueba. */
+  pruebaSoloLectura: number;
+  /** Días para reactivar una suscripción cancelada. */
+  reactivacion: number;
 }
 
 // --- CONTRATO §11 · Usuarios y roles (02 §11.4) -------------------------------

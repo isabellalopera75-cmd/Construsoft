@@ -10,6 +10,7 @@ import { Bitacora } from './pantallas/Bitacora.tsx';
 import { Empresas } from './pantallas/Empresas.tsx';
 import { Ficha } from './pantallas/Ficha.tsx';
 import { Pagos } from './pantallas/Pagos.tsx';
+import { Plazos } from './pantallas/Plazos.tsx';
 import { Resumen } from './pantallas/Resumen.tsx';
 import type { Superadministrador } from './tipos.ts';
 
@@ -98,6 +99,8 @@ function Adentro({ ruta, yo, alSalir }: { ruta: RutaDePlataforma; yo: Superadmin
       return marco([RESUMEN, { nombre: 'Pagos' }], <Pagos />);
     case 'bitacora':
       return marco([RESUMEN, { nombre: 'Bitácora' }], <Bitacora />);
+    case 'plazos':
+      return marco([RESUMEN, { nombre: 'Plazos' }], <Plazos />);
     case 'no-existe':
       return marco(
         [RESUMEN, { nombre: 'No existe' }],

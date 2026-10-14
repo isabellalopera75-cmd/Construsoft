@@ -1250,3 +1250,105 @@ de la empresa. `fn_exigir_permiso` ya no da CS006 a una acción `EXPORTAR`.
   `…/versiones/:id/exportar`) tienen que responder con la cuenta en
   `SOLO_PAGO` o `NINGUNO`. Si alguna pasa antes por un VER, ese VER sobra
   allí.
+
+## 18. Cimientos: migraciones y plazos (PROPUESTO el 14 de octubre de 2026, sin construir)
+
+Primer módulo después del MVP (roadmap, módulo 0). El esquema deja de
+recargarse: desde aquí crece por migraciones, y los plazos del ciclo de
+suscripción dejan de estar escritos en la base.
+
+### 18.1 Las migraciones (D-77)
+
+El `05` queda congelado como el estado inicial de una base nueva y registra la
+migración 0 en `plataforma.migracion`. Cada cambio posterior es un archivo en
+`docs/migraciones/`:
+
+```
+0001-parametros-del-ciclo.sql            0001-parametros-del-ciclo.revertir.sql
+0002-renumeracion-por-rama.sql           0002-renumeracion-por-rama.revertir.sql
+```
+
+Cada archivo es UNA transacción que empieza con
+`plataforma.fn_migracion_iniciar(n, 'nombre')` y termina con
+`plataforma.fn_migracion_verificar()`. Usan `\set` de psql, así que **se
+aplican con psql** y no con `pg`. Lo que necesita de la API:
+
+- **`npm run migrar`**: aplica, en orden de número, las que falten en la base
+  del `.env`, cada una con `psql -v ON_ERROR_STOP=1 -f`. Después de cada una
+  anota su huella: `UPDATE plataforma.migracion SET sha256 = $1 WHERE numero =
+  $2`. Antes de aplicar nada compara la huella de las ya aplicadas contra su
+  archivo y **se detiene si alguna cambió**: una migración publicada no se
+  edita, se escribe otra. Imprime qué aplicó.
+- **`scripts/resetear-base-pruebas.sh`**: después de cargar el esquema, aplica
+  todas las migraciones. Y el **hook**, como ya hace con el esquema, las toma
+  del índice y no del árbol.
+- **Las baterías SQL** suman `docs/prueba-d78.sql` (51 casos) y
+  `docs/prueba-d79.sql` (11 casos), que necesitan las migraciones aplicadas. Las
+  nueve de antes siguen en verde sobre el esquema más 0001 y 0002.
+- **La base `construsoft` se recarga UNA última vez**, desde el `05` nuevo más
+  las dos migraciones. Desde ahí, solo `npm run migrar`. Sigue sin datos de
+  clientes, así que el dueño autoriza esta recarga como las anteriores.
+
+### 18.2 Los plazos en la pestaña de suscripción (D-78)
+
+`DetalleDeSuscripcion` (§15.3) suma:
+
+```
+plazos: { graciaPago, plazoTrasRechazo, suspension, pruebaSoloLectura, reactivacion }
+```
+
+Números enteros, en días (los dos primeros, hábiles). Cada uno es
+`plataforma.fn_parametro('<CLAVE>', current_date)`, concedida al rol de la
+aplicación: `GRACIA_PAGO`, `PLAZO_TRAS_RECHAZO`, `SUSPENSION`,
+`PRUEBA_SOLO_LECTURA`, `REACTIVACION`. La pantalla los usa para los textos que
+explican qué pasaría («si vence sin pago, tiene N días hábiles…»). Las fechas de
+lo que ya pasa siguen viniendo de `fn_ciclo_suscripcion`, como hoy. La interfaz
+ya está hecha y lo trata como opcional: sin él, los textos no dicen el número.
+
+### 18.3 El panel: Plazos (D-78)
+
+| Método y ruta | Cuerpo | Respuesta |
+|---|---|---|
+| `GET /api/superadmin/parametros` | — | `Plazos` |
+| `POST /api/superadmin/parametros/:clave` | `{ valor, vigenteDesde, motivo }` | 200 `Plazos` |
+| `POST /api/superadmin/parametros/:clave/anular` | `{ vigenteDesde, motivo }` | 200 `Plazos` |
+
+```
+Plazos = { parametros: Plazo[], historial: CambioDePlazo[] }
+Plazo = { clave, nombre, descripcion, unidad: 'DIAS' | 'DIAS_HABILES',
+          minimo, maximo, apareceEnTerminos,
+          valorHoy, vigenteDesde: Fecha | null,
+          valorProgramado: number | null, programadoDesde: Fecha | null }
+CambioDePlazo = { clave, nombre, valor, vigenteDesde: Fecha | null, motivo,
+                  registradoPor: string | null, registradoEn: Instante }
+```
+
+- `parametros` sale de la vista `plataforma.v_parametros`, en el orden de la
+  pantalla: GRACIA_PAGO, PLAZO_TRAS_RECHAZO, SUSPENSION, PRUEBA_SOLO_LECTURA,
+  REACTIVACION.
+- `historial` es `plataforma.parametro_valor` con el nombre del plazo y el del
+  superadministrador (`usuario_plataforma.nombre`), del más reciente
+  (`registrado_en DESC`) al más antiguo. Los valores iniciales tienen
+  `registradoPor` nulo.
+- **`vigenteDesde` nulo es `-infinity`** en la base: el valor inicial. La API
+  lo traduce a `null`, nunca manda «-infinity».
+- **`valor` llega como texto de dígitos** («90»), igual que las cifras de la
+  regla 1.1; la API lo pasa a entero. Otra cosa: 422 con `campo: "valor"`.
+- Cambiar: `plataforma.fn_fijar_parametro(clave, valor, vigenteDesde, motivo,
+  <superadministrador de la sesión>)`. Anular: `fn_anular_parametro(clave,
+  vigenteDesde, motivo, <superadministrador>)`. Las dos dejan su evento
+  (`PARAMETRO_CAMBIADO`, `PARAMETRO_ANULADO`) en la bitácora del panel, y
+  devuelven la vista entera.
+- **Los rechazos de la base traen su columna** (`USING COLUMN`): `valor`,
+  `vigenteDesde` o `motivo`. Van como 422 con ese `campo`, por la regla que ya
+  tiene `errores.ts`. Sin columna, 422 sin campo. Una `clave` que no existe:
+  404.
+- **La regla que la API no tiene que reimplementar**: un plazo se cuenta con el
+  valor vigente el día desde el que se cuenta; un cambio solo alcanza a los que
+  empiezan a correr desde su fecha; nada rige hacia atrás. Todo eso lo hace la
+  base.
+
+### 18.4 La purga
+
+`fn_purgar_empresas` sigue igual por fuera. Su `motivo` ya no dice «60 días» ni
+«10 días»: dice la fecha en que venció el plazo.

@@ -344,7 +344,7 @@ export function Ficha({ id }: { id: string }) {
         >
           <p>
             La empresa sigue trabajando hasta el {fechaSola(suscripcion?.venceEl ?? '')} y no se le cobra más. Desde el día siguiente no
-            entra, y solo su Administrador puede reactivarla, pagando, durante diez días. Después, sus datos se eliminan. Usted no podrá
+            entra, y solo su Administrador puede reactivarla, pagando, mientras corra el plazo de reactivación (lo fija «Plazos»). Después, sus datos se eliminan. Usted no podrá
             revivirla registrando un pago.
           </p>
         </Confirmacion>
@@ -380,6 +380,8 @@ const NOMBRES_DE_EVENTO: Record<string, string> = {
   ADMIN_DESIGNADO: 'Administrador designado',
   PAGO_REPORTADO: 'Pago reportado por la empresa',
   PAGO_RECHAZADO: 'Pago rechazado',
+  PARAMETRO_CAMBIADO: 'Plazo cambiado',
+  PARAMETRO_ANULADO: 'Cambio de plazo anulado',
 };
 
 export function ListaDeEventos({ eventos, conEmpresa, vacio }: { eventos: EventoDePlataforma[]; conEmpresa: boolean; vacio: string }) {

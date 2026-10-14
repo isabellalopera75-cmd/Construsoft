@@ -26,6 +26,10 @@ import { ErrorDeSeccion, Seccion, useLectura } from './piezas.tsx';
  * Se puede reportar con la suscripción vencida, que es justo cuando hace
  * falta; no mientras otro pago espera verificación.
  *
+ * D-78 (14 de octubre de 2026) · Los plazos ya no se escriben aquí: los cambia
+ * el superadministrador y llegan en `plazos`. Sin ese dato, los textos los
+ * nombran sin número.
+ *
  * D-74 (12 de octubre de 2026) · El ciclo de vida: al vencer hay dos días
  * hábiles para pagar; después la cuenta se suspende y, a los 60 días, sus
  * datos se eliminan. El Administrador puede cancelar: la cuenta funciona hasta
@@ -195,8 +199,8 @@ export function SuscripcionPestana() {
             </p>
             <p className="campo-ayuda">
               {datos.estado === 'EN_PRUEBA' || datos.estado === 'VENCIDA'
-                ? 'Si la prueba termina sin pago, tiene 10 días en solo lectura para decidir: puede consultar, exportar y pagar aquí. Si no paga, la prueba se cancela y los datos se eliminan.'
-                : 'Si la suscripción vence sin pago, tiene dos días hábiles para pagar. Después, la cuenta se suspende y solo se puede entrar a esta pantalla; a los 60 días de suspendida, los datos se eliminan.'}
+                ? `Si la prueba termina sin pago, tiene ${cuantos(datos.plazos?.pruebaSoloLectura, 'días', 'unos días')} en solo lectura para decidir: puede consultar, exportar y pagar aquí. Si no paga, la prueba se cancela y los datos se eliminan.`
+                : `Si la suscripción vence sin pago, tiene ${cuantos(datos.plazos?.graciaPago, 'días hábiles', 'un plazo corto')} para pagar. Después, la cuenta se suspende y solo se puede entrar a esta pantalla; ${datos.plazos ? `a los ${datos.plazos.suspension} días de suspendida` : 'pasado el plazo de suspensión'}, los datos se eliminan.`}
             </p>
             {datos.puedeReportar && !pendiente ? (
               <div className="fila-de-botones fila-izquierda">
@@ -256,8 +260,8 @@ export function SuscripcionPestana() {
               <h3>Cancelar la suscripción</h3>
               <p className="campo-ayuda">
                 Es definitivo: {dias >= 0 ? `la cuenta funciona hasta el ${fechaSola(datos.venceEl)}` : 'como la suscripción ya venció, la cuenta deja de funcionar enseguida'} y
-                no se le cobra nada más. Después, tiene diez días para reactivarla pagando; pasados esos días, los datos de la empresa se
-                eliminan.
+                no se le cobra nada más. Después, tiene {cuantos(datos.plazos?.reactivacion, 'días', 'un plazo')} para reactivarla pagando;
+                pasado ese plazo, los datos de la empresa se eliminan.
               </p>
             </div>
             <button type="button" className="boton boton-peligroso" onClick={() => setDialogo('cancelar')}>
@@ -284,15 +288,15 @@ export function SuscripcionPestana() {
             <>
               <p>
                 Todo sigue funcionando hasta el {fechaSola(datos.venceEl)} y no se le cobra nada más. Desde el día siguiente nadie de la
-                empresa podrá entrar, y el Administrador tendrá diez días para reactivarla pagando. Si no lo hace, los datos de la
+                empresa podrá entrar, y el Administrador tendrá {cuantos(datos.plazos?.reactivacion, 'días', 'un plazo')} para reactivarla pagando. Si no lo hace, los datos de la
                 empresa se eliminan y no se pueden recuperar.
               </p>
               <p>Mientras llega esa fecha puede reanudarla sin pagar.</p>
             </>
           ) : (
             <p>
-              La suscripción ya venció, así que desde ahora nadie de la empresa podrá entrar. El Administrador tendrá diez días para
-              reactivarla pagando. Si no lo hace, los datos de la empresa se eliminan y no se pueden recuperar.
+              La suscripción ya venció, así que desde ahora nadie de la empresa podrá entrar. El Administrador tendrá{' '}
+              {cuantos(datos.plazos?.reactivacion, 'días', 'un plazo')} para reactivarla pagando. Si no lo hace, los datos de la empresa se eliminan y no se pueden recuperar.
             </p>
           )}
         </Confirmacion>
@@ -424,4 +428,11 @@ function ReportarPago({ reactivar, alCerrar, alReportar }: { reactivar: boolean;
       </Campo>
     </Capa>
   );
+}
+
+/** «10 días», «1 día hábil»; sin el dato, el texto de reemplazo («un plazo»). D-78. */
+function cuantos(n: number | undefined, unidad: 'días' | 'días hábiles', sinNumero: string): string {
+  if (n === undefined) return sinNumero;
+  if (n === 1) return unidad === 'días' ? '1 día' : '1 día hábil';
+  return `${n} ${unidad}`;
 }
