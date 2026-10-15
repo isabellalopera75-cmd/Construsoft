@@ -7,6 +7,7 @@ import { useSesion } from '../sesion.tsx';
 import { aplicarTema, temaVisible, type Tema } from '../tema.ts';
 import { AvisoDeSuscripcion } from './AvisoDeSuscripcion.tsx';
 import { useBarraPlegable } from './barraPlegable.ts';
+import { usePosicionDelMenu } from './posicionDelMenu.ts';
 import { pestanasDeConfiguracion } from '../modulos/configuracion/pestanas.ts';
 
 /*
@@ -19,6 +20,11 @@ import { pestanasDeConfiguracion } from '../modulos/configuracion/pestanas.ts';
  * elección. Plegada, cada icono muestra su nombre en un globo al pasar el
  * mouse o al llegar con el teclado. Entre 641 y 1024 px va siempre plegada,
  * porque no cabe; en el teléfono es un cajón y esto no aplica.
+ *
+ * El menú puede ir arriba (pedido del dueño, 15 de octubre de 2026): cada
+ * usuario lo elige en Configuración › Mi cuenta. Arriba, la barra lateral
+ * desaparece y los mismos módulos, con sus submenús, van en la barra superior,
+ * entre las migas y «quién soy». En el teléfono el menú sigue siendo el cajón.
  */
 
 export interface Modulo {
@@ -142,6 +148,64 @@ function useProyectosRecientes(pasadas: number): FilaDePresupuesto[] | null {
   return lista;
 }
 
+/**
+ * Los módulos con sus submenús. La misma lista va en la barra lateral o en la
+ * barra superior, según dónde quiera el menú cada usuario; el CSS decide la
+ * forma (vertical, plegada a iconos o en fila).
+ */
+function ListaDeModulos({
+  actual,
+  recientes,
+  alPasarPorProyectos,
+}: {
+  actual: Ruta['pantalla'];
+  recientes: FilaDePresupuesto[] | null;
+  alPasarPorProyectos: () => void;
+}) {
+  const { puede } = useSesion();
+  const modulos = useModulosVisibles();
+  return (
+    <ul className="lista-de-modulos">
+      <li>
+        <a
+          href={enlaceA({ pantalla: 'inicio' })}
+          aria-current={actual === 'inicio' ? 'page' : undefined}
+        >
+          <Icono nombre="inicio" />
+          <span className="etiqueta-de-modulo">Inicio</span>
+        </a>
+      </li>
+      {modulos.map((m) => {
+        const conSubmenu = m.ruta.pantalla === 'presupuestos' || m.ruta.pantalla === 'configuracion';
+        return (
+          <li key={m.nombre} className={conSubmenu ? 'modulo-con-submenu' : undefined}
+              onMouseEnter={m.ruta.pantalla === 'presupuestos' ? alPasarPorProyectos : undefined}
+              onFocus={m.ruta.pantalla === 'presupuestos' ? alPasarPorProyectos : undefined}>
+            <a
+              href={enlaceA(m.ruta)}
+              aria-current={actual === m.ruta.pantalla ? 'page' : undefined}
+            >
+              <Icono nombre={m.icono} />
+              <span className="etiqueta-de-modulo">{m.nombre}</span>
+            </a>
+            {m.ruta.pantalla === 'configuracion' ? (
+              <Submenu titulo={m.nombre} enlaces={pestanasDeConfiguracion(puede).map((p) => ({
+                clave: p.id, texto: p.nombre, href: enlaceA({ pantalla: 'configuracion', pestana: p.id }),
+              }))} />
+            ) : null}
+            {m.ruta.pantalla === 'presupuestos' ? (
+              <Submenu titulo={m.nombre} vacio={recientes === null ? 'Cargando…' : 'Todavía no hay proyectos.'}
+                       enlaces={(recientes ?? []).map((p) => ({
+                         clave: p.id, texto: p.nombre, apoyo: p.codigo, href: enlaceA({ pantalla: 'mesa', id: p.id }),
+                       }))} />
+            ) : null}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 interface Props {
   ruta: Ruta;
   /** «Dónde estoy»: las migas, de la más general a la actual. */
@@ -150,14 +214,15 @@ interface Props {
 }
 
 export function Cascaron({ ruta, migas, children }: Props) {
-  const { arranque, salir, puede } = useSesion();
+  const { arranque, salir } = useSesion();
   const [pasadas, setPasadas] = useState(0);
   const recientes = useProyectosRecientes(pasadas);
-  const modulos = useModulosVisibles();
   const [cajonAbierto, setCajonAbierto] = useState(false);
   const botonMenu = useRef<HTMLButtonElement>(null);
   const actual = moduloDe(ruta);
   const { plegada, mediana, alternarBarra } = useBarraPlegable();
+  const posicionDelMenu = usePosicionDelMenu();
+  const arriba = posicionDelMenu === 'arriba';
 
   // Cambiar de pantalla cierra el cajón del teléfono.
   useEffect(() => setCajonAbierto(false), [ruta]);
@@ -175,7 +240,14 @@ export function Cascaron({ ruta, migas, children }: Props) {
   }, [cajonAbierto]);
 
   return (
-    <div className="cascaron" data-cajon={cajonAbierto ? 'abierto' : 'cerrado'} data-barra={plegada ? 'plegada' : 'abierta'}>
+    <div
+      className="cascaron"
+      data-cajon={cajonAbierto ? 'abierto' : 'cerrado'}
+      data-menu={posicionDelMenu}
+      // Con el menú arriba no hay barra que plegar: sin el atributo, las reglas
+      // de la barra plegada no tocan los enlaces de la barra superior.
+      data-barra={arriba ? undefined : plegada ? 'plegada' : 'abierta'}
+    >
       <a className="saltar-al-contenido" href="#contenido" onClick={(e) => {
         // El destino es un id, no una ruta: sin esto, el «#contenido»
         // reemplazaría la dirección de la pantalla.
@@ -190,44 +262,7 @@ export function Cascaron({ ruta, migas, children }: Props) {
           <span className="marca-palabra">ConstruSoft</span>
         </a>
         <nav>
-          <ul className="lista-de-modulos">
-            <li>
-              <a
-                href={enlaceA({ pantalla: 'inicio' })}
-                aria-current={actual === 'inicio' ? 'page' : undefined}
-              >
-                <Icono nombre="inicio" />
-                <span className="etiqueta-de-modulo">Inicio</span>
-              </a>
-            </li>
-            {modulos.map((m) => {
-              const conSubmenu = m.ruta.pantalla === 'presupuestos' || m.ruta.pantalla === 'configuracion';
-              return (
-                <li key={m.nombre} className={conSubmenu ? 'modulo-con-submenu' : undefined}
-                    onMouseEnter={m.ruta.pantalla === 'presupuestos' ? () => setPasadas((n) => n + 1) : undefined}
-                    onFocus={m.ruta.pantalla === 'presupuestos' ? () => setPasadas((n) => n + 1) : undefined}>
-                  <a
-                    href={enlaceA(m.ruta)}
-                    aria-current={actual === m.ruta.pantalla ? 'page' : undefined}
-                  >
-                    <Icono nombre={m.icono} />
-                    <span className="etiqueta-de-modulo">{m.nombre}</span>
-                  </a>
-                  {m.ruta.pantalla === 'configuracion' ? (
-                    <Submenu titulo={m.nombre} enlaces={pestanasDeConfiguracion(puede).map((p) => ({
-                      clave: p.id, texto: p.nombre, href: enlaceA({ pantalla: 'configuracion', pestana: p.id }),
-                    }))} />
-                  ) : null}
-                  {m.ruta.pantalla === 'presupuestos' ? (
-                    <Submenu titulo={m.nombre} vacio={recientes === null ? 'Cargando…' : 'Todavía no hay proyectos.'}
-                             enlaces={(recientes ?? []).map((p) => ({
-                               clave: p.id, texto: p.nombre, apoyo: p.codigo, href: enlaceA({ pantalla: 'mesa', id: p.id }),
-                             }))} />
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
+          <ListaDeModulos actual={actual} recientes={recientes} alPasarPorProyectos={() => setPasadas((n) => n + 1)} />
         </nav>
         {/* Sin botón entre 641 y 1024: ahí la barra no cabe abierta. */}
         {mediana ? null : (
@@ -261,22 +296,40 @@ export function Cascaron({ ruta, migas, children }: Props) {
             <Icono nombre="menu" />
           </button>
 
-          <nav className="migas" aria-label="Dónde estoy">
-            <ol>
-              {migas.map((miga, i) => {
-                const ultima = i === migas.length - 1;
-                return (
-                  <li key={miga.nombre}>
-                    {ultima || !miga.ruta ? (
-                      <span aria-current={ultima ? 'page' : undefined}>{miga.nombre}</span>
-                    ) : (
-                      <a href={enlaceA(miga.ruta)}>{miga.nombre}</a>
-                    )}
-                  </li>
-                );
-              })}
-            </ol>
-          </nav>
+          {/* Con el menú arriba, marca y migas forman el lado izquierdo y
+              «quién soy» el derecho, con el mismo ancho: así el menú queda en
+              el centro. Con el menú a la izquierda, el bloque no existe para
+              el diseño (display: contents). */}
+          <div className="inicio-de-barra">
+            {arriba ? (
+              <a className="marca marca-en-barra" href={enlaceA({ pantalla: 'inicio' })} aria-label="ConstruSoft, ir al inicio">
+                <span className="marca-palabra">ConstruSoft</span>
+              </a>
+            ) : null}
+
+            <nav className="migas" aria-label="Dónde estoy">
+              <ol>
+                {migas.map((miga, i) => {
+                  const ultima = i === migas.length - 1;
+                  return (
+                    <li key={miga.nombre}>
+                      {ultima || !miga.ruta ? (
+                        <span aria-current={ultima ? 'page' : undefined}>{miga.nombre}</span>
+                      ) : (
+                        <a href={enlaceA(miga.ruta)}>{miga.nombre}</a>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            </nav>
+          </div>
+
+          {arriba ? (
+            <nav className="menu-superior" aria-label="Módulos">
+              <ListaDeModulos actual={actual} recientes={recientes} alPasarPorProyectos={() => setPasadas((n) => n + 1)} />
+            </nav>
+          ) : null}
 
           <div className="quien-soy">
             <span className="quien-soy-texto">

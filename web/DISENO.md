@@ -553,6 +553,38 @@ presupuestos y abrir uno para consultarlo.
   empiezan a correr. El que está escrito en la política de datos lo avisa en
   la tarjeta y en el diálogo.
 
+### 15 de octubre de 2026 · Más espacio para la tabla (pedido del dueño)
+
+Cuatro cambios para que la estructura del proyecto se vea más grande y el
+mouse viaje menos:
+
+- **Agregar actividad y agregar subcapítulo van junto al nombre** del
+  capítulo o subcapítulo, después de la insignia Directo/Indirecto. Subir,
+  bajar, renombrar y eliminar se quedan a la derecha. **La fila fija
+  «Agregar actividad en…» bajo cada nivel se quitó**: el icono es el único
+  camino. La fila del buscador aparece al pulsarlo, al final del nivel, y
+  a la izquierda dice a qué nivel va; se cierra con su ×. Esto reemplaza los
+  «dos caminos» de las correcciones del 6 de octubre. Con mouse, esa fila
+  mide lo que una de capítulo: campo de 24 px, cada opción de la lista en una
+  sola línea (código, nombre, unidad, costo) y, elegido el APU, la cantidad y
+  los botones en la misma línea. El buscador del formulario de APU no cambia.
+- **Los datos del proyecto** (ubicación, moneda, estructura, última
+  modificación) van en la franja de arriba de la tabla, al lado de «Agregar
+  Capítulo». El texto que explicaba la estructura por EDT se quitó: la
+  estructura ya se lee en esa misma franja.
+- **Las acciones de la cabecera se ocultan** con «Ocultar acciones», arriba a
+  la derecha. Ocultas, se deslizan a alto cero y quedan inertes (ni foco ni
+  lector de pantalla). La elección vale para todos los proyectos y se recuerda
+  en el navegador.
+- **El menú puede ir arriba.** Cada usuario lo elige en Configuración › Mi
+  cuenta › Mi pantalla, y se aplica al elegir. Arriba, la barra lateral
+  desaparece y los módulos, con sus submenús, van en la barra superior entre
+  las migas y «quién soy», centrados en la barra; con menos de 1440 px solo
+  los iconos, con el nombre en un globo. En el teléfono el menú sigue siendo
+  el cajón. El panel del superadministrador no tiene esta opción.
+- El contenido sigue con su máximo de 1280 px: el menú arriba gana ancho en
+  ventanas de menos de unos 1550 px, que es donde la barra lateral lo quitaba.
+
 ## 12. Lo que todavía no está decidido
 
 Para que nadie lo lea creyendo que está completo:

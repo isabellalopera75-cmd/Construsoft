@@ -16,6 +16,7 @@ import { Usuarios } from './Usuarios.tsx';
 import { formatearNumero } from '../../formato.ts';
 import { ir, type PestanaDeConfiguracion } from '../../navegacion.ts';
 import { useSesion } from '../../sesion.tsx';
+import { cambiarPosicionDelMenu, usePosicionDelMenu } from '../../cascaron/posicionDelMenu.ts';
 
 /*
  * 02 §11 · Configuración, en pestañas. Para el 18 de octubre entran cuatro: mi
@@ -52,7 +53,12 @@ export function Configuracion({ pestana }: { pestana: PestanaDeConfiguracion | u
         alCambiar={(id) => ir({ pantalla: 'configuracion', pestana: id })}
       />
       <div id="pestana-config-panel" role="tabpanel" aria-labelledby={`pestana-config-${actual}`} className="panel-de-pestana">
-        {actual === 'cuenta' ? <MiCuentaPestana /> : null}
+        {actual === 'cuenta' ? (
+          <>
+            <MiCuentaPestana />
+            <MiPantalla />
+          </>
+        ) : null}
         {actual === 'empresa' ? <EmpresaConLogo /> : null}
         {actual === 'preferencias' ? <PreferenciasPestana /> : null}
         {actual === 'suscripcion' ? <SuscripcionPestana /> : null}
@@ -89,6 +95,36 @@ function MiCuentaPestana() {
           }}
         />
       ) : null}
+    </Seccion>
+  );
+}
+
+/**
+ * Cómo ve cada usuario su pantalla (pedido del dueño, 15 de octubre de 2026).
+ * Va en Mi cuenta porque es de la persona, no de la empresa, y Mi cuenta la ve
+ * todo rol. Se aplica al elegir, sin «Guardar», como el botón del tema.
+ */
+function MiPantalla() {
+  const posicion = usePosicionDelMenu();
+  return (
+    <Seccion titulo="Mi pantalla" ayuda="Se recuerda en este navegador. En el teléfono el menú sigue en el botón de menú, arriba a la izquierda.">
+      <fieldset className="campo grupo-de-opciones">
+        <legend className="etiqueta">Posición del menú</legend>
+        <label className="opcion">
+          <input type="radio" name="posicion-del-menu" checked={posicion === 'izquierda'} onChange={() => cambiarPosicionDelMenu('izquierda')} />
+          <span>
+            <span className="opcion-titulo">A la izquierda</span>
+            <span className="opcion-detalle">Una barra lateral con los módulos, que se puede plegar a iconos con «Ocultar menú».</span>
+          </span>
+        </label>
+        <label className="opcion">
+          <input type="radio" name="posicion-del-menu" checked={posicion === 'arriba'} onChange={() => cambiarPosicionDelMenu('arriba')} />
+          <span>
+            <span className="opcion-titulo">Arriba</span>
+            <span className="opcion-detalle">Los módulos van en la barra superior y las pantallas ganan el ancho de la barra lateral.</span>
+          </span>
+        </label>
+      </fieldset>
     </Seccion>
   );
 }

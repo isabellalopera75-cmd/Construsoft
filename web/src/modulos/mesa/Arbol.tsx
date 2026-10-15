@@ -79,11 +79,11 @@ export function Arbol({ arbol, editable, modo, ocupado, op }: Props) {
       if (hijo.tipo === 'nodo') pintarNodo(hijo.nodo);
       else filas.push(<FilaDeActividad key={hijo.actividad.id} actividad={hijo.actividad} nivel={nodo.nivel} limites={limitesDeActividad} editable={editable} ocupado={ocupado} op={op} />);
     }
-    if (editable) {
-      filas.push(
-        <FilaDeAgregar key={`agregar-${nodo.id}`} nodo={nodo} abierta={agregandoEn === nodo.id}
-                       alAbrir={() => setAgregandoEn(nodo.id)} alCerrar={() => setAgregandoEn(null)} op={op} />,
-      );
+    // Agregar se abre con el icono junto al nombre del nivel (15 de octubre
+    // de 2026): ya no hay una fila «Agregar actividad en…» fija debajo de
+    // cada capítulo. La fila existe solo mientras se está agregando.
+    if (editable && agregandoEn === nodo.id) {
+      filas.push(<FilaDeAgregar key={`agregar-${nodo.id}`} nodo={nodo} alCerrar={() => setAgregandoEn(null)} op={op} />);
     }
   };
   for (const raiz of arbol.raices) pintarNodo(raiz);
@@ -150,6 +150,21 @@ function FilaDeNodo({
             {nodo.clasificacion === 'DIRECTO' ? 'Directo' : 'Indirecto'}
           </span>
         ) : null}
+        {editable ? (
+          // Agregar va junto al nombre, no al final de la fila (pedido del
+          // dueño, 15 de octubre de 2026): el mouse no tiene que cruzar la
+          // tabla. Subir, bajar, renombrar y eliminar se quedan a la derecha.
+          <span className="agregar-en-nodo">
+            <button type="button" className="boton-icono boton-chico" title={`Agregar actividad en ${nodo.codigoWbs}`} aria-label={`Agregar una actividad en ${nodo.codigoWbs} ${nodo.nombre}`} disabled={ocupado} onClick={alAgregarActividad}>
+              <Icono nombre="item" tamano={18} />
+            </button>
+            {modo === 'WBS' ? (
+              <button type="button" className="boton-icono boton-chico" title={`Agregar subcapítulo en ${nodo.codigoWbs}`} aria-label={`Agregar un subcapítulo en ${nodo.codigoWbs} ${nodo.nombre}`} disabled={ocupado} onClick={() => op.agregarSubnivel(nodo)}>
+                <Icono nombre="carpeta" tamano={18} />
+              </button>
+            ) : null}
+          </span>
+        ) : null}
       </td>
       <td className="col-und" />
       <td className="col-cantidad" />
@@ -161,14 +176,6 @@ function FilaDeNodo({
       {editable ? (
         <td className="col-acciones">
           <div className="acciones-de-fila">
-            <button type="button" className="boton-icono boton-chico" title={`Agregar actividad en ${nodo.codigoWbs}`} aria-label={`Agregar una actividad en ${nodo.codigoWbs} ${nodo.nombre}`} disabled={ocupado} onClick={alAgregarActividad}>
-              <Icono nombre="item" tamano={18} />
-            </button>
-            {modo === 'WBS' ? (
-              <button type="button" className="boton-icono boton-chico" title={`Agregar subcapítulo en ${nodo.codigoWbs}`} aria-label={`Agregar un subcapítulo en ${nodo.codigoWbs} ${nodo.nombre}`} disabled={ocupado} onClick={() => op.agregarSubnivel(nodo)}>
-                <Icono nombre="carpeta" tamano={18} />
-              </button>
-            ) : null}
             <BotonesDeMover tipo="nodo" id={nodo.id} posicion={nodo.posicion} limites={limites} nombre={nodo.nombre} ocupado={ocupado} op={op} />
             <button type="button" className="boton-icono boton-chico" title={esRaiz ? 'Renombrar o reclasificar' : 'Renombrar'} aria-label={`Renombrar ${nodo.nombre}`} disabled={ocupado} onClick={() => op.editarNodo(nodo)}>
               <Icono nombre="editar" tamano={18} />
@@ -330,20 +337,17 @@ function BotonesDeMover({
 }
 
 /**
- * 02 §8.3 · «+ Agregar Actividad», al final de cada nivel. Se busca el APU por
- * código o nombre; el código que queda es el del APU. Si no existe, se crea
- * encima sin perder nada, y queda elegido.
+ * 02 §8.3 · Agregar una actividad, al final del nivel. Se abre con el icono
+ * junto al nombre del capítulo o subcapítulo. Se busca el APU por código o
+ * nombre; el código que queda es el del APU. Si no existe, se crea encima sin
+ * perder nada, y queda elegido.
  */
 function FilaDeAgregar({
   nodo,
-  abierta,
-  alAbrir,
   alCerrar,
   op,
 }: {
   nodo: NodoDeMesa;
-  abierta: boolean;
-  alAbrir: () => void;
   alCerrar: () => void;
   op: OperacionesDeMesa;
 }) {
@@ -355,10 +359,10 @@ function FilaDeAgregar({
   const [enviando, setEnviando] = useState(false);
   const [creandoApu, setCreandoApu] = useState<string | null>(null);
 
-  // Al abrir, el foco entra al buscador: quien pulsó «Agregar Actividad» va a escribir.
+  // Al abrir, el foco entra al buscador: quien pulsó el icono de agregar va a escribir.
   useEffect(() => {
-    if (abierta && elegido === null) document.getElementById(`agregar-en-${nodo.id}`)?.focus();
-  }, [abierta, elegido, nodo.id]);
+    if (elegido === null) document.getElementById(`agregar-en-${nodo.id}`)?.focus();
+  }, [elegido, nodo.id]);
 
   function cerrar() {
     setElegido(null);
@@ -389,23 +393,6 @@ function FilaDeAgregar({
     }
   }
 
-  if (!abierta) {
-    return (
-      <tr className="fila-agregar">
-        <td />
-        <td colSpan={7} style={{ ['--sangria' as string]: `${nodo.nivel * 16}px` }} className="col-agregar">
-          {/* Dice a qué nivel pertenece: un subcapítulo con hijos deja su fila de
-              agregar pegada a la del capítulo de arriba, y sin el código no se
-              sabe cuál es cuál. */}
-          <button type="button" className="boton-agregar-actividad" onClick={alAbrir}>
-            <Icono nombre="item" tamano={16} />
-            Agregar actividad en <span className="cifra-codigo">{nodo.codigoWbs}</span> {nodo.nombre}
-          </button>
-        </td>
-      </tr>
-    );
-  }
-
   if (!puede('APU.VER')) {
     // Un vacío que puede ser falta de permiso lo dice (DISENO §8).
     return (
@@ -426,6 +413,12 @@ function FilaDeAgregar({
       <td />
       <td colSpan={7} className="col-agregar" style={{ ['--sangria' as string]: `${nodo.nivel * 16}px` }}>
         <div className="agregar-actividad">
+          {/* Dice a qué nivel va: un subcapítulo con hijos deja esta fila pegada
+              a la de un nivel más hondo, y sin el código no se sabe cuál es
+              cuál. Va en la misma línea del buscador: la fila mide una línea. */}
+          <span className="agregar-en-cual">
+            Agregar en <span className="cifra-codigo">{nodo.codigoWbs}</span> {nodo.nombre}
+          </span>
           {elegido === null ? (
             <Buscador<ApuEncontrado>
               idDelCampo={`agregar-en-${nodo.id}`}

@@ -723,11 +723,6 @@ textarea { min-height: 88px; padding: var(--e2) var(--e3); resize: vertical; wid
 .acciones-de-fila { display: inline-flex; gap: 2px; }
 .fila-agregar td { border-bottom: 1px solid var(--borde-tenue); }
 .col-agregar { padding-left: calc(var(--e3) + var(--sangria, 0px)) !important; }
-.boton-agregar-actividad {
-  display: inline-flex; align-items: center; gap: var(--e2); min-height: var(--toque-minimo); padding: 0 var(--e2);
-  color: var(--terracota); font-size: var(--letra-sm); font-weight: var(--peso-fuerte); border-radius: var(--radio-sm);
-}
-.boton-agregar-actividad:hover { background: var(--terracota-velo); }
 .agregar-actividad { display: flex; align-items: flex-start; gap: var(--e2); max-width: 760px; }
 .agregar-actividad .buscador { flex: 1; }
 .agregar-elegido { flex: 1; display: flex; flex-wrap: wrap; align-items: center; gap: var(--e3); }
@@ -1137,7 +1132,6 @@ textarea { min-height: 88px; padding: var(--e2) var(--e3); resize: vertical; wid
   .tabla-mesa .boton-chico { width: var(--alto-control-mesa); min-height: var(--alto-control-mesa); border-radius: var(--radio-sm); }
   .tabla-mesa .boton-plegar { width: var(--ancho-plegar); min-height: var(--alto-control-mesa); }
   .tabla-mesa .campo-compacto { min-height: var(--alto-control-mesa); height: var(--alto-control-mesa); border-radius: var(--radio-sm); }
-  .tabla-mesa .boton-agregar-actividad { min-height: var(--alto-control-mesa); }
   .tabla-mesa .insignia-clasificacion { padding-top: 0; padding-bottom: 0; }
 }
 
@@ -1315,3 +1309,152 @@ button.paso-del-indicador:hover { color: var(--texto); }
 }
 .plazo-terminos { display: flex; align-items: center; gap: var(--e1); margin: 0; font-size: var(--letra-sm); color: var(--texto-segundo); }
 .plazo-terminos .icono { width: 14px; height: 14px; color: var(--terracota); }
+
+/* --- Más espacio para la tabla (pedido del dueño, 15 de octubre de 2026) ---
+   Cuatro cambios con el mismo fin: que la estructura del proyecto se vea más
+   grande y que el mouse viaje menos. */
+
+/* 1 · Agregar actividad y subcapítulo van junto al nombre del capítulo, no al
+   final de la fila. Juntos y sin partirse, aunque el nombre ocupe dos líneas. */
+.agregar-en-nodo { display: inline-flex; gap: 2px; vertical-align: middle; margin-left: var(--e1); white-space: nowrap; }
+
+/* La fila de agregar solo aparece al pulsar el icono, y a la izquierda del
+   buscador dice a qué nivel va. */
+.agregar-en-cual { align-self: center; flex: none; max-width: 16rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--letra-xs); color: var(--texto-segundo); }
+.agregar-en-cual .cifra-codigo { color: var(--terracota); }
+
+/* El buscador de agregar actividad, del alto de una fila de capítulo (pedido
+   del dueño, 15 de octubre de 2026): el campo mide lo que los demás controles
+   de la mesa, y cada opción de la lista es una sola línea, con la unidad al
+   lado del nombre. Solo con mouse; en táctil siguen los 44 px. El mismo
+   buscador en el formulario de APU no cambia. */
+@media (pointer: fine) {
+  .tabla-mesa .fila-agregar-abierta td { padding-top: 1px; padding-bottom: 1px; }
+  /* Más ancho que en el formulario: en una sola línea, el nombre del APU
+     elegido necesita lugar para no cortarse. */
+  .tabla-mesa .agregar-actividad { align-items: center; max-width: 1000px; }
+  .tabla-mesa .agregar-actividad .control-con-icono input,
+  .tabla-mesa .agregar-elegido input,
+  .tabla-mesa .agregar-elegido .boton {
+    min-height: var(--alto-control-mesa); height: var(--alto-control-mesa);
+    padding-top: 0; padding-bottom: 0; border-radius: var(--radio-sm);
+  }
+  .tabla-mesa .agregar-actividad .control-con-icono .icono { left: var(--e2); width: 14px; height: 14px; }
+  .tabla-mesa .agregar-actividad .control-con-icono input { padding-left: calc(var(--e2) + 14px + var(--e2)); }
+  .tabla-mesa .agregar-actividad > .boton-icono { width: var(--alto-control-mesa); min-height: var(--alto-control-mesa); }
+  /* Elegido el APU, todo en una línea: el APU cede (con puntos suspensivos)
+     antes que partir la fila. */
+  .tabla-mesa .agregar-elegido { flex-wrap: nowrap; gap: var(--e2); min-width: 0; }
+  .tabla-mesa .agregar-elegido-apu { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tabla-mesa .agregar-elegido-apu .dato-de-apoyo { display: inline; margin-left: var(--e2); font-size: var(--letra-xs); }
+  .tabla-mesa .agregar-elegido .etiqueta-en-linea { flex: none; white-space: nowrap; font-size: var(--letra-xs); }
+  .tabla-mesa .agregar-elegido .boton { flex: none; font-size: var(--letra-xs); padding: 0 var(--e3); }
+
+  .tabla-mesa .agregar-actividad .buscador-lista { margin-top: 2px; padding: 2px; }
+  .tabla-mesa .agregar-actividad .buscador-opcion,
+  .tabla-mesa .agregar-actividad .buscador-nota { padding: 2px var(--e2); line-height: var(--linea-apretada); }
+  .tabla-mesa .agregar-actividad .buscador-extra { margin-top: 2px; }
+  .tabla-mesa .agregar-actividad .buscador-extra .icono { width: 14px; height: 14px; }
+  .tabla-mesa .agregar-actividad .opcion-de-busqueda { grid-template-columns: auto minmax(0, 1fr) auto auto; }
+  .tabla-mesa .agregar-actividad .opcion-de-busqueda-nombre { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tabla-mesa .agregar-actividad .opcion-de-busqueda .dato-de-apoyo { grid-column: 3; grid-row: 1; font-size: var(--letra-xs); }
+  .tabla-mesa .agregar-actividad .opcion-de-busqueda .cifra { grid-column: 4; }
+}
+
+/* 2 · Los datos del proyecto, en la franja de arriba de la tabla. */
+.barra-de-estructura .datos-de-mesa { flex: 1 1 320px; }
+
+/* 3 · Las acciones de la cabecera se deslizan. Con alto cero no dejan hueco:
+   el margen negativo se come el espacio entre filas de la cabecera. */
+.boton-de-acciones { margin-left: auto; }
+.acciones-de-mesa-deslizante {
+  display: grid;
+  grid-template-rows: 1fr;
+  /* Sin esto, la cabecera (que es una rejilla) lo estira y el margen negativo
+     se convierte en alto: quedaban 8 px de hueco con las acciones ocultas. */
+  align-self: start;
+  transition: grid-template-rows var(--transicion), opacity var(--transicion), margin-top var(--transicion);
+}
+.acciones-de-mesa-deslizante > .acciones-de-mesa { min-height: 0; overflow: hidden; transition: padding-top var(--transicion); }
+.acciones-de-mesa-deslizante[data-oculto='si'] { grid-template-rows: 0fr; opacity: 0; margin-top: calc(-1 * var(--e3)); }
+.acciones-de-mesa-deslizante[data-oculto='si'] > .acciones-de-mesa { padding-top: 0; border-top-width: 0; }
+@media (pointer: fine) {
+  .acciones-de-mesa-deslizante[data-oculto='si'] { margin-top: calc(-1 * var(--e2)); }
+}
+
+/* 4 · El menú arriba. La barra lateral desaparece y los módulos van en la
+   barra superior, entre las migas y «quién soy». En el teléfono no: allí el
+   menú es siempre el cajón, y la barra superior no tiene lugar. */
+.marca-en-barra,
+.menu-superior { display: none; }
+/* Con el menú a la izquierda (y en el teléfono), el bloque de marca y migas no
+   existe para el diseño: las migas siguen siendo hijas directas de la barra. */
+.inicio-de-barra { display: contents; }
+@media (min-width: 641px) {
+  .cascaron[data-menu='arriba'] .barra-lateral { display: none; }
+  /* Encima del panel lateral: el submenú cuelga por debajo de la barra. */
+  .cascaron[data-menu='arriba'] .barra-superior { z-index: 16; }
+  .cascaron[data-menu='arriba'] .marca-en-barra { display: flex; flex: none; padding: 0; margin-right: var(--e2); }
+  .cascaron[data-menu='arriba'] .marca-en-barra .marca-palabra { font-size: var(--letra-xl); }
+  .cascaron[data-menu='arriba'] .menu-superior { display: block; flex: none; }
+  /* El menú, en el centro: marca y migas a un lado y «quién soy» al otro, con
+     el mismo ancho. Si un lado no cabe en su mitad, el menú cede hacia el
+     otro antes que tapar algo. */
+  .cascaron[data-menu='arriba'] .inicio-de-barra { display: flex; align-items: center; gap: var(--e3); flex: 1 1 0; min-width: 0; }
+  .cascaron[data-menu='arriba'] .quien-soy { flex: 1 1 0; min-width: 0; justify-content: flex-end; }
+  .menu-superior .lista-de-modulos { display: flex; align-items: center; gap: var(--e1); }
+  .menu-superior .lista-de-modulos > li { position: relative; }
+  .menu-superior .lista-de-modulos > li > a { min-height: 36px; padding: 0 var(--e3); gap: var(--e2); }
+  /* El módulo actual se marca abajo, no a la izquierda: en fila, la raya de la
+     izquierda parecería un separador. */
+  .menu-superior .lista-de-modulos > li > a[aria-current='page'] { box-shadow: inset 0 -2px 0 var(--terracota); }
+}
+/* Con menos de 1440 px no caben los nombres: quedan los iconos, y el nombre
+   sale en un globo debajo, como en la barra plegada. */
+@media (min-width: 641px) and (max-width: 1439px) {
+  .menu-superior .lista-de-modulos > li > a { position: relative; width: 36px; padding: 0; justify-content: center; }
+  .menu-superior .lista-de-modulos > li > a .etiqueta-de-modulo {
+    position: absolute;
+    top: calc(100% + var(--e2));
+    left: 50%;
+    z-index: 30;
+    padding: var(--e1) var(--e3);
+    border-radius: var(--radio-md);
+    background: var(--bg-barra);
+    border: 1px solid var(--borde-campo);
+    box-shadow: var(--sombra-flotante);
+    color: var(--texto);
+    font-size: var(--letra-sm);
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transform: translate(-50%, -4px);
+    transition: opacity var(--transicion), transform var(--transicion);
+  }
+  .menu-superior .lista-de-modulos > li > a:is(:hover, :focus-visible) .etiqueta-de-modulo { opacity: 1; transform: translate(-50%, 0); }
+  /* Donde hay submenú, el submenú ya lleva el nombre arriba. */
+  .menu-superior .modulo-con-submenu > a .etiqueta-de-modulo { display: none; }
+}
+/* Los submenús, colgando debajo del módulo, con su nombre arriba. El relleno
+   de arriba es el puente para que el mouse no los pierda. */
+@media (min-width: 641px) and (hover: hover) {
+  .cascaron[data-menu='arriba'] .menu-superior .submenu-de-modulo {
+    position: absolute; top: 100%; left: 0; z-index: 30;
+    width: 16rem; margin: 0; padding: var(--e2) 0 0; border-left: 0;
+    filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.25));
+  }
+  .cascaron[data-menu='arriba'] .menu-superior .submenu-de-modulo > * { background: var(--bg-barra); }
+  .cascaron[data-menu='arriba'] .menu-superior .submenu-titulo {
+    display: block; padding: var(--e2) var(--e3) var(--e1);
+    border: 1px solid var(--borde-campo); border-bottom: 0; border-radius: var(--radio-md) var(--radio-md) 0 0;
+    font-size: var(--letra-sm); font-weight: var(--peso-fuerte); color: var(--texto);
+  }
+  .cascaron[data-menu='arriba'] .menu-superior .submenu-de-modulo ul,
+  .cascaron[data-menu='arriba'] .menu-superior .submenu-vacio {
+    padding: 0 var(--e1) var(--e1);
+    border: 1px solid var(--borde-campo); border-top: 0; border-radius: 0 0 var(--radio-md) var(--radio-md);
+  }
+  /* El último submenú (Configuración) se abre hacia la izquierda, para que no
+     se salga de la ventana por la derecha. */
+  .cascaron[data-menu='arriba'] .menu-superior .lista-de-modulos > li:last-child .submenu-de-modulo { left: auto; right: 0; }
+}

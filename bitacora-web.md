@@ -6,6 +6,25 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-15 · jueves, más espacio para la mesa
+
+**Solo pantalla. De tu lado no hay que cambiar nada:** ninguna ruta ni forma
+de respuesta cambió. Pedido del dueño, detallado en DISENO §11 bis (15 oct):
+agregar actividad y subcapítulo junto al nombre del capítulo, los datos del
+proyecto sobre la tabla, las acciones de la cabecera plegables y el menú de
+módulos a la izquierda o arriba, a elección de cada usuario.
+
+**Lo que conviene que sepas**
+
+- Hay dos preferencias de pantalla nuevas en el almacenamiento local
+  (`construsoft.posicionDelMenu`, `construsoft.accionesDeMesaOcultas`). Por
+  eso toqué la sección 7 de la política de datos en
+  `legal/PROVISIONAL-2026-10-13/`, que decía «tres preferencias»: ahora dice
+  cinco y cuáles son. Esa carpeta sigue sin commitear y es tuya para el
+  commit, junto con `terminos.ts`, como ya estaba acordado.
+
+---
+
 ## 2026-10-14 · miércoles, el módulo 0: migraciones y plazos
 
 **Empieza la fase después del MVP.** El dueño aprobó el roadmap y el primer

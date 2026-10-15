@@ -46,6 +46,30 @@ type Dialogo =
 
 type Panel = 'desglose' | 'historial' | null;
 
+/*
+ * Las acciones de la cabecera se ocultan y se muestran (pedido del dueño, 15
+ * de octubre de 2026): ocultas, la tabla de la estructura gana el alto de dos
+ * filas de botones, que es lo que más se mira. La elección vale para todos los
+ * proyectos y se recuerda en este navegador, como el tema.
+ */
+const CLAVE_ACCIONES = 'construsoft.accionesDeMesaOcultas';
+
+function accionesOcultasGuardadas(): boolean {
+  try {
+    return window.localStorage.getItem(CLAVE_ACCIONES) === 'si';
+  } catch {
+    return false;
+  }
+}
+
+function guardarAccionesOcultas(ocultas: boolean): void {
+  try {
+    window.localStorage.setItem(CLAVE_ACCIONES, ocultas ? 'si' : 'no');
+  } catch {
+    // Sin almacenamiento, la elección dura lo que dure la pestaña.
+  }
+}
+
 export function Mesa({ id }: { id: string }) {
   const { puedeEscribir, puede, soloLectura } = useSesion();
   const { avisar } = useAvisos();
@@ -58,6 +82,13 @@ export function Mesa({ id }: { id: string }) {
   const [dialogo, setDialogo] = useState<Dialogo>(null);
   const [panel, setPanel] = useState<Panel>(null);
   const [cambios, setCambios] = useState(0);
+  const [accionesOcultas, setAccionesOcultas] = useState(accionesOcultasGuardadas);
+  const alternarAcciones = () => {
+    setAccionesOcultas((o) => {
+      guardarAccionesOcultas(!o);
+      return !o;
+    });
+  };
 
   const base = `/api/presupuestos/${encodeURIComponent(id)}`;
 
@@ -231,89 +262,93 @@ export function Mesa({ id }: { id: string }) {
           <span className="codigo-de-mesa">{cabecera.codigo}</span>
           <InsigniaDeEstado estado={cabecera.estado} />
           {archivado ? <span className="insignia insignia-archivado">Archivado</span> : null}
+          <button
+            type="button"
+            className="boton boton-secundario boton-de-acciones"
+            aria-expanded={!accionesOcultas}
+            aria-controls="acciones-de-mesa"
+            onClick={alternarAcciones}
+          >
+            <Icono nombre={accionesOcultas ? 'bajar' : 'subir'} />
+            {accionesOcultas ? 'Mostrar acciones' : 'Ocultar acciones'}
+          </button>
         </div>
         <h1 className="titulo-de-mesa">{cabecera.nombre}</h1>
-        <dl className="datos-de-mesa">
-          <div><dt>Ubicación</dt><dd>{cabecera.ubicacion}</dd></div>
-          <div><dt>Moneda</dt><dd>{cabecera.moneda}</dd></div>
-          <div><dt>Estructura</dt><dd>{cabecera.modoEstructura === 'WBS' ? 'Por EDT' : 'Por ítems'}</dd></div>
-          <div>
-            <dt>Última modificación</dt>
-            <dd><time dateTime={paraAtributo(cabecera.fechaModificacion)}>{formatearFechaYHora(cabecera.fechaModificacion)}</time></dd>
-          </div>
-          {archivado ? <div><dt>Archivado</dt><dd><time dateTime={paraAtributo(archivado)}>{formatearFecha(archivado)}</time></dd></div> : null}
-        </dl>
 
-        <div className="acciones-de-mesa">
-          <div className="acciones-de-mesa-grupo">
-            {cabecera.estado === 'ABIERTO' && esAdmin ? (
-              <button type="button" className="boton boton-principal" disabled={ocupado} onClick={() => setDialogo({ tipo: 'activar' })}>
-                <Icono nombre="visto" />
-                Aprobar y Activar Proyecto
+        {/* Oculto, el bloque se desliza a alto cero y queda inerte: sus botones
+            no reciben el foco ni los lee un lector de pantalla. */}
+        <div className="acciones-de-mesa-deslizante" data-oculto={accionesOcultas ? 'si' : 'no'} inert={accionesOcultas}>
+          <div className="acciones-de-mesa" id="acciones-de-mesa">
+            <div className="acciones-de-mesa-grupo">
+              {cabecera.estado === 'ABIERTO' && esAdmin ? (
+                <button type="button" className="boton boton-principal" disabled={ocupado} onClick={() => setDialogo({ tipo: 'activar' })}>
+                  <Icono nombre="visto" />
+                  Aprobar y Activar Proyecto
+                </button>
+              ) : null}
+              {cabecera.estado === 'ACTIVO' && esAdmin ? (
+                <button type="button" className="boton boton-secundario" disabled={ocupado} onClick={() => setDialogo({ tipo: 'reabrir' })}>
+                  Reabrir Proyecto
+                </button>
+              ) : null}
+              {editable ? (
+                <button type="button" className="boton boton-secundario" disabled={ocupado} onClick={() => setDialogo({ tipo: 'datos' })}>
+                  <Icono nombre="editar" />
+                  Editar datos
+                </button>
+              ) : null}
+              {puede('PRESUPUESTOS.EXPORTAR') ? (
+                <span className="grupo-exportar" role="group" aria-label="Exportar Proyecto">
+                  <a className="boton boton-secundario" href={enlaceDeExportacion('presupuestos', cabecera.id, 'pdf')} download>
+                    <Icono nombre="descargar" />
+                    PDF
+                  </a>
+                  <a className="boton boton-secundario" href={enlaceDeExportacion('presupuestos', cabecera.id, 'xlsx')} download>
+                    <Icono nombre="descargar" />
+                    Excel
+                  </a>
+                </span>
+              ) : null}
+              <button type="button" className="boton boton-secundario" onClick={() => setDialogo({ tipo: 'versiones' })}>
+                <Icono nombre="version" />
+                Versiones
               </button>
-            ) : null}
-            {cabecera.estado === 'ACTIVO' && esAdmin ? (
-              <button type="button" className="boton boton-secundario" disabled={ocupado} onClick={() => setDialogo({ tipo: 'reabrir' })}>
-                Reabrir Proyecto
+              <button type="button" className="boton boton-secundario" aria-expanded={panel === 'historial'} onClick={() => setPanel(panel === 'historial' ? null : 'historial')}>
+                <Icono nombre="historial" />
+                Historial de cambios
               </button>
-            ) : null}
-            {editable ? (
-              <button type="button" className="boton boton-secundario" disabled={ocupado} onClick={() => setDialogo({ tipo: 'datos' })}>
-                <Icono nombre="editar" />
-                Editar datos
-              </button>
-            ) : null}
-            {puede('PRESUPUESTOS.EXPORTAR') ? (
-              <span className="grupo-exportar" role="group" aria-label="Exportar Proyecto">
-                <a className="boton boton-secundario" href={enlaceDeExportacion('presupuestos', cabecera.id, 'pdf')} download>
-                  <Icono nombre="descargar" />
-                  PDF
-                </a>
-                <a className="boton boton-secundario" href={enlaceDeExportacion('presupuestos', cabecera.id, 'xlsx')} download>
-                  <Icono nombre="descargar" />
-                  Excel
-                </a>
-              </span>
-            ) : null}
-            <button type="button" className="boton boton-secundario" onClick={() => setDialogo({ tipo: 'versiones' })}>
-              <Icono nombre="version" />
-              Versiones
-            </button>
-            <button type="button" className="boton boton-secundario" aria-expanded={panel === 'historial'} onClick={() => setPanel(panel === 'historial' ? null : 'historial')}>
-              <Icono nombre="historial" />
-              Historial de cambios
-            </button>
-          </div>
-          <div className="acciones-de-mesa-grupo acciones-secundarias">
-            {puedeEscribir('PRESUPUESTOS.EDITAR') ? (
-              <button type="button" className="boton boton-secundario" disabled={ocupado} onClick={() => setDialogo({ tipo: 'guardar-version' })}>
-                Guardar versión
-              </button>
-            ) : null}
-            {puedeEscribir('PRESUPUESTOS.DUPLICAR') ? (
-              <button type="button" className="boton boton-secundario" disabled={ocupado} onClick={() => setDialogo({ tipo: 'duplicar' })}>
-                <Icono nombre="copiar" />
-                Duplicar Proyecto
-              </button>
-            ) : null}
-            {puedeEscribir('PRESUPUESTOS.EDITAR') ? (
-              <button type="button" className="boton boton-secundario" disabled={ocupado} onClick={() => void archivar(!archivado)}>
-                <Icono nombre="archivar" />
-                {archivado ? 'Desarchivar proyecto' : 'Archivar proyecto'}
-              </button>
-            ) : null}
-            {cabecera.estado === 'ACTIVO' && esAdmin ? (
-              <button type="button" className="boton boton-peligroso" disabled={ocupado} onClick={() => setDialogo({ tipo: 'cerrar' })}>
-                Cerrar Proyecto
-              </button>
-            ) : null}
-            {/* 02 §9.7: solo para el Administrador y solo si nunca se activó. */}
-            {cabecera.estado === 'ABIERTO' && esAdmin && !fueActivado ? (
-              <button type="button" className="boton boton-peligroso" disabled={ocupado} onClick={() => setDialogo({ tipo: 'eliminar' })}>
-                <Icono nombre="basura" />
-                Eliminar proyecto
-              </button>
-            ) : null}
+            </div>
+            <div className="acciones-de-mesa-grupo acciones-secundarias">
+              {puedeEscribir('PRESUPUESTOS.EDITAR') ? (
+                <button type="button" className="boton boton-secundario" disabled={ocupado} onClick={() => setDialogo({ tipo: 'guardar-version' })}>
+                  Guardar versión
+                </button>
+              ) : null}
+              {puedeEscribir('PRESUPUESTOS.DUPLICAR') ? (
+                <button type="button" className="boton boton-secundario" disabled={ocupado} onClick={() => setDialogo({ tipo: 'duplicar' })}>
+                  <Icono nombre="copiar" />
+                  Duplicar Proyecto
+                </button>
+              ) : null}
+              {puedeEscribir('PRESUPUESTOS.EDITAR') ? (
+                <button type="button" className="boton boton-secundario" disabled={ocupado} onClick={() => void archivar(!archivado)}>
+                  <Icono nombre="archivar" />
+                  {archivado ? 'Desarchivar proyecto' : 'Archivar proyecto'}
+                </button>
+              ) : null}
+              {cabecera.estado === 'ACTIVO' && esAdmin ? (
+                <button type="button" className="boton boton-peligroso" disabled={ocupado} onClick={() => setDialogo({ tipo: 'cerrar' })}>
+                  Cerrar Proyecto
+                </button>
+              ) : null}
+              {/* 02 §9.7: solo para el Administrador y solo si nunca se activó. */}
+              {cabecera.estado === 'ABIERTO' && esAdmin && !fueActivado ? (
+                <button type="button" className="boton boton-peligroso" disabled={ocupado} onClick={() => setDialogo({ tipo: 'eliminar' })}>
+                  <Icono nombre="basura" />
+                  Eliminar proyecto
+                </button>
+              ) : null}
+            </div>
           </div>
         </div>
       </header>
@@ -333,12 +368,20 @@ export function Mesa({ id }: { id: string }) {
         </div>
       ) : null}
 
+      {/* Los datos del proyecto van aquí, sobre la tabla, y no en la cabecera
+          (pedido del dueño, 15 de octubre de 2026): así la cabecera queda
+          en una franja y se ven aunque las acciones estén ocultas. */}
       <div className="barra-de-estructura">
-        <p className="campo-ayuda">
-          {cabecera.modoEstructura === 'WBS'
-            ? 'Estructura por EDT: capítulos, subcapítulos sin límite de profundidad y actividades. La numeración la asigna el sistema.'
-            : 'Estructura por ítems: capítulos y actividades. La numeración la asigna el sistema.'}
-        </p>
+        <dl className="datos-de-mesa">
+          <div><dt>Ubicación</dt><dd>{cabecera.ubicacion}</dd></div>
+          <div><dt>Moneda</dt><dd>{cabecera.moneda}</dd></div>
+          <div><dt>Estructura</dt><dd>{cabecera.modoEstructura === 'WBS' ? 'Por EDT' : 'Por ítems'}</dd></div>
+          <div>
+            <dt>Última modificación</dt>
+            <dd><time dateTime={paraAtributo(cabecera.fechaModificacion)}>{formatearFechaYHora(cabecera.fechaModificacion)}</time></dd>
+          </div>
+          {archivado ? <div><dt>Archivado</dt><dd><time dateTime={paraAtributo(archivado)}>{formatearFecha(archivado)}</time></dd></div> : null}
+        </dl>
         {editable ? (
           <button type="button" className="boton boton-secundario" disabled={ocupado} onClick={() => setDialogo({ tipo: 'nodo', forma: { tipo: 'capitulo' } })}>
             <Icono nombre="mas" />
