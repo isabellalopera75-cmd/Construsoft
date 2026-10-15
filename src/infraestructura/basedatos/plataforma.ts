@@ -517,6 +517,8 @@ export async function leerSoporte(id: string): Promise<{ contenido: Buffer; tipo
 // --- Acciones ---------------------------------------------------------------------
 
 const empresaNoExiste = () => new ErrorParaElUsuario('Esa empresa no existe.', 'NO_EXISTE');
+const canceladaSinPagos = () =>
+  new ErrorParaElUsuario('La suscripción de esta empresa está cancelada: no admite pagos ni cambios de plan.', 'RECHAZADO');
 
 /**
  * La suscripción vigente (en prueba o activa), bloqueada para la acción. Una
@@ -532,10 +534,7 @@ async function suscripcionVigente(c: PoolClient, tenantId: string): Promise<stri
     [tenantId],
   );
   if (!rows[0]) {
-    throw new ErrorParaElUsuario(
-      'La suscripción de esta empresa está cancelada: no admite pagos ni cambios de plan.',
-      'RECHAZADO',
-    );
+    throw canceladaSinPagos();
   }
   return rows[0].id;
 }
@@ -612,7 +611,18 @@ export async function proponerCubreHasta(tenantId: string, meses: number): Promi
                            WHERE v.tenant_id = s.tenant_id AND v.estado IN ('EN_PRUEBA','ACTIVA'))`,
       [tenantId],
     );
-    const suscripcion = porReactivar[0]?.id ?? (await suscripcionVigente(c, tenantId));
+    let suscripcion = porReactivar[0]?.id;
+    if (!suscripcion) {
+      suscripcion = await suscripcionVigente(c, tenantId);
+      // La prueba que terminó sin pago sigue guardada EN_PRUEBA (D-76): la
+      // guardada no basta. Si la base la da por cancelada, no hay fecha que
+      // proponer, y el panel no la muestra. Con un pago reportado esperando
+      // no se llega aquí: esa es la reactivación de arriba (§15.4).
+      const { rows: comercial } = await c.query<{ estado: string }>('SELECT plataforma.fn_estado_comercial($1) AS estado', [tenantId]);
+      if (comercial[0]?.estado === 'CANCELADA') {
+        throw canceladaSinPagos();
+      }
+    }
     const { rows } = await c.query<{ fecha: string }>(
       'SELECT plataforma.fn_proponer_cubre_hasta($1, $2::smallint)::text AS fecha',
       [suscripcion, meses],
@@ -811,5 +821,111 @@ export async function purgarEmpresas(): Promise<EmpresaPurgada[]> {
          FROM plataforma.fn_purgar_empresas()`,
     );
     return rows;
+  });
+}
+
+// --- Los plazos del ciclo (D-78, CONTRATO §18.3) --------------------------------------
+
+export type ClaveDePlazo = 'GRACIA_PAGO' | 'PLAZO_TRAS_RECHAZO' | 'SUSPENSION' | 'PRUEBA_SOLO_LECTURA' | 'REACTIVACION';
+
+export interface Plazo {
+  clave: ClaveDePlazo;
+  nombre: string;
+  descripcion: string;
+  unidad: 'DIAS' | 'DIAS_HABILES';
+  minimo: number;
+  maximo: number;
+  apareceEnTerminos: boolean;
+  valorHoy: number;
+  /** Nulo: el valor inicial, que en la base rige desde -infinity. */
+  vigenteDesde: string | null;
+  valorProgramado: number | null;
+  programadoDesde: string | null;
+}
+
+export interface CambioDePlazo {
+  clave: ClaveDePlazo;
+  nombre: string;
+  valor: number;
+  vigenteDesde: string | null;
+  motivo: string;
+  /** Nulo en los valores iniciales. */
+  registradoPor: string | null;
+  registradoEn: Date;
+}
+
+export interface Plazos {
+  parametros: Plazo[];
+  historial: CambioDePlazo[];
+}
+
+/** El orden de la pantalla del panel (CONTRATO §18.3). */
+const ORDEN_DE_PLAZOS = `ARRAY['GRACIA_PAGO','PLAZO_TRAS_RECHAZO','SUSPENSION','PRUEBA_SOLO_LECTURA','REACTIVACION']`;
+
+/** Una fecha que puede ser -infinity, como texto o nulo: la API nunca manda «-infinity». */
+const fechaOInicial = (columna: string) => `CASE WHEN ${columna} = '-infinity' THEN NULL ELSE ${columna}::text END`;
+
+/**
+ * Lo que muestra la pantalla Plazos. La regla de cuál valor rige cada día la
+ * tiene la base (v_parametros, fn_parametro): aquí no se reimplementa.
+ */
+export async function leerPlazos(): Promise<Plazos> {
+  const parametros = await consultar<Plazo>(
+    `SELECT clave, nombre, descripcion, unidad, minimo, maximo,
+            aparece_en_terminos AS "apareceEnTerminos", valor_hoy AS "valorHoy",
+            ${fechaOInicial('vigente_desde')} AS "vigenteDesde",
+            valor_programado AS "valorProgramado", programado_desde::text AS "programadoDesde"
+       FROM plataforma.v_parametros
+      ORDER BY array_position(${ORDEN_DE_PLAZOS}, clave), clave`,
+  );
+  const historial = await consultar<CambioDePlazo>(
+    `SELECT pv.clave, pa.nombre, pv.valor, ${fechaOInicial('pv.vigente_desde')} AS "vigenteDesde",
+            pv.motivo, up.nombre AS "registradoPor", pv.registrado_en AS "registradoEn"
+       FROM plataforma.parametro_valor pv
+       JOIN plataforma.parametro pa ON pa.clave = pv.clave
+       LEFT JOIN plataforma.usuario_plataforma up ON up.id = pv.registrado_por
+      ORDER BY pv.registrado_en DESC, pv.id DESC`,
+  );
+  return { parametros, historial };
+}
+
+const plazoNoExiste = () => new ErrorParaElUsuario('Ese plazo no existe.', 'NO_EXISTE');
+
+/**
+ * La base rechaza una clave que no existe como cualquier otra regla (P0001);
+ * el contrato la quiere como 404, así que se pregunta antes.
+ */
+async function exigirPlazo(c: PoolClient, clave: string): Promise<void> {
+  const { rows } = await c.query('SELECT 1 FROM plataforma.parametro WHERE clave = $1', [clave]);
+  if (rows.length === 0) throw plazoNoExiste();
+}
+
+/**
+ * Programa un valor nuevo desde una fecha (fn_fijar_parametro). Los límites,
+ * la fecha que no rige hacia atrás y el motivo los exige la base, con su
+ * columna (USING COLUMN). La función recibe al autor y deja el evento.
+ */
+export async function fijarPlazo(
+  autor: string,
+  clave: string,
+  datos: { valor: number; vigenteDesde: string; motivo: string },
+): Promise<void> {
+  await enTransaccion(null, async (c) => {
+    await exigirPlazo(c, clave);
+    await c.query('SELECT plataforma.fn_fijar_parametro($1, $2::integer, $3::date, $4, $5)', [
+      clave,
+      datos.valor,
+      datos.vigenteDesde,
+      datos.motivo,
+      autor,
+    ]);
+  });
+}
+
+/** Anula un valor programado que todavía no rige (fn_anular_parametro). */
+export async function anularPlazo(autor: string, clave: string, datos: { vigenteDesde: string; motivo: string }): Promise<void> {
+  await enTransaccion(null, async (c) => {
+    await exigirPlazo(c, clave);
+    await c.query('SELECT plataforma.fn_anular_parametro($1, $2::date, $3, $4)', [clave, datos.vigenteDesde, datos.motivo, autor]);
   });
 }

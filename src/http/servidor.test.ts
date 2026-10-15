@@ -457,7 +457,7 @@ describe('términos (04 §7)', () => {
         documentos: { id: string; titulo: string; html: string }[];
       }>();
       assert.deepEqual({ version: r.version, provisional: r.provisional }, { version: 'PROVISIONAL-2026-10-01', provisional: true });
-      assert.deepEqual(r.documentos.map((d) => d.id), ['privacidad', 'terminos', 'cookies', 'reembolsos']);
+      assert.deepEqual(r.documentos.map((d) => d.id), ['privacidad', 'terminos', 'reembolsos']);
       for (const d of r.documentos) {
         assert.match(d.html, /^<p class="aviso-borrador" role="note">.*no ha pasado por revisión legal.*legal@construsoft\.test/);
       }
@@ -473,7 +473,7 @@ describe('términos (04 §7)', () => {
       documentos: { id: string; html: string }[];
     }>();
     assert.deepEqual([r.version, r.provisional], [VERSION_TERMINOS, false]);
-    assert.deepEqual(r.documentos.map((d) => d.id), ['privacidad', 'terminos', 'cookies', 'reembolsos']);
+    assert.deepEqual(r.documentos.map((d) => d.id), ['privacidad', 'terminos', 'reembolsos']);
     for (const d of r.documentos) assert.doesNotMatch(d.html, /aviso-borrador/);
   });
 

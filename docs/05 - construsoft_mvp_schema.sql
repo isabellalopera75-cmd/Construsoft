@@ -35,7 +35,11 @@
 --  ---------------------------------------------------------------------------
 --  LAS DECISIONES DE DISEÑO QUE ESTE ESQUEMA IMPLEMENTA
 --
---  Son setenta y cinco: D-1 a D-76, sin la D-10, que no existe. El motivo de
+--  Son setenta y seis: D-1 a D-77, sin la D-10, que no existe. Con la D-77
+--  este archivo queda congelado como el estado inicial de una base nueva: las
+--  decisiones siguientes, de la D-78 en adelante, viven cada una en la
+--  migración que la aplica (docs/migraciones), con su comentario y su prueba.
+--  El motivo de
 --  cada una está en la sección 14 del documento de alcance. Aquí va el
 --  enunciado, y cada decisión vuelve a aparecer anotada en el punto del esquema
 --  donde vive. Las ocho últimas están al final de esta lista y tienen fecha:
@@ -587,6 +591,14 @@
 --         con la suspensión, y la fecha desde la que una empresa se puede
 --         eliminar. fn_eliminar_tenant usa la segunda, así que el botón del
 --         panel y el rechazo de la base no pueden discrepar.
+--   D-77  (posterior a la auditoría · cierra este archivo) Decisión del
+--         dueño, 14 de octubre de 2026. El esquema crece por migraciones
+--         numeradas en docs/migraciones, cada una con su archivo para
+--         revertirla. plataforma.migracion lleva cuáles se aplicaron;
+--         fn_migracion_iniciar impide repetir una o saltarse un número, y
+--         fn_migracion_verificar se niega a terminar una migración que deje
+--         una tabla de empresa sin aislar o una función SECURITY DEFINER mal
+--         asegurada. La fila 0 es este archivo. Ver el final del esquema.
 --   D-76  (posterior a la auditoría · la prueba gratuita) Decisión del dueño,
 --         13 de octubre de 2026. La prueba dura 15 días con todo. Después hay
 --         10 días de solo lectura, con la suscripción a la mano para pagar. Si
@@ -7852,6 +7864,118 @@ BEGIN
     END IF;
     RAISE NOTICE 'Privilegios verificados: ninguna función SECURITY DEFINER corre como superusuario ni la puede ejecutar cualquiera.';
 END $$;
+
+-- =============================================================================
+--  D-77 · Desde aquí, el esquema crece por migraciones.
+--
+--  Este archivo es el estado inicial de una base nueva y no se reescribe más.
+--  Mientras no hubo datos de ningún cliente se corrigió editándolo y
+--  recargando la base entera (plan 03); con el primer cliente real eso borraría
+--  sus datos. Cada cambio posterior es un archivo numerado en docs/migraciones:
+--
+--      0001-nombre-corto.sql            lo que cambia
+--      0001-nombre-corto.revertir.sql   cómo deshacerlo
+--
+--  Cada migración corre en UNA transacción y empieza y termina igual:
+--
+--      BEGIN;
+--      SELECT plataforma.fn_migracion_iniciar(1, 'nombre-corto');
+--      ... el cambio, con sus OWNER TO y sus GRANT explícitos ...
+--      SELECT plataforma.fn_migracion_verificar();
+--      COMMIT;
+--
+--  fn_migracion_iniciar impide aplicar una migración dos veces o saltarse una:
+--  la 3 exige que la 2 ya esté. Si algo falla a la mitad, la transacción se
+--  deshace entera, también la fila de la migración, y la base queda como estaba.
+--  fn_migracion_verificar repite las dos comprobaciones de este archivo
+--  —aislamiento de toda tabla de app y funciones SECURITY DEFINER bien
+--  aseguradas— y se niega a terminar si alguna falla: una migración no puede
+--  dejar una tabla de empresa sin su política, ni una puerta abierta.
+--
+--  Revertir es el camino inverso y solo vale para la última aplicada:
+--      SELECT plataforma.fn_migracion_revertir(1);   -- dentro de .revertir.sql
+--
+--  La huella del archivo (sha256) la anota quien aplica las migraciones por
+--  comando, que es quien lee el archivo; aplicadas a mano con psql queda nula.
+--  Con ella, una migración ya aplicada que alguien edita después se detecta en
+--  vez de pasar desapercibida: una migración publicada no se edita, se escribe
+--  otra.
+--
+--  Las corre el superusuario, como este archivo: crean tablas y asignan dueños.
+--  Ninguno de los roles de conexión puede ejecutarlas.
+-- =============================================================================
+CREATE TABLE plataforma.migracion (
+    numero       integer     PRIMARY KEY CHECK (numero >= 0),
+    nombre       text        NOT NULL CHECK (nombre ~ '^[a-z0-9][a-z0-9-]*$'),
+    sha256       text        CHECK (sha256 ~ '^[0-9a-f]{64}$'),
+    aplicada_en  timestamptz NOT NULL DEFAULT now(),
+    aplicada_por text        NOT NULL DEFAULT session_user
+);
+COMMENT ON TABLE plataforma.migracion IS
+  'D-77. Las migraciones aplicadas a esta base, en orden. La 0 es este archivo.';
+ALTER TABLE plataforma.migracion OWNER TO construsoft_owner;
+GRANT SELECT ON plataforma.migracion TO construsoft_superadmin;
+
+CREATE OR REPLACE FUNCTION plataforma.fn_migracion_iniciar(p_numero integer, p_nombre text)
+RETURNS void LANGUAGE plpgsql
+SET search_path = plataforma, pg_temp AS $$
+DECLARE v_ultima integer;
+BEGIN
+    IF NOT COALESCE((SELECT r.rolsuper FROM pg_roles r WHERE r.rolname = current_user), false) THEN
+        RAISE EXCEPTION 'Las migraciones las aplica el superusuario, como el esquema (D-77).';
+    END IF;
+    -- Dos aplicaciones a la vez no se pisan: la segunda espera a la primera.
+    PERFORM pg_advisory_xact_lock(hashtext('construsoft.migraciones'));
+    SELECT max(numero) INTO v_ultima FROM plataforma.migracion;
+    IF EXISTS (SELECT 1 FROM plataforma.migracion WHERE numero = p_numero) THEN
+        RAISE EXCEPTION 'La migración % ya está aplicada en esta base (D-77).', p_numero;
+    END IF;
+    IF p_numero <> COALESCE(v_ultima, -1) + 1 THEN
+        RAISE EXCEPTION 'La migración % no sigue a la última aplicada, que es la %. '
+                        'Se aplican en orden y sin saltos (D-77).', p_numero, v_ultima;
+    END IF;
+    INSERT INTO plataforma.migracion (numero, nombre) VALUES (p_numero, p_nombre);
+END $$;
+
+CREATE OR REPLACE FUNCTION plataforma.fn_migracion_revertir(p_numero integer)
+RETURNS void LANGUAGE plpgsql
+SET search_path = plataforma, pg_temp AS $$
+BEGIN
+    IF NOT COALESCE((SELECT r.rolsuper FROM pg_roles r WHERE r.rolname = current_user), false) THEN
+        RAISE EXCEPTION 'Las migraciones las revierte el superusuario (D-77).';
+    END IF;
+    PERFORM pg_advisory_xact_lock(hashtext('construsoft.migraciones'));
+    IF p_numero = 0 THEN
+        RAISE EXCEPTION 'El esquema inicial no se revierte (D-77).';
+    END IF;
+    IF p_numero IS DISTINCT FROM (SELECT max(numero) FROM plataforma.migracion) THEN
+        RAISE EXCEPTION 'Solo se revierte la última migración aplicada, y la % no lo es (D-77).', p_numero;
+    END IF;
+    DELETE FROM plataforma.migracion WHERE numero = p_numero;
+END $$;
+
+CREATE OR REPLACE FUNCTION plataforma.fn_migracion_verificar()
+RETURNS void LANGUAGE plpgsql
+SET search_path = plataforma, app, pg_temp AS $$
+DECLARE v_rls text; v_def text;
+BEGIN
+    SELECT string_agg(x::text, E'\n  ') INTO v_rls FROM app.fn_verificar_rls() x;
+    IF v_rls IS NOT NULL THEN
+        RAISE EXCEPTION E'La migración deja tablas de empresa sin aislar (D-77):\n  %', v_rls;
+    END IF;
+    SELECT string_agg(funcion || ' (' || problema || ')', E'\n  ')
+      INTO v_def FROM app.fn_verificar_funciones();
+    IF v_def IS NOT NULL THEN
+        RAISE EXCEPTION E'La migración deja funciones SECURITY DEFINER mal aseguradas (D-77):\n  %', v_def;
+    END IF;
+END $$;
+
+REVOKE ALL ON FUNCTION plataforma.fn_migracion_iniciar(integer, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION plataforma.fn_migracion_revertir(integer)      FROM PUBLIC;
+REVOKE ALL ON FUNCTION plataforma.fn_migracion_verificar()            FROM PUBLIC;
+
+-- La fila 0: esta base nació de este archivo.
+INSERT INTO plataforma.migracion (numero, nombre) VALUES (0, 'esquema-inicial');
 
 -- =============================================================================
 --  Fin del esquema.

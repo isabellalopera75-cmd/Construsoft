@@ -19,7 +19,8 @@
     "enlace": "node --env-file=.env --import tsx src/dueno/enlace.ts",
     "activacion": "node --env-file=.env --import tsx src/dueno/activacion.ts",
     "superadmin": "node --env-file=.env --import tsx src/dueno/superadmin.ts",
-    "purgar": "node --env-file=.env --import tsx src/dueno/purgar.ts"
+    "purgar": "node --env-file=.env --import tsx src/dueno/purgar.ts",
+    "migrar": "node --env-file=.env --import tsx src/dueno/migrar.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",

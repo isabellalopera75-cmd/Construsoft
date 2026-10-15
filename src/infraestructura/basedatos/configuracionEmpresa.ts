@@ -384,6 +384,21 @@ export interface Suscripcion
   puedeCancelar: boolean;
   /** Administrador, y cancelada pero todavía dentro de lo pagado. */
   puedeReanudar: boolean;
+  /**
+   * Los plazos que rigen hoy (D-78, CONTRATO §18.2), para los textos que
+   * explican qué pasaría. Las fechas de lo que ya pasa siguen saliendo de
+   * fn_ciclo_suscripcion: estos números no se usan para calcular nada.
+   */
+  plazos: PlazosVigentes;
+}
+
+/** En días; los dos primeros, hábiles. */
+export interface PlazosVigentes {
+  graciaPago: number;
+  plazoTrasRechazo: number;
+  suspension: number;
+  pruebaSoloLectura: number;
+  reactivacion: number;
 }
 
 type FilaDelCiclo = CicloDeSuscripcion & {
@@ -413,6 +428,14 @@ async function pestanaDeSuscripcion(cliente: ClienteEnContexto, contexto: Contex
     // Cero filas es «sin acceso a ese inquilino», nunca «al día».
     throw new ErrorParaElUsuario('La empresa no existe en esta instalación.', 'NO_EXISTE');
   }
+
+  const { rows: filasPlazos } = await cliente.query<PlazosVigentes>(
+    `SELECT plataforma.fn_parametro('GRACIA_PAGO', current_date)         AS "graciaPago",
+            plataforma.fn_parametro('PLAZO_TRAS_RECHAZO', current_date)  AS "plazoTrasRechazo",
+            plataforma.fn_parametro('SUSPENSION', current_date)          AS "suspension",
+            plataforma.fn_parametro('PRUEBA_SOLO_LECTURA', current_date) AS "pruebaSoloLectura",
+            plataforma.fn_parametro('REACTIVACION', current_date)        AS "reactivacion"`,
+  );
 
   // Por registro y no por fecha del pago: el último rechazo y el pendiente
   // se leen primero (CONTRATO §14.1).
@@ -450,6 +473,7 @@ async function pestanaDeSuscripcion(cliente: ClienteEnContexto, contexto: Contex
     puedeReportar: sigueEnCurso || (fila.esAdministrador && fila.puedeReactivar),
     puedeCancelar: fila.esAdministrador && sigueEnCurso && !fila.pagoEnVerificacion,
     puedeReanudar: fila.esAdministrador && fila.puedeReanudar,
+    plazos: filasPlazos[0]!,
   };
 }
 

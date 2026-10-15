@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import {
+  anularPlazo,
   buscarSuperadmin,
   cambiarClaveSuperadmin,
   cambiarSuscripcion,
@@ -9,7 +10,9 @@ import {
   confirmarPago,
   designarAdministrador,
   eliminarEmpresa,
+  fijarPlazo,
   leerFicha,
+  leerPlazos,
   leerResumen,
   leerSoporte,
   listarEmpresas,
@@ -86,6 +89,31 @@ const esquemaFiltros = z.object({
 });
 
 const esquemaMotivo = z.strictObject({ motivo: obligatorio('Escriba el motivo.') }, SIN_CAMPOS_DE_MAS);
+
+/*
+ * Los plazos (CONTRATO §18.3). El valor llega como texto de dígitos, igual que
+ * las cifras de la regla 1.1, y se pasa a entero aquí. Los límites, la fecha
+ * que no rige hacia atrás y el motivo vacío los rechaza la base, con su
+ * columna: aquí no se repiten. Nueve cifras como mucho, para que un número
+ * enorme no llegue a desbordar el integer antes de que la base diga sus
+ * límites.
+ */
+const esquemaPlazo = z.strictObject(
+  {
+    valor: z
+      .string('Escriba el número de días, solo con cifras.')
+      .regex(/^\d{1,9}$/, 'Escriba el número de días, solo con cifras.')
+      .transform(Number),
+    vigenteDesde: fecha('Elija desde qué fecha rige.'),
+    motivo: z.string('Escriba el motivo.'),
+  },
+  SIN_CAMPOS_DE_MAS,
+);
+
+const esquemaAnulacion = z.strictObject(
+  { vigenteDesde: fecha('Elija qué cambio programado anula.'), motivo: z.string('Escriba el motivo.') },
+  SIN_CAMPOS_DE_MAS,
+);
 
 const esquemaSuscripcion = z.strictObject(
   {
@@ -268,6 +296,24 @@ export function registrarRutasDelPanel(app: FastifyInstance, ahora: () => number
     await sesionDe(request, reply);
     const { empresaId } = esquemaEventos.parse(request.query);
     return reply.send({ eventos: await listarEventos(empresaId ?? null) });
+  });
+
+  // --- §18.3 · Plazos: la base recibe al autor y deja el evento -------------------------
+  app.get(`${RUTA}/parametros`, async (request, reply) => {
+    await sesionDe(request, reply);
+    return reply.send(await leerPlazos());
+  });
+
+  app.post<{ Params: { clave: string } }>(`${RUTA}/parametros/:clave`, async (request, reply) => {
+    const yo = await sesionDe(request, reply);
+    await fijarPlazo(yo.id, request.params.clave, esquemaPlazo.parse(request.body));
+    return reply.send(await leerPlazos());
+  });
+
+  app.post<{ Params: { clave: string } }>(`${RUTA}/parametros/:clave/anular`, async (request, reply) => {
+    const yo = await sesionDe(request, reply);
+    await anularPlazo(yo.id, request.params.clave, esquemaAnulacion.parse(request.body));
+    return reply.send(await leerPlazos());
   });
 
   // --- §12.3 · Acciones firmadas ----------------------------------------------------

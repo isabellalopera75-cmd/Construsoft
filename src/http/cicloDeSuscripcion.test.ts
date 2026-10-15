@@ -353,6 +353,17 @@ describe('una cancelada, guardada o derivada, no se revive: ni la empresa ni el 
     assert.equal((await ficha(e.contexto.tenantId)).pagos.length, 0);
   });
 
+  test('la propuesta de fecha tampoco: 422 para la prueba muerta, así el panel ni la muestra', async () => {
+    const e = await registrar('Constructora Prueba Sin Propuesta', '900000468-8', 'ciclo.prueba.propuesta@construsoft.test');
+    const propuesta = () => llamar('GET', `/api/superadmin/empresas/${e.contexto.tenantId}/pagos/propuesta?periodoMeses=1`, panel);
+    assert.equal((await propuesta()).estado, 200, 'viva, propone');
+    await moverVencimiento(e.contexto.tenantId, -11);
+    const muerta = await propuesta();
+    assert.equal(muerta.estado, 422, muerta.crudo);
+    assert.equal(muerta.cuerpo.campo, undefined);
+    assert.match(muerta.cuerpo.mensaje, /está cancelada/);
+  });
+
   test('de control: el panel sí corre el vencimiento de una prueba viva', async () => {
     const e = await registrar('Constructora Prueba Viva', '900000467-7', 'ciclo.prueba.viva@construsoft.test');
     const r = await llamar('PUT', `/api/superadmin/empresas/${e.contexto.tenantId}/suscripcion`, panel, {

@@ -15,6 +15,94 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-15 · jueves, el módulo 0
+
+**Hecho** (539/539, sin commit)
+
+- **§18.1, las migraciones.**
+  - `scripts/aplicar-migraciones.sh` aplica en orden todas las de una
+    carpeta y anota la huella de cada una. Lo usa
+    `resetear-base-pruebas.sh` después del esquema.
+  - **El hook** arma una carpeta con las migraciones del índice, como ya
+    hacía con el esquema.
+  - **Encontré y corregí un defecto viejo del hook.** Preparaba la base con
+    el esquema del índice, pero después corría `npm test`, y npm ejecuta
+    antes `pretest`, que volvía a cargar el esquema del árbol. Ahora
+    `ESQUEMA` y `MIGRACIONES` se exportan y `pretest` los hereda.
+  - **`npm run migrar`**, en `src/dueno/migrar.ts`.
+    - Compara las huellas y se detiene si una aplicada cambió.
+    - Aplica las que falten con psql y anota la huella.
+    - Va todo por psql: no abre una cuarta conexión de `pg`.
+    - Probado contra `construsoft_test` en cuatro casos: al día, una
+      revertida, una huella alterada y una sin huella.
+  - **La huella ignora los `\r`.** Con `core.autocrlf=true`, el mismo
+    archivo llega con otros bytes a otro clon, y `migrar` gritaría «cambió»
+    sin que nadie lo hubiera tocado. El guion de shell calcula la misma.
+- **Las once baterías en verde** en las dos bases, con el 05 más 0001 y
+  0002. D-78 da 51 de 51 y D-79 11 de 11; los verificadores, en cero.
+- **`construsoft` recargada por última vez**, desde el 05 más las dos
+  migraciones. La demo está sembrada. El dueño tiene que crear otra vez su
+  superadministrador. Desde hoy, solo `npm run migrar`.
+- **§18.2.** `DetalleDeSuscripcion.plazos`, con los cinco de
+  `fn_parametro(…, current_date)`.
+- **§18.3, las tres rutas de Plazos.**
+  - `vigenteDesde` nulo en vez de `-infinity`, traducido en el SQL.
+  - `valor` llega como texto de dígitos; otra cosa es 422 en `valor`.
+  - Una clave que no existe es 404: se pregunta antes, porque la base la
+    rechaza como P0001.
+  - Los rechazos de la base salen con su columna.
+  - Las pruebas solo programan cambios para 2099 y los anulan: los plazos
+    son de toda la plataforma y los demás archivos corren a la vez.
+- **`terminos.ts` exige tres documentos:** privacidad, términos y
+  reembolsos. El artículo de cookies de la versión de septiembre se sigue
+  leyendo sin exigirse ni servirse. `GET /api/terminos` devuelve tres.
+  `legal/PROVISIONAL-2026-10-13/` y `legal/LEEME.md` entran con esto.
+
+**Qué divergió**
+
+- Nada del contrato. `npm run migrar` necesita dos variables nuevas en el
+  `.env` del dueño, porque migrar lo exige la base al superusuario:
+  `MIGRACION_DB_USER` y `MIGRACION_DB_PASSWORD`. El destino sale de
+  `APP_DB_HOST`, `APP_DB_PORT` y `APP_DB_NAME`.
+
+**Lo que conviene que sepas**
+
+- Con `VERSION_TERMINOS=PROVISIONAL-2026-10-13` la API ya arranca: el
+  dueño puede cambiar la variable.
+- **`npm run demo` falla la primera vez después de recargar `construsoft`**
+  («ya existe», con la tabla de empresas vacía), y la segunda funciona.
+  Pasó en las dos últimas recargas. En `construsoft_test`, después de las
+  mismas baterías, el alta funciona a la primera, así que no son las
+  baterías. No lo pude explicar; no le toca a la pantalla.
+
+---
+
+## 2026-10-13 · martes, noche
+
+**Hecho** (524/524, sin commit)
+
+- **`construsoft` recargada con D-76.**
+  - Las nueve baterías en verde (D-76 26 de 26) y los verificadores en cero.
+  - La demo está sembrada. El dueño tiene que crear otra vez su
+    superadministrador.
+  - Las sesiones que la frenaban eran de pgAdmin; las cerré con
+    `dropdb --force`.
+- **`GET …/pagos/propuesta` responde 422 para la prueba muerta**, sin
+  `campo`, con «La suscripción de esta empresa está cancelada: no admite
+  pagos ni cambios de plan.». Lo pidió el dueño, para que el panel ni la
+  muestre.
+  - La regla es «`fn_estado_comercial` da `CANCELADA` y no hay un pago
+    reportado esperando».
+  - Con un pago esperando sigue respondiendo: es la reactivación del §15.4,
+    y su prueba sigue verde.
+
+**Qué divergió**
+
+- Nada. El 422 de la propuesta es nuevo y no cambia la forma: ya era el 422
+  de una cancelada guardada.
+
+---
+
 ## 2026-10-13 · martes, tarde
 
 **Hecho**

@@ -8,22 +8,30 @@ import { CARPETA_LEGAL, leerTerminos } from './terminos.js';
 import { CARPETA_LEGAL_DE_PRUEBA } from '../pruebas/clienteHttp.js';
 
 const CONTACTO = 'legal@construsoft.test';
-const VERSION_REAL = 'PROVISIONAL-2026-09-25';
+const VERSION_REAL = 'PROVISIONAL-2026-10-13';
+/** La de septiembre, que aceptaron las cuentas que ya existen: traía una política de cookies aparte. */
+const VERSION_ANTERIOR = 'PROVISIONAL-2026-09-25';
 
 describe('los términos de legal/<VERSION_TERMINOS>/legal.html (04 §8.6)', () => {
-  test('el borrador que está en el repositorio: los cuatro documentos completos, en su orden', () => {
+  test('el borrador que está en el repositorio: los tres documentos completos, en su orden', () => {
     const documentos = leerTerminos(VERSION_REAL, CONTACTO);
     assert.deepEqual(
       documentos.map((d) => [d.id, d.titulo]),
       [
         ['privacidad', 'Política de Tratamiento de Datos Personales'],
         ['terminos', 'Términos y Condiciones'],
-        ['cookies', 'Política de Cookies'],
         ['reembolsos', 'Política de Reembolsos'],
       ],
     );
     // El largo real del contenido, no un resumen: cada uno trae sus apartados.
     for (const d of documentos) assert.ok((d.html.match(/<h3>/g) ?? []).length >= 3, `${d.id} trae sus apartados`);
+  });
+
+  test('una versión anterior con un documento de más todavía se lee: el de cookies no se exige ni se sirve', () => {
+    assert.deepEqual(
+      leerTerminos(VERSION_ANTERIOR, CONTACTO).map((d) => d.id),
+      ['privacidad', 'terminos', 'reembolsos'],
+    );
   });
 
   test('provisional: cada documento EMPIEZA por el aviso, para que quien muestre uno solo muestre también el aviso', () => {
@@ -65,7 +73,7 @@ describe('los términos de legal/<VERSION_TERMINOS>/legal.html (04 §8.6)', () =
     const original = readFileSync(join(fileURLToPath(CARPETA_LEGAL), VERSION_REAL, 'legal.html'), 'utf8');
     const carpeta = mkdtempSync(join(tmpdir(), 'terminos-'));
     mkdirSync(join(carpeta, 'v1'));
-    writeFileSync(join(carpeta, 'v1', 'legal.html'), original.replace(/<article class="legal-doc" id="cookies">[\s\S]*?<\/article>/, ''));
-    assert.throws(() => leerTerminos('v1', CONTACTO, carpeta), /cookies/);
+    writeFileSync(join(carpeta, 'v1', 'legal.html'), original.replace(/<article class="legal-doc" id="reembolsos">[\s\S]*?<\/article>/, ''));
+    assert.throws(() => leerTerminos('v1', CONTACTO, carpeta), /reembolsos/);
   });
 });

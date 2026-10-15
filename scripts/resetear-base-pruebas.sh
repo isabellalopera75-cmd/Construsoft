@@ -18,6 +18,9 @@ RAIZ="$(cd "$DIR_SCRIPT/.." && pwd)"
 # ESQUEMA se puede pasar desde afuera: el pre-commit carga el del índice, no
 # el del árbol de trabajo, que puede traer cambios en curso de otro autor.
 ESQUEMA="${ESQUEMA:-$RAIZ/docs/05 - construsoft_mvp_schema.sql}"
+# Las migraciones van después del esquema (D-77). MIGRACIONES también se pasa
+# desde afuera: el hook arma una carpeta con las del índice.
+MIGRACIONES="${MIGRACIONES:-$RAIZ/docs/migraciones}"
 
 # ARCHIVO_ENV es overridable (por ejemplo, para correr este mismo script
 # contra un .env de verificación distinto sin tocar .env.test).
@@ -43,5 +46,6 @@ dropdb --if-exists "${CONEXION[@]}" "$TEST_SUPERUSER_DB"
 createdb -E UTF8 -T template0 "${CONEXION[@]}" "$TEST_SUPERUSER_DB"
 
 psql -v ON_ERROR_STOP=1 "${CONEXION[@]}" -d "$TEST_SUPERUSER_DB" -f "$ESQUEMA" > /dev/null
+bash "$DIR_SCRIPT/aplicar-migraciones.sh" "$MIGRACIONES" "$TEST_SUPERUSER_DB" "${CONEXION[@]}"
 
-echo "→ ${TEST_SUPERUSER_DB} lista (esquema cargado, cero tenants)."
+echo "→ ${TEST_SUPERUSER_DB} lista (esquema y migraciones cargados, cero tenants)."

@@ -22,8 +22,15 @@ export const CARPETA_LEGAL = new URL('../../legal/', import.meta.url);
 /** Un nombre de carpeta y nada más: ni barras, ni «..», ni ocultos. */
 const NOMBRE_DE_VERSION = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
-/** Los cuatro documentos, en el orden en que los presenta el borrador. */
-const DOCUMENTOS = ['privacidad', 'terminos', 'cookies', 'reembolsos'] as const;
+/**
+ * Los tres documentos que se exigen, en el orden en que los presenta el
+ * borrador. Desde la versión PROVISIONAL-2026-10-13 la política de cookies
+ * ya no es un documento aparte: lo cierto —una sola cookie, la de sesión—
+ * pasó a la sección 7 de la de datos. Una versión anterior que todavía trae
+ * su artículo de cookies se sigue leyendo: lo que sobra no se exige ni se
+ * sirve, y la carpeta de una versión publicada no se edita.
+ */
+const DOCUMENTOS = ['privacidad', 'terminos', 'reembolsos'] as const;
 
 export interface DocumentoLegal {
   id: (typeof DOCUMENTOS)[number];
@@ -46,7 +53,7 @@ function aviso(contacto: string): string {
 }
 
 /**
- * Los cuatro documentos de una versión. Con `contactoProvisional` —solo para
+ * Los documentos de una versión. Con `contactoProvisional` —solo para
  * una versión PROVISIONAL-— cada uno empieza por el aviso de borrador.
  */
 export function leerTerminos(
