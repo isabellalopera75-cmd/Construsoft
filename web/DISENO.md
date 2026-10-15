@@ -585,6 +585,31 @@ mouse viaje menos:
 - El contenido sigue con su máximo de 1280 px: el menú arriba gana ancho en
   ventanas de menos de unos 1550 px, que es donde la barra lateral lo quitaba.
 
+### 15 de octubre de 2026 · Configuración en dos columnas (pedido del dueño)
+
+- **Solo organiza, no agrega información.** Las imágenes de referencia del
+  dueño traían datos que el sistema no tiene (último acceso, «verificada»,
+  ayuda y soporte); no se pusieron.
+- Cada pestaña: arriba, una tarjeta a lo ancho con el resumen en **fichas**
+  (lo guardado, no lo que se está escribiendo); debajo, las tarjetas de
+  trabajo en **dos columnas** de igual alto. Con menos de 880 px de
+  contenido, una sola columna. El botón principal de una tarjeta va arriba a
+  la derecha, frente al título (Invitar usuario, Crear rol, Agregar unidad).
+- Mi cuenta: Contraseña | Mi pantalla. Datos de empresa: formulario |
+  logotipo. Preferencias: formato de números | avisos por correo (un solo
+  «Guardar» para las dos) y las unidades a lo ancho. Suscripción: los días
+  restantes destacados arriba; vigencia y cómo pagar | historial de pagos;
+  la zona de cuidado abajo, a lo ancho. El historial, en media columna, va
+  en tres columnas con su dato de apoyo debajo (fecha y concepto, monto y
+  método, estado y hasta cuándo cubre) y las fechas cortas: no pierde ningún
+  dato.
+  Usuarios: personas | roles (o los permisos del asistente en el plan
+  Personal).
+- Configuración deja el ancho de lectura (960 px, 6 de octubre) por
+  `--ancho-configuracion` (1160 px): dos tarjetas de unos 560 px.
+- Piezas en `modulos/configuracion/piezas.tsx`: `Seccion` con `accion`,
+  `Fichas` y `DosColumnas`.
+
 ## 12. Lo que todavía no está decidido
 
 Para que nadie lo lea creyendo que está completo:

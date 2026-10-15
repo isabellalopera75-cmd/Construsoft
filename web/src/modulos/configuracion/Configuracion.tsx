@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { ErrorDeApi, pedir } from '../../api/cliente.ts';
 import type { Empresa, MiCuenta, Preferencias, Unidad } from '../../api/tipos.ts';
 import { useAvisos } from '../../componentes/Avisos.tsx';
@@ -8,7 +8,7 @@ import { Capa } from '../../componentes/Capa.tsx';
 import { Confirmacion } from '../../componentes/Confirmacion.tsx';
 import { Icono } from '../../componentes/Icono.tsx';
 import { Pestanas } from '../../componentes/Pestanas.tsx';
-import { ErrorDeSeccion, Seccion, useLectura } from './piezas.tsx';
+import { DosColumnas, ErrorDeSeccion, Fichas, Seccion, useLectura } from './piezas.tsx';
 import { pestanasDeConfiguracion } from './pestanas.ts';
 import { Logotipo } from './Logotipo.tsx';
 import { SuscripcionPestana } from './Suscripcion.tsx';
@@ -35,10 +35,11 @@ export function Configuracion({ pestana }: { pestana: PestanaDeConfiguracion | u
   const disponibles = pestanasDeConfiguracion(puede);
   const actual = disponibles.find((p) => p.id === pestana)?.id ?? 'cuenta';
 
-  // Centrada y con ancho de lectura (decisión del dueño, 6 de octubre de
-  // 2026): son formularios y datos sueltos, no una tabla que necesite ancho.
+  // Centrada (decisión del dueño, 6 de octubre de 2026). Desde el 15 de
+  // octubre, más ancha: las tarjetas van en dos columnas, con un resumen a lo
+  // ancho arriba (pedido del dueño).
   return (
-    <div className="pantalla-centrada">
+    <div className="pantalla-de-configuracion">
       <div className="encabezado-de-pantalla">
         <div className="encabezado-con-volver">
           <BotonVolver a={{ pantalla: 'inicio' }} nombre="Inicio" />
@@ -53,13 +54,8 @@ export function Configuracion({ pestana }: { pestana: PestanaDeConfiguracion | u
         alCambiar={(id) => ir({ pantalla: 'configuracion', pestana: id })}
       />
       <div id="pestana-config-panel" role="tabpanel" aria-labelledby={`pestana-config-${actual}`} className="panel-de-pestana">
-        {actual === 'cuenta' ? (
-          <>
-            <MiCuentaPestana />
-            <MiPantalla />
-          </>
-        ) : null}
-        {actual === 'empresa' ? <EmpresaConLogo /> : null}
+        {actual === 'cuenta' ? <MiCuentaPestana /> : null}
+        {actual === 'empresa' ? <EmpresaPestana /> : null}
         {actual === 'preferencias' ? <PreferenciasPestana /> : null}
         {actual === 'suscripcion' ? <SuscripcionPestana /> : null}
         {actual === 'usuarios' ? <Usuarios /> : null}
@@ -77,15 +73,22 @@ function MiCuentaPestana() {
   if (error) return <ErrorDeSeccion mensaje={error} alReintentar={releer} />;
   if (!datos) return <p className="campo-ayuda">Cargando…</p>;
   return (
-    <Seccion titulo="Mi cuenta">
-      <dl className="datos-estaticos">
-        <div><dt>Nombre</dt><dd>{datos.nombre}</dd></div>
-        <div><dt>Correo de ingreso</dt><dd>{datos.email}</dd></div>
-        <div><dt>Rol</dt><dd>{datos.rol}</dd></div>
-      </dl>
-      <div className="fila-de-botones fila-izquierda">
-        <button type="button" className="boton boton-principal" onClick={() => setCambiando(true)}>Cambiar Contraseña</button>
-      </div>
+    <>
+      <Seccion titulo="Mi cuenta">
+        <Fichas datos={[
+          { etiqueta: 'Nombre', valor: datos.nombre },
+          { etiqueta: 'Correo de ingreso', valor: datos.email },
+          { etiqueta: 'Rol', valor: datos.rol },
+        ]} />
+      </Seccion>
+      <DosColumnas>
+        <Seccion titulo="Contraseña" ayuda="Al cambiarla se cierran las demás sesiones abiertas con su cuenta.">
+          <div className="fila-de-botones fila-izquierda">
+            <button type="button" className="boton boton-principal" onClick={() => setCambiando(true)}>Cambiar Contraseña</button>
+          </div>
+        </Seccion>
+        <MiPantalla />
+      </DosColumnas>
       {cambiando ? (
         <CambiarContrasena
           alCerrar={() => setCambiando(false)}
@@ -95,7 +98,7 @@ function MiCuentaPestana() {
           }}
         />
       ) : null}
-    </Seccion>
+    </>
   );
 }
 
@@ -251,36 +254,39 @@ function EmpresaPestana() {
   );
 
   return (
-    <Seccion titulo="Datos de empresa" ayuda="El NIT y la razón social se imprimen en el encabezado de los PDF y las exportaciones.">
-      <form className="formulario formulario-ancho" onSubmit={enviar} noValidate>
-        {errorGeneral ? <p className="aviso-error" role="alert"><Icono nombre="aviso" /><span>{errorGeneral}</span></p> : null}
-        <div className="fila-de-campos">
-          {campo('razonSocial', 'Razón social', { autoComplete: 'organization' })}
-          {campo('nit', 'NIT', { ayuda: 'Único en la plataforma.' })}
-        </div>
-        <div className="fila-de-campos">
-          {campo('direccion', 'Dirección', { autoComplete: 'street-address' })}
-          {campo('telefono', 'Teléfono', { tipo: 'tel', autoComplete: 'tel' })}
-        </div>
-        {campo('emailRecuperacion', 'Correo de recuperación', {
-          tipo: 'email',
-          ayuda: 'Distinto del correo de ingreso: es por donde se recupera la cuenta si el administrador pierde el acceso.',
-        })}
-        {soloLectura ? null : (
-          <div className="fila-de-botones fila-izquierda">
-            <button type="submit" className="boton boton-principal" disabled={enviando}>{enviando ? 'Guardando…' : 'Guardar datos'}</button>
-          </div>
-        )}
-      </form>
-    </Seccion>
-  );
-}
-
-function EmpresaConLogo() {
-  return (
     <>
-      <EmpresaPestana />
-      <Logotipo />
+      <Seccion titulo="Datos de empresa" ayuda="El NIT y la razón social se imprimen en el encabezado de los PDF y las exportaciones.">
+        {/* Lo guardado, no lo que se está escribiendo: cambia al guardar. */}
+        <Fichas datos={[
+          { etiqueta: 'Razón social', valor: datos?.razonSocial ?? '' },
+          { etiqueta: 'NIT', valor: datos?.nit ?? '' },
+        ]} />
+      </Seccion>
+      <DosColumnas>
+        <Seccion titulo="Información legal y de contacto">
+          <form className="formulario" onSubmit={enviar} noValidate>
+            {errorGeneral ? <p className="aviso-error" role="alert"><Icono nombre="aviso" /><span>{errorGeneral}</span></p> : null}
+            <div className="fila-de-campos">
+              {campo('razonSocial', 'Razón social', { autoComplete: 'organization' })}
+              {campo('nit', 'NIT', { ayuda: 'Único en la plataforma.' })}
+            </div>
+            <div className="fila-de-campos">
+              {campo('direccion', 'Dirección', { autoComplete: 'street-address' })}
+              {campo('telefono', 'Teléfono', { tipo: 'tel', autoComplete: 'tel' })}
+            </div>
+            {campo('emailRecuperacion', 'Correo de recuperación', {
+              tipo: 'email',
+              ayuda: 'Distinto del correo de ingreso: es por donde se recupera la cuenta si el administrador pierde el acceso.',
+            })}
+            {soloLectura ? null : (
+              <div className="fila-de-botones fila-izquierda">
+                <button type="submit" className="boton boton-principal" disabled={enviando}>{enviando ? 'Guardando…' : 'Guardar datos'}</button>
+              </div>
+            )}
+          </form>
+        </Seccion>
+        <Logotipo />
+      </DosColumnas>
     </>
   );
 }
@@ -332,13 +338,26 @@ function PreferenciasPestana() {
     }
   }
 
+  const guardadas = datos ?? form;
+  const formatoGuardado = { separadorMiles: guardadas.separadorMiles, separadorDecimal: guardadas.separadorDecimal, decimalesVista: guardadas.decimalesVista };
+  const avisosActivos = [guardadas.notifVencimiento, guardadas.notifCambioEstado].filter(Boolean).length;
+
   return (
     <>
       <Seccion titulo="Preferencias del sistema">
-        <form className="formulario formulario-ancho" onSubmit={enviar} noValidate>
-          {errorGeneral ? <p className="aviso-error" role="alert"><Icono nombre="aviso" /><span>{errorGeneral}</span></p> : null}
-          <fieldset className="grupo-sin-borde" disabled={soloLectura}>
-            <div className="fila-de-campos fila-de-tres">
+        {/* Lo guardado: cambia al guardar, no mientras se elige. */}
+        <Fichas datos={[
+          { etiqueta: 'Moneda base', valor: guardadas.monedaBase === 'COP' ? 'COP · Peso colombiano' : guardadas.monedaBase },
+          { etiqueta: 'Así se ve una cifra', valor: <span className="cifra">{formatearNumero('180590155.4567', formatoGuardado)}</span> },
+          { etiqueta: 'Avisos por correo', valor: `${avisosActivos} de 2 activos` },
+        ]} />
+      </Seccion>
+      {/* Un solo formulario para las dos tarjetas: un «Guardar» guarda las dos. */}
+      <form className="formulario" onSubmit={enviar} noValidate>
+        <DosColumnas>
+          <Seccion titulo="Formato de números">
+            <fieldset className="grupo-sin-borde formulario" disabled={soloLectura}>
+              {/* En media columna no caben tres: la moneda va sola y los separadores juntos. */}
               <Campo etiqueta="Moneda base" ayuda="Se puede cambiar solo mientras no haya recursos, APU ni proyectos.">
                 {(a) => (
                   <select {...a} value={form.monedaBase} onChange={(e) => setForm({ ...form, monedaBase: e.target.value })}>
@@ -346,38 +365,42 @@ function PreferenciasPestana() {
                   </select>
                 )}
               </Campo>
-              <Campo etiqueta="Separador de miles" error={iguales ? 'Los dos separadores no pueden ser iguales.' : null}>
-                {(a) => (
-                  <select {...a} value={form.separadorMiles} onChange={(e) => setForm({ ...form, separadorMiles: e.target.value })}>
-                    {SEPARADORES_MILES.map((s) => <option key={s.valor} value={s.valor}>{s.nombre}</option>)}
-                  </select>
-                )}
-              </Campo>
-              <Campo etiqueta="Separador decimal">
-                {(a) => (
-                  <select {...a} value={form.separadorDecimal} onChange={(e) => setForm({ ...form, separadorDecimal: e.target.value })}>
-                    {SEPARADORES_DECIMAL.map((s) => <option key={s.valor} value={s.valor}>{s.nombre}</option>)}
-                  </select>
-                )}
-              </Campo>
-            </div>
-            <fieldset className="campo grupo-en-linea">
-              <legend className="etiqueta">Decimales a mostrar, en pantalla y en impresión</legend>
-              {([0, 1, 2] as const).map((n) => (
-                <label key={n} className="casilla">
-                  <input type="radio" name="decimales" checked={form.decimalesVista === n} onChange={() => setForm({ ...form, decimalesVista: n })} />
-                  <span>{n}</span>
-                </label>
-              ))}
+              <div className="fila-de-campos">
+                <Campo etiqueta="Separador de miles" error={iguales ? 'Los dos separadores no pueden ser iguales.' : null}>
+                  {(a) => (
+                    <select {...a} value={form.separadorMiles} onChange={(e) => setForm({ ...form, separadorMiles: e.target.value })}>
+                      {SEPARADORES_MILES.map((s) => <option key={s.valor} value={s.valor}>{s.nombre}</option>)}
+                    </select>
+                  )}
+                </Campo>
+                <Campo etiqueta="Separador decimal">
+                  {(a) => (
+                    <select {...a} value={form.separadorDecimal} onChange={(e) => setForm({ ...form, separadorDecimal: e.target.value })}>
+                      {SEPARADORES_DECIMAL.map((s) => <option key={s.valor} value={s.valor}>{s.nombre}</option>)}
+                    </select>
+                  )}
+                </Campo>
+              </div>
+              <fieldset className="campo grupo-en-linea">
+                <legend className="etiqueta">Decimales a mostrar, en pantalla y en impresión</legend>
+                {([0, 1, 2] as const).map((n) => (
+                  <label key={n} className="casilla">
+                    <input type="radio" name="decimales" checked={form.decimalesVista === n} onChange={() => setForm({ ...form, decimalesVista: n })} />
+                    <span>{n}</span>
+                  </label>
+                ))}
+              </fieldset>
+              <div className="vista-previa-formato">
+                <span className="etiqueta">Así se verá una cifra</span>
+                <span className="cifra cifra-grande">
+                  {iguales ? '—' : formatearNumero('180590155.4567', { separadorMiles: form.separadorMiles, separadorDecimal: form.separadorDecimal, decimalesVista: form.decimalesVista })}
+                </span>
+              </div>
             </fieldset>
-            <div className="vista-previa-formato">
-              <span className="etiqueta">Así se verá una cifra</span>
-              <span className="cifra cifra-grande">
-                {iguales ? '—' : formatearNumero('180590155.4567', { separadorMiles: form.separadorMiles, separadorDecimal: form.separadorDecimal, decimalesVista: form.decimalesVista })}
-              </span>
-            </div>
-            <fieldset className="campo grupo-sin-borde">
-              <legend className="etiqueta">Avisos por correo</legend>
+          </Seccion>
+          <Seccion titulo="Avisos por correo">
+            <fieldset className="campo grupo-sin-borde" disabled={soloLectura}>
+              <legend className="solo-lectores">Avisos por correo</legend>
               <label className="casilla">
                 <input type="checkbox" checked={form.notifVencimiento} onChange={(e) => setForm({ ...form, notifVencimiento: e.target.checked })} />
                 <span>Fin del período de prueba (dos días antes) y vencimiento de la suscripción (cinco días antes)</span>
@@ -387,14 +410,15 @@ function PreferenciasPestana() {
                 <span>Cambios de estado de los proyectos</span>
               </label>
             </fieldset>
-          </fieldset>
-          {soloLectura ? null : (
-            <div className="fila-de-botones fila-izquierda">
-              <button type="submit" className="boton boton-principal" disabled={enviando || iguales}>{enviando ? 'Guardando…' : 'Guardar preferencias'}</button>
-            </div>
-          )}
-        </form>
-      </Seccion>
+            {errorGeneral ? <p className="aviso-error" role="alert"><Icono nombre="aviso" /><span>{errorGeneral}</span></p> : null}
+            {soloLectura ? null : (
+              <div className="fila-de-botones fila-izquierda">
+                <button type="submit" className="boton boton-principal" disabled={enviando || iguales}>{enviando ? 'Guardando…' : 'Guardar preferencias'}</button>
+              </div>
+            )}
+          </Seccion>
+        </DosColumnas>
+      </form>
       <Unidades />
     </>
   );
@@ -411,19 +435,17 @@ function Unidades() {
     <Seccion
       titulo="Unidades de medida"
       ayuda="La lista oficial de su empresa. Las que cree quedan disponibles de inmediato en Recursos y APU. «Kg» y «kg» son el mismo símbolo."
+      accion={datos && !soloLectura ? (
+        <button type="button" className="boton boton-secundario" onClick={() => setEditando('nueva')}>
+          <Icono nombre="mas" />
+          Agregar unidad
+        </button>
+      ) : undefined}
     >
       {error ? <ErrorDeSeccion mensaje={error} alReintentar={releer} /> : null}
       {!datos && !error ? <p className="campo-ayuda">Cargando…</p> : null}
       {datos ? (
         <>
-          {soloLectura ? null : (
-            <div className="fila-de-botones fila-izquierda">
-              <button type="button" className="boton boton-secundario" onClick={() => setEditando('nueva')}>
-                <Icono nombre="mas" />
-                Agregar unidad
-              </button>
-            </div>
-          )}
           <div className="tarjeta-tabla tabla-con-borde">
             <table className="tabla">
               <caption className="solo-lectores">Unidades de medida</caption>

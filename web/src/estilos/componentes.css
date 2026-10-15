@@ -793,7 +793,6 @@ textarea { min-height: 88px; padding: var(--e2) var(--e3); resize: vertical; wid
 .seccion-de-config { padding: var(--e5); display: grid; gap: var(--e4); }
 .seccion-de-config h2 { font-size: var(--letra-xl); }
 .seccion-de-config h3 { font-size: var(--letra-lg); margin-bottom: var(--e2); }
-.formulario-ancho { max-width: 760px; }
 .datos-estaticos { margin: 0; display: grid; gap: var(--e3); }
 .datos-estaticos div { display: grid; gap: 2px; }
 .datos-estaticos dt { font-size: var(--letra-sm); color: var(--texto-segundo); }
@@ -868,9 +867,6 @@ textarea { min-height: 88px; padding: var(--e2) var(--e3); resize: vertical; wid
 .tarjeta-de-proyecto-valor .cifra { text-align: left; font-size: var(--letra-lg); font-weight: var(--peso-fuerte); }
 .etiqueta-chica { font-size: var(--letra-xs); color: var(--texto-segundo); text-transform: uppercase; letter-spacing: 0.04em; }
 .tarjeta-de-proyecto-pie { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--e1) var(--e3); font-size: var(--letra-sm); color: var(--texto-segundo); }
-
-/* --- Pantalla centrada (Configuración) ------------------------------------ */
-.pantalla-centrada { max-width: var(--ancho-lectura); margin: 0 auto; }
 
 /* --- Importar desde Excel ------------------------------------------------- */
 .acciones-de-encabezado { display: flex; flex-wrap: wrap; gap: var(--e2); }
@@ -1106,17 +1102,6 @@ textarea { min-height: 88px; padding: var(--e2) var(--e3); resize: vertical; wid
   .acciones-secundarias .boton { min-height: 30px; padding: 0 var(--e3); font-size: var(--letra-xs); gap: var(--e1); }
   .encabezado-de-mesa .boton .icono { width: 16px; height: 16px; }
   .barra-de-estructura .boton { min-height: 30px; padding: 0 var(--e3); }
-
-  /* Agregar una actividad: el buscador y la cantidad del alto de una fila. */
-  .agregar-actividad .control-con-icono input,
-  .agregar-elegido input,
-  .agregar-elegido .boton { min-height: 28px; }
-  .agregar-actividad .control-con-icono .icono { width: 16px; height: 16px; }
-  .agregar-actividad .control-con-icono input { padding-left: calc(var(--e3) + 16px + var(--e2)); font-size: var(--letra-sm); }
-  .agregar-actividad > .boton-icono { width: 28px; min-height: 28px; }
-  .agregar-elegido { gap: var(--e2); }
-  .agregar-elegido-apu { font-size: var(--letra-sm); }
-  .tabla-mesa .fila-agregar-abierta td { padding-top: var(--e1); padding-bottom: var(--e1); }
 }
 
 /* --- D-75 · La mesa más apretada (decisión del dueño, 13 de octubre) -------
@@ -1289,6 +1274,8 @@ button.paso-del-indicador:hover { color: var(--texto); }
 .documento-legal { font-size: var(--letra-sm); line-height: 1.6; }
 .documento-legal h3 { margin: var(--e4) 0 var(--e2); font-size: var(--letra-md); }
 .documento-legal p, .documento-legal ul { margin: 0 0 var(--e3); }
+/* Estas dos clases no salen de ningún componente: vienen en el HTML de los
+   documentos legales que manda la API (legal/…/legal.html). */
 .documento-legal .legal-fecha { color: var(--texto-segundo); }
 .documento-legal .aviso-borrador { padding: var(--e3) var(--e4); border-radius: var(--radio-md); background: var(--terracota-velo); }
 
@@ -1340,12 +1327,12 @@ button.paso-del-indicador:hover { color: var(--texto); }
     padding-top: 0; padding-bottom: 0; border-radius: var(--radio-sm);
   }
   .tabla-mesa .agregar-actividad .control-con-icono .icono { left: var(--e2); width: 14px; height: 14px; }
-  .tabla-mesa .agregar-actividad .control-con-icono input { padding-left: calc(var(--e2) + 14px + var(--e2)); }
+  .tabla-mesa .agregar-actividad .control-con-icono input { padding-left: calc(var(--e2) + 14px + var(--e2)); font-size: var(--letra-sm); }
   .tabla-mesa .agregar-actividad > .boton-icono { width: var(--alto-control-mesa); min-height: var(--alto-control-mesa); }
   /* Elegido el APU, todo en una línea: el APU cede (con puntos suspensivos)
      antes que partir la fila. */
   .tabla-mesa .agregar-elegido { flex-wrap: nowrap; gap: var(--e2); min-width: 0; }
-  .tabla-mesa .agregar-elegido-apu { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tabla-mesa .agregar-elegido-apu { font-size: var(--letra-sm); flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tabla-mesa .agregar-elegido-apu .dato-de-apoyo { display: inline; margin-left: var(--e2); font-size: var(--letra-xs); }
   .tabla-mesa .agregar-elegido .etiqueta-en-linea { flex: none; white-space: nowrap; font-size: var(--letra-xs); }
   .tabla-mesa .agregar-elegido .boton { flex: none; font-size: var(--letra-xs); padding: 0 var(--e3); }
@@ -1458,3 +1445,46 @@ button.paso-del-indicador:hover { color: var(--texto); }
      se salga de la ventana por la derecha. */
   .cascaron[data-menu='arriba'] .menu-superior .lista-de-modulos > li:last-child .submenu-de-modulo { left: auto; right: 0; }
 }
+
+/* --- Configuración en dos columnas (pedido del dueño, 15 de octubre de 2026)
+   Arriba, una tarjeta a lo ancho con el resumen de la pestaña en fichas;
+   debajo, las tarjetas de trabajo en dos columnas, de igual alto. Con poco
+   ancho, una sola columna. Solo organiza: no hay información nueva. */
+.pantalla-de-configuracion { max-width: var(--ancho-configuracion); margin: 0 auto; container-type: inline-size; }
+.config-dos-columnas { display: grid; gap: var(--e5); grid-template-columns: minmax(0, 1fr); }
+@container (min-width: 880px) {
+  .config-dos-columnas { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.config-dos-columnas > .seccion-de-config { align-content: start; }
+
+/* Título y ayuda a la izquierda; el botón o la cifra de la tarjeta, enfrente. */
+.seccion-de-config-cabecera { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--e3) var(--e4); }
+.seccion-de-config-cabecera > div:first-child { display: grid; gap: var(--e2); flex: 1 1 18rem; min-width: 0; }
+
+/* Las fichas del resumen: cada dato en su recuadro, la etiqueta pequeña arriba. */
+.fichas-de-config { margin: 0; display: grid; gap: var(--e3); grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); }
+.ficha-de-config { display: grid; gap: var(--e1); align-content: start; padding: var(--e3) var(--e4); border: 1px solid var(--borde-tenue); border-radius: var(--radio-md); background: var(--bg-app); min-width: 0; }
+.ficha-de-config dt { font-size: var(--letra-xs); color: var(--texto-segundo); }
+.ficha-de-config dd { margin: 0; font-size: var(--letra-md); font-weight: var(--peso-fuerte); overflow-wrap: anywhere; }
+
+/* La cifra que manda en la tarjeta (los días restantes de la suscripción). */
+.ficha-destacada {
+  display: grid; justify-items: center; align-content: center; gap: var(--e1);
+  min-width: 7.5rem; padding: var(--e3) var(--e4); border-radius: var(--radio-lg);
+  background: var(--terracota-boton); color: var(--texto-sobre-boton); text-align: center;
+}
+.ficha-destacada span { font-size: var(--letra-xs); }
+.ficha-destacada strong { font-family: var(--fuente-cifra); font-size: var(--letra-2xl); line-height: 1; }
+.insignias-de-config { display: flex; flex-wrap: wrap; gap: var(--e2); }
+.insignia-plan { color: var(--terracota); background: var(--terracota-velo); }
+
+/* En una columna de 560px, la tabla de usuarios suelta el último ingreso (ya
+   lo hacía con poco ancho) y la zona de cuidado apila el botón. */
+.config-dos-columnas .accion-de-cuidado > div { flex-basis: 16rem; }
+
+/* El historial de pagos en media columna: tres columnas con su dato de apoyo
+   debajo. */
+.tabla-pagos td { vertical-align: top; }
+.tabla-pagos .fecha-de-pago { display: block; white-space: nowrap; font-weight: var(--peso-medio); }
+.tabla-pagos .cifra { display: block; white-space: nowrap; }
+.tabla-pagos .insignia + .dato-de-apoyo { margin-top: var(--e1); }

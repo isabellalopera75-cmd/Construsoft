@@ -41,7 +41,6 @@
   /* El texto que va encima de --terracota-boton. Blanco en los dos temas: los
      dos pares están medidos en DISENO §3 (4,53:1 y 5,02:1). */
   --texto-sobre-boton: #ffffff;
-  --terracota-claro: #e67d56;
   --terracota-oscuro: #b8522b;
   --terracota-halo: rgba(217, 107, 67, 0.18);
   --terracota-velo: rgba(217, 107, 67, 0.08);
@@ -133,10 +132,14 @@
   /* El panel lateral no modal (desglose del pie, historial): ocho renglones
      con su cifra y su porcentaje, sin tapar más de un tercio de la mesa. */
   --ancho-panel: 400px;
-  /* Una pantalla de formularios y datos sueltos —Configuración—: centrada y
-     angosta, porque una línea de 1280px no se lee y un formulario a lo ancho
-     deja los botones lejos de los campos. */
+  /* Una pantalla de texto y datos sueltos —la cuenta detenida—: angosta,
+     porque una línea de 1280px no se lee. Configuración la usó hasta el 15 de
+     octubre de 2026; ahora tiene --ancho-configuracion. */
   --ancho-lectura: 960px;
+  /* Configuración en dos columnas (pedido del dueño, 15 de octubre de 2026):
+     dos tarjetas de formulario de unos 560px cada una, que es lo que pide
+     una tabla de usuarios sin soltar columnas. */
+  --ancho-configuracion: 1160px;
 }
 
 /* --- Tema claro ---------------------------------------------------------- */
@@ -161,7 +164,6 @@
      texto blanco encima. */
   --terracota: #b5512d;
   --terracota-boton: #b5512d;
-  --terracota-claro: #d96b43;
   --terracota-oscuro: #a94420;
   --terracota-halo: rgba(200, 90, 50, 0.15);
   --terracota-velo: rgba(200, 90, 50, 0.08);
@@ -201,7 +203,6 @@
     --borde-activo: #c05630;
     --terracota: #b5512d;
     --terracota-boton: #b5512d;
-    --terracota-claro: #d96b43;
     --terracota-oscuro: #a94420;
     --terracota-halo: rgba(200, 90, 50, 0.15);
     --terracota-velo: rgba(200, 90, 50, 0.08);

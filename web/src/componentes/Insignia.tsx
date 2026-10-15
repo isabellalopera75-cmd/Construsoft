@@ -18,7 +18,3 @@ export function InsigniaDeEstado({ estado }: { estado: EstadoPresupuesto }) {
     </span>
   );
 }
-
-export function nombreDeEstado(estado: EstadoPresupuesto): string {
-  return NOMBRES[estado];
-}

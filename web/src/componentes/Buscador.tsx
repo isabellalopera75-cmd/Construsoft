@@ -5,7 +5,7 @@ import { Icono } from './Icono.tsx';
 /*
  * Un buscador con lista desplegable, con el patrón «combobox» de la WAI-ARIA:
  * el foco se queda en el campo, las flechas recorren las opciones y Enter
- * elige. Lo usan «+ Agregar Actividad» de la mesa (02 §8.3) y el vínculo de
+ * elige. Lo usan la fila de agregar actividad de la mesa (02 §8.3) y el vínculo de
  * recursos del APU (02 §6.2).
  *
  * Busca el servidor, no la pantalla: la búsqueda por nombre pasa por las

@@ -58,3 +58,19 @@ export function fechaDelDia(texto: string): string {
   const [, anio = '', mes = '', dia = ''] = m;
   return `${dia.replace(/^0/, '')} de ${MESES[mes] ?? mes} de ${anio}`;
 }
+
+const MESES_CORTOS: Record<string, string> = {
+  '01': 'ene', '02': 'feb', '03': 'mar', '04': 'abr', '05': 'may', '06': 'jun',
+  '07': 'jul', '08': 'ago', '09': 'sept', '10': 'oct', '11': 'nov', '12': 'dic',
+};
+
+/**
+ * La misma fecha sin hora, corta y para una tabla angosta: «16 oct 2026», con
+ * las abreviaturas que da `formatearFecha`. Se corta igual que `fechaDelDia`.
+ */
+export function fechaDelDiaCorta(texto: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(texto);
+  if (!m) return texto;
+  const [, anio = '', mes = '', dia = ''] = m;
+  return `${dia} ${MESES_CORTOS[mes] ?? mes} ${anio}`;
+}

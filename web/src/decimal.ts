@@ -77,10 +77,6 @@ export function dividir(a: Decimal, b: Decimal, decimales: number): Decimal {
   return { n: dividirRedondeando(numerador, denominador), escala: decimales };
 }
 
-export function esCero(a: Decimal): boolean {
-  return a.n === 0n;
-}
-
 export function comparar(a: Decimal, b: Decimal): -1 | 0 | 1 {
   const [x, y] = alinear(a, b);
   return x < y ? -1 : x > y ? 1 : 0;

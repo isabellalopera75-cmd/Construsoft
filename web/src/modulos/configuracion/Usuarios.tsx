@@ -8,7 +8,7 @@ import { Confirmacion } from '../../componentes/Confirmacion.tsx';
 import { Icono } from '../../componentes/Icono.tsx';
 import { formatearFecha, formatearFechaYHora } from '../../fechas.ts';
 import { useSesion } from '../../sesion.tsx';
-import { ErrorDeSeccion, Seccion, useLectura } from './piezas.tsx';
+import { DosColumnas, ErrorDeSeccion, Fichas, Seccion, useLectura } from './piezas.tsx';
 
 /*
  * 02 §11.4 · Usuarios, contra la forma que propone el CONTRATO §11.
@@ -64,7 +64,8 @@ function PanelDeUsuariosVista({ panel, releer }: { panel: PanelDeUsuarios; relee
   const lleno = max !== null && sinRevocar >= max;
   const adminsActivos = panel.usuarios.filter((u) => u.estado === 'ACTIVO' && u.rolTipo === 'ADMIN');
   const esUnicoAdmin = (u: Usuario) => adminsActivos.length === 1 && adminsActivos[0]?.id === u.id;
-  const hayPendientes = panel.usuarios.some((u) => u.estado === 'PENDIENTE');
+  const pendientes = panel.usuarios.filter((u) => u.estado === 'PENDIENTE').length;
+  const hayPendientes = pendientes > 0;
   const rolAsistente = panel.roles.find((r) => r.tipo === 'ASISTENTE');
 
   const ayuda = personal
@@ -73,53 +74,65 @@ function PanelDeUsuariosVista({ panel, releer }: { panel: PanelDeUsuarios; relee
 
   return (
     <>
-      <Seccion titulo="Usuarios" ayuda={ayuda}>
-        {escribe ? (
-          lleno ? (
-            <p className="nota-pendiente">
-              <Icono nombre="aviso" />
-              <span>
-                {personal
-                  ? 'Ya tiene a su asistente. Para invitar a otra persona, revoque primero el acceso del actual.'
-                  : `Su plan admite ${max} usuarios y ya los tiene. Revoque uno para invitar a otro.`}
-              </span>
-            </p>
-          ) : (
-            <div className="fila-de-botones fila-izquierda">
-              <button type="button" className="boton boton-principal" onClick={() => setEditando('nuevo')}>
-                <Icono nombre="invitar" />
-                {personal ? 'Invitar asistente' : 'Invitar usuario'}
-              </button>
-            </div>
-          )
-        ) : null}
-
-        {hayPendientes ? (
+      {/* La organización del 15 de octubre de 2026 (pedido del dueño): arriba
+          el resumen con «Invitar»; debajo, las personas y los roles (o los
+          permisos del asistente, en el plan Personal) lado a lado. */}
+      <Seccion
+        titulo="Usuarios"
+        ayuda={ayuda}
+        accion={escribe && !lleno ? (
+          <button type="button" className="boton boton-principal" onClick={() => setEditando('nuevo')}>
+            <Icono nombre="invitar" />
+            {personal ? 'Invitar asistente' : 'Invitar usuario'}
+          </button>
+        ) : undefined}
+      >
+        <Fichas datos={[
+          { etiqueta: 'Usuarios', valor: max !== null ? `${sinRevocar} de ${max}` : String(sinRevocar) },
+          ...(personal ? [] : [{ etiqueta: 'Roles', valor: String(panel.roles.length) }]),
+          { etiqueta: 'Pendientes de activar', valor: String(pendientes) },
+        ]} />
+        {escribe && lleno ? (
           <p className="nota-pendiente">
-            <Icono nombre="reloj" />
+            <Icono nombre="aviso" />
             <span>
-              Un usuario pendiente todavía no ha elegido su contraseña. El enlace de activación aún no sale por correo:
-              pídaselo al equipo de ConstruSoft, que se lo envía a la persona. Vence a las 72 horas.
+              {personal
+                ? 'Ya tiene a su asistente. Para invitar a otra persona, revoque primero el acceso del actual.'
+                : `Su plan admite ${max} usuarios y ya los tiene. Revoque uno para invitar a otro.`}
             </span>
           </p>
         ) : null}
-
-        <TablaDeUsuarios
-          usuarios={panel.usuarios}
-          escribe={escribe}
-          lleno={lleno}
-          esUnicoAdmin={esUnicoAdmin}
-          alEditar={setEditando}
-          alRevocar={setRevocando}
-          alRestituir={setRestituyendo}
-        />
       </Seccion>
 
-      {personal ? (
-        rolAsistente ? <PermisosDelAsistente rol={rolAsistente} catalogo={panel.permisos} escribe={escribe} alGuardar={releer} /> : null
-      ) : (
-        <Roles panel={panel} escribe={escribe} releer={releer} />
-      )}
+      <DosColumnas>
+        <Seccion titulo="Personas">
+          {hayPendientes ? (
+            <p className="nota-pendiente">
+              <Icono nombre="reloj" />
+              <span>
+                Un usuario pendiente todavía no ha elegido su contraseña. El enlace de activación aún no sale por correo:
+                pídaselo al equipo de ConstruSoft, que se lo envía a la persona. Vence a las 72 horas.
+              </span>
+            </p>
+          ) : null}
+
+          <TablaDeUsuarios
+            usuarios={panel.usuarios}
+            escribe={escribe}
+            lleno={lleno}
+            esUnicoAdmin={esUnicoAdmin}
+            alEditar={setEditando}
+            alRevocar={setRevocando}
+            alRestituir={setRestituyendo}
+          />
+        </Seccion>
+
+        {personal ? (
+          rolAsistente ? <PermisosDelAsistente rol={rolAsistente} catalogo={panel.permisos} escribe={escribe} alGuardar={releer} /> : null
+        ) : (
+          <Roles panel={panel} escribe={escribe} releer={releer} />
+        )}
+      </DosColumnas>
 
       {editando ? (
         <FormularioDeUsuario
@@ -632,15 +645,13 @@ function Roles({ panel, escribe, releer }: { panel: PanelDeUsuarios; escribe: bo
     <Seccion
       titulo="Roles"
       ayuda="Un rol es un conjunto de permisos. Administrador y Asistente vienen con la empresa; los demás los crea usted."
+      accion={escribe && panel.plan.rolesPersonalizados ? (
+        <button type="button" className="boton boton-secundario" onClick={() => setEditando('nuevo')}>
+          <Icono nombre="mas" />
+          Crear rol
+        </button>
+      ) : undefined}
     >
-      {escribe && panel.plan.rolesPersonalizados ? (
-        <div className="fila-de-botones fila-izquierda">
-          <button type="button" className="boton boton-secundario" onClick={() => setEditando('nuevo')}>
-            <Icono nombre="mas" />
-            Crear rol
-          </button>
-        </div>
-      ) : null}
       <div className="tarjeta-tabla tabla-con-borde">
         <table className="tabla tabla-roles">
           <caption className="solo-lectores">Roles de la empresa</caption>

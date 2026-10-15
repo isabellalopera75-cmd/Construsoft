@@ -23,14 +23,54 @@ export function useLectura<T>(ruta: string): { datos: T | null; error: string | 
   return { datos, error, releer: () => setVez((n) => n + 1), poner: setDatos };
 }
 
-export function Seccion({ titulo, children, ayuda }: { titulo: string; children: ReactNode; ayuda?: string }) {
+/**
+ * Una tarjeta de Configuración. `accion` va arriba a la derecha, frente al
+ * título (el botón principal de la tarjeta o una cifra destacada).
+ */
+export function Seccion({ titulo, children, ayuda, accion }: { titulo: string; children?: ReactNode; ayuda?: string; accion?: ReactNode }) {
   return (
     <section className="tarjeta seccion-de-config">
-      <h2>{titulo}</h2>
-      {ayuda ? <p className="campo-ayuda">{ayuda}</p> : null}
+      {accion ? (
+        <div className="seccion-de-config-cabecera">
+          <div>
+            <h2>{titulo}</h2>
+            {ayuda ? <p className="campo-ayuda">{ayuda}</p> : null}
+          </div>
+          {accion}
+        </div>
+      ) : (
+        <>
+          <h2>{titulo}</h2>
+          {ayuda ? <p className="campo-ayuda">{ayuda}</p> : null}
+        </>
+      )}
       {children}
     </section>
   );
+}
+
+/*
+ * La organización de Configuración (pedido del dueño, 15 de octubre de 2026):
+ * arriba, una tarjeta a lo ancho que resume la pestaña en fichas; debajo, las
+ * tarjetas de trabajo en dos columnas. Las fichas solo muestran datos que la
+ * pestaña ya tiene: resumen, no información nueva.
+ */
+export function Fichas({ datos }: { datos: { etiqueta: string; valor: ReactNode }[] }) {
+  return (
+    <dl className="fichas-de-config">
+      {datos.map((d) => (
+        <div key={d.etiqueta} className="ficha-de-config">
+          <dt>{d.etiqueta}</dt>
+          <dd>{d.valor}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/** Dos columnas cuando hay ancho; una sola en una ventana angosta. */
+export function DosColumnas({ children }: { children: ReactNode }) {
+  return <div className="config-dos-columnas">{children}</div>;
 }
 
 export function ErrorDeSeccion({ mensaje, alReintentar }: { mensaje: string; alReintentar: () => void }) {
