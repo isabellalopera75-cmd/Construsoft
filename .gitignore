@@ -11,3 +11,6 @@ dist/
 
 # Artefactos de revisión (PDF y Excel de muestra): se generan, no son código.
 muestras/
+
+# Caché de compilación incremental de TypeScript: se genera, no es código.
+*.tsbuildinfo
