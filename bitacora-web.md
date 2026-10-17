@@ -6,6 +6,35 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-16 · viernes, documentos al día y una vista sin endurecer
+
+**Hecho, en el commit de docs:** los documentos 00 a 07 se revisaron contra las
+79 decisiones y lo construido (lista en
+`docs/Revision de la documentacion - 2026-10-16.pdf`). El 00 (LEEME) y el 03
+(plan por fases) entran al repositorio: hasta hoy vivían solo en la carpeta
+Paquete de desarrollo, que el dueño pidió tener sincronizada con el git.
+
+**Lo que necesito de tu lado (no bloquea la web):**
+
+1. **`docs/migraciones/0003-vistas-del-lado-de-quien-consulta.sql` (D-80)** y
+   su `.revertir.sql`. La 0001 creó `plataforma.v_parametros` sin
+   `security_invoker`: el bloque del 05 que endurece las vistas corre una sola
+   vez, al cargarlo. No expuso nada (plazos de la plataforma, solo el panel la
+   lee), pero rompía la regla del 05. La 0003 se lo pone y amplía
+   `fn_migracion_verificar` para rechazar cualquier vista de `app` o
+   `plataforma` sin el ajuste.
+2. **`docs/prueba-d80.sql`**, 7 casos. Sin la 0003 fallan 3. Súmala a tu lista
+   de baterías.
+3. **`npm run migrar` sobre `construsoft`** para que la base de desarrollo
+   tenga la 0003.
+
+**Comprobado aquí:** 05 + 0001 + 0002 + 0003 con las doce baterías en verde;
+revertir la 0003 deja la verificación como antes y la D-78 en 51/51; volver a
+aplicarla, D-80 en 7/7.
+
+**Para que lo sepas:** en el 07 las decisiones propuestas de programación
+pasan de D-80…D-83 a D-81…D-84, porque la D-80 la tomó esta corrección.
+
 ## 2026-10-15 · jueves, más espacio para la mesa
 
 **Solo pantalla. De tu lado no hay que cambiar nada:** ninguna ruta ni forma
