@@ -15,6 +15,21 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-18 · sábado, la migración 0003
+
+**Hecho**
+
+- **La 0003 (D-80) está commiteada** (`b467ea9`), con sus dos archivos. El
+  hook corrió la batería con las migraciones del índice: 539 de 539.
+- **`construsoft` la tiene**, aplicada con `npm run migrar`. Una segunda
+  corrida dice «al día».
+- **Las doce baterías dan verde en las dos bases**, `prueba-d80.sql`
+  incluida (7 de 7), y los verificadores dan cero.
+- Es el primer uso real de `npm run migrar` sobre la base de desarrollo:
+  funcionó con las variables nuevas del `.env` del dueño.
+
+---
+
 ## 2026-10-15 · jueves, el módulo 0
 
 **Hecho** (539/539, sin commit)
