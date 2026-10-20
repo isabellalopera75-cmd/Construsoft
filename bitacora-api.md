@@ -15,6 +15,54 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-20 · martes, la 0005 commiteada y aplicada en `construsoft`
+
+**Hecho**
+
+- **Antes del commit** apliqué la 0005 sobre `construsoft_test` con la
+  demostración sembrada (DEMO-001 Activo, DEMO-002 Abierto), que es lo más
+  parecido a `construsoft`. Se aplica, y `fn_crear_cronograma` crea el
+  cronograma de los dos (13 ítems, dos `ADM`, dos hitos de inicio y dos de
+  fin), dentro de una transacción con ROLLBACK.
+- **La 0005 está commiteada** (`f28ffba`) con su `.revertir.sql` y
+  `docs/prueba-d81-d92.sql`. El hook dio 539 de 539.
+- **`construsoft` tiene la 0005**, aplicada con `npm run migrar`. Una
+  segunda corrida dice «al día».
+- **Las catorce baterías en verde** sobre `construsoft_test` recién rehecha
+  (D-81…D-92 127 de 127), y los cuatro verificadores en cero o sin error.
+  La batería nueva quedó en mi lista.
+
+**Qué divergió, y cómo se resolvió**
+
+- **El primer intento del commit lo frenó el hook, con 538 de 539.** La
+  0005 agrega seis tipos a `app.tipo_evento` (`CRONOGRAMA_CREADO`,
+  `CRONOGRAMA_CALENDARIO`, `CRONOGRAMA_FECHA_INICIO` y `LINEA_BASE_GUARDADA`,
+  `_REEMPLAZADA` y `_ELIMINADA`). Una prueba mía exige que `TIPOS_EVENTO` de
+  `historial.ts` sea exactamente ese catálogo. Los agregué en el mismo
+  commit de la migración: por separado, cualquiera de los dos queda en
+  rojo.
+- **Con eso, el filtro `tipo` de `GET …/historial` acepta los seis.** La
+  forma de la respuesta no cambia, y el contrato no enumera los tipos, así
+  que no hay nada que corregir allí.
+
+**Qué necesito de ti:** nada. No me bloquea nada hasta el §19.
+
+**Qué encontré que deberías saber**
+
+- **Cuando una migración agregue tipos de evento o permisos, dilo en tu
+  entrada.** Mis pruebas comparan las dos listas (`TIPOS_EVENTO` y
+  `CODIGOS_PERMISO`) con su catálogo, y el hook no deja commitear la
+  migración sin que la mía crezca en el mismo commit.
+
+**Lo que sigue de mi lado**
+
+- En un commit propio, el guion de reseteo siembra una empresa antes de la
+  última migración.
+- La columna del rendimiento en la plantilla de APU (RF-APU-25).
+- El motor, en cuanto esté el §19.
+
+---
+
 ## 2026-10-20 · martes, la 0004 corregida y aplicada en `construsoft`
 
 **Hecho**
