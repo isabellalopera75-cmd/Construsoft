@@ -100,6 +100,25 @@ describe('Datos de empresa, preferencias y suscripción (02 §11.2, §11.3, §11
     assert.deepEqual([tres.estado, tres.cuerpo.campo], [422, 'decimalesVista']);
   });
 
+  test('preferencias: horas por jornal e inicio de semana, con sus rangos (CONTRATO §19.2)', async () => {
+    const leidas = await llamar('GET', '/api/configuracion/preferencias', duena.cookie);
+    assert.deepEqual([leidas.cuerpo.horasPorJornal, leidas.cuerpo.inicioSemana], ['8.00', 1]);
+
+    const r = await llamar('PUT', '/api/configuracion/preferencias', duena.cookie, { ...leidas.cuerpo, horasPorJornal: '9.5', inicioSemana: 7 });
+    assert.equal(r.estado, 200, r.crudo);
+    assert.deepEqual([r.cuerpo.horasPorJornal, r.cuerpo.inicioSemana], ['9.50', 7]);
+
+    for (const horasPorJornal of ['0.5', '24.5', '8.125', 'ocho', 8]) {
+      const malo = await llamar('PUT', '/api/configuracion/preferencias', duena.cookie, { ...leidas.cuerpo, horasPorJornal });
+      assert.deepEqual([malo.estado, malo.cuerpo.campo], [422, 'horasPorJornal'], String(horasPorJornal));
+    }
+    for (const inicioSemana of [0, 8, 1.5, '1']) {
+      const malo = await llamar('PUT', '/api/configuracion/preferencias', duena.cookie, { ...leidas.cuerpo, inicioSemana });
+      assert.deepEqual([malo.estado, malo.cuerpo.campo], [422, 'inicioSemana'], String(inicioSemana));
+    }
+    assert.deepEqual((await llamar('GET', '/api/configuracion/preferencias', duena.cookie)).cuerpo.horasPorJornal, '9.50');
+  });
+
   test('suscripción: estado, plan y vencimiento; vencida se consulta igual', async () => {
     const r = await llamar('GET', '/api/configuracion/suscripcion', duena.cookie);
     assert.deepEqual([r.estado, r.cuerpo.estado, r.cuerpo.plan, r.cuerpo.pagos], [200, 'EN_PRUEBA', 'EMPRESARIAL', []]);

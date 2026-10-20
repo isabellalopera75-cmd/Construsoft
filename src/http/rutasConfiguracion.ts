@@ -90,6 +90,17 @@ const esquemaPreferencias = z.strictObject(
     decimalesVista: z.union([z.literal(0), z.literal(1), z.literal(2)], 'Los decimales a mostrar son 0, 1 o 2.'),
     notifVencimiento: z.boolean('Indique si quiere el aviso de vencimiento.'),
     notifCambioEstado: z.boolean('Indique si quiere el aviso de cambio de estado.'),
+    // CONTRATO §19.2. El rango lo defiende también la base (D-84); aquí se
+    // valida para poder marcar el campo. Comparar contra 1 y 24 no es dinero.
+    horasPorJornal: z
+      .string('Escriba las horas de un jornal como texto: «8» o «9.5».')
+      .regex(/^\d{1,2}(\.\d{1,2})?$/, 'Las horas por jornal van de 1 a 24, con hasta dos decimales.')
+      .refine((h) => Number(h) >= 1 && Number(h) <= 24, 'Las horas por jornal van de 1 a 24, con hasta dos decimales.'),
+    inicioSemana: z
+      .number('Elija el día en que empieza la semana.')
+      .int('Elija el día en que empieza la semana.')
+      .min(1, 'Elija el día en que empieza la semana.')
+      .max(7, 'Elija el día en que empieza la semana.'),
   },
   SIN_CAMPOS_DE_MAS,
 );

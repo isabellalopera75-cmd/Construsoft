@@ -145,6 +145,10 @@ export interface Preferencias {
   decimalesVista: number;
   notifVencimiento: boolean;
   notifCambioEstado: boolean;
+  /** D-84: lo que dura un jornal en los APU de la empresa, "8.00". Cada presupuesto se lleva su copia. */
+  horasPorJornal: string;
+  /** RF-CFG-33: 1 = lunes … 7 = domingo. Lo usan la curva semanal y el Gantt. */
+  inicioSemana: number;
 }
 
 interface FilaPreferencias {
@@ -154,13 +158,15 @@ interface FilaPreferencias {
   decimales_vista: number;
   notif_vencimiento: boolean;
   notif_cambio_estado: boolean;
+  horas_por_jornal: string;
+  inicio_semana: number;
 }
 
 export async function leerPreferencias(contexto: ContextoTenant): Promise<Preferencias> {
   return ejecutarConPermiso(contexto, 'CONFIG.PREFERENCIAS', async (cliente) => {
     const { rows } = await cliente.query<FilaPreferencias>(
       `SELECT moneda_base, separador_miles, separador_decimal, decimales_vista,
-              notif_vencimiento, notif_cambio_estado
+              notif_vencimiento, notif_cambio_estado, horas_por_jornal, inicio_semana
          FROM app.configuracion_empresa
         WHERE tenant_id = $1`,
       [contexto.tenantId],
@@ -173,6 +179,8 @@ export async function leerPreferencias(contexto: ContextoTenant): Promise<Prefer
       decimalesVista: fila.decimales_vista,
       notifVencimiento: fila.notif_vencimiento,
       notifCambioEstado: fila.notif_cambio_estado,
+      horasPorJornal: fila.horas_por_jornal,
+      inicioSemana: fila.inicio_semana,
     };
   });
 }
@@ -191,8 +199,8 @@ export async function actualizarPreferencias(
       `UPDATE app.configuracion_empresa
           SET moneda_base = $1, separador_miles = $2, separador_decimal = $3,
               decimales_vista = $4, notif_vencimiento = $5, notif_cambio_estado = $6,
-              actualizado_en = now()
-        WHERE tenant_id = $7`,
+              horas_por_jornal = $7, inicio_semana = $8, actualizado_en = now()
+        WHERE tenant_id = $9`,
       [
         datos.monedaBase,
         datos.separadorMiles,
@@ -200,6 +208,8 @@ export async function actualizarPreferencias(
         datos.decimalesVista,
         datos.notifVencimiento,
         datos.notifCambioEstado,
+        datos.horasPorJornal,
+        datos.inicioSemana,
         contexto.tenantId,
       ],
     ),
