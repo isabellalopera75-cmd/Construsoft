@@ -6,6 +6,66 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-20 · martes, respuesta a tu lectura del capítulo 6
+
+**Todo resuelto; nada tuyo queda bloqueado por mí salvo la 0004 y la 0005.**
+El 07 §6.7 y §6.9 ya lo dicen (commit de hoy).
+
+**Técnicas, decididas por mí: acepto A1–A3 y B1–B7 tal cual.**
+
+- A1 `ON DELETE SET NULL (presupuesto_item_id)` con su índice; mido el
+  borrado de un ítem contra sus 8,3 ms.
+- A2 `nombre`, `codigo` y `orden` en todas las actividades.
+- A3 `calendario.festivos_hasta` y la lista de origen.
+- B1 `actividad_calculo` aparte. Los guardianes (RN-34, permisos, parejas
+  de la RN-30) van solo sobre las entradas; la tabla de resultados la puede
+  escribir cualquier rol que pueda leer el cronograma, en cualquier estado.
+- B2 `version` y `calculado_version` / `calculado_revision`.
+- B3 `presupuesto.revision`, subida en `fn_marcar_modificacion` y en
+  `tg_modificacion_cabecera`, sin disparador nuevo. Va en la 0004.
+- B5 `app.fn_curvas` es mía y va en la 0005, con tu firma: minutos por
+  actividad y día, granularidad, residuo en el último periodo de cada
+  actividad, A, I, U e IVA con `fn_pie_financiero`.
+- B6 línea base por día.
+- B7 fechas como cadena local sin zona; duraciones, holguras y desfases
+  convertidos en el servidor. Lo escribo así en el §19.
+- C1 se miden las dos cifras que propones; la respuesta de una edición no
+  trae curvas. C2 de acuerdo.
+
+**De producto, respondidas por el dueño hoy:**
+
+- **A4** el corrido es 1 día = 24 h.
+- **A5** la duración manual se escribe en días y se guarda en horas.
+- **A6** la duración calculada se redondea al minuto hacia arriba; las
+  fechas nunca.
+- **A7** como P6: la restricción de inicio en día no laborable pasa al
+  siguiente instante laborable; la de fin, al cierre del último tramo
+  laborable anterior.
+- **A8** las tres reglas de P6, tal como las escribiste.
+- **C3** como Project: la dependencia que cierra un ciclo se rechaza con 422
+  y las actividades del ciclo, y no se guarda. Con eso C8 segunda parte no
+  existe.
+- **C4** sin «desde la última vez»: la lista es el estado actual y la franja
+  dice «el presupuesto cambió desde el último cálculo». No hay columna
+  `sin_programar`: una actividad deja de estarlo con su primera relación.
+- **C5** aceptado como lo propones, y la pantalla de exportación avisa qué
+  se pierde en el XML. Fecha de datos del XER = fecha de inicio.
+- **C6** la actividad de duración cero lleva todo su costo al día en que cae.
+- **C7** el 409 devuelve el cronograma nuevo, ya recalculado; el cambio que
+  se rechazó lo conserva la pantalla y lo muestra para rehacerlo (es mío).
+- **C8** el GET tarda lo que tarde; la pantalla muestra «recalculando» si
+  pasa de un umbral corto (es mío).
+- **C9** al exportar a P6, Level of Effort relacionada con una CC desde la
+  actividad del presupuesto que empieza primero y una FF hacia la que
+  termina de última. Sin holgura, nunca crítica, con el calendario del
+  proyecto. Si todas duran cero, la administración dura cero y su costo cae
+  ese día (C6).
+- **D** de acuerdo con las cuatro. Los XER de muestra los consigue el dueño.
+
+**Lo que sigue:** escribo la 0004 ahora. Cuando esté en el árbol con su
+batería te aviso aquí; la plantilla de APU con la columna del rendimiento
+(RF-APU-25) puede ir en cuanto exista la columna.
+
 ## 2026-10-20 · martes, el módulo 1 listo para construir
 
 **El diseño está cerrado.** El dueño respondió todas las dudas: está en el 07,
