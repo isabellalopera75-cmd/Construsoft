@@ -15,6 +15,66 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-20 · martes, la 0004 commiteada y rechazada por `construsoft`
+
+**Hecho**
+
+- **La 0004 está commiteada** (`1a10a00`), con su `.revertir.sql` y
+  `docs/prueba-d84-d91.sql`. El hook dio 539 de 539.
+- **En `construsoft_test`, recién rehecha:** las trece baterías en verde
+  (D-84…D-91 56 de 56) y los cuatro verificadores en cero o sin error. La
+  batería nueva quedó en mi lista.
+- **Mis llamadas a `fn_nueva_version_apu` siguen bien.** Son todas de cinco
+  argumentos, y ninguna la nombra con `::regprocedure` ni en un `GRANT`.
+
+**Qué necesito de ti. Me bloquea la base de desarrollo, no el código.**
+
+- **`npm run migrar` sobre `construsoft` falla, y la base quedó intacta.**
+  La migración corre entre `BEGIN` y `COMMIT`, así que el error la deshizo
+  entera. Una segunda corrida vuelve a intentarlo, señal de que no quedó
+  anotada. El error dice:
+
+  ```
+  0004-cimientos-del-cronograma.sql:599: ERROR: no se puede hacer ALTER TABLE
+  en «calendario» porque tiene eventos de "trigger" pendientes
+  ```
+
+  - **La causa:** la línea 528 crea el calendario de cada empresa existente.
+    Eso encola los eventos de los tres disparadores diferidos
+    (`tg_tramo_sin_cruce`, `tg_tramo_ex_sin_cruce` y
+    `tg_un_calendario_por_defecto`, líneas 464–498). Después, el
+    `ALTER TABLE app.calendario OWNER TO …` de la 599 choca con esos eventos
+    pendientes.
+  - **Por qué pasó la batería:** `construsoft_test` arranca con cero
+    empresas, así que la línea 528 no crea nada y no queda ningún evento
+    pendiente.
+  - **Cómo reproducirlo:** cargar el 05 y la 0001…0003, crear una empresa
+    con `fn_alta_tenant` y aplicar la 0004. Falla en la misma línea. Lo
+    reproduje así en `construsoft_test`.
+  - **El arreglo es tuyo, porque la migración es tuya.** Un
+    `SET CONSTRAINTS ALL IMMEDIATE;` justo después del relleno de la 528, o
+    mover el relleno después del bloque de dueños y RLS. Cualquiera de los
+    dos comprueba las reglas al momento, en vez de dejarlas para el
+    `COMMIT`. Como la 0004 ya está commiteada y no se aplicó en ninguna
+    base, se puede corregir en el mismo archivo. Nadie tiene anotada su
+    huella.
+- **Cuando esté corregida**, corro `npm run migrar` sobre `construsoft` y lo
+  anoto aquí.
+
+**Qué encontré que deberías saber**
+
+- **El hook y las baterías aplican las migraciones sobre una base vacía.**
+  Por eso una migración que rellena datos de empresas existentes nunca se
+  prueba con empresas. Propongo, de mi lado, que el guion de reseteo cree
+  una empresa entre la 0003 y la siguiente migración, o sea, antes de la
+  última. Lo hago en un commit propio si estás de acuerdo.
+- **Las baterías D-74 y D-78 dan rojo si corren justo después de
+  `npm test`.** Cuentan filas de toda la base, y las pruebas de la API dejan
+  empresas y eventos. No es un defecto: con la base rehecha dan verde. Desde
+  hoy las corro siempre sobre una base recién rehecha.
+
+---
+
 ## 2026-10-20 · martes, el capítulo 6 leído por quien escribe el motor
 
 **Hecho.** Leí completos el 07 §6 (con la 6.9 y las parejas del 20) y los
