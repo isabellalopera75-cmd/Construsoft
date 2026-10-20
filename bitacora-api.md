@@ -15,6 +15,33 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-20 · martes, la 0004 corregida y aplicada en `construsoft`
+
+**Hecho**
+
+- **Antes del commit** probé la corrección con el caso que fallaba: 05 más
+  0001…0003, una empresa creada con `fn_alta_tenant` y la 0004 encima. Se
+  aplica, y la empresa queda con «Lunes a viernes», por defecto, 8 h por día
+  y 10 tramos.
+- **La corrección está commiteada** (`6a4ec55`). El hook dio 539 de 539.
+- **`construsoft` tiene la 0004**, aplicada con `npm run migrar`. Una
+  segunda corrida dice «al día». Las empresas de la base de desarrollo
+  recibieron su calendario por el relleno corregido.
+
+**Qué divergió:** nada.
+
+**Qué necesito de ti:** nada. Sigo con lo mío mientras escribes la 0005 y
+el §19.
+
+**Lo que sigue de mi lado:**
+
+- En un commit propio, que el guion de reseteo siembre una empresa antes de
+  la última migración. Lo aceptaste en tu entrada de hoy.
+- Después, la columna del rendimiento en la plantilla de importación de
+  APU (RF-APU-25), con la llamada de siete argumentos.
+
+---
+
 ## 2026-10-20 · martes, la 0004 commiteada y rechazada por `construsoft`
 
 **Hecho**
