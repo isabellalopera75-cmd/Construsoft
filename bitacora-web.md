@@ -6,6 +6,71 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-20 · martes, la migración 0004 en el árbol
+
+**Hecho, sin commit (tocan `docs/migraciones/`, así que el hook corre la
+batería: el commit es tuyo, como con la 0003):**
+
+- `docs/migraciones/0004-cimientos-del-cronograma.sql` y su `.revertir.sql`.
+- `docs/prueba-d84-d91.sql`, 56 casos. Súmala a tu lista de baterías.
+
+**Comprobado aquí:** 05 + 0001…0004 con las trece baterías en verde y los
+verificadores en cero. Cinco mutaciones, cada una detectada por su caso (sin
+cruce de tramos, no heredar el rendimiento, la revisión que no sube, el
+duplicado que toma las horas de la empresa, copiar festivos que pisa lo que
+había). Revertir la 0004 deja D-74, D-78, D-79 y D-80 en verde; volver a
+aplicarla, 56 de 56. Una purga real confirmada (no en ROLLBACK) se lleva los
+calendarios de la empresa sin tropezar con la regla del calendario por
+defecto. La edición de una cantidad no se mueve: medí 0003 contra 0004 en la
+misma máquina, dos veces cada una, y la 0004 no sale más lenta (esta máquina
+es más ruidosa que la del 14, así que las cifras absolutas no se comparan
+con las de entonces).
+
+**Lo que cambia para ti**
+
+1. **`app.fn_nueva_version_apu` tiene dos argumentos opcionales más**:
+   `p_rendimiento_actividad numeric` y `p_cambia_rendimiento boolean`
+   (por defecto `false`). Tus llamadas de cinco argumentos siguen igual y
+   **heredan** el rendimiento de la versión vigente, así que hoy no borras
+   nada al editar un APU. Para fijarlo o quitarlo: `…, rendimiento, true`
+   (NULL lo quita). Cero o negativo es un rechazo con su columna,
+   `rendimientoActividad`. La firma vieja se borró: si alguna llamada la
+   nombra con `::regprocedure` o en un `GRANT`, cámbiala.
+2. **`app.configuracion_empresa`** gana `horas_por_jornal` (8, de 1 a 24) e
+   `inicio_semana` (1 = lunes, ISO). **`app.presupuesto`** gana
+   `horas_por_jornal` (copiada al crearlo, o de su original al duplicar; no
+   se puede cambiar) y `revision`. No los mandes en el INSERT: el disparador
+   pone lo que corresponde aunque los mandes.
+3. **Calendarios de la empresa**: `app.calendario` (con `por_defecto` y
+   `horas_por_dia`), `app.calendario_tramo` (día ISO, `inicio` y `fin` en
+   bloques de 30 minutos; medianoche se escribe `24:00`),
+   `app.calendario_excepcion` (una fecha; sin tramos es no laborable) y
+   `app.calendario_excepcion_tramo`. Dos reglas se comprueban **al
+   confirmar**: los tramos de un día no se cruzan, y la empresa tiene
+   siempre exactamente un calendario por defecto. Para cambiar cuál es,
+   `app.fn_calendario_por_defecto(id)`. Toda empresa nace con «Lunes a
+   viernes», y las que ya existían lo recibieron en la migración.
+4. **Festivos**: `plataforma.lista_festivos` y `…_fecha` (Colombia, 2026–2030,
+   solo lectura para la aplicación); `app.lista_festivos_propia` y `…_fecha`
+   (privadas de cada empresa). `app.fn_copiar_festivos(calendario, lista,
+   propia boolean)` copia una lista sin pisar las fechas que el calendario ya
+   tiene y anota de qué lista y hasta qué año. El panel extiende la lista con
+   `plataforma.fn_extender_festivos('CO', superadmin)`, que agrega cinco años
+   y deja el evento `FESTIVOS_EXTENDIDOS`.
+5. **Permisos**: horas por jornal, inicio de semana, calendarios y festivos
+   son preferencias de la empresa: exígelos con `CONFIG.PREFERENCIAS`.
+
+**Lo que necesito de ti**
+
+- El commit de los tres archivos, con el hook.
+- `npm run migrar` sobre `construsoft`.
+- Cuando quieras, la columna del rendimiento en la plantilla de importación
+  de APU (RF-APU-25), con la llamada de siete argumentos.
+
+**Lo que sigue de mi lado:** la 0005 (el cronograma) y el CONTRATO §19 con
+las rutas de configuración (jornal, semana, calendarios, festivos) y del
+cronograma.
+
 ## 2026-10-20 · martes, respuesta a tu lectura del capítulo 6
 
 **Todo resuelto; nada tuyo queda bloqueado por mí salvo la 0004 y la 0005.**
