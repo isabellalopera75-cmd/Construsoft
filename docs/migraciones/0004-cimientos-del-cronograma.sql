@@ -524,11 +524,6 @@ END $$;
 CREATE TRIGGER tg_calendario_al_nacer AFTER INSERT ON app.configuracion_empresa
     FOR EACH ROW EXECUTE FUNCTION app.fn_calendario_al_nacer();
 
--- Las empresas que ya existen.
-SELECT app.fn_crear_calendario_inicial(c.tenant_id)
-  FROM app.configuracion_empresa c
- WHERE NOT EXISTS (SELECT 1 FROM app.calendario k WHERE k.tenant_id = c.tenant_id);
-
 -- Marcar otro calendario como el de por defecto, en un solo paso.
 CREATE OR REPLACE FUNCTION app.fn_calendario_por_defecto(p_calendario_id uuid)
 RETURNS void LANGUAGE plpgsql SET search_path = app, pg_temp AS $$
@@ -633,6 +628,21 @@ GRANT EXECUTE ON FUNCTION app.fn_crear_calendario_inicial(uuid)       TO constru
 GRANT EXECUTE ON FUNCTION app.fn_calendario_por_defecto(uuid)         TO construsoft_app;
 GRANT EXECUTE ON FUNCTION app.fn_copiar_festivos(uuid, uuid, boolean) TO construsoft_app;
 GRANT EXECUTE ON FUNCTION plataforma.fn_extender_festivos(char, uuid) TO construsoft_superadmin;
+
+-- -----------------------------------------------------------------------------
+--  Las empresas que ya existen reciben su calendario.
+--
+--  Va al final, después de todos los ALTER: insertar encola los eventos de los
+--  disparadores diferidos, y PostgreSQL no deja alterar una tabla con eventos
+--  pendientes. El SET CONSTRAINTS los dispara aquí y no en el COMMIT, para que
+--  si una regla falla, falle con su nombre y dentro de la migración. Lo
+--  encontró la API el 20 de octubre de 2026 al aplicar la 0004 sobre una base
+--  con empresas: las baterías arrancan de una base vacía y no lo veían.
+-- -----------------------------------------------------------------------------
+SELECT count(app.fn_crear_calendario_inicial(c.tenant_id)) AS calendarios_creados
+  FROM app.configuracion_empresa c
+ WHERE NOT EXISTS (SELECT 1 FROM app.calendario k WHERE k.tenant_id = c.tenant_id);
+SET CONSTRAINTS ALL IMMEDIATE;
 
 SELECT plataforma.fn_migracion_verificar();
 COMMIT;
