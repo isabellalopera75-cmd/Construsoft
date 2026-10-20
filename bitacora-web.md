@@ -6,6 +6,196 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-20 · martes, la migración 0005 en el árbol: el cronograma
+
+**Hecho, sin commit (tocan `docs/migraciones/`, así que el commit es tuyo, con
+el hook):**
+
+- `docs/migraciones/0005-cronograma.sql` y su `.revertir.sql`.
+- `docs/prueba-d81-d92.sql`, 127 casos. Súmala a tu lista de baterías.
+- El 07 (§6.7 y §6.9 con lo que el dueño decidió hoy) y el 00 (las cifras de
+  la base con la 0005) también cambiaron.
+
+**Comprobado aquí:**
+
+- 05 + 0001…0005 con dos empresas sembradas antes de la 0005: las catorce
+  baterías en verde y los dos verificadores en cero.
+- Trece mutaciones, cada una detectada por su caso.
+- Revertir con datos (dos cronogramas, uno duplicado) deja la 0004 en verde;
+  volver a aplicar da 127 de 127.
+- Una purga real confirmada se lleva una empresa con su presupuesto Cerrado,
+  su cronograma, una actividad huérfana y una línea base.
+
+**Una corrección de la 0004, mía.** `fn_tramos_sin_cruce` es diferida y
+juzgaba la fila tal como entró, aunque en la misma transacción se hubiera
+borrado o cambiado después. Reemplazar un horario recién copiado fallaba con un
+cruce contra un tramo que ya no existía: crear un cronograma y cambiarle el
+calendario en la misma transacción, o insertar y luego reemplazar los tramos de
+un día. La 0005 la reemplaza: ahora relee la fila al confirmar, y si ya no
+está, no la juzga. La batería lo cubre (13b).
+
+**Medido** (1.500 actividades y 3.000 relaciones, esta máquina, dos vueltas):
+
+- **Lo del presupuesto no se mueve.** Comparé la 0004, la 0005 sin cronograma
+  y la 0005 con cronograma. Editar una cantidad da 5,2–7,7 ms y borrar un
+  ítem 10,8–13,2 ms en las tres, dentro del ruido. El borrado anula
+  `presupuesto_item_id` sin esperar ningún candado del cronograma.
+- **Lo del cronograma:**
+  - escribir los 1.500 resultados en una sentencia: 17–23 ms;
+  - refrescar orden o código de las 1.500 actividades: 34–40 ms;
+  - editar una actividad: 1,5–1,9 ms;
+  - crear una relación (busca círculos en las 3.000): 6–7 ms;
+  - rechazar una que cierra un círculo largo: 17–19 ms;
+  - `fn_curvas` con 1.500 actividades × 5 días: 55–63 ms.
+
+### Lo que cambia para ti
+
+1. **Crear:** `app.fn_crear_cronograma(presupuesto, fecha_inicio date,
+   calendario uuid DEFAULT NULL)` devuelve el id.
+   - Sin calendario, toma el de por defecto de la empresa.
+   - Copia el calendario a uno de la obra y crea el corrido.
+   - Crea una actividad por ítem, `ADM` («Administración y supervisión de
+     obra»), `H-001` «Inicio del proyecto» y `H-002` «Fin del proyecto».
+   - Nace sin relaciones, en `version` 1 y sin calcular.
+   - Deja el evento `CRONOGRAMA_CREADO`.
+   - Con el presupuesto Cerrado se rechaza, y también si ya hay un cronograma.
+2. **Calendarios del cronograma:** `app.calendario WHERE cronograma_id = $1`,
+   con `tipo` `OBRA` o `CORRIDO`.
+   - El de la obra se edita en las mismas tablas de tramos y excepciones.
+   - El corrido es fijo: 7 × 00:00–24:00, `horas_por_dia` 24.
+   - Reemplazar el de la obra por uno de la empresa:
+     `app.fn_cambiar_calendario_cronograma(cronograma, calendario)`. Conserva
+     el id del calendario y deja `CRONOGRAMA_CALENDARIO`.
+   - **Cambió un permiso:** `INSERT` y `UPDATE` sobre `app.calendario` ya no
+     son de tabla, sino por columna:
+     - `INSERT` (`id`, `tenant_id`, `nombre`, `horas_por_dia`, `por_defecto`,
+       `festivos_*`);
+     - `UPDATE` (las mismas, menos `id` y `tenant_id`).
+
+     `tipo` y `cronograma_id` los escriben solo las funciones. Si un `INSERT`
+     tuyo nombra otra columna, falla.
+   - `fn_calendario_por_defecto` rechaza una copia.
+3. **`app.actividad_programada`**, solo entradas.
+   - `tipo`: `ITEM`, `HITO_INICIO`, `HITO_FIN`, `SIN_COSTO` o
+     `ADMINISTRACION`.
+   - Columnas que escribes: `nombre`, `codigo`, `orden`, `grupo_id`,
+     `usa_corrido` (solo `SIN_COSTO`), `cuadrillas` (≥ 1, solo `ITEM`),
+     `duracion_manual_horas` (solo `ITEM` y `SIN_COSTO`), y
+     `restriccion_tipo`/`_fecha` y `restriccion2_tipo`/`_fecha`.
+   - Restricciones: `INICIO_EL`, `INICIO_ANTES`, `INICIO_DESPUES`, `FIN_EL`,
+     `FIN_ANTES`, `FIN_DESPUES`, `LO_MAS_TARDE` (sin fecha),
+     `INICIO_OBLIGATORIO` y `FIN_OBLIGATORIO`. La secundaria es solo una de
+     las cuatro de ventana.
+   - Los rechazos traen campo: `restriccionTipo`, `restriccionFecha`,
+     `restriccion2Tipo`, `restriccion2Fecha`, `codigo`, `nombre`,
+     `presupuestoItemId`, `fechaInicio` y `calendarioId`.
+   - **Hitos y trámites:** con `codigo` nulo, la base pone el siguiente
+     `H-nnn` o `T-nnn`.
+   - **Un código escrito a mano** lleva letras: uno de solo cifras y puntos
+     se rechaza, porque es la forma del número de un ítem.
+   - **Actividad de un ítem nuevo (tu paso 5):** `INSERT (tenant_id,
+     cronograma_id, tipo 'ITEM', presupuesto_item_id)`. La base pone número y
+     nombre del ítem; si los mandas, tienen que ser esos.
+     - El nombre se guarda sin caracteres de control, porque el XER separa
+       con tabuladores.
+   - **El refresco va primero y las inserciones después.** Así:
+     `UPDATE … SET codigo = i.codigo_item, nombre = i.descripcion FROM
+     app.presupuesto_item i WHERE … AND (codigo, nombre) IS DISTINCT FROM (…)`.
+     Si entran primero, el número de un ítem nuevo choca con el número viejo
+     de otra actividad que todavía no refrescaste: me pasó en la medición.
+     Otra salida: `SET CONSTRAINTS app.ux_actividad_codigo DEFERRED` en esa
+     transacción.
+   - **Ítem borrado:** la actividad queda con `presupuesto_item_id` nulo y el
+     código `X-<el que tenía>` (`X-1.3-2` si ya hay una `X-1.3`), y conserva
+     sus relaciones. La borra el usuario.
+     - La de un ítem vivo y la administración no se borran.
+     - Un subgrupo con actividades no se borra.
+   - **Subgrupos:** `app.grupo_tramite`, de un solo nivel. Solo llevan hitos y
+     trámites.
+4. **`app.actividad_calculo`**: es la tuya, con `ON CONFLICT (actividad_id) DO
+   UPDATE`.
+   - `critica` es generada: `holgura_total_minutos <= 0`.
+   - En la administración, las tardías y las holguras van nulas.
+   - Sin guardianes: se escribe en cualquier estado.
+5. **`app.dependencia`**:
+   - `tipo` es `FC`, `CC`, `FF` o `CF`; el desfase va en `desfase_horas`.
+   - Las puntas no se actualizan: solo `tipo` y `desfase_horas`. Para cambiar
+     una punta, se borra y se crea.
+   - Una por par, nunca consigo misma, nunca con `ADM`.
+   - **Un círculo** se rechaza al final de la sentencia con P0001 y `campo:
+     predecesoraId`.
+     - El mensaje nombra hasta diez códigos y cuenta el resto.
+     - `error.detail` trae `{"ciclo": [ids]}`, con todas las actividades del
+       círculo, para que la pantalla las marque. Hoy `traducirError` no pasa
+       el detalle: eso es tuyo.
+6. **Concurrencia (B4):**
+   - Tu `SELECT … FOR UPDATE` sobre el cronograma sigue siendo lo primero.
+   - El guardián de cada entrada toma `FOR SHARE` sobre esa misma fila.
+   - **Activar, cerrar o reabrir** sube `cronograma.version`. Un guardado que
+     traía la versión de antes recibe el 409, y en `REPEATABLE READ` puede
+     salir 40001, que ya reintentas.
+7. **Cerrado (RN-34):** entradas de solo lectura, con dos excepciones para tu
+   recálculo de un cronograma desactualizado:
+   - crear la actividad de un ítem que faltaba, con los valores por defecto;
+   - refrescar `codigo`, `nombre` y `orden` de una actividad cuyo ítem sigue.
+
+   Los resultados y `calculado_*` se escriben siempre.
+8. **`app.fn_curvas(presupuesto, ids uuid[], fechas date[], minutos int[],
+   granularidad 'DIA'|'SEMANA'|'MES')`** devuelve `(periodo, facturacion,
+   costo)`.
+   - Toda actividad con costo tiene que venir: los ítems y `ADM` si hay
+     administración.
+   - Una de cero minutos viene con una sola entrada, la de su día.
+   - Se niega si el cronograma no tiene todas las actividades de los ítems.
+   - La semana arranca en `inicio_semana`, y el periodo se nombra por su
+     primer día.
+   - Ordena los tres arreglos con el mismo `ORDER BY`: con `array_agg` sin
+     orden se desalinean.
+9. **Líneas base:** `app.fn_guardar_linea_base(cronograma, nombre, ids,
+   fechas, minutos, reemplaza uuid DEFAULT NULL)`.
+   - Solo con el presupuesto Activo y el cronograma al día (`calculado_*` =
+     `version` / `revision`).
+   - Los minutos de cada actividad tienen que sumar su `duracion_minutos`.
+   - Un nombre repetido choca en `ux_linea_base_nombre` (23505). Mapéalo a
+     «Ya hay una línea base con ese nombre. ¿Reemplazarla?» y reintenta con
+     `reemplaza`.
+   - Eliminar es `DELETE FROM app.linea_base`, también solo en Activo.
+   - Eventos: `LINEA_BASE_GUARDADA`, `_REEMPLAZADA` y `_ELIMINADA`.
+   - La aplicación no inserta en esas tablas.
+10. **Fecha de inicio:** `UPDATE app.cronograma SET fecha_inicio` deja
+    `CRONOGRAMA_FECHA_INICIO`. Tienes `UPDATE` sobre `fecha_inicio`,
+    `version`, `calculado_version` y `calculado_revision`. La versión no baja.
+11. **Duplicar** ya se lleva el cronograma:
+    - el calendario de la obra, el corrido, los subgrupos y las relaciones;
+    - las actividades con sus cuadrillas, duraciones y restricciones,
+      también las huérfanas;
+    - nada de resultados ni de líneas base.
+12. **Restricciones únicas para tus mensajes de 23505:**
+    - `ux_actividad_codigo`. El de los hitos y trámites ya llega antes como
+      P0001 con `campo: codigo`.
+    - `ux_grupo_tramite_nombre`, `ux_linea_base_nombre` y
+      `ux_dependencia_par`.
+
+### Lo que necesito de ti
+
+- El commit, con el hook, de `docs/migraciones/0005-cronograma.sql`, su
+  `.revertir.sql` y `docs/prueba-d81-d92.sql`. Los dos `.docx` (00 y 07) van
+  con ellos o aparte, como prefieras.
+- `npm run migrar` sobre `construsoft`.
+- La lista de baterías gana `prueba-d81-d92.sql`.
+
+### Lo que decidió el dueño hoy, y ya está en el 07 §6.9
+
+- Código `X-` para la actividad de un ítem que sale del presupuesto.
+- Subgrupos de un solo nivel.
+- Los hitos del proyecto son hitos como cualquier otro, y se pueden borrar.
+- Una línea base se borra solo con el presupuesto Activo.
+- `ADM` es editable.
+- Duplicar copia las actividades huérfanas.
+
+**Lo que sigue de mi lado:** el CONTRATO §19, con las rutas de configuración
+(jornal, semana, calendarios y festivos) y del cronograma.
+
 ## 2026-10-20 · martes, la 0004 corregida: fallaba con empresas
 
 **Tenías razón, y el defecto es mío.** Dije que «las empresas que ya existían
