@@ -6,6 +6,85 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-20 · martes, el módulo 1 listo para construir
+
+**El diseño está cerrado.** El dueño respondió todas las dudas: está en el 07,
+capítulo 6, con la sección 6.9 como resumen de lo decidido el 16, el 19 y el
+20 de octubre. Léelo completo antes de empezar; lo que sigue es el orden de
+trabajo y quién hace qué, no el diseño.
+
+**Lo que ya no cambia y te toca directo**
+
+- El cálculo corre en la API y guarda los resultados en la base (D-89). La
+  base guarda los datos y defiende las reglas que se pueden escribir como
+  restricción; el motor (CPM hacia adelante y hacia atrás, restricciones,
+  holgura total y libre, la tarea de administración, las dos curvas) es tuyo.
+- El motor ve el calendario solo con dos operaciones: siguiente instante
+  laborable y sumar N horas laborables, también negativas (D-81). Calcula en
+  minutos y nunca redondea fechas (RN-27).
+- Recálculo (D-91): una edición del cronograma recalcula en la misma
+  petición. Una edición del presupuesto NO recalcula: solo marca el
+  cronograma como desactualizado, y la API lo recalcula antes de servirlo.
+  La edición de una cantidad tiene que seguir en sus 4 ms.
+- Dos ediciones a la vez: el cronograma lleva una versión; un guardado con
+  una versión vieja se rechaza (409) y devuelve la nueva.
+- Ciclos: si hay uno, no se calcula nada y se devuelve qué actividades lo
+  forman (RF-PRG-05).
+- Exportación (RF-PRG-11): XER para dos o tres versiones de P6 que el usuario
+  escoge, y XML de Project 2010 en adelante. El dueño tiene P6 para probar el
+  XER; el XML no se verifica en Project (se recomienda ProjectLibre para
+  errores gruesos). La pantalla le recomienda al usuario tener Project.
+- Meta de rendimiento (RNF-29): 1.500 actividades y 3.000 dependencias, cálculo
+  completo en menos de 500 ms. Se mide, como hicimos con la EDT.
+
+**El orden**
+
+1. **Migración 0004 · cimientos del cronograma (yo).**
+   - `configuracion_empresa.horas_por_jornal` (8, de 1 a 24) e
+     `inicio_semana` (lunes); `presupuesto.horas_por_jornal`, copiada al
+     crear y rellenada en los existentes.
+   - `apu_version.rendimiento_actividad` (opcional, mayor que cero, cuatro
+     decimales). Cambiarlo crea versión nueva por el camino de siempre
+     (`fn_nueva_version_apu`), con la misma pregunta de propagación.
+   - Calendarios: `calendario`, `calendario_tramo`, `calendario_excepcion`,
+     con tenant y RLS. Cada empresa, nueva o existente, nace con uno de lunes
+     a viernes, 7:00–12:00 y 13:00–16:00, por defecto y sin festivos. Esto
+     toca `fn_alta_tenant`.
+   - Festivos: listas de la plataforma por ventanas de cinco años (Colombia,
+     generada con `fn_festivos_colombia`) y listas propias de cada empresa,
+     privadas.
+   - Su batería, con prueba de mutación.
+2. **Migración 0005 · el cronograma (yo).** `cronograma`, `grupo_tramite`,
+   `actividad_programada`, `dependencia`, `linea_base` y sus dos tablas.
+   - En la base: las parejas de restricciones y la regla de fechas (RN-30),
+     dependencias solo entre actividades e hitos y nunca con capítulos, la
+     versión para ediciones simultáneas, la marca de desactualizado (un
+     disparador barato sobre `presupuesto_item`, medido), líneas base solo
+     con el presupuesto Activo, y la copia del cronograma al duplicar
+     (`fn_duplicar_presupuesto`), sin líneas base.
+   - Permisos: los de presupuestos (RN-43). Con el presupuesto Activo el
+     cronograma se edita: es la excepción a la D-5.
+   - Historial: crear el cronograma, guardar o reemplazar una línea base,
+     cambiar de calendario y cambiar la fecha de inicio.
+3. **CONTRATO §19 (yo).** Las rutas: calendarios, festivos, cronograma,
+   actividades, dependencias, recálculo, curvas, líneas base y exportaciones,
+   con sus formas y sus errores.
+4. **La API (tú)** y **la web (yo), en paralelo** contra el §19: tú el motor,
+   las rutas, el PDF del Gantt y las exportaciones; yo el editor de
+   calendarios (tabla de 30 minutos), la tabla con el Gantt (filas
+   virtualizadas), la lista de revisión, las curvas, las líneas base y la
+   franja de «el presupuesto cambió».
+
+**Lo que necesito de ti antes de la 0005 (no bloquea la 0004)**
+
+- Una lectura del capítulo 6 con ojos de quien va a escribir el motor. Si
+  algo de lo que la base va a guardar no te sirve para calcular —sobre todo
+  dónde quedan las fechas y holguras calculadas, y cómo escribes los
+  resultados de un recálculo completo en una transacción—, dilo antes de que
+  lo congele en la migración.
+- La plantilla de importación de APU gana la columna opcional del
+  rendimiento (RF-APU-25). Es tuya, porque la arma la API.
+
 ## 2026-10-16 · viernes, documentos al día y una vista sin endurecer
 
 **Hecho, en el commit de docs:** los documentos 00 a 07 se revisaron contra las
