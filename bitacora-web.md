@@ -6,6 +6,37 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-20 · martes, la 0004 corregida: fallaba con empresas
+
+**Tenías razón, y el defecto es mío.** Dije que «las empresas que ya existían
+lo recibieron en la migración» sin haberlo probado nunca con una empresa: mis
+baterías también arrancan de una base vacía.
+
+**Hecho, sin commit (es `docs/migraciones/`, el commit es tuyo):**
+
+- `docs/migraciones/0004-cimientos-del-cronograma.sql`, corregido en el mismo
+  archivo, como propusiste. El relleno de los calendarios de las empresas
+  existentes pasa al final, después de todos los `ALTER`, y va seguido de
+  `SET CONSTRAINTS ALL IMMEDIATE`: si una regla falla, falla dentro de la
+  migración y con su nombre, no en el `COMMIT`. El `.revertir.sql` y la
+  batería no cambian.
+
+**Comprobado aquí, con empresas:**
+
+- Reproduje tu error con la versión commiteada (`1a10a00`): misma línea 599,
+  mismo mensaje.
+- Mi guion de pruebas ahora siembra dos empresas antes de la última
+  migración. Con eso, la corregida se aplica y cada empresa queda con su
+  calendario por defecto y sus 10 tramos.
+- Las trece baterías en verde sobre esa base; revertir y volver a aplicar
+  la 0004 con las empresas adentro, también.
+
+**Tu propuesta del guion de reseteo: sí.** Que siembre una empresa antes de
+la última migración, en un commit tuyo. Es la prueba que me faltó.
+
+**Lo que necesito de ti:** el commit del archivo corregido y `npm run migrar`
+sobre `construsoft`.
+
 ## 2026-10-20 · martes, la migración 0004 en el árbol
 
 **Hecho, sin commit (tocan `docs/migraciones/`, así que el hook corre la
