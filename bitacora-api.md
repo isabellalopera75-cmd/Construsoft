@@ -15,6 +15,90 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-20 · martes, la 0006 aplicada y el §19 leído
+
+**Hecho**
+
+- **Antes del commit** apliqué la 0006 sobre `construsoft_test` con la
+  demostración sembrada y dos cronogramas ya confirmados. Se aplica, y los
+  dos quedan con `aviso_presupuesto` nulo.
+- **La 0006 está commiteada** (`e64947b`) con su `.revertir.sql` y
+  `docs/prueba-d93.sql`. El hook dio 539 de 539. `TIPOS_EVENTO` no cambió.
+- **`construsoft` tiene la 0006**, aplicada con `npm run migrar`. Una
+  segunda corrida dice «al día».
+- **Las quince baterías en verde** sobre `construsoft_test` recién rehecha
+  (D-93 8 de 8), y los verificadores en cero o sin error. `prueba-d93.sql`
+  quedó en mi lista.
+- **Leí el §19 completo.** Casi todo me sirve tal como está. Lo que no, va
+  abajo como pregunta. No construyo esas piezas hasta tener respuesta; el
+  resto lo empiezo ya.
+
+**Comprobado, para que no se discuta después.** Un `GET` que recalcula con
+la suscripción en solo lectura (§19.1) no choca con la base: la suscripción
+la comprueba `fn_exigir_permiso` según el permiso de la petición, y el `GET`
+corre con `PRESUPUESTOS.VER`. No hace falta ningún cambio.
+
+### Lo que necesito de ti antes de construir esas piezas
+
+Ninguna de estas preguntas me bloquea el motor ni las rutas de §19.2–§19.4.
+Me bloquean la franja, la lista de revisión y guardar líneas base.
+
+- **P1. Guardar una línea base con el cronograma desactualizado (§19.8).**
+  `version` es «la que la persona está viendo», pero un cambio del
+  presupuesto no sube la versión. Pasa así:
+  - la persona ve la versión 7 con el fin el 10 de marzo;
+  - alguien cambia una cantidad;
+  - la persona guarda la línea base con `version` 7.
+
+  La versión coincide, y la API recalcula antes de guardar (la base exige
+  que esté al día). Queda guardado un fin del 14 de marzo que la persona
+  nunca vio. Propongo responder 409 con la vista recalculada cuando el
+  cronograma estaba desactualizado al guardar: lo que vio ya no es lo que se
+  guardaría. ¿De acuerdo, o se guarda igual?
+- **P2. `AvisoDelPresupuesto.desde`, «el primer cambio sin cerrar».** La API
+  no sabe cuándo fue el primer cambio: la base guarda solo la última
+  modificación (`presupuesto.fecha_modificacion`). Propongo que `desde` sea
+  la `fecha_modificacion` que leo en el recálculo que crea el aviso, o sea,
+  el último cambio antes de ese primer recálculo, y que los recálculos
+  siguientes la conserven. No es exactamente «el primer cambio». Si tiene
+  que serlo, hace falta guardar la fecha en la base, y eso es tuyo.
+- **P3. ¿Hay aviso cuando no cambió nada que se vea en él?** La revisión del
+  presupuesto sube también con un cambio de precio o el renombre de un
+  capítulo. Las dos listas de actividades (entraron y salieron) y las
+  duraciones salen vacías, y el fin queda igual. Propongo no crear el aviso,
+  ni tocar uno que ya exista, cuando esas tres listas salen vacías y el fin
+  no cambió. Un cambio de precio sí mueve las curvas, y eso el aviso no lo
+  muestra. Es decisión de producto, porque la franja aparece o no.
+- **P4. Cómo se acumula el aviso.** La forma no lo dice. Propongo:
+  - un ítem que entró y salió antes de que se cierre el aviso desaparece de
+    las dos listas;
+  - una duración que volvió a su valor de antes sale de
+    `duracionesCambiadas`;
+  - `antesDias` y `finAntes` conservan el valor del primer recálculo, y
+    `ahoraDias` y `finAhora` toman el del último.
+
+  ¿De acuerdo?
+- **P5. `revision.sinProgramar`: ¿solo para actividades `ITEM`?** La
+  respuesta a C4 hablaba de ítems nuevos. Un hito sin relaciones ya sale en
+  `sinPredecesora` y `sinSucesora`. Si `sinProgramar` aplica a todos los
+  tipos, los hitos recién creados salen dos veces en la lista.
+- **P6. `finAMitadDeJornada`.** Propongo esta definición: el fin no coincide
+  con el cierre del último tramo de ese día en el calendario de la
+  actividad. Es falso en los hitos. ¿Así?
+
+**Lo que sigue de mi lado, en este orden:**
+
+1. El guion de reseteo siembra una empresa antes de la última migración.
+2. Las rutas de §19.2–§19.4 (jornal, semana, calendarios y festivos, con la
+   plantilla) y la columna del rendimiento en la plantilla de APU
+   (RF-APU-25).
+3. El motor: calendario compilado, CPM con las restricciones de P6 y las
+   holguras, con sus pruebas calculadas a mano y la medición de RNF-29.
+4. Las rutas de §19.5–§19.8, con las respuestas a P1–P6.
+5. La exportación, cuando lleguen los XER de muestra.
+
+---
+
 ## 2026-10-20 · martes, la 0005 commiteada y aplicada en `construsoft`
 
 **Hecho**
