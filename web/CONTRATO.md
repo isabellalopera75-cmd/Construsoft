@@ -1352,3 +1352,505 @@ CambioDePlazo = { clave, nombre, valor, vigenteDesde: Fecha | null, motivo,
 
 `fn_purgar_empresas` sigue igual por fuera. Su `motivo` ya no dice «60 días» ni
 «10 días»: dice la fecha en que venció el plazo.
+
+## 19. Programación de obra (PROPUESTO el 20 de octubre de 2026, sin construir)
+
+El módulo 1 (documento 07, capítulo 6). La base ya lo sostiene:
+
+| Migración | Qué trae | Batería |
+|---|---|---|
+| 0004 | calendarios de la empresa, festivos, horas por jornal, rendimiento | `docs/prueba-d84-d91.sql` |
+| 0005 | el cronograma, sus actividades, relaciones, resultados, curvas y líneas base | `docs/prueba-d81-d92.sql` |
+| 0006 | el aviso de que el presupuesto cambió (D-93) | `docs/prueba-d93.sql` |
+
+Qué escribe la base y qué hace la API está en las entradas del 20 de octubre
+de las dos bitácoras. Aquí van las rutas y las formas.
+
+**Permisos (RN-43).** El cronograma usa los del presupuesto:
+
+- leer es `PRESUPUESTOS.VER`;
+- escribir, guardar líneas base y cerrar el aviso es `PRESUPUESTOS.EDITAR`;
+- exportar es `PRESUPUESTOS.EXPORTAR`.
+
+Calendarios, festivos, horas por jornal e inicio de semana son preferencias de
+la empresa: se escriben con `CONFIG.PREFERENCIAS` y se leen sin permiso propio,
+como las unidades (§7), porque crear un cronograma necesita elegir un
+calendario.
+
+### 19.1 Reglas que valen para todo el módulo
+
+Se suman a las del §1.
+
+- **Fechas.** Una fecha-hora (`FechaHora`) viaja como texto local sin zona y
+  al minuto: `"2026-11-02T07:00"`. Así se guarda (07 §6.2); no es UTC, y la interfaz no
+  la convierte a `Date`. Una fecha sola es `"2026-11-02"`. Una hora del día es
+  `"07:00"`, y la medianoche del final del día es `"24:00"`.
+- **Duraciones, holguras y desfases viajan en días, ya convertidos.** Van como
+  texto con un decimal: `"5.1"`. Los convierte el servidor con el factor
+  «1 día = X h» del calendario que corresponde:
+  - el de la actividad, para su duración y sus holguras;
+  - el de la sucesora, para el desfase de una relación (RN-29).
+
+  El redondeo es a la mitad, alejándose del cero.
+- **Lo que se escribe en días** (duración manual y desfase) llega como texto
+  con hasta un decimal.
+  - Con más decimales, o si no es una cifra, es 422 con su `campo`.
+  - Solo el desfase puede ser negativo.
+  - El servidor lo guarda en horas.
+- **Toda escritura del cronograma lleva `version`** y responde con la
+  `VistaCronograma` entera, ya recalculada, igual que la mesa (§1.3). La
+  pantalla reemplaza su estado por lo que llegó. La respuesta de una escritura
+  no trae las curvas (§19.7).
+- **409, otra persona cambió el cronograma.** Pasa cuando la `version` no es la
+  vigente. También pasa si el presupuesto cambió de estado mientras tanto:
+  activar, cerrar o reabrir mueve la versión. La respuesta es:
+
+  ```json
+  { "mensaje": "Otra persona cambió el cronograma mientras usted lo editaba. Esta es la versión nueva; su cambio no se guardó.",
+    "cronograma": { "…": "VistaCronograma" } }
+  ```
+
+  La pantalla muestra la versión nueva y conserva el cambio rechazado para que
+  la persona lo rehaga (07 §6.9).
+- **Tres errores del módulo llevan una llave más que las del §2.** Son
+  `cronograma` en el 409 de versión, `ciclo` en una relación que cierra un
+  círculo (§19.6) y `lineaBaseId` en un nombre de línea base repetido (§19.8).
+  Ninguna otra respuesta de error cambia de forma.
+- **Leer puede recalcular.** Si el cronograma está desactualizado, el `GET` lo
+  recalcula antes de responder (D-91). Tarda lo que tarde el cálculo, y la
+  pantalla muestra «recalculando» si pasa de un umbral corto. Recalcular no es
+  editar: pasa con cualquier rol que pueda leer, con el presupuesto Cerrado y
+  con la suscripción en solo lectura.
+- **Con el presupuesto Cerrado, el cronograma es de solo lectura (RN-34).**
+  Toda escritura es 422 sin `campo`, y la pantalla recarga la vista.
+  `editable` ya lo dice antes de intentar.
+- **Las horas de un calendario.** Mientras se pinta la tabla de un
+  calendario, la interfaz cuenta bloques de media hora. Son enteros, no
+  dinero. Al guardar manda lo que devuelve el servidor.
+
+### 19.2 Horas por jornal e inicio de semana
+
+`Preferencias` (§7) suma dos campos:
+
+```
+Preferencias = { …, horasPorJornal: string,   // "8.00", de 1 a 24 (D-84)
+                    inicioSemana: number }    // 1 = lunes … 7 = domingo (RF-CFG-33)
+```
+
+- Cambiar las horas por jornal no mueve ningún presupuesto que ya existe: cada
+  uno se lleva su copia al crearse (RF-CFG-27).
+- Fuera de rango es 422 con `campo: "horasPorJornal"` o
+  `campo: "inicioSemana"`.
+
+### 19.3 Calendarios de la empresa (RF-CFG-29)
+
+| Método y ruta | Cuerpo | Respuesta | Permiso |
+|---|---|---|---|
+| `GET /api/calendarios` | — | `{ calendarios: CalendarioResumen[] }` | ninguno propio |
+| `GET /api/configuracion/calendarios/:id` | — | `Calendario` | ninguno propio |
+| `POST /api/configuracion/calendarios` | `{ nombre, horasPorDia, semana }` | 201 `Calendario` | `CONFIG.PREFERENCIAS` |
+| `PUT /api/configuracion/calendarios/:id` | `{ nombre, horasPorDia, semana }` | 200 `Calendario` | `CONFIG.PREFERENCIAS` |
+| `DELETE /api/configuracion/calendarios/:id` | — | 204 | `CONFIG.PREFERENCIAS` |
+| `POST /api/configuracion/calendarios/:id/por-defecto` | — | 200 `{ calendarios: CalendarioResumen[] }` | `CONFIG.PREFERENCIAS` |
+| `PUT /api/configuracion/calendarios/:id/excepciones/:fecha` | `{ motivo, tramos }` | 200 `Calendario` | `CONFIG.PREFERENCIAS` |
+| `DELETE /api/configuracion/calendarios/:id/excepciones/:fecha` | — | 200 `Calendario` | `CONFIG.PREFERENCIAS` |
+| `POST /api/configuracion/calendarios/:id/festivos` | `{ listaId, propia }` | 200 `{ copiados, calendario: Calendario }` | `CONFIG.PREFERENCIAS` |
+
+```
+CalendarioResumen = { id, nombre, horasPorDia: string, horasSemana: string,
+                      porDefecto: boolean }
+Calendario = { id, nombre, tipo: 'EMPRESA' | 'OBRA' | 'CORRIDO',
+               horasPorDia: string,            // «1 día = X h», "8.00"
+               porDefecto: boolean,
+               semana: Tramo[][],              // 7 listas; la 0 es el lunes
+               horasDia: string[],             // 7 totales, "8.0"
+               horasSemana: string,            // "40.0"
+               excepciones: Excepcion[],       // por fecha
+               festivos: { origen: { tipo: 'PLATAFORMA' | 'PROPIA', id, nombre } | null,
+                           hasta: number | null } }
+Tramo     = { inicio: "07:00", fin: "12:00" }
+Excepcion = { fecha: Fecha, motivo: string | null, tramos: Tramo[], horas: string }
+```
+
+- **`semana` reemplaza la semana entera.** La API borra los tramos y escribe
+  los que llegan, en una transacción. El llenado rápido lo hace la pantalla:
+  pinta la tabla y manda lo pintado.
+- **Una excepción sin tramos es un día no laborable** (un festivo, un día
+  perdido por clima). Con tramos, ese día se trabaja en esos tramos.
+- **Copiar festivos** no pisa las fechas que el calendario ya tiene: un festivo
+  marcado como laborable sigue así. Anota de qué lista salieron y hasta qué
+  año llegan. `copiados` dice cuántas fechas entraron.
+- **Errores:**
+
+  | Rechazo | HTTP | `campo` |
+  |---|---|---|
+  | Nombre vacío o repetido en la empresa (`ux_calendario_nombre`) | 422 / 409 | `nombre` |
+  | `horasPorDia` fuera de 0 a 24, o en cero | 422 | `horasPorDia` |
+  | Un tramo que no cae en media hora, con `inicio` ≥ `fin`, o que se cruza con otro del mismo día | 422 | `semana` (o `tramos` en una excepción) |
+  | Quitar la marca o eliminar el calendario de por defecto | 422 | — |
+
+  Los tramos los valida primero la API, para poder dar el `campo`. La base es
+  el respaldo: el cruce lo comprueba al confirmar, sin campo.
+- Un calendario de la empresa se elimina aunque algún cronograma lo haya
+  copiado: cada cronograma tiene su copia (D-86).
+
+### 19.4 Festivos (RF-CFG-32, D-90)
+
+| Método y ruta | Cuerpo | Respuesta | Permiso |
+|---|---|---|---|
+| `GET /api/festivos` | — | `{ plataforma: ListaDeLaPlataforma[], propias: ListaPropiaResumen[] }` | ninguno propio |
+| `GET /api/configuracion/festivos/:id` | — | `ListaPropia` | ninguno propio |
+| `POST /api/configuracion/festivos` | `{ nombre, fechas }` | 201 `ListaPropia` | `CONFIG.PREFERENCIAS` |
+| `PUT /api/configuracion/festivos/:id` | `{ nombre, fechas }` | 200 `ListaPropia` | `CONFIG.PREFERENCIAS` |
+| `DELETE /api/configuracion/festivos/:id` | — | 204 | `CONFIG.PREFERENCIAS` |
+| `GET /api/configuracion/festivos/plantilla` | — | la plantilla, como adjunto `.xlsx` | `CONFIG.PREFERENCIAS` |
+| `POST /api/configuracion/festivos/importar?nombre=…` | el archivo | 201 `ListaPropia` | `CONFIG.PREFERENCIAS` |
+
+```
+ListaDeLaPlataforma = { id, pais, nombre, anioDesde: number, anioHasta: number }
+ListaPropiaResumen  = { id, nombre, fechas: number, desde: number | null, hasta: number | null }
+ListaPropia         = { id, nombre, fechas: { fecha: Fecha, nombre: string | null }[] }
+```
+
+- **La lista propia la ve solo su empresa** (D-90). Las de la plataforma son de
+  solo lectura para todas.
+- **`fechas` reemplaza la lista entera.** Una fecha repetida es 422 con
+  `campo: "fechas"`, y un nombre repetido de lista es 409 con
+  `campo: "nombre"`.
+- Eliminar una lista no toca los calendarios que la copiaron: conservan sus
+  fechas y olvidan de dónde salieron.
+- **La plantilla y la importación siguen el §10**, con todas sus reglas: el
+  archivo tal cual como cuerpo, todo o nada, todos los errores por fila y
+  columna, y los mismos topes. Esta es la decisión del dueño del 20 de
+  octubre. La plantilla tiene dos hojas:
+  - **Instrucciones**, primero;
+  - **Festivos**, con dos columnas: Fecha (fecha de Excel, o texto
+    `AAAA-MM-DD`) y Nombre (opcional).
+
+  Son errores de fila una fecha que no es una fecha y una fecha repetida en el
+  archivo. `nombre` en la ruta es el de la lista; si ya existe, es 409.
+- **El panel** suma:
+
+  | Método y ruta | Respuesta |
+  |---|---|
+  | `GET /api/superadmin/festivos` | `{ listas: ListaDeLaPlataforma[] }` |
+  | `POST /api/superadmin/festivos/:pais/extender` | 200 `{ lista: ListaDeLaPlataforma }` |
+
+  Extender es `plataforma.fn_extender_festivos(pais, <superadministrador>)`:
+  agrega los cinco años siguientes y deja el evento `FESTIVOS_EXTENDIDOS`. Por
+  ahora solo hay `CO`.
+
+### 19.5 Leer y crear el cronograma
+
+| Método y ruta | Cuerpo | Respuesta | Permiso |
+|---|---|---|---|
+| `GET /api/presupuestos/:id/cronograma?lineaBase=<id>` | — | 200 `VistaCronograma`, o 200 `{ cronograma: null }` si no se ha creado | `PRESUPUESTOS.VER` |
+| `POST /api/presupuestos/:id/cronograma` | `{ fechaInicio, calendarioId? }` | 201 `VistaCronograma` | `PRESUPUESTOS.EDITAR` |
+
+Crear es `app.fn_crear_cronograma(presupuesto, fechaInicio, calendarioId)`.
+
+- Sin `calendarioId`, toma el de por defecto de la empresa.
+- Nace con una actividad por ítem, la administración (`ADM`) y los hitos
+  `H-001` «Inicio del proyecto» y `H-002` «Fin del proyecto», sin relaciones
+  (RF-PRG-01). La API lo calcula antes de responder.
+- Con el presupuesto Cerrado es 422. Si ya existe un cronograma es 409. Sin
+  fecha es 422 con `campo: "fechaInicio"`; con un calendario que no es de la
+  empresa, 422 con `campo: "calendarioId"`.
+
+```
+VistaCronograma = {
+  cronograma: {
+    id, presupuestoId, version: number, fechaInicio: Fecha,
+    editable: boolean,          // EDITAR, suscripción vigente y presupuesto no Cerrado
+    recalculado: boolean,       // este GET recalculó
+    inicio: FechaHora, fin: FechaHora,  // del proyecto
+    duracionDias: string        // en el calendario de la obra
+  },
+  calendarios: { obra: Calendario, corrido: Calendario },
+  capitulos: Capitulo[],
+  grupos: Grupo[],
+  actividades: Actividad[],
+  dependencias: Dependencia[],
+  revision: Revision,
+  avisos: Avisos,
+  lineasBase: LineaBaseResumen[],
+  lineaBase: LineaBaseEnVista | null   // la de ?lineaBase=, para el Gantt
+}
+
+Capitulo = { id, padreId, codigo, nombre, nivel, posicion,
+             inicio: FechaHora | null, fin: FechaHora | null,
+             duracionDias: string | null, critico: boolean }
+             // barra resumen: sale de sus hijos; nulas si no tiene actividades;
+             // crítico si alguna de sus actividades lo es
+Grupo = { id, nombre, orden: number }       // subgrupos de «Hitos y trámites», un nivel
+
+Actividad = {
+  id, tipo: 'ITEM' | 'HITO_INICIO' | 'HITO_FIN' | 'SIN_COSTO' | 'ADMINISTRACION',
+  codigo, nombre,
+  capituloId: string | null,      // las del presupuesto; nulo si ya no está
+  grupoId: string | null,         // hitos y trámites; nulo = raíz del grupo
+  orden: number,
+  presupuestoItemId: string | null,
+  enPresupuesto: boolean,         // false: «ya no está en el presupuesto» (RN-33)
+  cantidad: string | null, unidad: string | null,
+  rendimiento: string | null,     // unidades por jornal, de la versión del APU
+  costo: Dinero,                  // "0.000000" en hitos y trámites
+  cuadrillas: number, usaCorrido: boolean,
+  duracionCalculadaDias: string | null,   // nula sin rendimiento
+  duracionManualDias: string | null,
+  duracionDias: string,                   // la que usa el cálculo
+  restriccion: Restriccion | null, restriccionSecundaria: Restriccion | null,
+  inicio: FechaHora, fin: FechaHora,
+  inicioTardio: FechaHora | null, finTardio: FechaHora | null,   // nulas en ADM
+  holguraTotalDias: string | null, holguraLibreDias: string | null,
+  critica: boolean,
+  finAMitadDeJornada: boolean     // RN-27: la barra se marca
+}
+Restriccion = { tipo: 'INICIO_EL' | 'INICIO_ANTES' | 'INICIO_DESPUES' | 'FIN_EL'
+                    | 'FIN_ANTES' | 'FIN_DESPUES' | 'LO_MAS_TARDE'
+                    | 'INICIO_OBLIGATORIO' | 'FIN_OBLIGATORIO',
+                fecha: Fecha | null }      // nula solo en LO_MAS_TARDE
+Dependencia = { id, predecesoraId, sucesoraId, tipo: 'FC' | 'CC' | 'FF' | 'CF',
+                desfaseDias: string }
+
+Revision = {                     // RF-PRG-07: el estado de ahora, en ids de actividad
+  sinProgramar: string[],        // sin ninguna relación
+  yaNoEstan: string[],
+  manualDistinta: string[],      // duración manual distinta de la calculada
+  sinRendimiento: string[],      // de un APU sin rendimiento y sin duración manual
+  sinPredecesora: string[], sinSucesora: string[],   // RN-39; nunca ADM
+  holguraNegativa: string[]      // restricciones que la lógica no cumple (D-87)
+}
+
+Avisos = {
+  presupuesto: AvisoDelPresupuesto | null,        // D-93, la franja
+  festivos: { hasta: number, finDelProyecto: Fecha } | null,
+      // el cronograma pasa del último año de festivos del calendario de la obra
+  administracion: { lineaBaseId, finLineaBase: FechaHora, finActual: FechaHora,
+                    diasDeMas: string } | null
+      // solo con ?lineaBase= y si el proyecto termina después que esa línea base
+}
+AvisoDelPresupuesto = {
+  desde: Instante,                                // el primer cambio sin cerrar
+  entraron: { id, codigo, nombre }[],
+  salieron: { id, codigo, nombre }[],
+  duracionesCambiadas: { id, codigo, nombre, antesDias: string, ahoraDias: string }[],
+  finAntes: FechaHora, finAhora: FechaHora
+}
+
+LineaBaseResumen = { id, nombre, guardadaEn: Instante, guardadaPor: string | null,
+                     fin: FechaHora }
+LineaBaseEnVista = { id, nombre, guardadaEn: Instante,
+                     actividades: { actividadId, inicio: FechaHora, fin: FechaHora,
+                                    duracionDias: string,
+                                    variacionInicioDias: string | null,
+                                    variacionFinDias: string | null }[] }
+      // la variación, en días del calendario de la actividad; positiva = más tarde
+      // que en la línea base; nula si la actividad ya no existe en el cronograma
+```
+
+- **El orden de `actividades`** es el de la pantalla:
+  - primero las del presupuesto, en el orden de la EDT, cada una bajo su
+    capítulo;
+  - después la administración;
+  - después «Hitos y trámites»: primero la raíz y luego cada subgrupo, por
+    `orden`.
+
+  Las que ya no están en el presupuesto van al final de las del presupuesto,
+  sin capítulo.
+- **El código de una actividad del presupuesto** es el número interno de su
+  ítem (RN-42). Si el ítem sale del presupuesto, su actividad queda con el
+  código `X-<el que tenía>`.
+- **La franja (D-93).** Está a la vista de todos los que abren el cronograma
+  mientras `avisos.presupuesto` no sea nulo. Se va cuando alguien con
+  `PRESUPUESTOS.EDITAR` la cierra (§19.6) o guarda cualquier cambio en el
+  cronograma. La arma la API en el recálculo que provoca un cambio del
+  presupuesto, y suma los cambios si llegan varios antes de que alguien la
+  cierre. Se guarda en `cronograma.aviso_presupuesto`, con esta misma forma.
+- **El aviso de la administración** es la decisión del dueño del 20 de
+  octubre. Compara el fin del proyecto contra la línea base que se muestra y
+  dice cuántos días de más lleva la obra. El texto lo pone la pantalla:
+  «La obra termina N días después que la línea base «X»; la administración del
+  presupuesto sigue igual». Sin línea base a la vista, no hay aviso.
+- **Para el Gantt**, la pantalla sombrea el tiempo no laborable con
+  `calendarios.obra` (el corrido no tiene).
+
+### 19.6 Editar el cronograma
+
+Todas llevan `version` (en el cuerpo; en un `DELETE`, como `?version=n`) y
+responden 200 `VistaCronograma`. Crear responde 201. Permiso:
+`PRESUPUESTOS.EDITAR`.
+
+| Método y ruta | Cuerpo |
+|---|---|
+| `PATCH /api/cronogramas/:id` | `{ version, fechaInicio }` |
+| `PUT /api/cronogramas/:id/calendario` | `{ version, calendarioId }`: reemplaza el de la obra por uno de la empresa |
+| `PUT /api/cronogramas/:id/calendario-obra` | `{ version, nombre, horasPorDia, semana }` |
+| `PUT /api/cronogramas/:id/calendario-obra/excepciones/:fecha` | `{ version, motivo, tramos }` |
+| `DELETE /api/cronogramas/:id/calendario-obra/excepciones/:fecha?version=n` | — |
+| `POST /api/cronogramas/:id/calendario-obra/festivos` | `{ version, listaId, propia }` |
+| `POST /api/cronogramas/:id/actividades` | `{ version, tipo, nombre, codigo?, grupoId?, duracionManualDias?, usaCorrido? }` |
+| `PATCH /api/cronogramas/:id/actividades/:actividadId` | `{ version, …los campos que cambian }` |
+| `PUT /api/cronogramas/:id/actividades/:actividadId/posicion` | `{ version, posicion }` |
+| `DELETE /api/cronogramas/:id/actividades/:actividadId?version=n` | — |
+| `POST /api/cronogramas/:id/grupos` | `{ version, nombre }` |
+| `PATCH /api/cronogramas/:id/grupos/:grupoId` | `{ version, nombre }` |
+| `PUT /api/cronogramas/:id/grupos/:grupoId/posicion` | `{ version, posicion }` |
+| `DELETE /api/cronogramas/:id/grupos/:grupoId?version=n` | — |
+| `POST /api/cronogramas/:id/dependencias` | `{ version, predecesoraId, sucesoraId, tipo, desfaseDias }` |
+| `PATCH /api/cronogramas/:id/dependencias/:dependenciaId` | `{ version, tipo?, desfaseDias? }` |
+| `DELETE /api/cronogramas/:id/dependencias/:dependenciaId?version=n` | — |
+| `POST /api/cronogramas/:id/aviso/cerrar` | `{}`: responde 204, **sin `version`** |
+
+- **Crear actividades** es solo para hitos y trámites:
+  - `tipo` es `HITO_INICIO`, `HITO_FIN` o `SIN_COSTO`;
+  - sin `codigo`, la base pone el siguiente `H-nnn` o `T-nnn`.
+
+  Las del presupuesto nacen y salen con sus ítems. La administración es una
+  sola y no se crea.
+- **Lo que acepta `PATCH` de una actividad, por tipo**:
+
+  | Campo | ITEM | HITO_* | SIN_COSTO | ADM |
+  |---|---|---|---|---|
+  | `nombre`, `codigo` | — | sí | sí | sí |
+  | `cuadrillas` (entero ≥ 1) | sí | — | — | — |
+  | `duracionManualDias` (`null` la quita) | sí | — | sí | — |
+  | `usaCorrido` | — | — | sí | — |
+  | `grupoId` (`null` = raíz) | — | sí | sí | — |
+  | `restriccion`, `restriccionSecundaria` (`null` las quita) | sí | sí | sí | — |
+
+  Un campo que no aplica a su tipo es 422 con ese `campo`. El nombre y el
+  número de una actividad del presupuesto son los de su ítem.
+- **`posicion`** es absoluta dentro de su grupo, como en §1.4. Solo la tienen
+  los hitos, los trámites y los subgrupos: las del presupuesto siguen la EDT.
+- **Eliminar** solo vale para:
+  - hitos y trámites, incluidos los dos del proyecto;
+  - actividades que ya no están en el presupuesto.
+
+  Se llevan sus relaciones. Un subgrupo con actividades no se elimina.
+- **Las parejas de restricciones (RN-30)** las defiende la base, con su campo.
+  La pantalla ofrece solo las válidas:
+  - Sin principal no hay secundaria.
+  - «Inicio el», «fin el» y las dos obligatorias no admiten secundaria.
+  - Con las otras cinco, la secundaria es una de las cuatro de ventana, y
+    distinta de la principal.
+  - Si las dos son de inicio o las dos de fin, la fecha «antes de» no puede
+    quedar antes de la fecha «después de».
+  - Un hito de fin no lleva restricciones de inicio, ni uno de inicio
+    restricciones de fin.
+- **Una relación que cierra un círculo** es 422 y no se guarda nada
+  (RF-PRG-05):
+
+  ```json
+  { "mensaje": "Esta relación cerraría un círculo entre 1.1, 1.2, 2.1: una actividad no puede depender de sí misma, ni directa ni indirectamente (RF-PRG-05).",
+    "campo": "predecesoraId",
+    "ciclo": ["…", "…", "…"] }
+  ```
+
+  - `ciclo` trae los ids de **todas** las actividades del círculo, para
+    marcarlas. El mensaje nombra hasta diez.
+  - La API lo saca del detalle del error de la base (`{"ciclo": [ids]}`).
+- **Otros rechazos con campo:**
+  - una relación con la administración, consigo misma o repetida:
+    `predecesoraId`;
+  - un tipo de relación que no existe: `tipo`;
+  - un código con forma de número de ítem o repetido: `codigo`;
+  - una restricción mal formada: `restriccion.tipo`, `restriccion.fecha`,
+    `restriccionSecundaria.tipo` o `restriccionSecundaria.fecha`;
+  - un nombre de subgrupo repetido: `nombre`.
+- **Toda escritura que entra cierra la franja** (D-93). La API anula
+  `aviso_presupuesto` en la misma transacción.
+- **Cerrar la franja** no lleva versión ni la sube: no es una entrada, y no
+  debe darle un 409 a quien edita en ese momento.
+
+### 19.7 Las curvas (RF-PRG-08, D-88, D-89)
+
+| Método y ruta | Respuesta | Permiso |
+|---|---|---|
+| `GET /api/cronogramas/:id/curvas?granularidad=SEMANA\|MES&lineaBase=<id>` | `Curvas` | `PRESUPUESTOS.VER` |
+
+```
+Curvas = { granularidad: 'SEMANA' | 'MES',
+           periodos: Periodo[],
+           totales: { facturacion: Dinero, costo: Dinero },
+           lineaBase: { id, nombre, periodos: Periodo[] } | null }
+Periodo = { periodo: Fecha,           // su primer día
+            facturacion: Dinero, costo: Dinero,
+            facturacionAcumulada: Dinero, costoAcumulado: Dinero }
+```
+
+- **El dinero lo reparte la base.** Es `app.fn_curvas`, con los minutos por
+  actividad y día que entrega el motor. Las acumuladas también salen de la
+  base (`sum(...) OVER (ORDER BY periodo)`): la API no suma dinero (regla 1.1).
+- `totales.facturacion` es el valor total del presupuesto. `totales.costo` es
+  costo directo más costos indirectos más administración.
+- La semana empieza el `inicioSemana` de la empresa (§19.2).
+- **La línea base** se arma desde sus filas por día, con la misma granularidad
+  y la misma semana de hoy, así que las dos curvas se comparan periodo a
+  periodo.
+- Si el cronograma está desactualizado, se recalcula primero, como en §19.1.
+
+### 19.8 Líneas base (RF-PRG-09, RN-38)
+
+| Método y ruta | Cuerpo | Respuesta | Permiso |
+|---|---|---|---|
+| `GET /api/cronogramas/:id/lineas-base` | — | `{ lineasBase: LineaBaseResumen[] }` | `PRESUPUESTOS.VER` |
+| `POST /api/cronogramas/:id/lineas-base` | `{ version, nombre }` | 201 `{ lineaBase: LineaBaseResumen }` | `PRESUPUESTOS.EDITAR` |
+| `POST /api/lineas-base/:id/reemplazar` | `{ version }` | 200 `{ lineaBase: LineaBaseResumen }` | `PRESUPUESTOS.EDITAR` |
+| `DELETE /api/lineas-base/:id` | — | 204 | `PRESUPUESTOS.EDITAR` |
+
+- **Solo con el presupuesto Activo**, para guardar, reemplazar y eliminar. En
+  otro estado es 422 sin campo.
+- **`version` es la que la persona está viendo**: guarda la foto de lo que
+  vio, y si cambió es 409 como en §19.1. Guardar no sube la versión, porque no
+  es una entrada.
+- **Un nombre que ya existe** es 409 y no sobrescribe en silencio:
+
+  ```json
+  { "mensaje": "Ya hay una línea base «Contrato». ¿Quiere reemplazarla?",
+    "campo": "nombre", "lineaBaseId": "…" }
+  ```
+
+  La pantalla pregunta, y si la persona confirma, llama a `…/reemplazar` con
+  ese id.
+- Las dos operaciones son `app.fn_guardar_linea_base` (la de reemplazar, con
+  `p_reemplaza_id`). Eliminar es un `DELETE` sobre `app.linea_base`. Las tres
+  dejan su evento en el historial.
+
+### 19.9 Exportar (RF-PRG-10, RF-PRG-11, D-92)
+
+| Método y ruta | Respuesta | Permiso |
+|---|---|---|
+| `GET /api/cronogramas/:id/exportar?formato=pdf&escala=DIA\|SEMANA\|MES&lineaBase=<id>` | el Gantt en PDF, como adjunto | `PRESUPUESTOS.EXPORTAR` |
+| `GET /api/cronogramas/:id/exportar?formato=xer&p6=<versión>&costo=true\|false` | XER para P6 | `PRESUPUESTOS.EXPORTAR` |
+| `GET /api/cronogramas/:id/exportar?formato=xml&costo=true\|false` | XML para Project 2010 en adelante | `PRESUPUESTOS.EXPORTAR` |
+| `GET /api/exportacion/p6` | `{ versiones: { id, nombre }[] }` | ninguno propio |
+
+- El adjunto se llama `PRE-001 - Cronograma.pdf` (`.xer`, `.xml`).
+- **`costo` es opcional, y por defecto no va** (RF-PRG-11).
+- Exportar funciona en cualquier estado de la suscripción, como en §17.1.
+- **El PDF** muestra la tabla y las barras como en pantalla, con la línea base
+  escogida.
+- **El XER** sale para la versión de P6 que se escoja. Las versiones se fijan
+  al construir, con los archivos de muestra que consigue el dueño; mientras
+  tanto, `GET /api/exportacion/p6` es la única fuente de la lista.
+- **El XML** pierde cosas que Project no sabe representar (07 §6.9), y la
+  pantalla de exportación lo advierte antes de descargar:
+  - una sola restricción por actividad: la secundaria solo se conserva si es
+    «fin en o antes de», como fecha límite;
+  - la administración sale como tarea normal;
+  - se recomienda tener MS Project para abrirlo.
+
+### 19.10 El historial
+
+`GET …/historial` acepta seis tipos nuevos en su filtro: `CRONOGRAMA_CREADO`,
+`CRONOGRAMA_FECHA_INICIO`, `CRONOGRAMA_CALENDARIO`, `LINEA_BASE_GUARDADA`,
+`LINEA_BASE_REEMPLAZADA` y `LINEA_BASE_ELIMINADA`. La forma no cambia. Editar
+actividades y relaciones no deja eventos: el historial guarda los hechos que
+decidió el dueño (07 §6.9), no cada clic.
+
+### 19.11 Lo que falta para cerrar el §19
+
+- La lista de versiones de P6 del XER, que depende de los archivos de muestra.
+- Al construir, cualquier forma que no le sirva al motor o a la pantalla se
+  corrige aquí primero, como en el resto del contrato.

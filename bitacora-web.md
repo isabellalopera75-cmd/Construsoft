@@ -6,6 +6,86 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-20 · martes, el CONTRATO §19 y la migración 0006
+
+**Hecho:**
+
+- **`web/CONTRATO.md` §19**, programación de obra. Tiene las rutas de jornal y
+  semana, calendarios, festivos (con plantilla de Excel), cronograma,
+  actividades, relaciones, curvas, líneas base, exportación e historial.
+  Commiteado por mí.
+- **Sin commit, porque toca `docs/migraciones/` y el commit es tuyo con el
+  hook:**
+  - `docs/migraciones/0006-aviso-del-presupuesto.sql` y su `.revertir.sql`;
+  - `docs/prueba-d93.sql`, con 8 casos.
+- El 07 (D-93 y las tres decisiones de hoy) y el 00 también cambiaron.
+  Commiteados por mí.
+
+**La 0006 (D-93)** agrega una columna, `cronograma.aviso_presupuesto jsonb`
+(nula, o un objeto), y te da `UPDATE` sobre ella.
+- **No trae tipos de evento ni permisos nuevos**: `TIPOS_EVENTO` y
+  `CODIGOS_PERMISO` no cambian. Lo anoto porque me lo pediste.
+- Comprobado aquí: 05 + 0001…0006 con empresas sembradas antes de la 0006, las
+  quince baterías en verde y los verificadores en cero. Dos mutaciones,
+  detectadas. Revertir deja la 0005 en 127 de 127, y volver a aplicar da 8
+  de 8.
+- **El dueño decidió hoy** que la franja «el presupuesto cambió» la ven todos
+  hasta que alguien con permiso de editar la cierra o guarda un cambio en el
+  cronograma.
+  - Sin guardarla, solo la vería quien abrió el cronograma primero, porque ese
+    `GET` lo recalcula.
+  - **El objeto lo armas tú en el recálculo que provoca un cambio del
+    presupuesto.** Lleva la forma de `AvisoDelPresupuesto` del §19.5, y se
+    acumula hasta que alguien lo cierra. Lo que cambió no se puede reconstruir
+    después: la base no guarda las duraciones de antes.
+  - Lo anulas en toda escritura que entra, y en `POST …/aviso/cerrar`.
+    Cerrarlo **no** lleva versión ni la sube.
+  - No es una entrada, así que se escribe también con el presupuesto Cerrado.
+
+**Lo que más te toca del §19:**
+
+1. **Fechas y días.** Las fechas-hora viajan como texto local
+   (`"2026-11-02T07:00"`). Duraciones, holguras y desfases van en días con un
+   decimal y como texto, convertidos por ti con el factor del calendario que
+   corresponde (el de la sucesora para el desfase).
+2. **Toda escritura** lleva `version` y responde la `VistaCronograma` entera,
+   recalculada. El 409 trae `{ mensaje, cronograma }`.
+3. **Tres errores llevan una llave más que las del §2**, y solo esos tres:
+   - `cronograma` en el 409 de versión;
+   - `ciclo` en un círculo, que sale del `detail` de la base;
+   - `lineaBaseId` en un nombre de línea base repetido.
+
+   `traducirError` necesita el `detail` para el de `ciclo`.
+4. **Las acumuladas de las curvas** salen de la base con `sum(...) OVER`, no
+   de TypeScript (regla 1.1). La curva de la línea base se arma desde sus
+   filas por día, con la semana de hoy.
+5. **`avisos.administracion`** se calcula solo cuando llega `?lineaBase=`. Es
+   la decisión del dueño: compara el fin del proyecto con el de esa línea
+   base. **`avisos.festivos`** sale cuando el fin del proyecto pasa de
+   `festivos_hasta` del calendario de la obra.
+6. **`variacionInicioDias` y `variacionFinDias`** de la línea base van en días
+   del calendario de cada actividad: positivo es más tarde. Es aritmética de
+   calendario, así que es tuya.
+7. **La plantilla de festivos** sigue el §10 (todo o nada, errores por fila),
+   con una hoja Festivos de dos columnas: Fecha y Nombre.
+8. **La lista de versiones de P6** queda abierta en `GET /api/exportacion/p6`
+   hasta que lleguen los XER de muestra.
+
+Si una forma no te sirve para el motor, dilo antes de construirla, y la
+corrijo en el §19.
+
+**Lo que necesito de ti:**
+
+- El commit de la 0006, su `.revertir.sql` y `docs/prueba-d93.sql`, con el
+  hook.
+- `npm run migrar` sobre `construsoft`.
+- La lista de baterías gana `prueba-d93.sql`.
+
+**Lo que sigue de mi lado:** las pantallas, en paralelo contra el §19:
+- el editor de calendarios, con la tabla de media hora;
+- la tabla con el Gantt;
+- la lista de revisión, las curvas, las líneas base y la franja.
+
 ## 2026-10-20 · martes, la migración 0005 en el árbol: el cronograma
 
 **Hecho, sin commit (tocan `docs/migraciones/`, así que el commit es tuyo, con
