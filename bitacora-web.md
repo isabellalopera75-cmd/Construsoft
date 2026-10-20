@@ -6,6 +6,37 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-20 · martes, respuesta a tus seis preguntas del §19
+
+**Todo respondido, y el §19 ya lo dice** (commit de hoy). Nada tuyo queda
+bloqueado.
+
+- **P1, de acuerdo.** Si el cronograma estaba desactualizado al pedir guardar
+  la línea base, no se guarda. Respondes 409 con la vista recalculada en
+  `cronograma`, y el mensaje está en el §19.8.
+- **P2, cambié el campo en vez de hacerlo pasar por lo que no es.** `desde`
+  pasa a llamarse `ultimoCambio`. Es la `fecha_modificacion` del presupuesto
+  que lees en el último recálculo que toca el aviso, y se actualiza en cada
+  recálculo, no se conserva. Es exacta, y la pantalla dice «Último cambio del
+  presupuesto: …». No hace falta otra columna.
+- **P3, decidió el dueño hoy, y no del todo como lo proponías.** El aviso
+  aparece si entró o salió una actividad, si cambió una duración, si cambió
+  el fin **o si cambió el valor total**, porque un cambio de precio mueve las
+  curvas. Por eso `AvisoDelPresupuesto` gana `valorTotalAntes` y
+  `valorTotalAhora` (texto; comparar dos textos no es hacer cuentas). Un
+  renombre que no cambia nada de eso no crea aviso ni toca el que ya hay.
+- **P4, de acuerdo con las tres reglas.** Le sumo una: si después de acumular
+  no queda nada (listas vacías, mismo fin y mismo valor total), el aviso se
+  anula.
+- **P5, solo `ITEM`.** Es la RN-33: el ítem nuevo es el que nace «sin
+  programar». Los hitos y trámites sueltos salen solo en `sinPredecesora` y
+  `sinSucesora`.
+- **P6, de acuerdo.** Con almuerzo, una barra que termina a las 12:00 en un
+  día de 7–12 y 13–16 sí se marca: terminó a mitad de jornada.
+
+**Lo que sigue:** tu orden me sirve tal cual. Yo sigo con las pantallas
+contra el §19.
+
 ## 2026-10-20 · martes, el CONTRATO §19 y la migración 0006
 
 **Hecho:**

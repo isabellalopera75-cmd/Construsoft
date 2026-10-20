@@ -1604,7 +1604,9 @@ Actividad = {
   inicioTardio: FechaHora | null, finTardio: FechaHora | null,   // nulas en ADM
   holguraTotalDias: string | null, holguraLibreDias: string | null,
   critica: boolean,
-  finAMitadDeJornada: boolean     // RN-27: la barra se marca
+  finAMitadDeJornada: boolean     // RN-27: la barra se marca. Verdadero si el fin no
+                                  // coincide con el cierre del último tramo de ese día en
+                                  // el calendario de la actividad; falso en los hitos
 }
 Restriccion = { tipo: 'INICIO_EL' | 'INICIO_ANTES' | 'INICIO_DESPUES' | 'FIN_EL'
                     | 'FIN_ANTES' | 'FIN_DESPUES' | 'LO_MAS_TARDE'
@@ -1614,7 +1616,8 @@ Dependencia = { id, predecesoraId, sucesoraId, tipo: 'FC' | 'CC' | 'FF' | 'CF',
                 desfaseDias: string }
 
 Revision = {                     // RF-PRG-07: el estado de ahora, en ids de actividad
-  sinProgramar: string[],        // sin ninguna relación
+  sinProgramar: string[],        // del presupuesto (ITEM) sin ninguna relación (RN-33);
+                                 // hitos y trámites sueltos salen solo en las dos de abajo
   yaNoEstan: string[],
   manualDistinta: string[],      // duración manual distinta de la calculada
   sinRendimiento: string[],      // de un APU sin rendimiento y sin duración manual
@@ -1631,11 +1634,13 @@ Avisos = {
       // solo con ?lineaBase= y si el proyecto termina después que esa línea base
 }
 AvisoDelPresupuesto = {
-  desde: Instante,                                // el primer cambio sin cerrar
+  ultimoCambio: Instante,     // presupuesto.fecha_modificacion leída en el último
+                              // recálculo que tocó el aviso
   entraron: { id, codigo, nombre }[],
   salieron: { id, codigo, nombre }[],
   duracionesCambiadas: { id, codigo, nombre, antesDias: string, ahoraDias: string }[],
-  finAntes: FechaHora, finAhora: FechaHora
+  finAntes: FechaHora, finAhora: FechaHora,
+  valorTotalAntes: Dinero, valorTotalAhora: Dinero
 }
 
 LineaBaseResumen = { id, nombre, guardadaEn: Instante, guardadaPor: string | null,
@@ -1664,9 +1669,28 @@ LineaBaseEnVista = { id, nombre, guardadaEn: Instante,
 - **La franja (D-93).** Está a la vista de todos los que abren el cronograma
   mientras `avisos.presupuesto` no sea nulo. Se va cuando alguien con
   `PRESUPUESTOS.EDITAR` la cierra (§19.6) o guarda cualquier cambio en el
-  cronograma. La arma la API en el recálculo que provoca un cambio del
-  presupuesto, y suma los cambios si llegan varios antes de que alguien la
-  cierre. Se guarda en `cronograma.aviso_presupuesto`, con esta misma forma.
+  cronograma. Se guarda en `cronograma.aviso_presupuesto`, con esta misma
+  forma. La arma la API en el recálculo que provoca un cambio del presupuesto,
+  con estas reglas:
+  - **Cuándo aparece** (decisión del dueño, 20 de octubre). Aparece si entró o
+    salió una actividad, si cambió una duración, si cambió el fin del proyecto
+    o si cambió el valor total, porque un cambio de precio mueve las curvas.
+    Un cambio que no mueve nada de eso, como renombrar un capítulo, no crea
+    aviso ni toca el que ya hay.
+  - **Cómo se acumula.** Si llegan varios cambios antes de que alguien la
+    cierre:
+    - un ítem que entró y salió desaparece de las dos listas;
+    - una duración que volvió a su valor de antes sale de
+      `duracionesCambiadas`;
+    - `antesDias`, `finAntes` y `valorTotalAntes` conservan el valor del
+      primer recálculo, y los de «ahora» toman el del último.
+  - Si después de acumular no queda nada (listas vacías, mismo fin y mismo
+    valor total), el aviso se anula.
+  - Comparar dos valores totales es comparar dos textos: no hay que hacer
+    cuentas con dinero.
+  - `ultimoCambio` no es «el primer cambio sin cerrar»: la base solo guarda la
+    última modificación del presupuesto. La pantalla dice «Último cambio del
+    presupuesto: …».
 - **El aviso de la administración** es la decisión del dueño del 20 de
   octubre. Compara el fin del proyecto contra la línea base que se muestra y
   dice cuántos días de más lleva la obra. El texto lo pone la pantalla:
@@ -1804,6 +1828,12 @@ Periodo = { periodo: Fecha,           // su primer día
 - **`version` es la que la persona está viendo**: guarda la foto de lo que
   vio, y si cambió es 409 como en §19.1. Guardar no sube la versión, porque no
   es una entrada.
+- **Si el presupuesto cambió desde que la persona abrió el cronograma**, la
+  versión coincide pero lo que vio ya no es lo que se guardaría. Es decir,
+  el cronograma estaba desactualizado al pedir guardar. La API recalcula, no
+  guarda y responde 409, con la vista recalculada en `cronograma`:
+  «El presupuesto cambió desde que usted abrió el cronograma. Revise las
+  fechas nuevas y vuelva a guardar la línea base».
 - **Un nombre que ya existe** es 409 y no sobrescribe en silencio:
 
   ```json
