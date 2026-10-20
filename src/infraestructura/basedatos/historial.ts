@@ -22,6 +22,13 @@ export const TIPOS_EVENTO = [
   'RECURSO_MODIFICADO',
   'APU_VERSIONADO',
   'ADMIN_RESTABLECIDO',
+  // Migración 0005 (D-81…D-92): el cronograma y sus líneas base.
+  'CRONOGRAMA_CREADO',
+  'CRONOGRAMA_CALENDARIO',
+  'CRONOGRAMA_FECHA_INICIO',
+  'LINEA_BASE_GUARDADA',
+  'LINEA_BASE_REEMPLAZADA',
+  'LINEA_BASE_ELIMINADA',
 ] as const;
 
 export type TipoEvento = (typeof TIPOS_EVENTO)[number];
