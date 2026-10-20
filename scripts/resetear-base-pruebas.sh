@@ -40,12 +40,54 @@ export PGPASSWORD="$TEST_SUPERUSER_PASSWORD"
 export PGCLIENTENCODING=UTF8
 CONEXION=(-h "$TEST_SUPERUSER_HOST" -p "$TEST_SUPERUSER_PORT" -U "$TEST_SUPERUSER_USER")
 
+recrear_base() {
+    dropdb --if-exists "${CONEXION[@]}" "$TEST_SUPERUSER_DB"
+    createdb -E UTF8 -T template0 "${CONEXION[@]}" "$TEST_SUPERUSER_DB"
+    psql -v ON_ERROR_STOP=1 "${CONEXION[@]}" -d "$TEST_SUPERUSER_DB" -f "$ESQUEMA" > /dev/null
+}
+
+# La última migración, aplicada sobre una base que ya tiene una empresa.
+#
+# Una base vacía no ejercita el relleno de datos de las empresas existentes,
+# y construsoft sí las tiene. La 0004 pasó todas las baterías y falló al
+# aplicarla en construsoft (20 de octubre de 2026): el relleno dejaba eventos
+# de disparadores diferidos pendientes y un ALTER TABLE posterior se negaba.
+# Este pase lo habría detenido aquí. Las pruebas arrancan sin empresas y con
+# valores fijos, así que la empresa sembrada no se queda: después de este
+# pase la base se rehace limpia.
+shopt -s nullglob
+migraciones=()
+for archivo in "$MIGRACIONES"/[0-9][0-9][0-9][0-9]-*.sql; do
+    [[ "$archivo" == *.revertir.sql ]] || migraciones+=("$archivo")
+done
+shopt -u nullglob
+if (( ${#migraciones[@]} > 0 )); then
+    ultima="${migraciones[${#migraciones[@]}-1]}"
+    echo "→ $(basename "$ultima") sobre una base con una empresa..."
+    anteriores=$(mktemp -d)
+    trap 'rm -rf "$anteriores"' EXIT
+    for archivo in "${migraciones[@]}"; do
+        [[ "$archivo" == "$ultima" ]] || cp "$archivo" "$anteriores/"
+    done
+    recrear_base
+    bash "$DIR_SCRIPT/aplicar-migraciones.sh" "$anteriores" "$TEST_SUPERUSER_DB" "${CONEXION[@]}" > /dev/null
+    # El hash es un valor de relleno: nadie ingresa con esta cuenta. Va por
+    # stdin y no con -c: en Windows el argumento llega a psql en el codepage
+    # de la consola, y las tildes revientan como UTF-8 inválido.
+    psql -v ON_ERROR_STOP=1 "${CONEXION[@]}" -d "$TEST_SUPERUSER_DB" -q -At > /dev/null <<'SQL'
+SELECT count(*) FROM app.fn_alta_tenant('Empresa anterior a la migración', '900000001',
+       (SELECT codigo FROM plataforma.plan ORDER BY codigo LIMIT 1),
+       'Administración', 'anterior@construsoft.test', 'sin-hash');
+SQL
+    if ! psql -v ON_ERROR_STOP=1 "${CONEXION[@]}" -d "$TEST_SUPERUSER_DB" -q -f "$ultima" > /dev/null; then
+        echo "→ $(basename "$ultima") falla sobre una base que ya tiene una empresa." >&2
+        echo "  Pasaría en una base vacía y fallaría en construsoft: el error está arriba." >&2
+        exit 1
+    fi
+fi
+
 echo "→ Recreando ${TEST_SUPERUSER_DB} en ${TEST_SUPERUSER_HOST}:${TEST_SUPERUSER_PORT}..."
-
-dropdb --if-exists "${CONEXION[@]}" "$TEST_SUPERUSER_DB"
-createdb -E UTF8 -T template0 "${CONEXION[@]}" "$TEST_SUPERUSER_DB"
-
-psql -v ON_ERROR_STOP=1 "${CONEXION[@]}" -d "$TEST_SUPERUSER_DB" -f "$ESQUEMA" > /dev/null
+recrear_base
 bash "$DIR_SCRIPT/aplicar-migraciones.sh" "$MIGRACIONES" "$TEST_SUPERUSER_DB" "${CONEXION[@]}"
 
 echo "→ ${TEST_SUPERUSER_DB} lista (esquema y migraciones cargados, cero tenants)."
