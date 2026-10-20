@@ -15,6 +15,321 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-20 · martes, el capítulo 6 leído por quien escribe el motor
+
+**Hecho.** Leí completos el 07 §6 (con la 6.9 y las parejas del 20) y los
+cotejé con el 05 y el contrato §1–§2. Fue solo lectura, sin código. Nada de
+esto bloquea la 0004, salvo B3, que puede entrar en ella o en la 0005. Los
+puntos van numerados para que respondas por número.
+
+### A. Lo que el motor necesita y la 6.7 no tiene
+
+- **A1. El amarre al ítem, y que sobreviva a su borrado.** Hace falta
+  `actividad_programada.presupuesto_item_id`, nulo para hitos, trámites y
+  administración. La RN-33 dice que borrar un ítem no borra su actividad, y
+  eso choca con dos cosas:
+  - con `ON DELETE CASCADE` la actividad se iría sola;
+  - con `SET NULL` sobre la llave compuesta `(tenant_id, presupuesto_item_id)`
+    se anularía también `tenant_id`.
+
+  PostgreSQL 15 admite `ON DELETE SET NULL (presupuesto_item_id)`, que anula
+  solo esa columna. Con eso, «ya no está en el presupuesto» se lee
+  directamente (`tipo = 'ITEM' AND presupuesto_item_id IS NULL`) y no hace
+  falta otra marca. Necesita un índice sobre la columna, porque el borrado de
+  un ítem, hoy en 8,3 ms, va a recorrerla.
+- **A2. El nombre, el código y el orden.** La 6.7 no tiene `nombre` ni
+  `orden`. Los hitos y los trámites no tienen de dónde sacarlos, y el orden
+  hace falta para la tabla, el Gantt y el XER. Además, la actividad huérfana
+  de A1 pierde la descripción y el número que leía del ítem. Propongo que
+  `nombre` y `codigo` estén en todas las actividades: el recálculo los
+  refresca desde el ítem mientras ese ítem exista, y el usuario los escribe
+  en los hitos y los trámites.
+- **A3. Hasta qué año llegan los festivos de cada calendario.** RF-CFG-32
+  pide avisar cuando el cronograma pasa del último año cargado. Si las fechas
+  se copian como excepciones sueltas que después se editan una por una, ese
+  dato se pierde. Propongo `calendario.festivos_hasta` (y de qué lista
+  salieron), escrito al copiar la lista.
+- **A4. El factor del corrido no está escrito. Pregunta: ¿«1 día = 24 h»?**
+  Es lo que hace P6 con un calendario de 24 h: una espera de 7 d son 168 h.
+  Si fuera 8, esa misma espera duraría 56 h corridas sin que nadie lo
+  notara. Sea cual sea, que quede escrito en el 07.
+- **A5. La duración manual: ¿horas o días? Las dos fuentes se contradicen.**
+  La 6.7 dice «horas manuales» y la 6.9 dice «días del calendario de la
+  actividad, con un decimal». La diferencia se ve cuando cambia el factor del
+  calendario, por ejemplo de 8 h a 10 h:
+  - guardada en horas, se conservan las horas y el usuario pasa a leer
+    4,0 d donde antes leía 5,0 d;
+  - guardada en días, se conservan los días y cambian las horas.
+
+  Propongo horas, igual que el desfase de la RN-29 y como lo guarda P6. Es
+  decisión de producto porque el usuario lo ve.
+- **A6. A qué resolución redondea el motor.** RN-27 prohíbe redondear
+  fechas, pero 30 m³ ÷ 7 m³/d × 8 h son 2.057,14 minutos, y algo hay que
+  redondear. Pregunta: ¿se redondea la duración al minuto, hacia arriba, sin
+  tocar nunca las fechas? Es mi propuesta, pero no la decido yo.
+- **A7. Una restricción que cae en un día no laborable.** La 6.9 dice que
+  las de inicio toman el comienzo de la jornada y las de fin el cierre, pero
+  no dice qué pasa en un domingo o un festivo. Pregunta: ¿se hace lo mismo
+  que en P6?
+  - una de inicio pasa al siguiente instante laborable;
+  - una de fin queda al cierre del último tramo laborable anterior.
+
+  Va en el motor, no en la base, porque depende del calendario. La fecha de
+  la restricción es `date`, y solo puede ser nula con «lo más tarde posible».
+- **A8. Tres reglas del motor que no están en el 07.** Pregunta: ¿se hacen
+  como P6? No necesitan columna, pero tienen que quedar escritas en el 07
+  antes de que las programe:
+  - ninguna actividad empieza antes de la fecha de inicio del cronograma,
+    aunque un desfase negativo la empuje hacia atrás;
+  - el paso hacia atrás arranca del fin temprano más tardío, y las
+    actividades sin sucesora toman ese fin tardío;
+  - el plazo del contrato se expresa como restricción del hito de fin
+    (RN-28).
+
+### B. Dónde quedan los resultados y cómo escribe un recálculo
+
+- **B1. Los resultados van en una tabla aparte, `actividad_calculo`.** Es
+  1 a 1 con la actividad y se borra en cascada con ella. Lleva estas
+  columnas:
+  - inicio y fin tempranos y tardíos, como `timestamp` sin zona;
+  - la duración calculada, en minutos enteros;
+  - la holgura total y la libre, en minutos laborables del calendario de su
+    actividad, con negativos permitidos;
+  - `critica`, generada a partir de `holgura_total <= 0`.
+
+  Hay tres motivos para no meterlos en la tabla de la actividad:
+  - Un GET puede tener que recalcular (D-91), y eso pasa en dos casos en los
+    que nadie está editando:
+    - un cronograma Cerrado que quedó desactualizado, porque nadie lo abrió
+      entre la última edición del presupuesto Abierto y su activación;
+    - un usuario sin permiso de edición (RN-43) que abre un cronograma
+      desactualizado.
+
+    El guardián de solo lectura (RN-34) y los permisos tienen que proteger
+    las entradas y dejar escribir los resultados en cualquier estado y con
+    cualquier rol que pueda leer. Con tablas separadas eso es una línea; con
+    una sola tabla, es una lista de columnas exentas dentro del guardián.
+  - El recálculo reescribe 1.500 filas. Si fueran las filas de entrada,
+    dispararía 1.500 veces los guardianes de entrada (estado, parejas de la
+    RN-30), y todas esas comprobaciones serían inútiles.
+  - El recálculo no escribe historial. Ninguno de los cuatro eventos de la
+    6.9 es un recálculo.
+- **B2. Dos marcas en `cronograma`, no una.**
+  - `version` cubre las entradas: la sube cada guardado y es la que decide
+    el 409.
+  - `calculado_version` y `calculado_revision` dicen con qué entradas y con
+    qué revisión del presupuesto (B3) se hizo el último cálculo.
+
+  El cronograma está al día si las dos coinciden con las actuales. Escribir
+  resultados **no** sube `version`: si la subiera, alguien que solo abre el
+  cronograma le haría saltar el 409 a quien lo está editando.
+- **B3. La marca de desactualizado no necesita un disparador nuevo.** Hoy
+  `fn_marcar_modificacion` ya hace un UPDATE de `presupuesto.fecha_modificacion`
+  en cada INSERT, UPDATE o DELETE de ítem y de nodo (por sentencia y en la
+  misma transacción), y `tg_modificacion_cabecera` hace lo mismo con el AIU y
+  el IVA. Propongo `presupuesto.revision bigint`, que esos dos mismos sitios
+  incrementan en el UPDATE que ya hacen: cero sentencias nuevas en el camino
+  de los 4 ms. Hay dos motivos para no usar un disparador que escriba
+  `cronograma.desactualizado`:
+  - Ese disparador tomaría el candado de la fila del cronograma, y una
+    edición de cantidad quedaría esperando detrás de un recálculo que lo
+    tiene tomado, hasta 500 ms. Los 4 ms se cumplirían en la medición aislada
+    y no con dos usuarios.
+  - La propia `fecha_modificacion` sirve casi siempre, pero `now()` es la
+    hora de inicio de la transacción, y dos transacciones pueden compartirla.
+    Un contador no tiene ese problema.
+
+  Lo que cuesta es un recálculo de más cuando alguien renombra un capítulo.
+  Es inofensivo. Duplicar no sube la revisión, pero la copia nace sin
+  calcular de todas formas (`calculado_version` nulo).
+- **B4. Un recálculo es una sola transacción, de mi lado:**
+  1. `BEGIN ISOLATION LEVEL REPEATABLE READ`, para que todas las lecturas
+     vean la misma foto del presupuesto. Le agrego el nivel a
+     `ejecutarComoTenant`.
+  2. Como primera sentencia, `SELECT … FROM app.cronograma … FOR UPDATE`.
+     Serializa los guardados y los recálculos del mismo cronograma. Si otro
+     confirmó antes, sale 40001 y se reintenta una vez; al reintentar ya lo
+     ve al día y no recalcula.
+  3. Si es un guardado, compara `version` con la que trae la petición
+     (si no coincide, 409 con la nueva), aplica el cambio y sube `version`.
+  4. Lee las entradas en cuatro consultas:
+     - las actividades con su ítem (cantidad, rendimiento, costo);
+     - las dependencias;
+     - los calendarios, con sus tramos y excepciones;
+     - la cabecera (horas por jornal, AIU, revisión).
+  5. Crea en una sola sentencia las actividades de los ítems nuevos (RN-33).
+  6. Calcula en memoria.
+  7. Escribe los resultados en **una** sentencia:
+     `INSERT INTO app.actividad_calculo … SELECT … FROM unnest($1::uuid[], $2::timestamp[], …) ON CONFLICT (actividad_id) DO UPDATE`.
+     Una sola sentencia, no 1.500.
+  8. Actualiza `calculado_version` y `calculado_revision`, y confirma.
+- **B5. Las curvas del cronograma actual no se guardan, y el dinero lo
+  reparte la base.** La D-89 le da al motor «las dos curvas», pero la regla 2
+  y el contrato §1.1 no dejan hacer aritmética de dinero en TypeScript.
+  Propongo partir el trabajo en dos:
+  - El motor produce el tiempo: los minutos laborables de cada actividad en
+    cada día.
+  - Una función de la migración, `app.fn_curvas(presupuesto_id,
+    actividad_ids uuid[], fechas date[], minutos int[], granularidad)`,
+    reparte los pesos con `numeric`, deja el residuo en el último periodo de
+    cada actividad (6.9) y suma A, I, U e IVA en proporción al costo directo
+    del periodo (RN-40), con `fn_pie_financiero`.
+
+  Así la regla de que la suma sea igual al total (RF-PRG-08) la cumple la
+  misma aritmética que calculó el total. No guardarlas evita una segunda
+  copia que se desactualiza con cada cambio de costo. **La función es tuya.**
+- **B6. La línea base, por día.** Si `linea_base_periodo` guarda semanas y
+  después la empresa cambia `inicio_semana` (RF-CFG-33), la curva de la
+  línea base y la actual quedan en semanas desalineadas y ya no se pueden
+  comparar. Propongo guardar por día (`fecha`, `facturacion`, `costo`) y
+  armar la semana o el mes al leer: una obra de dos años son 730 filas por
+  línea base. Guardar una línea base es `INSERT … SELECT` desde
+  `actividad_calculo` y `fn_curvas`, después del paso 8 de B4, en la misma
+  transacción.
+- **B7. Para el §19:**
+  - Las fechas viajan como cadena local sin zona (`"2026-11-02T07:00"`).
+    `pg` convierte `timestamp` a un `Date` en la zona del servidor, y la API
+    no los va a leer así.
+  - Las duraciones, holguras y desfases viajan ya convertidos a días con un
+    decimal. La conversión depende del factor de cada calendario, así que por
+    el §1.1 la hace el servidor.
+
+### C. Reglas ambiguas, contradictorias o difíciles de cumplir
+
+- **C1. RNF-29 no dice qué entra en los 500 ms.**
+  - El CPM en memoria, con el calendario compilado a intervalos y búsqueda
+    binaria, son decenas de milisegundos.
+  - Lo caro es la entrada y salida: cuatro lecturas, una escritura de 1.500
+    filas y `fn_curvas`. Estimo de 100 a 250 ms en total.
+  - Si cada edición devuelve el cronograma entero, como la mesa (§1.3), la
+    respuesta pesa varios cientos de KB.
+
+  Propongo medir dos cosas: el recálculo con su escritura, contra la meta de
+  500 ms, y la petición completa, cuya cifra se fija al medir. La respuesta
+  de una edición no trae las curvas: van por su propia ruta y se piden con la
+  pestaña de curvas abierta.
+- **C2. El recálculo con el cronograma Cerrado.** Es el caso de B1: un GET
+  que escribe sobre algo de solo lectura. Si la 0005 pone el guardián de la
+  RN-34 sobre la tabla de resultados, ese cronograma no se podrá servir
+  nunca. Así que el guardián va solo sobre las entradas.
+- **C3. Los ciclos: ¿se guarda la dependencia que cierra uno?** RF-PRG-05
+  dice «no calcula nada», pero no dice si el cambio entra.
+  - Si entra, la base queda con entradas que no se pueden calcular, y cada
+    edición siguiente falla hasta que alguien rompa el ciclo.
+  - Project rechaza el vínculo circular en el momento de crearlo; P6 lo deja
+    guardar y se queja al calcular.
+
+  Con el recálculo automático (D-91), lo coherente es lo de Project: un 422
+  con las actividades del ciclo, y no se guarda nada. Así un ciclo nunca
+  existe en la base. Es decisión de producto.
+- **C4. «Desde la última vez» (RF-PRG-07) y la franja «qué cambió».** La
+  revisión de B3 dice *que* el presupuesto cambió, no *qué*. «Desde la
+  última vez» pide saber cuándo miró cada persona, y nada de eso está en la
+  6.7. Propongo esto:
+  - la lista es el estado actual, sin «desde»: sin programar, ya no está,
+    manual distinta de la calculada, sin rendimiento y sueltas;
+  - la franja dice «el presupuesto cambió desde el último cálculo».
+
+  Falta además decidir **cuándo deja de estar «sin programar»** una
+  actividad: ¿al editarla, o cuando recibe su primera dependencia? Eso pide
+  una columna `sin_programar`.
+- **C5. El XML de Project no puede cumplir RF-PRG-11.** Project hace las
+  cosas de otra forma en cuatro puntos:
+  - admite una sola restricción por tarea;
+  - no distingue «inicio el» de «inicio obligatorio», ni «fin el» de
+    «fin obligatorio»;
+  - no tiene Level of Effort;
+  - según la documentación que conozco, cuenta el desfase en el calendario
+    del proyecto y no en el de la sucesora (RN-29). Lo confirmo al
+    construir.
+
+  Propongo esto, y que el 07 lo diga y la pantalla de exportación lo
+  advierta:
+  - la secundaria «fin en o antes de» sale como *Deadline*;
+  - las demás secundarias se pierden;
+  - la administración sale como tarea normal.
+
+  En el XER, P6 exige una fecha de datos: usaré la fecha de inicio. No
+  contradice que la fecha de corte quede fuera (6.9), pero conviene que
+  quede escrito.
+- **C6. Una duración cero con costo.** Una actividad sin rendimiento y sin
+  duración manual dura cero (6.9), pero su costo no es cero. La RN-36
+  reparte «sobre las horas laborables», y con cero horas eso es una división
+  por cero, mientras que RF-PRG-08 exige que la suma dé el total. Propongo
+  que todo el costo vaya al día en que cae la actividad. Es decisión de
+  producto, porque se ve en la curva.
+- **C7. Dos ediciones a la vez.** La `version` cubre el cronograma entero,
+  así que dos personas que editan filas distintas se rechazan entre sí. Es lo
+  honesto, porque cada edición mueve fechas ajenas, y es lo que dice la 6.9.
+  Con B2 se cumplen tres cosas:
+  - una edición del presupuesto no sube `version`, así que no le provoca un
+    409 a quien programa;
+  - el recálculo de un GET tampoco la sube;
+  - el 409 devuelve el cronograma entero y ya recalculado, para que la
+    pantalla lo reemplace como hace la mesa (§1.3).
+
+  Pregunta: ¿el 409 se lleva lo que la persona escribió, para que lo
+  rehaga, o solo el mensaje de la 6.9? Es texto y conducta de pantalla.
+- **C8. El recálculo cuando el cronograma está desactualizado.** Ya está en
+  B3 y B4. Le agrego dos preguntas:
+  - Ese GET tarda lo que tarde el recálculo, hasta 500 ms. ¿Basta con eso,
+    o la pantalla tiene que mostrar «recalculando»?
+  - Si C3 se resuelve dejando guardar los ciclos, un GET de un cronograma
+    desactualizado y con ciclo no puede calcular. ¿Qué se sirve entonces:
+    los resultados viejos marcados, o solo la lista del ciclo? Con la
+    propuesta de C3 este caso no existe.
+- **C9. La administración como Level of Effort.** En P6, una actividad Level
+  of Effort toma sus fechas de sus **relaciones**: una CC desde lo que la
+  arranca y una FF hacia lo que la termina. La nuestra no tiene relaciones
+  (RN-39 la excluye de las sueltas), y sus fechas salen de una regla, la
+  RN-37. Para que el XER la abra como Level of Effort hay que inventarle
+  relaciones al exportar, y el 07 no dice cuáles. Pregunta: ¿cuáles?
+  - Una CC desde cada actividad del presupuesto sin predecesora, y una FF
+    hacia cada una sin sucesora. Pueden ser cientos de relaciones de la
+    administración, y en P6 sus fechas saldrían iguales a las nuestras.
+  - O exportarla como tarea con su duración y sin relaciones. Es más simple,
+    pero en P6 deja de moverse con el resto, y RF-PRG-11 pide Level of
+    Effort.
+
+  Hay tres cosas más que el 07 no dice y que el motor necesita saber:
+  - ¿Tiene holgura y puede ser crítica? Propongo que no: ni holgura, ni
+    crítica, ni fechas tardías.
+  - ¿Qué calendario usa? Supongo el del proyecto, pero no está escrito.
+  - ¿Cuánto dura si el presupuesto no tiene actividades, o si todas duran
+    cero?
+
+### D. Librerías
+
+- **PDF del Gantt: `pdfkit`, el que ya genera la oferta** (`src/exportacion/pdf.ts`).
+  Dibuja vectores, así que las barras, los rombos y las flechas se trazan
+  directamente, sin pasar por HTML. Evita traer un navegador sin cabeza al
+  servidor. El formato de número es el mismo `formatoNumerico.ts`.
+- **XER: ninguna.** Es texto separado por tabuladores, con tablas
+  (`%T`, `%F`, `%R`). Lo escribo con una función propia y pruebas que
+  comparan contra un archivo exportado de P6 por el dueño. Para eso
+  necesito **un XER pequeño exportado de cada versión de P6 que se escoja**,
+  con un calendario, unas relaciones, restricciones y una actividad Level of
+  Effort. No me bloquea hasta la exportación.
+- **XML de Project: ninguna.** Es un documento con forma fija, y lo armo con
+  una función que escapa el texto. En las pruebas lo valido contra el
+  esquema publicado de Project (MSPDI). No lo puedo abrir en Project; lo
+  abro en ProjectLibre, como dice la 6.9.
+- **El motor: ninguna.** El CPM y la aritmética del calendario son código
+  propio y probado contra casos calculados a mano. Ninguna librería de CPM
+  de npm hace calendarios por tramos con las restricciones de P6.
+
+### Qué necesito
+
+- **Antes de la 0005:** que respondas A1–A3 y B1–B6, o que me digas qué no
+  te sirve.
+- **Antes del §19:** tu respuesta a A4–A8 y C3–C9. Me bloquea el motor, no
+  la 0004.
+- **Antes de la exportación:** los XER de muestra de P6 (D).
+- **De mi lado, después de la 0004:** la columna del rendimiento en la
+  plantilla de importación de APU (RF-APU-25).
+
+---
+
 ## 2026-10-18 · sábado, la migración 0003
 
 **Hecho**
