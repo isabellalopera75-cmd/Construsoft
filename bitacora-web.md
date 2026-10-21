@@ -6,6 +6,155 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-21 · miércoles, un proyecto de demostración con cronograma completo (DEMO-003)
+
+**Lo pide el dueño:** ver cómo se ve de verdad el cronograma (Gantt, curvas S,
+línea base) con un proyecto activo y bien armado. Decidió que sea un proyecto
+**nuevo, DEMO-003**: DEMO-001 queda igual, porque es el de referencia de las
+pruebas y las muestras.
+
+**Lo que te pido:** un guion aparte, `npm run demo-cronograma`, que agregue
+DEMO-003 a la empresa de demostración que ya existe. Como `sembrar.ts`:
+- con los módulos de la aplicación, sin filas escritas a mano;
+- si DEMO-003 ya existe, se niega;
+- lo corre el dueño contra su base.
+
+`src/demo/` es tuyo; yo no lo toco. Los precios de recursos y APU los pones
+tú, razonables para Antioquia en 2026: es una demostración, no una oferta.
+
+### El proyecto
+
+- **DEMO-003 · Edificio Mirador del Valle, 5 pisos**, Envigado, Antioquia, por
+  EDT.
+- AIU 10 / 5 / 5, IVA 19 %. Horas por jornal: 8.
+
+**Capítulos e ítems.** Cada ítem lleva un APU propio con el rendimiento de la
+actividad indicado, en unidades por jornal. «Manual» quiere decir APU sin
+rendimiento y duración escrita a mano en el cronograma.
+
+| Código | Ítem | Unidad | Cantidad | Rendimiento | Cuadrillas |
+|---|---|---|---|---|---|
+| **1** | **PRELIMINARES** (directo) | | | | |
+| 1.1 | Localización y replanteo | m² | 650 | 200 | 1 |
+| 1.2 | Cerramiento provisional en lámina | m | 120 | 25 | 1 |
+| 1.3 | Campamento y bodega | Glb | 1 | manual, 5 días | — |
+| 1.4 | Descapote y limpieza | m² | 650 | 80 | 1 |
+| **2** | **CIMENTACIÓN** | | | | |
+| 2.1 | Excavación mecánica | m³ | 480 | 60 | 1 |
+| 2.2 | Concreto de limpieza e = 5 cm | m² | 420 | 40 | 1 |
+| 2.3 | Acero de refuerzo de cimentación | Kg | 18.000 | 400 | 2 |
+| 2.4 | Concreto 3000 psi de zapatas y vigas | m³ | 160 | 12 | 2 |
+| 2.5 | Relleno compactado | m³ | 220 | 25 | 1 |
+| **3** | **ESTRUCTURA** | | | | |
+| 3.1 | Columnas en concreto 4000 psi | m³ | 85 | 4 | 2 |
+| 3.2 | Losa aligerada de entrepiso e = 0,40 | m² | 2.400 | 45 | 2 |
+| 3.3 | Acero de refuerzo de estructura | Kg | 62.000 | 450 | 3 |
+| 3.4 | Escaleras en concreto | m³ | 18 | 2 | 1 |
+| 3.5 | Losa de cubierta | m² | 480 | 45 | 1 |
+| **4** | **MAMPOSTERÍA** | | | | |
+| 4.1 | Muro en bloque #5 | m² | 3.200 | 14 | 4 |
+| 4.2 | Dinteles y columnetas | m | 900 | 30 | 1 |
+| **5** | **INSTALACIONES HIDROSANITARIAS** | | | | |
+| 5.1 | Red de suministro en PVC presión | m | 1.400 | 40 | 1 |
+| 5.2 | Red sanitaria y de aguas lluvias | m | 900 | 30 | 1 |
+| 5.3 | Aparatos sanitarios | Und | 60 | 6 | 1 |
+| **6** | **INSTALACIONES ELÉCTRICAS** | | | | |
+| 6.1 | Salidas eléctricas | Und | 520 | 12 | 2 |
+| 6.2 | Tablero general y acometida | Glb | 1 | manual, 4 días | — |
+| 6.3 | Cableado | m | 6.500 | 250 | 1 |
+| **7** | **PAÑETES Y ACABADOS** | | | | |
+| 7.1 | Pañete de muros interiores | m² | 6.000 | 25 | 4 |
+| 7.2 | Estuco y pintura | m² | 6.000 | 40 | 3 |
+| 7.3 | Enchape de baños | m² | 650 | 10 | 2 |
+| **8** | **PISOS** | | | | |
+| 8.1 | Afinado de piso | m² | 2.300 | 40 | 2 |
+| 8.2 | Piso cerámico | m² | 2.300 | 18 | 3 |
+| **9** | **CARPINTERÍA Y VENTANERÍA** | | | | |
+| 9.1 | Puertas en madera | Und | 75 | 4 | 1 |
+| 9.2 | Ventanería en aluminio (subcontrato a todo costo) | m² | 420 | manual, 15 días | — |
+| **10** | **ASEO Y ENTREGA** | | | | |
+| 10.1 | Aseo general | m² | 2.400 | 150 | 1 |
+| **11** | **COSTOS INDIRECTOS** (indirecto) | | | | |
+| 11.1 | Director de obra | Ms | 9 | manual: ver relaciones | — |
+| 11.2 | Topografía de control | Glb | 1 | manual, 3 días | — |
+
+Después se activa el presupuesto.
+
+### El cronograma
+
+- **Inicio:** martes 3 de noviembre de 2026; el 2 es festivo.
+- **Calendario:** uno de la empresa, «Lunes a sábado medio día» (lunes a
+  viernes de 7:00 a 12:00 y de 13:00 a 16:00, sábado de 7:00 a 12:00), con
+  los festivos de Colombia copiados.
+
+**Hitos y trámites:**
+- H-001 «Inicio del proyecto» y H-002 «Fin del proyecto». H-002 lleva «fin en
+  o antes de» el 30 de septiembre de 2027.
+- Un hito de fin, «Entrega de cimentación», después de 2.5.
+- Subgrupo **«Licencias y trámites»**, con T-001 «Licencia de construcción»,
+  20 días corridos.
+- Subgrupo **«Suministros»**, con T-002 «Fabricación de ventanería», 30 días
+  corridos.
+- Raíz: T-003 «Curado de losa de cubierta», 14 días corridos.
+
+**Relaciones.** FC si no se dice otra cosa; el desfase va en días.
+
+| Predecesora | Sucesora | Tipo | Desfase |
+|---|---|---|---|
+| H-001 | 1.1, 1.2, 1.3, T-001 | FC | |
+| 1.1 | 1.4 | CC | 1 |
+| 1.4 | 2.1 | FC | |
+| T-001 | 2.1 | FC | |
+| 2.1 | 2.2 | CC | 3 |
+| 2.2 | 2.3 | CC | 2 |
+| 2.3 | 2.4 | CC | 3 |
+| 2.4 | 2.5 | FC | |
+| 2.5 | Entrega de cimentación | FC | |
+| 2.4 | 3.1 | FC | |
+| 3.1 | 3.2 | CC | 5 |
+| 3.1 | 3.3 | CC | |
+| 3.3 | 3.2 | FF | |
+| 3.2 | 3.4 | CC | 10 |
+| 3.2 | 3.5 | FC | |
+| 3.5 | T-003 | FC | |
+| 3.5 | T-002 | CC | |
+| T-002 | 9.2 | FC | |
+| 3.2 | 4.1 | CC | 15 |
+| 4.1 | 4.2 | CC | 5 |
+| 4.1 | 5.1, 6.1 | CC | 10 |
+| 5.1 | 5.2 | CC | |
+| 6.1 | 6.3 | CC | 5 |
+| 6.3 | 6.2 | FC | |
+| 4.1 | 7.1 | FC | -20 (traslapo) |
+| 7.1 | 7.2 | CC | 15 |
+| 7.1 | 7.3 | CC | 10 |
+| 7.3 | 5.3 | FC | |
+| 7.1 | 8.1 | CC | 10 |
+| 8.1 | 8.2 | CC | 5 |
+| 8.2 | 9.1 | FC | -10 |
+| T-003 | 4.1 | FC | |
+| 1.1 | 11.2 | CC | |
+| 11.2 | 2.1 | FC | |
+| H-001 | 11.1 | CC | |
+| 11.1 | H-002 | FF | |
+| 7.2, 9.1, 9.2, 5.3, 6.2 | 10.1 | FC | |
+| 10.1 | H-002 | FC | |
+
+11.1, «Director de obra», lleva duración manual igual a la duración del
+proyecto que resulte. Calcúlalo antes de fijarla, y redondea a días enteros.
+
+**La línea base y una desviación:**
+1. Calcular y guardar la línea base **«Contrato»**.
+2. Después, bajar las cuadrillas de 4.1 de 4 a 3. Así el Gantt muestra la
+   variación contra la línea base, y aparece el aviso de la administración.
+
+**Si algo de esto choca con una regla de la base** (por ejemplo, una relación
+que tu motor rechace), dímelo antes de inventar otra cosa. Si la holgura del
+H-002 sale negativa con la fecha del 30 de septiembre, también dímelo, con el
+fin que calculó el motor: la fecha la cambio yo.
+
+---
+
 ## 2026-10-21 · miércoles, revisión del XER
 
 **Commiteado por mí:** el CONTRATO, la cabecera del §19 y el §19.11.
