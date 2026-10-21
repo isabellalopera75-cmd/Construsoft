@@ -5,6 +5,7 @@ import type { FilaActividad, FilasDelCronograma } from '../cronograma/filas.js';
 import { armarVista } from '../cronograma/vista.js';
 import { generarGanttPdf } from '../exportacion/gantt.js';
 import { generarXmlProject } from '../exportacion/project.js';
+import { generarXer, type VersionDeP6 } from '../exportacion/xer.js';
 import { leerLogoParaExportar } from '../infraestructura/basedatos/exportacion.js';
 import { adjunto } from './rutasExportacion.js';
 import { copiarFestivosEn, ponerExcepcionEn, quitarExcepcionEn, reemplazarSemanaEn } from '../infraestructura/basedatos/calendarios.js';
@@ -41,6 +42,9 @@ import { SIN_CAMPOS_DE_MAS, esFecha } from './validacion.js';
 
 type SesionDe = (request: FastifyRequest, reply: FastifyReply) => Promise<ContextoTenant>;
 
+/** "2026-10-21": el día de hoy en Colombia, para la cabecera del XER. */
+const DIA_EN_COLOMBIA = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' });
+const hoyEnColombia = () => DIA_EN_COLOMBIA.format(new Date());
 const OTRA_PERSONA = 'Otra persona cambió el cronograma mientras usted lo editaba. Esta es la versión nueva; su cambio no se guardó.';
 
 const version = z.number('Falta la versión del cronograma que está viendo.').int('Falta la versión del cronograma que está viendo.').min(1, 'Falta la versión del cronograma que está viendo.');
@@ -585,9 +589,13 @@ export function registrarRutasDeCronograma(app: FastifyInstance, sesionDe: Sesio
   });
 
   // --- §19.9 · Exportar: el Gantt en PDF, y Project y P6 -----------------------------------
-  // Las versiones de P6 se fijan con los archivos de muestra del dueño (§19.11):
-  // mientras no lleguen, la lista está vacía y el XER no se ofrece.
-  const VERSIONES_DE_P6: { id: string; nombre: string }[] = [];
+  // Las versiones de P6 son las de los archivos de muestra del dueño (§19.9): la
+  // primera es la antigua, que abren casi todas las versiones (07 §6.9).
+  const VERSIONES_DE_P6: { id: VersionDeP6; nombre: string }[] = [
+    { id: '8.2', nombre: 'P6 8.2' },
+    { id: '15.2', nombre: 'P6 15.2' },
+    { id: '21.12', nombre: 'P6 21.12 o posterior' },
+  ];
 
   app.get('/api/exportacion/p6', async (request, reply) => {
     await sesionDe(request, reply);
@@ -615,6 +623,22 @@ export function registrarRutasDeCronograma(app: FastifyInstance, sesionDe: Sesio
       const lineaBaseId = lineaBase === undefined ? null : idDe(lineaBase, lineaBaseNoExiste);
       const datos = await leerCronogramaParaExportar(contexto, cronogramaId, lineaBaseId);
       if (!datos) throw cronogramaNoExiste();
+      if (formato === 'xer') {
+        const vistaXer = armarVista(datos.leido.filas, { editable: false, recalculado: datos.leido.recalculado, lineaBase: null });
+        return reply
+          .header('content-type', 'application/octet-stream')
+          .header('content-disposition', adjunto(`${datos.presupuesto.codigo} - Cronograma.xer`))
+          .send(
+            generarXer({
+              vista: vistaXer,
+              filas: datos.leido.filas,
+              presupuesto: datos.presupuesto,
+              costo: costo === 'true',
+              version: p6 as VersionDeP6,
+              hoy: hoyEnColombia(),
+            }),
+          );
+      }
       if (formato === 'xml') {
         // RF-PRG-11 · El costo es opcional, y por defecto no va.
         const vistaXml = armarVista(datos.leido.filas, { editable: false, recalculado: datos.leido.recalculado, lineaBase: null });

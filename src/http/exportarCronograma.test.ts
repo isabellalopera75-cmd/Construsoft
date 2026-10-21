@@ -209,3 +209,211 @@ describe('el XML para Project (RF-PRG-11, CONTRATO §19.9)', () => {
     assert.deepEqual([campo(tareaDe(xml, 'Hitos y trámites'), 'WBS'), campo(tareaDe(xml, 'Licencias'), 'WBS')], ['HT', 'HT-1']);
   });
 });
+
+describe('el XER para P6 (RF-PRG-11, CONTRATO §19.9)', () => {
+  let duena: Cuenta;
+  let vista: Record<string, any>;
+  const exportar = async (consulta: string) => {
+    const r = await app.inject({ method: 'GET', url: `/api/cronogramas/${vista.cronograma.id}/exportar?${consulta}`, remoteAddress: otraIp(), headers: { cookie: duena.cookie } });
+    return { estado: r.statusCode, bytes: r.rawPayload, cabeceras: r.headers, cuerpo: String(r.headers['content-type']).includes('json') ? r.json<Record<string, any>>() : {} };
+  };
+  const actividad = (nombre: string) => vista.actividades.find((a: { nombre: string }) => a.nombre === nombre);
+
+  /*
+   * Lee el XER como lo lee P6: Windows-1252, CRLF, y tablas %T, %F y %R. No usa
+   * TextDecoder('windows-1252'): el de Node 20 decodifica 0x80–0x9F como Latin-1,
+   * y la raya «—» (0x97) desaparece. Aquí van los de ese tramo que usan las pruebas.
+   */
+  const DE_0X80: Record<number, string> = { 0x80: '€', 0x91: '‘', 0x92: '’', 0x93: '“', 0x94: '”', 0x96: '–', 0x97: '—' };
+  function leerXer(bytes: Buffer) {
+    const lineas = [...bytes].map((b) => DE_0X80[b] ?? String.fromCharCode(b)).join('').split('\r\n');
+    const filas = new Map<string, Record<string, string>[]>();
+    const columnas = new Map<string, string[]>();
+    let tabla = '';
+    for (const linea of lineas) {
+      const [marca, ...resto] = linea.split('\t');
+      if (marca === '%T') {
+        tabla = resto[0]!;
+        filas.set(tabla, []);
+      } else if (marca === '%F') columnas.set(tabla, resto);
+      else if (marca === '%R') filas.get(tabla)!.push(Object.fromEntries(columnas.get(tabla)!.map((c, i) => [c, resto[i] ?? ''])));
+    }
+    const tarea = (nombre: string) => filas.get('TASK')!.find((t) => t.task_name === nombre)!;
+    return { lineas, filas, columnas, tablas: [...filas.keys()], tarea };
+  }
+
+  before(async () => {
+    duena = await registrar('Constructora Primavera', '900001004-4', 'p6.duena@construsoft.test');
+    const { presupuestoId } = await armarPresupuestoDeReferencia(duena.contexto, 'CRONO-XER');
+    vista = (await llamar('POST', `/api/presupuestos/${presupuestoId}/cronograma`, duena.cookie, { fechaInicio: '2026-11-02' })).cuerpo;
+    const editar = async (nombre: string, cambios: Record<string, unknown>) => {
+      vista = (await llamar('PATCH', `/api/cronogramas/${vista.cronograma.id}/actividades/${actividad(nombre).id}`, duena.cookie, { version: vista.cronograma.version, ...cambios })).cuerpo;
+    };
+    const relacionar = async (predecesora: string, sucesora: string, tipo: string, desfaseDias: string) => {
+      vista = (
+        await llamar('POST', `/api/cronogramas/${vista.cronograma.id}/dependencias`, duena.cookie, {
+          version: vista.cronograma.version, predecesoraId: actividad(predecesora).id, sucesoraId: actividad(sucesora).id, tipo, desfaseDias,
+        })
+      ).cuerpo;
+    };
+    await editar('Topografía y replanteo', { duracionManualDias: '2' });
+    await editar('Excavación manual', {
+      duracionManualDias: '3',
+      restriccion: { tipo: 'INICIO_DESPUES', fecha: '2026-11-04' },
+      restriccionSecundaria: { tipo: 'FIN_ANTES', fecha: '2026-11-20' },
+    });
+    await relacionar('Topografía y replanteo', 'Excavación manual', 'CC', '1');
+    vista = (await llamar('POST', `/api/cronogramas/${vista.cronograma.id}/actividades`, duena.cookie, {
+      version: vista.cronograma.version, tipo: 'SIN_COSTO', nombre: 'Curado de la placa', duracionManualDias: '7', usaCorrido: true,
+    })).cuerpo;
+    await relacionar('Excavación manual', 'Curado de la placa', 'FC', '1');
+    vista = (await llamar('POST', `/api/cronogramas/${vista.cronograma.id}/grupos`, duena.cookie, { version: vista.cronograma.version, nombre: 'Licencias' })).cuerpo;
+    vista = (await llamar('POST', `/api/cronogramas/${vista.cronograma.id}/actividades`, duena.cookie, {
+      version: vista.cronograma.version, tipo: 'HITO_FIN', nombre: 'Acta Nº 2 — losa de 30 m² <revisión> & firma Gödel ő ✓',
+    })).cuerpo;
+  });
+
+  test('GET /api/exportacion/p6 da las tres versiones, en el orden del contrato', async () => {
+    const r = await llamar('GET', '/api/exportacion/p6', duena.cookie);
+    assert.equal(r.estado, 200);
+    assert.deepEqual(r.cuerpo.versiones, [
+      { id: '8.2', nombre: 'P6 8.2' },
+      { id: '15.2', nombre: 'P6 15.2' },
+      { id: '21.12', nombre: 'P6 21.12 o posterior' },
+    ]);
+  });
+
+  test('el archivo va en Windows-1252, con CRLF y sin BOM, con la versión en ERMHDR y las tablas que P6 necesita, sin costo por defecto', async () => {
+    const r = await exportar('formato=xer&p6=8.2');
+    assert.equal(r.estado, 200, r.bytes.toString());
+    assert.match(String(r.cabeceras['content-disposition']), /filename="CRONO-XER - Cronograma\.xer"/);
+    assert.equal(r.bytes.subarray(0, 6).toString('latin1'), 'ERMHDR');
+    assert.equal(r.bytes.toString('latin1').replace(/\r\n/g, '').includes('\n'), false, 'un salto de línea sin CR');
+    const xer = leerXer(r.bytes);
+    const cabecera = xer.lineas[0]!.split('\t');
+    assert.deepEqual([cabecera[0], cabecera[1], cabecera[3], cabecera[6], cabecera[7], cabecera[8]], ['ERMHDR', '8.2', 'Project', 'dbxDatabaseNoName', 'Project Management', 'COP']);
+    assert.match(cabecera[2]!, /^\d{4}-\d{2}-\d{2}$/);
+    assert.deepEqual(xer.tablas, ['CURRTYPE', 'OBS', 'PROJECT', 'CALENDAR', 'PROJWBS', 'TASK', 'TASKPRED']);
+    assert.deepEqual(xer.lineas.slice(-2), ['%E', '']);
+    assert.equal(xer.filas.get('TASK')!.length, vista.actividades.length);
+  });
+
+  test('cada actividad con su código, su tipo, su calendario, sus fechas y holguras en horas', async () => {
+    const xer = leerXer((await exportar('formato=xer&p6=8.2')).bytes);
+    const calendarios = xer.filas.get('CALENDAR')!;
+    const topografia = xer.tarea('Topografía y replanteo');
+    assert.deepEqual(
+      [topografia.task_code, topografia.task_type, topografia.duration_type, topografia.status_code, topografia.target_drtn_hr_cnt, topografia.remain_drtn_hr_cnt],
+      [actividad('Topografía y replanteo').codigo, 'TT_Task', 'DT_FixedDUR2', 'TK_NotStart', '16', '16'],
+    );
+    assert.deepEqual([topografia.early_start_date, topografia.early_end_date, topografia.target_start_date, topografia.target_end_date], [
+      '2026-11-02 07:00', '2026-11-03 16:00', '2026-11-02 07:00', '2026-11-03 16:00',
+    ]);
+    const enVista = actividad('Topografía y replanteo');
+    assert.deepEqual([topografia.late_end_date, Number(topografia.total_float_hr_cnt)], [enVista.finTardio.replace('T', ' '), Number(enVista.holguraTotalDias) * 8]);
+    assert.deepEqual([xer.tarea('Inicio del proyecto').task_type, xer.tarea('Fin del proyecto').task_type], ['TT_Mile', 'TT_FinMile']);
+    assert.equal(xer.tarea('Fin del proyecto').duration_type, 'DT_FixedDrtn');
+    assert.equal(xer.tarea('Administración y supervisión de obra').task_type, 'TT_LOE');
+    const curado = xer.tarea('Curado de la placa');
+    const corrido = calendarios.find((c) => c.clndr_id === curado.clndr_id)!;
+    assert.deepEqual([curado.target_drtn_hr_cnt, corrido.day_hr_cnt, corrido.week_hr_cnt], ['168', '24', '168']);
+    assert.notEqual(topografia.clndr_id, curado.clndr_id);
+  });
+
+  test('la EDT: el proyecto como nodo raíz, los capítulos con su código y «Hitos y trámites» como HT con sus grupos', async () => {
+    const xer = leerXer((await exportar('formato=xer&p6=8.2')).bytes);
+    const wbs = xer.filas.get('PROJWBS')!;
+    const raiz = wbs.find((w) => w.proj_node_flag === 'Y')!;
+    assert.deepEqual([raiz.wbs_short_name, xer.filas.get('PROJECT')![0]!.proj_short_name], ['CRONO-XER', 'CRONO-XER']);
+    const preliminares = wbs.find((w) => w.wbs_name === 'PRELIMINARES')!;
+    assert.equal(preliminares.parent_wbs_id, raiz.wbs_id);
+    assert.equal(xer.tarea('Topografía y replanteo').wbs_id, preliminares.wbs_id);
+    const ht = wbs.find((w) => w.wbs_name === 'Hitos y trámites')!;
+    assert.deepEqual([ht.wbs_short_name, ht.parent_wbs_id], ['HT', raiz.wbs_id]);
+    assert.equal(wbs.find((w) => w.wbs_name === 'Licencias')!.parent_wbs_id, ht.wbs_id);
+    assert.equal(xer.tarea('Fin del proyecto').wbs_id, ht.wbs_id);
+    assert.equal(xer.tarea('Administración y supervisión de obra').wbs_id, raiz.wbs_id);
+  });
+
+  test('las relaciones con su tipo y el desfase en horas del calendario de la sucesora; la restricción principal y la secundaria', async () => {
+    const xer = leerXer((await exportar('formato=xer&p6=8.2')).bytes);
+    const relaciones = xer.filas.get('TASKPRED')!;
+    const entre = (p: string, s: string) => relaciones.find((x) => x.pred_task_id === xer.tarea(p).task_id && x.task_id === xer.tarea(s).task_id)!;
+    const cc = entre('Topografía y replanteo', 'Excavación manual');
+    assert.deepEqual([cc.pred_type, cc.lag_hr_cnt], ['PR_SS', '8']);
+    const alCorrido = entre('Excavación manual', 'Curado de la placa');
+    assert.deepEqual([alCorrido.pred_type, alCorrido.lag_hr_cnt], ['PR_FS', '24']);
+    const excavacion = xer.tarea('Excavación manual');
+    assert.deepEqual([excavacion.cstr_type, excavacion.cstr_date, excavacion.cstr_type2, excavacion.cstr_date2], ['CS_MSOA', '2026-11-04 07:00', 'CS_MEOB', '2026-11-20 16:00']);
+    assert.deepEqual([xer.tarea('Topografía y replanteo').cstr_type, xer.tarea('Topografía y replanteo').cstr_date], ['', '']);
+  });
+
+  test('la administración como Level of Effort: CC desde la que empieza primero y FF hacia la que termina de última', async () => {
+    const xer = leerXer((await exportar('formato=xer&p6=8.2')).bytes);
+    const tareas = xer.filas.get('TASK')!;
+    const loe = xer.tarea('Administración y supervisión de obra');
+    const otras = tareas.filter((t) => t !== loe);
+    const primera = otras.reduce((a, b) => (b.early_start_date! < a.early_start_date! ? b : a));
+    const ultima = otras.reduce((a, b) => (b.early_end_date! > a.early_end_date! ? b : a));
+    const suyas = xer.filas.get('TASKPRED')!.filter((x) => x.task_id === loe.task_id || x.pred_task_id === loe.task_id);
+    assert.deepEqual(
+      suyas.map((x) => [x.pred_type, x.pred_task_id, x.task_id, x.lag_hr_cnt]),
+      [
+        ['PR_SS', primera.task_id, loe.task_id, '0'],
+        ['PR_FF', loe.task_id, ultima.task_id, '0'],
+      ],
+    );
+  });
+
+  test('los calendarios con sus jornadas en el formato de P6: los días de 1 (domingo) a 7 y las horas del día', async () => {
+    const xer = leerXer((await exportar('formato=xer&p6=8.2')).bytes);
+    const obra = xer.filas.get('CALENDAR')!.find((c) => c.clndr_id === xer.tarea('Topografía y replanteo').clndr_id)!;
+    assert.deepEqual([obra.clndr_type, obra.day_hr_cnt, obra.week_hr_cnt], ['CA_Base', '8', String(Number(vista.calendarios.obra.horasSemana))]);
+    const datos = obra.clndr_data!;
+    assert.ok(datos.startsWith('(0||CalendarData()(\x7f\x7f  (0||DaysOfWeek()(\x7f\x7f    (0||1()())'), datos.slice(0, 80));
+    assert.ok(datos.includes('(0||2()(\x7f\x7f      (0||0(s|07:00|f|12:00)())\x7f\x7f      (0||1(s|13:00|f|16:00)())))'), datos);
+    assert.ok(obra.clndr_name!.startsWith('CRONO-XER - '));
+  });
+
+  test('un texto sale tal cual si cabe en Windows-1252; si no, sin la tilde que no existe, y si tampoco, con «?»', async () => {
+    const r = await exportar('formato=xer&p6=8.2');
+    const xer = leerXer(r.bytes);
+    assert.ok(xer.filas.get('TASK')!.some((t) => t.task_name === 'Acta Nº 2 — losa de 30 m² <revisión> & firma Gödel o ?'));
+    // m² y la raya en Windows-1252 son un byte cada uno: 0xB2 y 0x97.
+    assert.ok(r.bytes.includes(Buffer.from([0x6d, 0xb2])));
+    assert.ok(r.bytes.includes(Buffer.from([0x20, 0x97, 0x20])));
+  });
+
+  test('con costo=true, cada actividad del presupuesto y la administración llevan su gasto en PROJCOST', async () => {
+    const xer = leerXer((await exportar('formato=xer&p6=8.2&costo=true')).bytes);
+    assert.ok(xer.tablas.includes('PROJCOST'));
+    const gastos = xer.filas.get('PROJCOST')!;
+    const de = (nombre: string) => gastos.filter((g) => g.task_id === xer.tarea(nombre).task_id);
+    assert.deepEqual(
+      de('Topografía y replanteo').map((g) => [g.target_cost, g.remain_cost, g.act_cost, g.cost_load_type]),
+      [['3200000.00', '3200000.00', '0.00', 'CL_Uniform']],
+    );
+    assert.equal(de('Administración y supervisión de obra')[0]!.target_cost, '10549000.00');
+    assert.deepEqual(de('Inicio del proyecto'), []);
+  });
+
+  test('P6 15.2 lleva el mismo archivo con su versión; 21.12 suma las opciones de cálculo, con el desfase en el calendario de la sucesora', async () => {
+    const v15 = leerXer((await exportar('formato=xer&p6=15.2')).bytes);
+    assert.equal(v15.lineas[0]!.split('\t')[1], '15.2');
+    assert.ok(!v15.tablas.includes('SCHEDOPTIONS'));
+    const v21 = leerXer((await exportar('formato=xer&p6=21.12')).bytes);
+    assert.equal(v21.lineas[0]!.split('\t')[1], '21.12');
+    const opciones = v21.filas.get('SCHEDOPTIONS')!;
+    assert.deepEqual(
+      [opciones.length, opciones[0]!.sched_calendar_on_relationship_lag, opciones[0]!.sched_float_type, opciones[0]!.proj_id],
+      [1, 'rcal_Successor', 'FT_FF', v21.filas.get('PROJECT')![0]!.proj_id],
+    );
+  });
+
+  test('una versión de P6 que no está en la lista, o ninguna, es 422 en p6', async () => {
+    for (const consulta of ['formato=xer&p6=6.2', 'formato=xer']) {
+      const r = await exportar(consulta);
+      assert.deepEqual([r.estado, r.cuerpo.campo], [422, 'p6'], consulta);
+    }
+  });
+});
