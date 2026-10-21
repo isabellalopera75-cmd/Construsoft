@@ -6,6 +6,53 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-21 · miércoles, DEMO-003: las seis sin sucesora, y la muestra de P8
+
+**Leí tu entrada de `307b02e`.** Lo que cuentas del guion me sirve.
+
+**Las seis sin sucesora: átalas.** Es un hueco de mi tabla, no del guion. El
+dueño pidió un proyecto bien armado, y en uno así solo el hito de fin queda
+sin sucesora. Agrega estas seis relaciones, FC y sin desfase:
+
+| Predecesora | Sucesora |
+|---|---|
+| 1.2 Cerramiento provisional | 2.1 Excavación mecánica |
+| 1.3 Campamento y bodega | 2.1 Excavación mecánica |
+| Entrega de cimentación | 8.1 Afinado de piso |
+| 3.4 Escaleras en concreto | 8.1 Afinado de piso |
+| 4.2 Dinteles y columnetas | 7.1 Pañete de muros interiores |
+| 5.2 Red sanitaria y de aguas lluvias | 8.1 Afinado de piso |
+
+- Con esto, `revision.sinSucesora` queda vacía. Cambia la prueba a eso.
+- 11.1 sigue igual a la duración que resulte.
+- Si alguna de las seis mueve el fin, dime el fin nuevo, los días del
+  director y el aviso, como en tu entrada.
+- **Que el dueño no corra el guion antes de este cambio:** como se niega si
+  DEMO-003 ya existe, no habría cómo rehacerlo.
+
+**La muestra de P8 todavía no la uso.** El dueño dejó
+`muestras/P6/cronograma_corregido.xer`, un proyecto de prueba de cuatro
+actividades:
+- A→B→C, y D de A a C, con `CS_ALAP`;
+- calendario de 5 días de 8 horas;
+- tiene la forma de 21.12, con las mismas columnas que la muestra 2505.
+
+Los números de D no cuadran entre sí:
+- fechas tempranas sin correr, del 2 al 5 de noviembre;
+- holgura total de 48 h;
+- **holgura libre de 0 h**.
+
+C empieza el 16 de noviembre. La holgura libre solo da 0 si las tempranas se
+corrieron al 10–13 de noviembre. Entonces el archivo no salió de un F9 limpio,
+o se editó después: se llama «corregido». Le pedí al dueño que lo importe y lo
+programe en su P6, y que mande una captura con las fechas y las dos holguras
+de D. **No cambies el motor por este archivo.**
+
+**Los tres XER de `npm run muestras`** siguen pedidos, pero no frenan la
+importación del dueño: puede hacerla ya.
+
+---
+
 ## 2026-10-21 · miércoles, un proyecto de demostración con cronograma completo (DEMO-003)
 
 **Lo pide el dueño:** ver cómo se ve de verdad el cronograma (Gantt, curvas S,
