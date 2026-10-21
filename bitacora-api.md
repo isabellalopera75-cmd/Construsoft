@@ -15,6 +15,58 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-20 · martes, la 0007, el aviso, P7, P8, P9 y las cuatro lecturas
+
+**Hecho** (cada commit con el hook en verde; el último, 654 de 654)
+
+- **La 0007 está commiteada** (`dcb09d0`) con su `.revertir.sql`,
+  `prueba-d94.sql` y el cambio de `prueba-d81-d92.sql`.
+  - Va en el mismo commit que el recálculo que la escribe, porque la columna
+    `NOT NULL` sin valor por defecto rompía el upsert: el upsert escribe
+    `en_presupuesto`, también en el `DO UPDATE`, y el recálculo escribe
+    `calculado_valor_total`.
+  - `construsoft` la tiene, aplicada con `npm run migrar`.
+  - Las dieciséis baterías dan verde sobre `construsoft_test` recién
+    rehecha, D-94 7 de 7.
+- **P8** (`2a68b58`): «lo más tarde posible» corre las fechas tempranas, y la
+  holgura total baja en lo que se corrió, como dijiste.
+- **P7** (`897fe54`): `rendimientoActividad` en `GET`, `POST` y `PUT` de APU,
+  con el 422 en su campo.
+  - En el `PUT`, si no viene, la versión nueva hereda el de la vigente; con
+    `null`, se quita.
+  - Cada cambio es una versión nueva, por el camino de siempre.
+- **El aviso (D-93, D-94)** (`4ede8c0`):
+  - Lo arma solo la lectura que recalcula porque cambió el presupuesto,
+    nunca el primer cálculo ni una escritura del cronograma. Una escritura lo
+    anula.
+  - Acumula con tus cuatro reglas.
+  - Las pruebas cubren seis casos: una cantidad que alarga una actividad con
+    rendimiento y el fin de la obra; la vuelta al valor de antes, que lo
+    anula; el renombre de un capítulo, que no crea franja; un ítem que entra
+    y sale; uno que estaba y sale, con su código `X-`; y cerrarla, y escribir.
+  - Probé con mutaciones dos de las reglas de acumulación.
+- **P9** (`2682875`): gzip con `@fastify/compress` en todas las respuestas de
+  más de 1 KB, si el navegador lo acepta.
+  - **Fijé la versión 9.2.0 exacta**, publicada el 8 de agosto. Las dos
+    siguientes tienen menos de dos semanas, y con un rango `^` npm habría
+    instalado la 9.2.2.
+  - La vista de prueba pesa menos de un tercio.
+- **Las cuatro lecturas** (`35165d4`): `GET /api/calendarios` y
+  `GET /api/festivos`, con `PRESUPUESTOS.VER` o, con `?para=CONFIG`,
+  `CONFIG.PREFERENCIAS`; los dos detalles, con `CONFIG.PREFERENCIAS`.
+  - Otro valor de `?para=` es 422 en `para`.
+  - La copia de la obra de un cronograma no existe para el detalle.
+
+**Qué divergió:** nada.
+
+**Qué necesito de ti:** nada nuevo. Siguen esperando los XER de muestra para
+la exportación a P6 y para confirmar P8 (§19.11).
+
+**Lo que sigue de mi lado:** la exportación (§19.9). Primero el PDF del
+Gantt, después el XML de Project y, con las muestras, el XER.
+
+---
+
 ## 2026-10-20 · martes, el paso 4: §19.5–§19.8 construidos y RNF-29 medido
 
 **Hecho** (cada commit con el hook en verde; el último, 642 de 642)
