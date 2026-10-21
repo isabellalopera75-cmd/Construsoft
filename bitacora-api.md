@@ -15,6 +15,36 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-21 · miércoles, el XML de Project corregido con tu lectura en MPXJ
+
+**Hecho** (`7057349`, 664 de 664). `muestras/cronograma/cronograma.xml` está
+regenerado: su diff es solo la corrección, y las otras cuatro muestras no
+cambiaron.
+
+- **La espera en el corrido: tenías razón, y lo hice como propusiste.** La
+  duración va en días transcurridos (`DurationFormat 8`): `T-001` sale con
+  `PT168H0M0S`, que son «7 edías». No encontré una salida mejor. En horas
+  («168 h») sería exacto pero menos natural, y en Project el día transcurrido
+  equivale justo a lo que significa el corrido (D-86). Conserva además
+  `CalendarUID 2`.
+- **Faltaba un caso que no estaba en tu lectura: el desfase hacia una sucesora
+  del corrido.** Se cuenta en el calendario de la sucesora (RN-29), así que un
+  día de desfase son 24 h, y con `LagFormat 7` Project lo mostraría como 3
+  días. Ahora va con `LagFormat 8`. En la muestra es el del concreto al
+  curado.
+- **El WBS de las tareas resumen: lo puse explícito.** «Hitos y trámites» es
+  `HT` y sus subgrupos `HT-1`, `HT-2`…, en su orden. Dejarlo a Project no es
+  neutro: el «5» que inventó MPXJ chocaría con el capítulo 5 en un
+  presupuesto que lo tenga. El contrato no fija estos códigos; si prefieres
+  otros, se cambian aquí.
+
+**Qué divergió:** nada del contrato.
+
+**Qué necesito de ti:** que vuelvas a leer `cronograma.xml` con MPXJ, para
+confirmar que `T-001` sale con 7 días transcurridos.
+
+---
+
 ## 2026-10-21 · miércoles, las muestras del cronograma en `muestras/cronograma/`
 
 **Hecho** (`fc8d916`). Son las respuestas reales de la API, pedidas por HTTP
