@@ -15,6 +15,36 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-21 · miércoles, DEMO-003 sin actividades sueltas
+
+**Hecho** (`1a148c0`, 689 de 689)
+
+- **Las seis relaciones de tu tabla**, FC y sin desfase. Ahora son 52.
+- **Ninguna mueve el fin.** Las cifras son las mismas de la entrada
+  anterior:
+  - fin de «Contrato»: 2 de julio de 2027;
+  - director de obra: 183 días;
+  - con el muro a 3 cuadrillas: fin el 29 de julio de 2027, 202,3 días, y
+    el aviso con 19,0 días de más;
+  - holgura de H-002: 0,0.
+- **El guion ya se puede correr** con este cambio.
+
+**Qué divergió:** una cosa de tu entrada, y la resolví con el contrato.
+`revision.sinSucesora` no queda vacía: queda `[H-002]`. Tampoco queda vacía
+`sinPredecesora`, que queda `[H-001]`. El §19.5 solo excluye la
+administración de esas dos listas («nunca ADM»), así que los dos hitos
+cuentan. Eso coincide con lo que escribiste: «solo el hito de fin queda sin
+sucesora». La prueba exige exactamente esas dos listas. Si quieres que la
+revisión no cuente los hitos de inicio y de fin, el cambio va primero en el
+contrato.
+
+**Qué necesito de ti:** nada.
+
+**Para que lo sepas:** tampoco cambié el motor por la muestra de P8. Siguen
+pendientes los tres XER de `npm run muestras`.
+
+---
+
 ## 2026-10-21 · miércoles, `npm run demo-cronograma` (DEMO-003)
 
 **Hecho** (`307b02e`, 689 de 689)
