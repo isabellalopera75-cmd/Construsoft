@@ -15,6 +15,86 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-21 · miércoles, el XER para P6
+
+**Hecho** (`a6a61e9`, 683 de 683)
+
+- **`GET /api/exportacion/p6`** devuelve las tres versiones del §19.9, en su
+  orden. **`formato=xer&p6=<id>`** descarga `PRE-001 - Cronograma.xer`. Una
+  versión que no está en la lista, o ninguna, es 422 en `p6`.
+- **El archivo** va en Windows-1252, con CRLF y sin BOM. Sus tablas son
+  `CURRTYPE`, `OBS`, `PROJECT`, `CALENDAR`, `PROJWBS`, `TASK` y `TASKPRED`.
+  Las columnas son exactamente las de las muestras, en su orden. Lo comprobé
+  contra los tres archivos. 8.2 y 15.2 solo difieren en la versión de
+  `ERMHDR`. 21.12 suma `SCHEDOPTIONS`.
+- **La EDT:**
+  - el nodo del proyecto lleva el código del presupuesto, y también es el
+    `proj_short_name`;
+  - debajo van los capítulos, cada uno con el último tramo de su código;
+  - «Hitos y trámites» va como `HT`, con sus grupos numerados 1, 2…;
+  - la administración y las que ya no están en el presupuesto quedan en el
+    nodo del proyecto.
+- **Las actividades:**
+  - tipos: `TT_Task`, `TT_Mile` para el hito de inicio, `TT_FinMile` para
+    el de fin, y `TT_LOE` para la administración;
+  - las fechas tempranas y tardías son las del motor;
+  - duraciones, holguras y desfases van en horas;
+  - las dos restricciones van en `cstr_type`/`cstr_type2`;
+  - la fecha de corte es la fecha de inicio a las 00:00.
+- **La administración como LOE:** una CC desde la actividad que empieza
+  primero hacia el LOE, y una FF desde el LOE hacia la que termina de
+  última. Si hay empate, gana la primera en el orden de la pantalla.
+- **`costo=true`** agrega `PROJCOST`: un gasto por actividad del presupuesto
+  y otro para la administración, con `CL_Uniform`. Sin `costo`, la tabla no
+  va.
+
+**Qué divergió:** nada del contrato. Donde el §19.9 dejaba algo abierto,
+decidí lo siguiente. Si alguna no te sirve, dímelo y la cambio:
+
+1. **Un carácter que no existe en Windows-1252** pierde la marca que no
+   tiene: `ő` sale como `o`. Si ni así cabe, sale `?`. `m²`, `Nº`, `—`, `€`
+   y las tildes del español salen tal cual.
+2. **La moneda es `COP`**, en `ERMHDR` y en `CURRTYPE`. Las muestras traen
+   `USD` porque son de esa empresa.
+3. **El calendario del desfase (RN-29):**
+   - **En 21.12**, `SCHEDOPTIONS` lleva
+     `sched_calendar_on_relationship_lag = rcal_Successor`. El valor lo
+     deduje del `rcal_Predecessor` de la muestra. Ninguna muestra trae
+     `rcal_Successor`.
+   - **En 8.2 y 15.2** no hay dónde decirlo. P6 usará el calendario de la
+     predecesora, y eso solo cambia algo en una relación entre una actividad
+     de obra y una del corrido.
+4. **La medianoche del final del día** (`24:00`) sale como `00:00`, igual
+   que en el XML. Ninguna muestra tiene un calendario de 24 horas.
+5. **Los dos calendarios van como `CA_Base`**, igual que el calendario por
+   defecto del proyecto en las muestras. Al importar, quedan como
+   calendarios globales. Por eso se llaman `PRE-001 - <nombre>`: así no
+   chocan con uno que ya exista.
+6. **`PROJCOST` solo aparece en la muestra de 21.12.** En 8.2 y 15.2 sale con
+   esas mismas columnas, sin poder confirmarlas.
+7. **Los GUID salen del uuid de cada cosa.** Si se exporta dos veces, P6 ve
+   las mismas actividades.
+
+**Qué necesito de ti:** nada me bloquea. Para cerrar el §19.9 falta
+que el dueño importe un XER en P6. Lo que hay que mirar en esa importación:
+
+- abre sin errores en las tres versiones;
+- al programar (F9), las fechas coinciden con las de la pantalla;
+- el LOE va de la primera actividad a la última;
+- con `costo=true`, abre también en 8.2;
+- en 21.12, «Calendar for scheduling relationship lag» dice Successor;
+- una espera del corrido dura sus días de 24 horas.
+
+Hay que actualizar la cabecera del §19 («salvo el XER») y el §19.11. Además
+sigue pendiente la muestra de P8 («lo más tarde posible»).
+
+**Para que lo sepas:** el `TextDecoder('windows-1252')` de Node 20 decodifica
+0x80–0x9F como Latin-1, así que la raya `—` (0x97) desaparece. Las pruebas
+leen el XER con su propia tabla. Si lees un XER con Node, no te fíes de ese
+decodificador. Los navegadores y MPXJ lo hacen bien.
+
+---
+
 ## 2026-10-21 · miércoles, `inicioSemana` y `?lineaBase=` en las escrituras
 
 **Hecho** (`8997afd`, 668 de 668)
