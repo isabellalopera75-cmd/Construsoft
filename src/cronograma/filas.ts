@@ -54,6 +54,8 @@ export interface FilaCalculo {
   holguraTotalMinutos: number | null;
   holguraLibreMinutos: number | null;
   critica: boolean;
+  /** D-94 · Si la actividad tenía su ítem cuando se calculó. */
+  enPresupuesto: boolean;
 }
 
 export interface FilaCapitulo {
@@ -89,6 +91,8 @@ export interface FilasDelCronograma {
     version: number;
     calculadoVersion: number | null;
     calculadoRevision: number | null;
+    /** D-94 · El valor total del presupuesto en el último cálculo. */
+    calculadoValorTotal: string | null;
     aviso: unknown;
   };
   presupuesto: {
@@ -96,6 +100,9 @@ export interface FilasDelCronograma {
     revision: number;
     horasPorJornal: string;
     totalAdministracion: string;
+    valorTotal: string;
+    /** presupuesto.fecha_modificacion: el último cambio (D-93, «ultimoCambio»). */
+    fechaModificacion: Date;
   };
   calendarios: { obra: Calendario; corrido: Calendario };
   capitulos: FilaCapitulo[];

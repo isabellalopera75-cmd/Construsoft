@@ -454,7 +454,7 @@ describe('las curvas y las líneas base (CONTRATO §19.7–§19.8)', () => {
   });
 
   test('si el cronograma estaba desactualizado al pedir guardar, no se guarda: 409 con la vista recalculada', async () => {
-    await comoSuperusuario((c) => c.query('UPDATE app.cronograma SET calculado_version = NULL, calculado_revision = NULL WHERE id = $1', [vista.cronograma.id]));
+    await comoSuperusuario((c) => c.query('UPDATE app.cronograma SET calculado_version = NULL, calculado_revision = NULL, calculado_valor_total = NULL WHERE id = $1', [vista.cronograma.id]));
     const r = await llamar('POST', `/api/cronogramas/${vista.cronograma.id}/lineas-base`, duena.cookie, { version: vista.cronograma.version, nombre: 'Tarde' });
     assert.equal(r.estado, 409, r.crudo);
     assert.match(r.cuerpo.mensaje, /El presupuesto cambió desde que usted abrió el cronograma/);

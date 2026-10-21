@@ -42,15 +42,18 @@ async function cargarFilasEn(cliente: ClienteEnContexto, cronogramaId: string): 
     version: string;
     calculado_version: string | null;
     calculado_revision: string | null;
+    calculado_valor_total: string | null;
     aviso_presupuesto: unknown;
     estado: FilasDelCronograma['presupuesto']['estado'];
     revision: string;
     horas_por_jornal: string;
     total_administracion: string;
+    valor_total: string;
+    fecha_modificacion: Date;
   }>(
     `SELECT c.id, c.presupuesto_id, c.tenant_id, ${FECHA('c.fecha_inicio')} AS fecha_inicio, c.version,
-            c.calculado_version, c.calculado_revision, c.aviso_presupuesto,
-            p.estado, p.revision, p.horas_por_jornal, p.total_administracion
+            c.calculado_version, c.calculado_revision, c.calculado_valor_total, c.aviso_presupuesto,
+            p.estado, p.revision, p.horas_por_jornal, p.total_administracion, p.valor_total, p.fecha_modificacion
        FROM app.cronograma c JOIN app.presupuesto p ON p.id = c.presupuesto_id
       WHERE c.id = $1`,
     [cronogramaId],
@@ -120,10 +123,12 @@ async function cargarFilasEn(cliente: ClienteEnContexto, cronogramaId: string): 
     holgura_total_minutos: number | null;
     holgura_libre_minutos: number | null;
     critica: boolean;
+    en_presupuesto: boolean;
   }>(
     `SELECT k.actividad_id, ${FECHA_HORA('k.inicio_temprano')} AS inicio, ${FECHA_HORA('k.fin_temprano')} AS fin,
             ${FECHA_HORA('k.inicio_tardio')} AS inicio_tardio, ${FECHA_HORA('k.fin_tardio')} AS fin_tardio,
-            k.duracion_calculada_minutos, k.duracion_minutos, k.holgura_total_minutos, k.holgura_libre_minutos, k.critica
+            k.duracion_calculada_minutos, k.duracion_minutos, k.holgura_total_minutos, k.holgura_libre_minutos, k.critica,
+            k.en_presupuesto
        FROM app.actividad_calculo k JOIN app.actividad_programada a ON a.id = k.actividad_id
       WHERE a.cronograma_id = $1`,
     [cronogramaId],
@@ -149,9 +154,17 @@ async function cargarFilasEn(cliente: ClienteEnContexto, cronogramaId: string): 
       version: Number(c.version),
       calculadoVersion: c.calculado_version === null ? null : Number(c.calculado_version),
       calculadoRevision: c.calculado_revision === null ? null : Number(c.calculado_revision),
+      calculadoValorTotal: c.calculado_valor_total,
       aviso: c.aviso_presupuesto,
     },
-    presupuesto: { estado: c.estado, revision: Number(c.revision), horasPorJornal: c.horas_por_jornal, totalAdministracion: c.total_administracion },
+    presupuesto: {
+      estado: c.estado,
+      revision: Number(c.revision),
+      horasPorJornal: c.horas_por_jornal,
+      totalAdministracion: c.total_administracion,
+      valorTotal: c.valor_total,
+      fechaModificacion: c.fecha_modificacion,
+    },
     calendarios: { obra: await calendario('OBRA'), corrido: await calendario('CORRIDO') },
     capitulos: capitulos.rows.map((k) => ({ id: k.id, padreId: k.padre_id, codigo: k.codigo_wbs, nombre: k.nombre, nivel: k.nivel, posicion: k.orden })),
     grupos: grupos.rows,
@@ -187,6 +200,7 @@ async function cargarFilasEn(cliente: ClienteEnContexto, cronogramaId: string): 
           holguraTotalMinutos: k.holgura_total_minutos,
           holguraLibreMinutos: k.holgura_libre_minutos,
           critica: k.critica,
+          enPresupuesto: k.en_presupuesto,
         },
       ]),
     ),
@@ -269,20 +283,23 @@ async function recalcularEn(cliente: ClienteEnContexto, cronogramaId: string): P
   }
 
   const texto = (minutos: number | null) => (minutos === null ? null : deMinutos(minutos));
+  const enPresupuesto = new Set(filas.actividades.filter((a) => a.item !== null).map((a) => a.id));
   await cliente.query(
     `INSERT INTO app.actividad_calculo
          (actividad_id, tenant_id, inicio_temprano, fin_temprano, inicio_tardio, fin_tardio,
-          duracion_calculada_minutos, duracion_minutos, holgura_total_minutos, holgura_libre_minutos)
-     SELECT x.id, $1, x.i::timestamp, x.f::timestamp, x.it::timestamp, x.ft::timestamp, x.dc, x.d, x.ht, x.hl
+          duracion_calculada_minutos, duracion_minutos, holgura_total_minutos, holgura_libre_minutos,
+          en_presupuesto)
+     SELECT x.id, $1, x.i::timestamp, x.f::timestamp, x.it::timestamp, x.ft::timestamp, x.dc, x.d, x.ht, x.hl, x.ep
        FROM unnest($2::uuid[], $3::text[], $4::text[], $5::text[], $6::text[],
-                   $7::int[], $8::int[], $9::int[], $10::int[]) AS x(id, i, f, it, ft, dc, d, ht, hl)
+                   $7::int[], $8::int[], $9::int[], $10::int[], $11::boolean[]) AS x(id, i, f, it, ft, dc, d, ht, hl, ep)
      ON CONFLICT (actividad_id) DO UPDATE SET
          inicio_temprano = EXCLUDED.inicio_temprano, fin_temprano = EXCLUDED.fin_temprano,
          inicio_tardio = EXCLUDED.inicio_tardio, fin_tardio = EXCLUDED.fin_tardio,
          duracion_calculada_minutos = EXCLUDED.duracion_calculada_minutos,
          duracion_minutos = EXCLUDED.duracion_minutos,
          holgura_total_minutos = EXCLUDED.holgura_total_minutos,
-         holgura_libre_minutos = EXCLUDED.holgura_libre_minutos`,
+         holgura_libre_minutos = EXCLUDED.holgura_libre_minutos,
+         en_presupuesto = EXCLUDED.en_presupuesto`,
     [
       filas.cabecera.tenantId,
       calculos.map((k) => k.actividadId),
@@ -294,12 +311,13 @@ async function recalcularEn(cliente: ClienteEnContexto, cronogramaId: string): P
       calculos.map((k) => k.duracionMinutos),
       calculos.map((k) => k.holguraTotalMinutos),
       calculos.map((k) => k.holguraLibreMinutos),
+      calculos.map((k) => enPresupuesto.has(k.actividadId)),
     ],
   );
-  await cliente.query('UPDATE app.cronograma SET calculado_version = version, calculado_revision = $2 WHERE id = $1', [
-    cronogramaId,
-    filas.presupuesto.revision,
-  ]);
+  await cliente.query(
+    'UPDATE app.cronograma SET calculado_version = version, calculado_revision = $2, calculado_valor_total = $3 WHERE id = $1',
+    [cronogramaId, filas.presupuesto.revision, filas.presupuesto.valorTotal],
+  );
 
   // Las filas, con el cálculo que se acaba de escribir: no hace falta leerlo de nuevo.
   const nuevos = new Map<string, FilaCalculo>(
@@ -316,12 +334,18 @@ async function recalcularEn(cliente: ClienteEnContexto, cronogramaId: string): P
         holguraLibreMinutos: k.holguraLibreMinutos,
         // La misma regla que la columna generada de la base (RN-31).
         critica: k.holguraTotalMinutos !== null && k.holguraTotalMinutos <= 0,
+        enPresupuesto: enPresupuesto.has(k.actividadId),
       },
     ]),
   );
   return {
     ...filas,
-    cabecera: { ...filas.cabecera, calculadoVersion: filas.cabecera.version, calculadoRevision: filas.presupuesto.revision },
+    cabecera: {
+      ...filas.cabecera,
+      calculadoVersion: filas.cabecera.version,
+      calculadoRevision: filas.presupuesto.revision,
+      calculadoValorTotal: filas.presupuesto.valorTotal,
+    },
     calculos: nuevos,
   };
 }

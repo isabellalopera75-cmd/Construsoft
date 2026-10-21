@@ -6,7 +6,8 @@
 --
 --      psql -U postgres -d construsoft -f "docs/prueba-d81-d92.sql"
 --
---  Necesita la migración 0005. Se juzga sola y termina con ROLLBACK. El motor
+--  Necesita las migraciones 0005 y 0007 (desde la 0007, el recálculo simulado
+--  escribe en_presupuesto). Se juzga sola y termina con ROLLBACK. El motor
 --  no está aquí (es de la API): sus resultados se simulan con una tabla de
 --  minutos por actividad y día.
 -- ============================================================================
@@ -467,17 +468,18 @@ INSERT INTO motor SELECT :'tr1', d::date, 1440 FROM generate_series('2026-11-02'
 CREATE FUNCTION pg_temp.calcular(k uuid) RETURNS void LANGUAGE sql AS $$
     INSERT INTO app.actividad_calculo
         (actividad_id, tenant_id, inicio_temprano, fin_temprano, inicio_tardio, fin_tardio,
-         duracion_minutos, holgura_total_minutos, holgura_libre_minutos)
+         duracion_minutos, holgura_total_minutos, holgura_libre_minutos, en_presupuesto)
     SELECT a.id, a.tenant_id,
            COALESCE(min(m.f), '2026-11-02') + time '07:00', COALESCE(max(m.f), '2026-11-02') + time '16:00',
            CASE WHEN a.tipo = 'ADMINISTRACION' THEN NULL ELSE COALESCE(min(m.f), '2026-11-02') + time '07:00' END,
            CASE WHEN a.tipo = 'ADMINISTRACION' THEN NULL ELSE COALESCE(max(m.f), '2026-11-02') + time '16:00' END,
            COALESCE(sum(m.m), 0),
            CASE WHEN a.tipo = 'ADMINISTRACION' THEN NULL ELSE 0 END,
-           CASE WHEN a.tipo = 'ADMINISTRACION' THEN NULL ELSE 0 END
+           CASE WHEN a.tipo = 'ADMINISTRACION' THEN NULL ELSE 0 END,
+           a.presupuesto_item_id IS NOT NULL
       FROM app.actividad_programada a LEFT JOIN motor m ON m.a = a.id
      WHERE a.cronograma_id = k
-     GROUP BY a.id, a.tenant_id, a.tipo
+     GROUP BY a.id, a.tenant_id, a.tipo, a.presupuesto_item_id
     ON CONFLICT (actividad_id) DO UPDATE
        SET inicio_temprano = EXCLUDED.inicio_temprano, fin_temprano = EXCLUDED.fin_temprano,
            duracion_minutos = EXCLUDED.duracion_minutos;
