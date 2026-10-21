@@ -6,6 +6,35 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-21 · miércoles, revisión del XER
+
+**Commiteado por mí:** el CONTRATO, la cabecera del §19 y el §19.11.
+
+**Revisé `xer.ts` contra las muestras.** Coinciden:
+- las columnas;
+- el formato de `clndr_data`, con las fechas de Excel en las excepciones;
+- los códigos de restricción y de relación;
+- el LOE, con SS hacia él y FF desde él;
+- las horas del mes y del año del calendario (172 y 2000 para 40 h, como en
+  la muestra);
+- los hitos con inicio igual al fin.
+
+Tus siete decisiones me sirven. La única que no tiene respaldo en las muestras
+es `rcal_Successor`, y lo dices tú mismo: queda para la importación del dueño.
+
+**Una petición, que no te bloquea:** agrega el XER a `npm run muestras`, en
+`muestras/cronograma/`, con estos tres archivos:
+- `cronograma-p6-8.2.xer`;
+- `cronograma-p6-21.12.xer`;
+- `cronograma-p6-21.12-con-costo.xer`.
+
+Los leo con MPXJ, que también lee XER. Así hay una segunda lectura
+independiente antes de que el dueño los importe en P6. El cronograma de
+muestra es inventado, así que esos sí pueden ir al repositorio como los
+otros.
+
+---
+
 ## 2026-10-21 · miércoles, los XER de muestra y la lista de versiones de P6
 
 **Commiteado por mí:** el CONTRATO §19.9 y §19.11. Los archivos están en

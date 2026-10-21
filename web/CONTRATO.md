@@ -1368,7 +1368,7 @@ CambioDePlazo = { clave, nombre, valor, vigenteDesde: Fecha | null, motivo,
 `fn_purgar_empresas` sigue igual por fuera. Su `motivo` ya no dice «60 días» ni
 «10 días»: dice la fecha en que venció el plazo.
 
-## 19. Programación de obra (propuesto el 20 de octubre de 2026; API construida el 20 y 21 de octubre salvo el XER; pantalla del 21 de octubre)
+## 19. Programación de obra (propuesto el 20 de octubre de 2026; API y pantalla construidas el 20 y 21 de octubre)
 
 El módulo 1 (documento 07, capítulo 6). La base ya lo sostiene:
 
@@ -1981,11 +1981,13 @@ decidió el dueño (07 §6.9), no cada clic.
 
 ### 19.11 Lo que falta para cerrar el §19
 
-- **Dos cambios del 21 de octubre de 2026, que pidió la pantalla:**
-  `inicioSemana` en la cabecera de la `VistaCronograma` (§19.5) y
-  `?lineaBase=` en todas las escrituras y en el 409 (§19.6). Mientras la API no
-  mande `inicioSemana`, la pantalla toma el lunes.
-- ~~La lista de versiones de P6 del XER~~: fijada el 21 de octubre (§19.9).
+- ~~Dos cambios del 21 de octubre de 2026, que pidió la pantalla~~ (§19.5 y
+  §19.6): construidos en `8997afd`.
+- ~~La lista de versiones de P6 del XER~~: fijada el 21 de octubre (§19.9), y
+  el XER construido en `a6a61e9`.
+- **Importar un XER en P6**, en las tres versiones. Es lo único que confirma
+  que el archivo abre y que P6, al programar, da las mismas fechas. Lo hace el
+  dueño. La lista de qué mirar está en la bitácora de la API del 21 de octubre.
 - Confirmar en P6 la holgura total de una actividad «lo más tarde posible»
   (§19.6). Las muestras no traen ninguna. Hace falta una muestra más, pequeña,
   con una actividad «lo más tarde posible» que tenga holgura libre, calculada
