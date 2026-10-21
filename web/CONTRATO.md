@@ -459,7 +459,22 @@ Linea      = { recursoId, recursoCodigo, recursoNombre, recursoTipo,
 ```
 
 Cuerpo de `POST` y `PUT`:
-`{ nombre, unidadId, lineas: [{ recursoId, cantidad, rendimiento, desperdicioPct? }] }`.
+`{ nombre, unidadId, rendimientoActividad?, lineas: [{ recursoId, cantidad, rendimiento, desperdicioPct? }] }`.
+
+**El rendimiento de la actividad (RF-APU-25, D-85; agregado el 20 de octubre
+de 2026).** Dice cuántas unidades hace la cuadrilla completa en un jornal, y
+de él sale la duración en el cronograma.
+- El `GET /api/apus/:id` lo trae como `rendimientoActividad: string | null`
+  (`"5.0000"`), el de la versión vigente.
+- Se escribe como texto, mayor que cero y con hasta cuatro decimales. Si no,
+  es 422 con `campo: "rendimientoActividad"`.
+- **En el `PUT`**: si no viene, se conserva el de la versión vigente; con
+  `null`, se quita.
+- **En el `POST`**: si no viene, el APU nace sin rendimiento.
+- Cambiarlo es editar el APU: crea una versión nueva y hace la misma pregunta
+  de propagación que un cambio de precio (`presupuestosAReapuntar`).
+- No es el `rendimiento` de cada línea, que multiplica la cantidad del
+  recurso: el formulario los rotula distinto.
 Un 422 de una línea marca su posición en `campo`, por ejemplo
 `"lineas.0.cantidad"`. El `PUT` lleva `presupuestosAReapuntar?` y responde
 `{ apu, itemsReapuntados }`. Un `DELETE` de un APU en uso es 422 con el mensaje
@@ -1373,9 +1388,21 @@ de las dos bitácoras. Aquí van las rutas y las formas.
 - exportar es `PRESUPUESTOS.EXPORTAR`.
 
 Calendarios, festivos, horas por jornal e inicio de semana son preferencias de
-la empresa: se escriben con `CONFIG.PREFERENCIAS` y se leen sin permiso propio,
-como las unidades (§7), porque crear un cronograma necesita elegir un
-calendario.
+la empresa: se escriben con `CONFIG.PREFERENCIAS`. Para leerlos hay dos casos,
+como en las unidades, donde `GET /api/unidades` pide `RECURSOS.VER` o, con
+`?para=APU`, `APU.VER` (corregido el 20 de octubre de 2026: este párrafo
+decía «sin permiso propio», y no es así):
+- **Los desplegables** (`GET /api/calendarios` y `GET /api/festivos`) piden
+  `PRESUPUESTOS.VER`, porque crear un cronograma necesita elegir un
+  calendario. Con `?para=CONFIG`, piden `CONFIG.PREFERENCIAS`, para la
+  pestaña de configuración.
+- **El detalle** (`GET /api/configuracion/calendarios/:id` y
+  `GET /api/configuracion/festivos/:id`) pide `CONFIG.PREFERENCIAS`, como el
+  resto de la pestaña.
+
+La pantalla del cronograma no necesita el detalle: el calendario de la obra
+viene en la `VistaCronograma`. Con permiso, una cuenta suspendida tampoco lee
+nada de esto (D-74).
 
 ### 19.1 Reglas que valen para todo el módulo
 
@@ -1416,6 +1443,10 @@ Se suman a las del §1.
   `cronograma` en el 409 de versión, `ciclo` en una relación que cierra un
   círculo (§19.6) y `lineaBaseId` en un nombre de línea base repetido (§19.8).
   Ninguna otra respuesta de error cambia de forma.
+- **Las respuestas van comprimidas** (gzip, `@fastify/compress`) cuando el
+  navegador lo acepta, que es siempre. La vista de un cronograma de 1.500
+  actividades pesa 1,6 MB de JSON, y viaja en cada edición. Comprimir no
+  cambia ninguna forma.
 - **Leer puede recalcular.** Si el cronograma está desactualizado, el `GET` lo
   recalcula antes de responder (D-91). Tarda lo que tarde el cálculo, y la
   pantalla muestra «recalculando» si pasa de un umbral corto. Recalcular no es
@@ -1446,8 +1477,8 @@ Preferencias = { …, horasPorJornal: string,   // "8.00", de 1 a 24 (D-84)
 
 | Método y ruta | Cuerpo | Respuesta | Permiso |
 |---|---|---|---|
-| `GET /api/calendarios` | — | `{ calendarios: CalendarioResumen[] }` | ninguno propio |
-| `GET /api/configuracion/calendarios/:id` | — | `Calendario` | ninguno propio |
+| `GET /api/calendarios` | — | `{ calendarios: CalendarioResumen[] }` | `PRESUPUESTOS.VER`; con `?para=CONFIG`, `CONFIG.PREFERENCIAS` |
+| `GET /api/configuracion/calendarios/:id` | — | `Calendario` | `CONFIG.PREFERENCIAS` |
 | `POST /api/configuracion/calendarios` | `{ nombre, horasPorDia, semana }` | 201 `Calendario` | `CONFIG.PREFERENCIAS` |
 | `PUT /api/configuracion/calendarios/:id` | `{ nombre, horasPorDia, semana }` | 200 `Calendario` | `CONFIG.PREFERENCIAS` |
 | `DELETE /api/configuracion/calendarios/:id` | — | 204 | `CONFIG.PREFERENCIAS` |
@@ -1498,8 +1529,8 @@ Excepcion = { fecha: Fecha, motivo: string | null, tramos: Tramo[], horas: strin
 
 | Método y ruta | Cuerpo | Respuesta | Permiso |
 |---|---|---|---|
-| `GET /api/festivos` | — | `{ plataforma: ListaDeLaPlataforma[], propias: ListaPropiaResumen[] }` | ninguno propio |
-| `GET /api/configuracion/festivos/:id` | — | `ListaPropia` | ninguno propio |
+| `GET /api/festivos` | — | `{ plataforma: ListaDeLaPlataforma[], propias: ListaPropiaResumen[] }` | `PRESUPUESTOS.VER`; con `?para=CONFIG`, `CONFIG.PREFERENCIAS` |
+| `GET /api/configuracion/festivos/:id` | — | `ListaPropia` | `CONFIG.PREFERENCIAS` |
 | `POST /api/configuracion/festivos` | `{ nombre, fechas }` | 201 `ListaPropia` | `CONFIG.PREFERENCIAS` |
 | `PUT /api/configuracion/festivos/:id` | `{ nombre, fechas }` | 200 `ListaPropia` | `CONFIG.PREFERENCIAS` |
 | `DELETE /api/configuracion/festivos/:id` | — | 204 | `CONFIG.PREFERENCIAS` |
@@ -1691,6 +1722,19 @@ LineaBaseEnVista = { id, nombre, guardadaEn: Instante,
   - `ultimoCambio` no es «el primer cambio sin cerrar»: la base solo guarda la
     última modificación del presupuesto. La pantalla dice «Último cambio del
     presupuesto: …».
+  - **Con qué se compara** (D-94, migración 0007). El recálculo guarda, junto
+    con lo de siempre:
+    - el valor total del presupuesto en `cronograma.calculado_valor_total`;
+    - si cada actividad tenía su ítem en `actividad_calculo.en_presupuesto`.
+
+    `salieron` son las actividades sin ítem cuyo cálculo anterior dice
+    `en_presupuesto`. `valorTotalAntes` es el `calculado_valor_total`
+    anterior.
+- **Una actividad que ya no está en el presupuesto** y no tiene duración
+  manual conserva la duración de su último cálculo, en vez de quedar en cero.
+  Así la cadena que el usuario tiene que ver romperse no se acorta en silencio
+  (RN-33). Si nunca se calculó (una copia recién duplicada), dura cero y sale
+  en la lista de revisión.
 - **El aviso de la administración** es la decisión del dueño del 20 de
   octubre. Compara el fin del proyecto contra la línea base que se muestra y
   dice cuántos días de más lleva la obra. El texto lo pone la pantalla:
@@ -1762,6 +1806,13 @@ responden 200 `VistaCronograma`. Crear responde 201. Permiso:
     quedar antes de la fecha «después de».
   - Un hito de fin no lleva restricciones de inicio, ni uno de inicio
     restricciones de fin.
+- **«Lo más tarde posible»** corre las fechas tempranas tan tarde como deja la
+  holgura libre, sin mover a las sucesoras. Es lo que dice Oracle: «P6 sets
+  the activity's early dates as late as possible without affecting successor
+  activities». La holgura total es tardías menos tempranas, ya corridas, así
+  que se reduce en lo que se corrió. Así lo calcula P6 si sus fechas tempranas
+  son las corridas; la documentación no lo dice expresamente, y se confirma
+  abriendo el XER en P6 (§19.11).
 - **Una relación que cierra un círculo** es 422 y no se guarda nada
   (RF-PRG-05):
 
@@ -1882,5 +1933,8 @@ decidió el dueño (07 §6.9), no cada clic.
 ### 19.11 Lo que falta para cerrar el §19
 
 - La lista de versiones de P6 del XER, que depende de los archivos de muestra.
+- Confirmar en P6, con esos mismos archivos, la holgura total de una
+  actividad «lo más tarde posible» (§19.6). Si P6 la deja sin reducir, se
+  cambia el motor.
 - Al construir, cualquier forma que no le sirva al motor o a la pantalla se
   corrige aquí primero, como en el resto del contrato.

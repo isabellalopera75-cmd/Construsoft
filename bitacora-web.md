@@ -6,6 +6,81 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-20 · martes, la migración 0007 y respuesta a tus preguntas abiertas
+
+**Hecho, sin commit (toca `docs/migraciones/`; el commit es tuyo, con el
+hook):**
+
+- `docs/migraciones/0007-lo-que-vio-el-calculo.sql` y su `.revertir.sql`.
+- `docs/prueba-d94.sql`, con 7 casos.
+- `docs/prueba-d81-d92.sql` cambió: su recálculo simulado ahora escribe
+  `en_presupuesto`. Sin eso, desde la 0007 da error. Va en el mismo commit.
+
+**Commiteado por mí:** el CONTRATO (§6 y §19), el 07 (D-94 y tres
+decisiones), el 02 (el rendimiento en el formulario y la plantilla de APU) y
+el 00.
+
+**La 0007 (D-94) es exactamente lo que pediste; el defecto era del diseño de
+la 0006.**
+- `cronograma.calculado_valor_total app.dinero`. Es nula hasta el primer
+  cálculo, la base rechaza que tenga valor si no hay cálculo, y tienes
+  `UPDATE` sobre ella.
+- `actividad_calculo.en_presupuesto boolean NOT NULL`, **sin valor por
+  defecto**: el upsert tiene que escribirla siempre, también en el
+  `DO UPDATE`.
+- Los resultados que ya existían se rellenaron con el ítem que tienen hoy.
+- **No trae tipos de evento ni permisos nuevos.**
+- **Comprobado aquí:**
+  - 05 + 0001…0007 con empresas antes de la 0007: las dieciséis baterías en
+    verde.
+  - El relleno, con un cronograma calculado y una huérfana.
+  - Tres mutaciones, detectadas.
+  - Revertir y volver a aplicar.
+
+**Tus preguntas:**
+
+- **Permiso de las cuatro lecturas: tienes razón, me equivoqué.** Las
+  unidades sí piden permiso. Queda como lo propusiste:
+  - los desplegables con `PRESUPUESTOS.VER`, o `CONFIG.PREFERENCIAS` con
+    `?para=CONFIG`;
+  - el detalle con `CONFIG.PREFERENCIAS`.
+
+  El §19 ya lo dice.
+- **P7, RF-APU-25 en el formulario.** Está en el §6:
+  - `rendimientoActividad: string | null` en el `GET /api/apus/:id`, el de la
+    versión vigente;
+  - opcional en `POST` y `PUT`: en el `PUT`, si no viene se conserva y con
+    `null` se quita;
+  - mayor que cero y con hasta cuatro decimales; si no, 422 con su campo;
+  - cambiarlo hace la misma pregunta de propagación que un precio.
+- **P8, «lo más tarde posible»: no como lo hiciste.** Oracle dice que P6
+  corre las fechas **tempranas**. Si la holgura total es tardías menos
+  tempranas, se reduce en lo que se corrió. Cámbialo así. No está escrito
+  explícitamente en la documentación, así que queda en el §19.11 para
+  confirmarlo en P6 con los archivos de muestra.
+- **P9, gzip: de acuerdo**, con `@fastify/compress`. Queda anotado en el
+  §19.1.
+
+**Lo que resolviste tú, todo aceptado:**
+- el costo de `ADM`;
+- `recalculado` falso al crear;
+- las tardías de un instante;
+- `?lineaBase=` ajena da 404;
+- el redondeo del desfase;
+- la holgura libre negativa;
+- la plantilla vieja rechazada;
+- la fecha mal escrita en la ruta.
+
+**La huérfana con la duración de su último cálculo** es decisión de producto,
+y la escribí en el 07 §6.9 y en el §19.5.
+
+**La traducción de los campos de las restricciones** (de `restriccionTipo` a
+`restriccion.tipo`) está bien: el contrato manda en lo que ve la pantalla.
+
+**Lo que necesito de ti:** el commit de los cuatro archivos de `docs/`, con
+el hook, `npm run migrar` sobre `construsoft` y `prueba-d94.sql` en tu lista.
+Después, el aviso (D-93) con D-94, el cambio de P8 y la exportación.
+
 ## 2026-10-20 · martes, respuesta a tus seis preguntas del §19
 
 **Todo respondido, y el §19 ya lo dice** (commit de hoy). Nada tuyo queda
