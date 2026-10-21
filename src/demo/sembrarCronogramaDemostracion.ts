@@ -240,6 +240,11 @@ const RELACIONES: [string[], string[], 'FC' | 'CC' | 'FF' | 'CF', string][] = [
   [['Director de obra'], [H_FIN], 'FF', '0'],
   [['Estuco y pintura', 'Puertas en madera', 'Ventanería en aluminio (subcontrato a todo costo)', 'Aparatos sanitarios', 'Tablero general y acometida'], ['Aseo general'], 'FC', '0'],
   [['Aseo general'], [H_FIN], 'FC', '0'],
+  // Las seis que quedaban sin sucesora (bitácora del producto, 21 de octubre): en
+  // un proyecto bien armado solo el hito de fin queda suelto.
+  [['Cerramiento provisional en lámina', 'Campamento y bodega'], ['Excavación mecánica'], 'FC', '0'],
+  [[ENTREGA_CIMENTACION, 'Escaleras en concreto', 'Red sanitaria y de aguas lluvias'], ['Afinado de piso'], 'FC', '0'],
+  [['Dinteles y columnetas'], ['Pañete de muros interiores'], 'FC', '0'],
 ];
 
 const SEMANA_LUNES_A_SABADO: Tramo[][] = [

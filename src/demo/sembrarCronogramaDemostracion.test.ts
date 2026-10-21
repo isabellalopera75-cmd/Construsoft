@@ -54,19 +54,12 @@ describe('el proyecto de demostración con cronograma (DEMO-003)', () => {
     assert.equal(vista.calendarios.obra.semana[5].length, 1, 'el sábado, medio día');
     assert.ok(vista.calendarios.obra.excepciones.some((e: { fecha: string }) => e.fecha === '2026-12-08'), 'con los festivos de Colombia');
     assert.deepEqual(vista.revision.sinProgramar, []);
-    // Las relaciones son las de la bitácora, ni una más: el inicio no tiene
-    // predecesora, y seis actividades quedan sin sucesora, como allí se dejaron.
+    // Una red cerrada: solo el hito de inicio queda sin predecesora y solo el de
+    // fin sin sucesora. La revisión los cuenta a los dos: solo excluye la
+    // administración (CONTRATO §19.5).
     const nombres = (ids: string[]) => ids.map((id) => vista.actividades.find((a: { id: string }) => a.id === id).nombre).sort();
     assert.deepEqual(nombres(vista.revision.sinPredecesora), ['Inicio del proyecto']);
-    assert.deepEqual(nombres(vista.revision.sinSucesora), [
-      'Campamento y bodega',
-      'Cerramiento provisional en lámina',
-      'Dinteles y columnetas',
-      'Entrega de cimentación',
-      'Escaleras en concreto',
-      'Fin del proyecto',
-      'Red sanitaria y de aguas lluvias',
-    ]);
+    assert.deepEqual(nombres(vista.revision.sinSucesora), ['Fin del proyecto']);
   });
 
   test('los hitos y trámites con sus códigos y grupos, y las relaciones de la bitácora', () => {
@@ -78,7 +71,7 @@ describe('el proyecto de demostración con cronograma (DEMO-003)', () => {
     assert.deepEqual(vista.grupos.map((g: { nombre: string }) => g.nombre), ['Licencias y trámites', 'Suministros']);
     assert.equal(porNombre('Licencia de construcción').usaCorrido, true);
     assert.deepEqual(porNombre('Fin del proyecto').restriccion, { tipo: 'FIN_ANTES', fecha: '2027-09-30' });
-    assert.equal(vista.dependencias.length, 46);
+    assert.equal(vista.dependencias.length, 52);
   });
 
   test('el director de obra dura lo que el proyecto, en días enteros', (t) => {
