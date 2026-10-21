@@ -15,6 +15,79 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-20 · martes, §19.3–§19.4 sin las lecturas, RF-APU-25 y el motor
+
+**Hecho** (cada paso con su commit y el hook en verde; el último, 610 de 610)
+
+- **§19.3, las escrituras de los calendarios** (`a465934`): crear, editar
+  (la semana se reemplaza entera), eliminar, marcar por defecto,
+  excepciones y copiar festivos.
+  - Los tramos los valido como un solo campo: el error llega en `semana` o
+    en `tramos`, no en `semana.0.1.inicio`.
+  - `ux_calendario_nombre` da 409 en `nombre`.
+  - Un calendario de un cronograma no existe para estas rutas: es 404.
+- **§19.4, las listas propias** (`4d1180e`), con su plantilla y su
+  importación (`1f71c3f`). Siguen el §10: todo o nada y todos los errores
+  por fila. El éxito responde 201 con la `ListaPropia`.
+- **§19.4, el panel** (`e5e986f`): `GET /api/superadmin/festivos` y
+  `POST …/festivos/:pais/extender`. Un país sin lista es 404.
+- **RF-APU-25, la plantilla de APU** (`6c06b41`): la hoja APU gana la
+  columna «Rendimiento de la actividad». Es opcional, mayor que cero y con
+  hasta cuatro decimales, y se guarda con la llamada de siete argumentos.
+  Las instrucciones aclaran que no es el Rendimiento de la hoja Composición.
+- **El motor, puro y sin base** (`src/cronograma/`), en tres commits
+  (`106f466`, `df9e844` y `caa4b3f`):
+  - el calendario compilado, con las dos operaciones de la D-81;
+  - el CPM con las restricciones de P6, las holguras y la administración;
+  - las conversiones exactas: la duración al minuto hacia arriba y los días
+    con un decimal.
+
+  Lo prueban 40 casos calculados a mano, y lo comprobé con mutaciones, una
+  defensa a la vez.
+- **Medido el motor** (RNF-29): 1.500 actividades, 3.000 relaciones, 30
+  frentes en paralelo, sábados medio día y festivos de cinco años. Compilar
+  los dos calendarios, el CPM y los minutos por día de las curvas tardan
+  49 ms en caliente (máximo 66) y 94 ms en frío. Sin contar la base.
+
+**Qué divergió.** Nada de las formas del §19. Hay cuatro cosas que el
+contrato no dice y que resolví así; si alguna no te sirve, se cambia:
+
+- Una fecha mal escrita en la ruta de una excepción es 422 en `fecha`.
+- **Una plantilla de APU vieja, de tres columnas, se rechaza entera** con
+  «no tiene las columnas de la plantilla… descárguela de nuevo».
+- **El desfase se redondea al minuto a la mitad alejándose del cero;** la
+  duración manual, hacia arriba, como la calculada (A6). Solo cambia algo
+  cuando el factor del calendario tiene centésimas: 0,1 días de 8,33 h son
+  49,98 minutos.
+- **La holgura libre puede salir negativa** cuando una restricción
+  obligatoria pone a la sucesora antes del fin de su predecesora. No la
+  corto en cero.
+
+**Qué necesito de ti.** Nada de esto me bloquea el paso siguiente.
+
+- **Sigue abierto el permiso para leer calendarios y festivos** (mi entrada
+  anterior). Esas cuatro lecturas son lo único de §19.3–§19.4 sin construir.
+- **P7. RF-APU-25 en el formulario de APU.** El §6 no tiene el campo. Hace
+  falta que `Apu` (o su versión) traiga `rendimientoActividad` y que crear
+  y editar lo acepten, con la pregunta de propagación de siempre al
+  cambiarlo. Es una forma nueva, así que primero va en el contrato.
+- **P8. «Lo más tarde posible» y la holgura total.** Al correr la
+  actividad para consumir su holgura libre, dejo la holgura total como salió
+  del cálculo, así que la actividad no se vuelve crítica solo por ser «lo más
+  tarde posible». La documentación de P6 que conozco no es clara en esto.
+  ¿Lo confirmas, o la holgura se recalcula con las fechas corridas?
+
+**Qué encontré que deberías saber**
+
+- **El horizonte del calendario lo dimensiona la API según el cronograma.**
+  En la medición, una red en serie de 1.500 actividades largas daba una obra
+  de décadas, y el cálculo se salía del horizonte. No toca la base: es mío.
+
+**Lo que sigue de mi lado:** el paso 4, las rutas de §19.5–§19.8 con el
+recálculo en una transacción (B4), el aviso, la revisión y las líneas base.
+
+---
+
 ## 2026-10-20 · martes, §19.2 hecho y una contradicción en §19.3–§19.4
 
 **Hecho**
