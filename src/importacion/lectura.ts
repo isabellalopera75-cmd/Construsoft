@@ -66,6 +66,8 @@ export interface ApuAImportar {
   fila: number;
   nombre: string;
   unidadId: string;
+  /** RF-APU-25 · Unidades de obra por jornal, con cuatro decimales; null si la celda va vacía. */
+  rendimientoActividad: string | null;
   lineas: LineaAImportar[];
 }
 
@@ -213,14 +215,14 @@ export async function leerArchivoDeApu(
     throw new ArchivoNoValido(`La hoja «${HOJA_APU}» no trae ningún APU: escríbalos desde la fila 2.`);
   }
   const errores: ErrorDeFila[] = [];
-  const [cClave, cNombre, cUnidad] = COLUMNAS_APU;
+  const [cClave, cNombre, cUnidad, cRendimientoActividad] = COLUMNAS_APU;
   const [cClaveApu, cCodigo, cCantidad, cRendimiento, cDesperdicio] = COLUMNAS_COMPOSICION;
 
   // Los APU, por clave. La clave solo une las dos hojas y no se guarda.
   const porClave = new Map<string, ApuAImportar & { valido: boolean }>();
   for (const { numero, valores } of filasApu) {
     const error = (columna: string | null, mensaje: string) => errores.push({ hoja: HOJA_APU, fila: numero, columna, mensaje });
-    const [clave, nombre, unidad] = completas(valores, 3) as [Celda, Celda, Celda];
+    const [clave, nombre, unidad, rendimientoActividad] = completas(valores, 4) as [Celda, Celda, Celda, Celda];
     let valido = true;
     if (clave === null) {
       error(cClave, 'Escriba la clave del APU (A1, A2…): es la que une esta fila con sus líneas de la hoja Composición.');
@@ -250,7 +252,17 @@ export async function leerArchivoDeApu(
       error(cUnidad, unidad === null ? 'Elija la unidad de la lista desplegable.' : `La unidad «${unidad}» no existe en su empresa. Elija una de la lista desplegable.`);
       valido = false;
     }
-    porClave.set(llave, { fila: numero, nombre: String(nombre ?? ''), unidadId: unidadValor?.id ?? '', lineas: [], valido });
+    // D-85 · numeric(12,4) mayor que cero: hasta ocho cifras enteras y cuatro decimales.
+    let rendimientoTexto: string | null = null;
+    if (rendimientoActividad !== null) {
+      const cifra = cifraDeCelda(rendimientoActividad, 8);
+      if ('error' in cifra) error(cRendimientoActividad, `El rendimiento de la actividad ${cifra.error}`);
+      else if (!/[1-9]/.test(cifra.texto)) error(cRendimientoActividad, 'El rendimiento de la actividad tiene que ser mayor que cero. Si no lo sabe, deje la celda vacía.');
+      else if (!cifra.texto.endsWith('00')) error(cRendimientoActividad, 'El rendimiento de la actividad admite hasta cuatro decimales.');
+      else rendimientoTexto = cifra.texto.slice(0, -2);
+      if (rendimientoTexto === null) valido = false;
+    }
+    porClave.set(llave, { fila: numero, nombre: String(nombre ?? ''), unidadId: unidadValor?.id ?? '', rendimientoActividad: rendimientoTexto, lineas: [], valido });
   }
 
   const recursoPorCodigo = new Map(catalogo.map((r) => [r.codigo.toLowerCase(), r]));

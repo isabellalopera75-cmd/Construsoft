@@ -14,7 +14,7 @@ export const HOJA_RECURSOS = 'Recursos';
 export const COLUMNAS_RECURSOS = ['Nombre', 'Tipo', 'Unidad', 'Precio base (sin IVA)', 'IVA %', 'Precio total (con IVA)'] as const;
 
 export const HOJA_APU = 'APU';
-export const COLUMNAS_APU = ['Clave', 'Nombre de la actividad', 'Unidad'] as const;
+export const COLUMNAS_APU = ['Clave', 'Nombre de la actividad', 'Unidad', 'Rendimiento de la actividad'] as const;
 export const HOJA_COMPOSICION = 'Composición';
 export const COLUMNAS_COMPOSICION = ['Clave del APU', 'Código del recurso', 'Cantidad', 'Rendimiento', 'Desperdicio %'] as const;
 export const HOJA_CATALOGO = 'Recursos';
@@ -106,12 +106,15 @@ export async function generarPlantillaDeApu(unidades: string[], catalogo: Recurs
     'Rendimiento: cuánto consume UNA unidad del recurso por cada unidad de obra (0,05 jornal por m³). Si lo deja vacío, es 1.',
     'No son lo mismo: si los confunde, el APU sale inflado sin que nada avise. Ninguno de los dos admite cero.',
     'Desperdicio % solo para recursos de tipo Material; vacío es 0 %.',
+    'Rendimiento de la actividad (opcional): cuántas unidades de obra hace la cuadrilla completa en un jornal, por ejemplo 5 m³ por jornal.',
+    'Con él, el cronograma calcula la duración. Mayor que cero y hasta cuatro decimales; si lo deja vacío, la duración se escribe a mano.',
+    'No es el Rendimiento de la hoja Composición: aquel es el consumo de cada recurso por unidad de obra.',
     'Todo APU necesita al menos una línea. Los recursos tienen que existir antes de importar el APU.',
     '',
     'La importación solo crea APU nuevos. Si alguna fila tiene un error, no se importa nada y se le dice cuál corregir.',
   ]);
   const apu = libro.addWorksheet(HOJA_APU);
-  encabezado(apu, COLUMNAS_APU, [10, 50, 12]);
+  encabezado(apu, COLUMNAS_APU, [10, 50, 12, 28]);
   const composicion = libro.addWorksheet(HOJA_COMPOSICION);
   encabezado(composicion, COLUMNAS_COMPOSICION, [14, 20, 12, 14, 14]);
   const consulta = libro.addWorksheet(HOJA_CATALOGO);

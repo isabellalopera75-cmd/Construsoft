@@ -119,6 +119,7 @@ describe('leerArchivoDeApu (CONTRATO §10.4)', () => {
         fila: 2,
         nombre: 'Concreto para zapatas',
         unidadId: 'u-m3',
+        rendimientoActividad: null,
         lineas: [
           { fila: 2, recursoId: 'r-concreto', cantidad: '1.000000', rendimiento: '1.000000', desperdicioPct: '5.000000' },
           { fila: 3, recursoId: 'r-oficial', cantidad: '2.000000', rendimiento: '0.050000', desperdicioPct: '0.000000' },
@@ -160,6 +161,35 @@ describe('leerArchivoDeApu (CONTRATO §10.4)', () => {
     assert.match(errores[4]!.mensaje, /no puede ser cero/);
     assert.match(errores[5]!.mensaje, /no es un material/);
     assert.deepEqual(apus, []);
+  });
+});
+
+describe('leerArchivoDeApu: el rendimiento de la actividad (RF-APU-25)', () => {
+  test('opcional, mayor que cero y con hasta cuatro decimales; lo demás es error de su fila', async () => {
+    const plantilla = await generarPlantillaDeApu(['m³'], []);
+    const archivo = await llenar(plantilla, {
+      APU: [
+        ['A1', 'Con rendimiento', 'm³', 5],
+        ['A2', 'Sin rendimiento', 'm³', null],
+        ['A3', 'En cero', 'm³', 0],
+        ['A4', 'Muchos decimales', 'm³', 1.23456],
+        ['A5', 'En palabras', 'm³', 'mucho'],
+        ['A6', 'Con cuatro decimales', 'm³', '0.1234'],
+      ],
+      Composición: ['A1', 'A2', 'A3', 'A4', 'A5', 'A6'].map((clave) => [clave, 'MAT-0001', 1, 1, null]),
+    });
+    const { apus, errores } = await leerArchivoDeApu(archivo, UNIDADES, CATALOGO);
+    assert.deepEqual(
+      errores.map((e) => [e.hoja, e.fila, e.columna]),
+      [['APU', 4, 'Rendimiento de la actividad'], ['APU', 5, 'Rendimiento de la actividad'], ['APU', 6, 'Rendimiento de la actividad']],
+    );
+    assert.match(errores[0]!.mensaje, /mayor que cero/);
+    assert.match(errores[1]!.mensaje, /cuatro decimales/);
+    assert.deepEqual(apus.map((a) => [a.nombre, a.rendimientoActividad]), [
+      ['Con rendimiento', '5.0000'],
+      ['Sin rendimiento', null],
+      ['Con cuatro decimales', '0.1234'],
+    ]);
   });
 });
 

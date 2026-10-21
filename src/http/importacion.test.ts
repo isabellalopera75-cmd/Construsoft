@@ -4,7 +4,7 @@ import { randomBytes } from 'node:crypto';
 import ExcelJS from 'exceljs';
 import type { FastifyInstance } from 'fastify';
 import { crearRecurso } from '../infraestructura/basedatos/recurso.js';
-import { vencerSuscripcion } from '../pruebas/superusuario.js';
+import { comoSuperusuario, vencerSuscripcion } from '../pruebas/superusuario.js';
 import { VERSION_TERMINOS_DE_PRUEBA, CARPETA_LEGAL_DE_PRUEBA, clienteDePrueba, type Cuenta } from '../pruebas/clienteHttp.js';
 import { construirServidor } from './servidor.js';
 
@@ -307,5 +307,31 @@ describe('importar una lista propia de festivos desde Excel (CONTRATO §19.4)', 
     const sinPermiso = await asistenteCon(duena, 'importa.festivos.sinpermiso@construsoft.test', ['PRESUPUESTOS.VER']);
     assert.equal((await pedir('/api/configuracion/festivos/plantilla', sinPermiso)).statusCode, 403);
     assert.equal((await subir('/api/configuracion/festivos/importar?nombre=X', sinPermiso, Buffer.from('PK'))).estado, 403);
+  });
+});
+
+describe('importar APU con el rendimiento de la actividad (RF-APU-25)', () => {
+  test('el rendimiento queda en la versión inicial del APU; vacío, la versión nace sin él', async () => {
+    const duena = await registrar('Constructora Importa Rendimiento', '900000981-1', 'importa.rendimiento@construsoft.test');
+    const unidades = (await pedir('/api/unidades', duena.cookie)).json<{ unidades: { id: string; simbolo: string }[] }>().unidades;
+    const m3 = unidades.find((u) => u.simbolo === 'm³')!.id;
+    const { codigo } = await crearRecurso(duena.contexto, { nombre: 'Concreto', tipo: 'MATERIAL', unidadId: m3, precioBase: '500000', ivaPct: '0', precioTotal: '500000', viaCaptura: 'BASE' });
+    const archivo = await plantillaLlena('/api/apus/plantilla', duena.cookie, {
+      APU: [['A1', 'Placa con rendimiento', 'm³', 5], ['A2', 'Placa sin rendimiento', 'm³', null]],
+      Composición: [['A1', codigo, 1, 1, null], ['A2', codigo, 1, 1, null]],
+    });
+    const r = await subir('/api/apus/importar', duena.cookie, archivo);
+    assert.deepEqual([r.estado, r.cuerpo], [201, { creados: 2 }], r.crudo);
+    const guardados = await comoSuperusuario(async (c) =>
+      (await c.query(
+        `SELECT a.nombre, v.rendimiento_actividad FROM app.apu a JOIN app.apu_version v ON v.id = a.version_vigente_id
+          WHERE a.tenant_id = $1 ORDER BY a.nombre`,
+        [duena.contexto.tenantId],
+      )).rows,
+    );
+    assert.deepEqual(guardados, [
+      { nombre: 'Placa con rendimiento', rendimiento_actividad: '5.0000' },
+      { nombre: 'Placa sin rendimiento', rendimiento_actividad: null },
+    ]);
   });
 });

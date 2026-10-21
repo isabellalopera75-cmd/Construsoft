@@ -416,6 +416,8 @@ export interface ApuImportado {
   fila: number;
   nombre: string;
   unidadId: string;
+  /** RF-APU-25 · null: la versión nace sin rendimiento y la duración se escribe a mano. */
+  rendimientoActividad: string | null;
   lineas: LineaApu[];
 }
 
@@ -434,9 +436,11 @@ export async function crearApusEnBloque(contexto: ContextoTenant, apus: ApuImpor
          RETURNING id`,
         [contexto.tenantId, a.nombre, a.unidadId, contexto.usuarioId],
       );
-      await cliente.query(`SELECT app.fn_nueva_version_apu($1, $2::jsonb, NULL, NULL, 'Versión inicial')`, [
+      // Los dos últimos argumentos son de la 0004: fijar el rendimiento, aunque sea nulo.
+      await cliente.query(`SELECT app.fn_nueva_version_apu($1, $2::jsonb, NULL, NULL, 'Versión inicial', $3, true)`, [
         rows[0]!.id,
         lineasAJson(a.lineas),
+        a.rendimientoActividad,
       ]);
     }),
   );
