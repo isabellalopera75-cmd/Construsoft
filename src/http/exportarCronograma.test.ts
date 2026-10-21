@@ -98,3 +98,91 @@ describe('el Gantt en PDF (RF-PRG-10)', () => {
     assert.equal((await exportar('formato=pdf&escala=SEMANA', otra.cookie)).estado, 404);
   });
 });
+
+describe('el XML para Project (RF-PRG-11, CONTRATO §19.9)', () => {
+  let duena: Cuenta;
+  let vista: Record<string, any>;
+  const exportar = async (consulta: string) => {
+    const r = await app.inject({ method: 'GET', url: `/api/cronogramas/${vista.cronograma.id}/exportar?${consulta}`, remoteAddress: otraIp(), headers: { cookie: duena.cookie } });
+    return { estado: r.statusCode, xml: r.body, cabeceras: r.headers };
+  };
+  const tareas = (xml: string) => [...xml.matchAll(/<Task>([\s\S]*?)<\/Task>/g)].map((m) => m[1]!);
+  const campo = (tarea: string, nombre: string) => tarea.match(new RegExp(`<${nombre}>([^<]*)</${nombre}>`))?.[1];
+  const tareaDe = (xml: string, nombre: string) => tareas(xml).find((t) => campo(t, 'Name') === nombre)!;
+
+  before(async () => {
+    duena = await registrar('Constructora Project', '900001002-2', 'project.duena@construsoft.test');
+    const { presupuestoId } = await armarPresupuestoDeReferencia(duena.contexto, 'CRONO-XML');
+    vista = (await llamar('POST', `/api/presupuestos/${presupuestoId}/cronograma`, duena.cookie, { fechaInicio: '2026-11-02' })).cuerpo;
+    const editar = async (nombre: string, cambios: Record<string, unknown>) => {
+      const a = vista.actividades.find((x: { nombre: string }) => x.nombre === nombre);
+      vista = (await llamar('PATCH', `/api/cronogramas/${vista.cronograma.id}/actividades/${a.id}`, duena.cookie, { version: vista.cronograma.version, ...cambios })).cuerpo;
+    };
+    await editar('Topografía y replanteo', { duracionManualDias: '2' });
+    await editar('Excavación manual', {
+      duracionManualDias: '3',
+      restriccion: { tipo: 'INICIO_DESPUES', fecha: '2026-11-04' },
+      restriccionSecundaria: { tipo: 'FIN_ANTES', fecha: '2026-11-20' },
+    });
+    const id = (nombre: string) => vista.actividades.find((x: { nombre: string }) => x.nombre === nombre).id;
+    vista = (
+      await llamar('POST', `/api/cronogramas/${vista.cronograma.id}/dependencias`, duena.cookie, {
+        version: vista.cronograma.version, predecesoraId: id('Topografía y replanteo'), sucesoraId: id('Excavación manual'), tipo: 'CC', desfaseDias: '1',
+      })
+    ).cuerpo;
+  });
+
+  test('una tarea por actividad y por capítulo, en el orden y el nivel de la EDT, con su calendario y sin costo por defecto', async () => {
+    const r = await exportar('formato=xml');
+    assert.equal(r.estado, 200, r.xml);
+    assert.match(String(r.cabeceras['content-type']), /^application\/xml/);
+    assert.match(String(r.cabeceras['content-disposition']), /filename="CRONO-XML - Cronograma\.xml"/);
+    assert.match(r.xml, /^<\?xml version="1\.0" encoding="UTF-8"\?>\s*<Project xmlns="http:\/\/schemas\.microsoft\.com\/project">/);
+    const nombres = tareas(r.xml).map((t) => [campo(t, 'Name'), campo(t, 'OutlineLevel'), campo(t, 'Summary')]);
+    assert.deepEqual(nombres.slice(0, 5), [
+      ['PRELIMINARES', '1', '1'],
+      ['Topografía y replanteo', '2', '0'],
+      ['Estudio de suelos', '2', '0'],
+      ['Director de obra', '2', '0'],
+      ['CIMENTACIÓN', '1', '1'],
+    ]);
+    assert.ok(nombres.some(([n, nivel]) => n === 'Administración y supervisión de obra' && nivel === '1'));
+    assert.ok(nombres.some(([n, nivel, resumen]) => n === 'Hitos y trámites' && nivel === '1' && resumen === '1'));
+    const topografia = tareaDe(r.xml, 'Topografía y replanteo');
+    assert.deepEqual(
+      [campo(topografia, 'WBS'), campo(topografia, 'Start'), campo(topografia, 'Finish'), campo(topografia, 'Duration')],
+      [vista.actividades.find((a: { nombre: string }) => a.nombre === 'Topografía y replanteo').codigo, '2026-11-02T07:00:00', '2026-11-03T16:00:00', 'PT16H0M0S'],
+    );
+    assert.equal(campo(tareaDe(r.xml, 'Fin del proyecto'), 'Milestone'), '1');
+    assert.doesNotMatch(r.xml, /<FixedCost>/);
+    assert.equal([...r.xml.matchAll(/<Calendar>/g)].length, 2);
+    assert.match(r.xml, /<FromTime>07:00:00<\/FromTime><ToTime>12:00:00<\/ToTime>/);
+  });
+
+  test('la relación con su tipo y su desfase, y la restricción principal; la secundaria «fin en o antes de» va como fecha límite', async () => {
+    const xml = (await exportar('formato=xml')).xml;
+    const excavacion = tareaDe(xml, 'Excavación manual');
+    const topografia = tareaDe(xml, 'Topografía y replanteo');
+    // CC es el tipo 3 de Project; un día de 8 h son 4.800 décimas de minuto.
+    assert.deepEqual(
+      [campo(excavacion, 'PredecessorUID'), campo(excavacion, 'Type'), campo(excavacion, 'LinkLag'), campo(excavacion, 'LagFormat')],
+      [campo(topografia, 'UID'), '3', '4800', '7'],
+    );
+    // «Inicio en o después de» es SNET (4) y toma el comienzo de la jornada; la fecha límite, el cierre.
+    assert.deepEqual([campo(excavacion, 'ConstraintType'), campo(excavacion, 'ConstraintDate'), campo(excavacion, 'Deadline')], ['4', '2026-11-04T07:00:00', '2026-11-20T16:00:00']);
+  });
+
+  test('con costo=true, cada tarea del presupuesto lleva su costo, en centavos como lo lee Project', async () => {
+    const xml = (await exportar('formato=xml&costo=true')).xml;
+    assert.equal(campo(tareaDe(xml, 'Topografía y replanteo'), 'FixedCost'), '320000000');
+    assert.equal(campo(tareaDe(xml, 'Administración y supervisión de obra'), 'FixedCost'), '1054900000');
+    assert.equal(campo(tareaDe(xml, 'Inicio del proyecto'), 'FixedCost'), undefined);
+  });
+
+  test('un texto con caracteres de XML sale escapado', async () => {
+    const r = await llamar('POST', `/api/cronogramas/${vista.cronograma.id}/actividades`, duena.cookie, { version: vista.cronograma.version, tipo: 'HITO_FIN', nombre: 'Entrega <acta> & firma' });
+    vista = r.cuerpo;
+    const xml = (await exportar('formato=xml')).xml;
+    assert.match(xml, /<Name>Entrega &lt;acta&gt; &amp; firma<\/Name>/);
+  });
+});

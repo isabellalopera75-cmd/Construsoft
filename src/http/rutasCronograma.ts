@@ -4,6 +4,7 @@ import { horasDeDias } from '../cronograma/duraciones.js';
 import type { FilaActividad, FilasDelCronograma } from '../cronograma/filas.js';
 import { armarVista } from '../cronograma/vista.js';
 import { generarGanttPdf } from '../exportacion/gantt.js';
+import { generarXmlProject } from '../exportacion/project.js';
 import { leerLogoParaExportar } from '../infraestructura/basedatos/exportacion.js';
 import { adjunto } from './rutasExportacion.js';
 import { copiarFestivosEn, ponerExcepcionEn, quitarExcepcionEn, reemplazarSemanaEn } from '../infraestructura/basedatos/calendarios.js';
@@ -586,7 +587,7 @@ export function registrarRutasDeCronograma(app: FastifyInstance, sesionDe: Sesio
     async (request, reply) => {
       const contexto = await sesionDe(request, reply);
       const cronogramaId = idDe(request.params.id, cronogramaNoExiste);
-      const { formato, escala, lineaBase, p6 } = request.query;
+      const { formato, escala, lineaBase, p6, costo } = request.query;
       if (formato !== 'pdf' && formato !== 'xml' && formato !== 'xer') {
         throw new ErrorParaElUsuario('Elija el formato: pdf, xml (Project) o xer (P6).', 'RECHAZADO', 'formato');
       }
@@ -596,12 +597,20 @@ export function registrarRutasDeCronograma(app: FastifyInstance, sesionDe: Sesio
       if (formato === 'xer' && !VERSIONES_DE_P6.some((v) => v.id === p6)) {
         throw new ErrorParaElUsuario('Elija una versión de P6 de la lista para exportar el XER.', 'RECHAZADO', 'p6');
       }
-      if (formato === 'xml') {
-        throw new ErrorParaElUsuario('La exportación a Project todavía no está disponible.', 'RECHAZADO', 'formato');
+      if (costo !== undefined && costo !== 'true' && costo !== 'false') {
+        throw new ErrorParaElUsuario('Indique si el costo va en el archivo: costo=true o costo=false.', 'RECHAZADO', 'costo');
       }
       const lineaBaseId = lineaBase === undefined ? null : idDe(lineaBase, lineaBaseNoExiste);
       const datos = await leerCronogramaParaExportar(contexto, cronogramaId, lineaBaseId);
       if (!datos) throw cronogramaNoExiste();
+      if (formato === 'xml') {
+        // RF-PRG-11 · El costo es opcional, y por defecto no va.
+        const vistaXml = armarVista(datos.leido.filas, { editable: false, recalculado: datos.leido.recalculado, lineaBase: null });
+        return reply
+          .header('content-type', 'application/xml; charset=utf-8')
+          .header('content-disposition', adjunto(`${datos.presupuesto.codigo} - Cronograma.xml`))
+          .send(generarXmlProject({ vista: vistaXml, filas: datos.leido.filas, presupuesto: datos.presupuesto, costo: costo === 'true' }));
+      }
       const vistaLeida = armarVista(datos.leido.filas, { editable: false, recalculado: datos.leido.recalculado, lineaBase: datos.leido.lineaBase });
       const archivo = await generarGanttPdf({
         vista: vistaLeida,

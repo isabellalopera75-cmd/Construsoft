@@ -63,10 +63,11 @@ export interface DatosDelGantt {
   logo: Logo | null;
 }
 
-type Fila =
-  | { tipo: 'titulo'; texto: string }
+/** Una fila del Gantt o una tarea de Project, con su nivel en el árbol (1 es la raíz). */
+export type Fila =
+  | { tipo: 'titulo'; texto: string; nivel: number }
   | { tipo: 'capitulo'; codigo: string; nombre: string; nivel: number; inicio: string | null; fin: string | null; dias: string | null }
-  | { tipo: 'actividad'; actividad: ActividadEnVista };
+  | { tipo: 'actividad'; actividad: ActividadEnVista; nivel: number };
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const corta = (fechaHora: string | null) => (fechaHora === null ? '' : `${fechaHora.slice(8, 10)}/${fechaHora.slice(5, 7)}/${fechaHora.slice(2, 4)}`);
@@ -82,25 +83,29 @@ const compararCodigos = (a: string, b: string) => {
 };
 
 /** Las filas en el orden de la pantalla (§19.5): la EDT con sus capítulos, las que ya no están, la administración, y hitos y trámites. */
-function filasDelGantt(vista: VistaCronograma): Fila[] {
+export function filasEnOrden(vista: VistaCronograma): Fila[] {
+  const nivelDelCapitulo = new Map(vista.capitulos.map((k) => [k.id, k.nivel]));
   const delPresupuesto = vista.actividades.filter((a) => a.tipo === 'ITEM' && a.enPresupuesto);
   const edt: { codigo: string; fila: Fila }[] = [
     ...vista.capitulos.map((k) => ({
       codigo: k.codigo,
       fila: { tipo: 'capitulo' as const, codigo: k.codigo, nombre: k.nombre, nivel: k.nivel, inicio: k.inicio, fin: k.fin, dias: k.duracionDias },
     })),
-    ...delPresupuesto.map((a) => ({ codigo: a.codigo, fila: { tipo: 'actividad' as const, actividad: a } })),
+    ...delPresupuesto.map((a) => ({
+      codigo: a.codigo,
+      fila: { tipo: 'actividad' as const, actividad: a, nivel: (nivelDelCapitulo.get(a.capituloId ?? '') ?? 0) + 1 },
+    })),
   ].sort((a, b) => compararCodigos(a.codigo, b.codigo));
   const filas: Fila[] = edt.map((x) => x.fila);
-  for (const a of vista.actividades) if (a.tipo === 'ITEM' && !a.enPresupuesto) filas.push({ tipo: 'actividad', actividad: a });
-  for (const a of vista.actividades) if (a.tipo === 'ADMINISTRACION') filas.push({ tipo: 'actividad', actividad: a });
+  for (const a of vista.actividades) if (a.tipo === 'ITEM' && !a.enPresupuesto) filas.push({ tipo: 'actividad', actividad: a, nivel: 1 });
+  for (const a of vista.actividades) if (a.tipo === 'ADMINISTRACION') filas.push({ tipo: 'actividad', actividad: a, nivel: 1 });
   const tramites = vista.actividades.filter((a) => a.tipo === 'HITO_INICIO' || a.tipo === 'HITO_FIN' || a.tipo === 'SIN_COSTO');
   if (tramites.length > 0 || vista.grupos.length > 0) {
-    filas.push({ tipo: 'titulo', texto: 'Hitos y trámites' });
-    for (const a of tramites.filter((x) => x.grupoId === null)) filas.push({ tipo: 'actividad', actividad: a });
+    filas.push({ tipo: 'titulo', texto: 'Hitos y trámites', nivel: 1 });
+    for (const a of tramites.filter((x) => x.grupoId === null)) filas.push({ tipo: 'actividad', actividad: a, nivel: 2 });
     for (const g of vista.grupos) {
-      filas.push({ tipo: 'titulo', texto: g.nombre });
-      for (const a of tramites.filter((x) => x.grupoId === g.id)) filas.push({ tipo: 'actividad', actividad: a });
+      filas.push({ tipo: 'titulo', texto: g.nombre, nivel: 2 });
+      for (const a of tramites.filter((x) => x.grupoId === g.id)) filas.push({ tipo: 'actividad', actividad: a, nivel: 3 });
     }
   }
   return filas;
@@ -159,7 +164,7 @@ export async function generarGanttPdf(datos: DatosDelGantt): Promise<Buffer> {
     return MARGEN + 34;
   };
 
-  const filas = filasDelGantt(vista);
+  const filas = filasEnOrden(vista);
   const altoUtil = ALTO - MARGEN - 16 - (MARGEN + 34 + ALTO_ESCALA);
   const filasPorHoja = Math.max(1, Math.floor(altoUtil / ALTO_FILA));
   const tandas: Fila[][] = [];
