@@ -44,7 +44,7 @@ const TIPO_DE_CONTENIDO = {
  * no entienda otra cosa, y filename* en UTF-8 con las tildes del código o de
  * «Versión». Del ASCII se quitan comillas y barras, que romperían la cabecera.
  */
-function adjunto(nombre: string): string {
+export function adjunto(nombre: string): string {
   const ascii = nombre
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')

@@ -3,6 +3,9 @@ import { z } from 'zod';
 import { horasDeDias } from '../cronograma/duraciones.js';
 import type { FilaActividad, FilasDelCronograma } from '../cronograma/filas.js';
 import { armarVista } from '../cronograma/vista.js';
+import { generarGanttPdf } from '../exportacion/gantt.js';
+import { leerLogoParaExportar } from '../infraestructura/basedatos/exportacion.js';
+import { adjunto } from './rutasExportacion.js';
 import { copiarFestivosEn, ponerExcepcionEn, quitarExcepcionEn, reemplazarSemanaEn } from '../infraestructura/basedatos/calendarios.js';
 import { ejecutarConPermiso, type ClienteEnContexto, type ContextoTenant } from '../infraestructura/basedatos/contextoTenant.js';
 import {
@@ -13,6 +16,7 @@ import {
   guardarLineaBase,
   leerCronograma,
   leerCronogramaDelPresupuesto,
+  leerCronogramaParaExportar,
   leerCurvas,
   listarLineasBase,
   type CronogramaLeido,
@@ -566,6 +570,53 @@ export function registrarRutasDeCronograma(app: FastifyInstance, sesionDe: Sesio
     if (!(await eliminarLineaBase(contexto, idDe(request.params.id, lineaBaseNoExiste)))) throw lineaBaseNoExiste();
     return reply.code(204).send();
   });
+
+  // --- §19.9 · Exportar: el Gantt en PDF, y Project y P6 -----------------------------------
+  // Las versiones de P6 se fijan con los archivos de muestra del dueño (§19.11):
+  // mientras no lleguen, la lista está vacía y el XER no se ofrece.
+  const VERSIONES_DE_P6: { id: string; nombre: string }[] = [];
+
+  app.get('/api/exportacion/p6', async (request, reply) => {
+    await sesionDe(request, reply);
+    return reply.send({ versiones: VERSIONES_DE_P6 });
+  });
+
+  app.get<{ Params: { id: string }; Querystring: { formato?: string; escala?: string; lineaBase?: string; p6?: string; costo?: string } }>(
+    '/api/cronogramas/:id/exportar',
+    async (request, reply) => {
+      const contexto = await sesionDe(request, reply);
+      const cronogramaId = idDe(request.params.id, cronogramaNoExiste);
+      const { formato, escala, lineaBase, p6 } = request.query;
+      if (formato !== 'pdf' && formato !== 'xml' && formato !== 'xer') {
+        throw new ErrorParaElUsuario('Elija el formato: pdf, xml (Project) o xer (P6).', 'RECHAZADO', 'formato');
+      }
+      if (formato === 'pdf' && escala !== 'DIA' && escala !== 'SEMANA' && escala !== 'MES') {
+        throw new ErrorParaElUsuario('Elija la escala del Gantt: DIA, SEMANA o MES.', 'RECHAZADO', 'escala');
+      }
+      if (formato === 'xer' && !VERSIONES_DE_P6.some((v) => v.id === p6)) {
+        throw new ErrorParaElUsuario('Elija una versión de P6 de la lista para exportar el XER.', 'RECHAZADO', 'p6');
+      }
+      if (formato === 'xml') {
+        throw new ErrorParaElUsuario('La exportación a Project todavía no está disponible.', 'RECHAZADO', 'formato');
+      }
+      const lineaBaseId = lineaBase === undefined ? null : idDe(lineaBase, lineaBaseNoExiste);
+      const datos = await leerCronogramaParaExportar(contexto, cronogramaId, lineaBaseId);
+      if (!datos) throw cronogramaNoExiste();
+      const vistaLeida = armarVista(datos.leido.filas, { editable: false, recalculado: datos.leido.recalculado, lineaBase: datos.leido.lineaBase });
+      const archivo = await generarGanttPdf({
+        vista: vistaLeida,
+        empresa: datos.empresa,
+        presupuesto: datos.presupuesto,
+        formato: datos.formato,
+        escala: escala as 'DIA' | 'SEMANA' | 'MES',
+        logo: await leerLogoParaExportar(contexto, datos.empresa.logoRuta),
+      });
+      return reply
+        .header('content-type', 'application/pdf')
+        .header('content-disposition', adjunto(`${datos.presupuesto.codigo} - Cronograma.pdf`))
+        .send(archivo);
+    },
+  );
 
   // --- §19.6 · Cerrar la franja: sin versión, y no la sube (D-93) ----------------------------
   app.post<{ Params: { id: string } }>('/api/cronogramas/:id/aviso/cerrar', async (request, reply) => {

@@ -20,7 +20,7 @@ export interface DocumentoExportable {
  * El formato es el de la empresa HOY, también al reimprimir una versión vieja.
  * D-28 congela el contenido; separadores y decimales son presentación.
  */
-async function leerFormato(cliente: ClienteEnContexto, tenantId: string): Promise<FormatoNumerico> {
+export async function leerFormato(cliente: ClienteEnContexto, tenantId: string): Promise<FormatoNumerico> {
   const { rows } = await cliente.query<{
     separador_miles: string;
     separador_decimal: string;

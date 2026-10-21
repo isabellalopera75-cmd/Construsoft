@@ -6,8 +6,10 @@ import { recalcular, repartoEnMinutos } from '../../cronograma/recalculo.js';
 import { deMinutos } from '../../cronograma/tiempo.js';
 import type { LineaBaseLeida } from '../../cronograma/vista.js';
 import { leerCalendarioEn } from './calendarios.js';
-import { ejecutarConPermiso, ejecutarConPermisoEnUnaFoto, type ClienteEnContexto, type ContextoTenant } from './contextoTenant.js';
+import { ejecutarConPermiso, ejecutarConPermisoEnUnaFoto, type ClienteEnContexto, type ContextoTenant, type FormatoNumerico } from './contextoTenant.js';
 import { ErrorParaElUsuario } from './errorParaElUsuario.js';
+import { leerFormato } from './exportacion.js';
+import { leerFotografia } from './versiones.js';
 
 /*
  * El cronograma en la base (07 §6, CONTRATO §19.5–§19.6, bitácora del 20 de
@@ -641,5 +643,43 @@ export async function eliminarLineaBase(contexto: ContextoTenant, lineaBaseId: s
   return ejecutarConPermiso(contexto, 'PRESUPUESTOS.EDITAR', async (cliente) => {
     const { rowCount } = await cliente.query('DELETE FROM app.linea_base WHERE id = $1', [lineaBaseId]);
     return rowCount === 1;
+  });
+}
+
+// -----------------------------------------------------------------------------
+//  §19.9 · Exportar. Pide PRESUPUESTOS.EXPORTAR y no VER: exportar funciona con
+//  la cuenta en cualquier estado (D-76, CONTRATO §17.1). Recalcula antes si
+//  hace falta, como leer: el archivo tiene que decir lo de ahora.
+// -----------------------------------------------------------------------------
+
+export interface CronogramaParaExportar {
+  leido: CronogramaLeido;
+  empresa: { razonSocial: string; nit: string | null; logoRuta: string | null };
+  presupuesto: { codigo: string; nombre: string };
+  formato: FormatoNumerico;
+}
+
+/** null si el cronograma no es de esta empresa. */
+export async function leerCronogramaParaExportar(
+  contexto: ContextoTenant,
+  cronogramaId: string,
+  lineaBaseId: string | null,
+): Promise<CronogramaParaExportar | null> {
+  return ejecutarConPermisoEnUnaFoto(contexto, 'PRESUPUESTOS.EXPORTAR', async (cliente) => {
+    const { rowCount } = await cliente.query('SELECT 1 FROM app.cronograma WHERE id = $1', [cronogramaId]);
+    if (rowCount !== 1) return null;
+    const leido = await alDiaEn(cliente, cronogramaId, lineaBaseId);
+    // La empresa como la arma la fotografía de la oferta: el mismo encabezado que su PDF.
+    const { rows } = await cliente.query<{ snapshot: unknown }>(
+      'SELECT app.fn_snapshot_presupuesto(p.id, p.estado, NULL, NULL) AS snapshot FROM app.presupuesto p WHERE p.id = $1',
+      [leido.filas.cabecera.presupuestoId],
+    );
+    const fotografia = leerFotografia(rows[0]!.snapshot);
+    return {
+      leido,
+      empresa: fotografia.empresa,
+      presupuesto: { codigo: fotografia.presupuesto.codigo, nombre: fotografia.presupuesto.nombre },
+      formato: await leerFormato(cliente, contexto.tenantId),
+    };
   });
 }
