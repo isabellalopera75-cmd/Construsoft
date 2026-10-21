@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import { altaSuperadmin, cambiarClaveSuperadmin } from '../infraestructura/basedatos/plataforma.js';
-import { desactivarSuperadmin, moverVencimiento } from '../pruebas/superusuario.js';
+import { comoSuperusuario, desactivarSuperadmin, moverVencimiento } from '../pruebas/superusuario.js';
 import { pngDeUnPixel } from '../pruebas/imagenes.js';
 import { VERSION_TERMINOS_DE_PRUEBA, CARPETA_LEGAL_DE_PRUEBA, clienteDePrueba } from '../pruebas/clienteHttp.js';
 import { hashearContrasena } from './contrasenas.js';
@@ -272,4 +272,44 @@ describe('las acciones del panel van firmadas (D-72)', () => {
 
   // Eliminar vive en cicloDeSuscripcion.test.ts, con la purga: los dos se
   // llevan empresas eliminables, y en archivos distintos correrían a la vez.
+});
+
+describe('las listas de festivos de la plataforma (CONTRATO §19.4, D-90)', () => {
+  test('listar, y extender cinco años la de Colombia, con su evento; al terminar queda como estaba', async () => {
+    const cookie = await superadmin('panel.festivos@construsoft.test', 'Fede Festivos');
+    const antes = await panel('GET', '/festivos', cookie);
+    assert.equal(antes.estado, 200, antes.crudo);
+    const colombia = antes.cuerpo.listas.find((l: { pais: string }) => l.pais === 'CO');
+    assert.deepEqual({ ...colombia, id: undefined, anioHasta: undefined }, { id: undefined, pais: 'CO', nombre: 'Festivos de Colombia', anioDesde: 2026, anioHasta: undefined });
+    const hasta: number = colombia.anioHasta;
+    try {
+      const r = await panel('POST', '/festivos/CO/extender', cookie);
+      assert.equal(r.estado, 200, r.crudo);
+      assert.deepEqual(r.cuerpo.lista, { ...colombia, anioHasta: hasta + 5 });
+      const evento = await comoSuperusuario(async (c) =>
+        (await c.query(
+          `SELECT e.descripcion FROM plataforma.evento_plataforma e
+            JOIN plataforma.usuario_plataforma u ON u.id = e.usuario_plataforma_id
+           WHERE e.tipo = 'FESTIVOS_EXTENDIDOS' AND u.email = 'panel.festivos@construsoft.test'`,
+        )).rows,
+      );
+      assert.equal(evento.length, 1);
+      assert.match(evento[0]!.descripcion, new RegExp(`de ${hasta} a ${hasta + 5}`));
+    } finally {
+      // La lista es de toda la plataforma y los demás archivos corren a la vez.
+      await comoSuperusuario(async (c) => {
+        await c.query('DELETE FROM plataforma.lista_festivos_fecha WHERE lista_id = $1 AND extract(year FROM fecha) > $2', [colombia.id, hasta]);
+        await c.query('UPDATE plataforma.lista_festivos SET anio_hasta = $2 WHERE id = $1', [colombia.id, hasta]);
+      });
+    }
+  });
+
+  test('un país sin lista es 404; sin sesión del panel, 401', async () => {
+    const cookie = await superadmin('panel.festivos.pais@construsoft.test', 'Fede País');
+    for (const pais of ['ZZ', 'co', 'Colombia']) {
+      assert.equal((await panel('POST', `/festivos/${encodeURIComponent(pais)}/extender`, cookie)).estado, 404, pais);
+    }
+    assert.equal((await panel('GET', '/festivos', undefined)).estado, 401);
+    assert.equal((await panel('POST', '/festivos/CO/extender', undefined)).estado, 401);
+  });
 });

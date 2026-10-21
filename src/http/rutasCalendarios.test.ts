@@ -187,7 +187,10 @@ describe('excepciones y festivos de un calendario de la empresa (CONTRATO §19.3
     const r = await llamar('POST', `/api/configuracion/calendarios/${calendario}/festivos`, duena.cookie, { listaId: lista, propia: false });
     assert.equal(r.estado, 200, r.crudo);
     assert.ok(r.cuerpo.copiados > 80, `copiados: ${r.cuerpo.copiados}`);
-    assert.deepEqual(r.cuerpo.calendario.festivos, { origen: { tipo: 'PLATAFORMA', id: lista, nombre: 'Festivos de Colombia' }, hasta: 2030 });
+    assert.deepEqual(r.cuerpo.calendario.festivos.origen, { tipo: 'PLATAFORMA', id: lista, nombre: 'Festivos de Colombia' });
+    // La lista es de toda la plataforma y la prueba del panel la extiende en
+    // paralelo: el último año es 2030 o uno posterior, nunca menos.
+    assert.ok(r.cuerpo.calendario.festivos.hasta >= 2030, String(r.cuerpo.calendario.festivos.hasta));
     const ocho = r.cuerpo.calendario.excepciones.find((e: { fecha: string }) => e.fecha === '2026-12-08');
     assert.deepEqual([ocho.motivo, ocho.horas], ['Se trabaja', '8.0']);
     const navidad = r.cuerpo.calendario.excepciones.find((e: { fecha: string }) => e.fecha === '2026-12-25');

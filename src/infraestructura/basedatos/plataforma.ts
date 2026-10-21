@@ -929,3 +929,34 @@ export async function anularPlazo(autor: string, clave: string, datos: { vigente
     await c.query('SELECT plataforma.fn_anular_parametro($1, $2::date, $3, $4)', [clave, datos.vigenteDesde, datos.motivo, autor]);
   });
 }
+
+// --- CONTRATO §19.4 · Las listas de festivos de la plataforma (D-90) ----------------
+
+export interface ListaDeLaPlataforma {
+  id: string;
+  pais: string;
+  nombre: string;
+  anioDesde: number;
+  anioHasta: number;
+}
+
+const COLUMNAS_DE_LISTA = `id, pais, nombre, anio_desde AS "anioDesde", anio_hasta AS "anioHasta"`;
+
+export async function listarListasDeFestivos(): Promise<ListaDeLaPlataforma[]> {
+  return consultar<ListaDeLaPlataforma>(`SELECT ${COLUMNAS_DE_LISTA} FROM plataforma.lista_festivos ORDER BY pais`);
+}
+
+/**
+ * Agrega los cinco años siguientes (fn_extender_festivos, que recibe al autor
+ * y deja el evento FESTIVOS_EXTENDIDOS). Un país sin lista es 404: se
+ * pregunta antes, porque la base lo rechaza como cualquier otra regla.
+ */
+export async function extenderFestivos(autor: string, pais: string): Promise<ListaDeLaPlataforma> {
+  return enTransaccion(null, async (c) => {
+    const existe = await c.query('SELECT 1 FROM plataforma.lista_festivos WHERE pais = $1', [pais]);
+    if (existe.rowCount !== 1) throw new ErrorParaElUsuario('No hay lista de festivos de ese país.', 'NO_EXISTE');
+    await c.query('SELECT plataforma.fn_extender_festivos($1, $2)', [pais, autor]);
+    const { rows } = await c.query<ListaDeLaPlataforma>(`SELECT ${COLUMNAS_DE_LISTA} FROM plataforma.lista_festivos WHERE pais = $1`, [pais]);
+    return rows[0]!;
+  });
+}

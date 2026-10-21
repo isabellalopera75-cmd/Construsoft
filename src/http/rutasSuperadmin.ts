@@ -10,9 +10,11 @@ import {
   confirmarPago,
   designarAdministrador,
   eliminarEmpresa,
+  extenderFestivos,
   fijarPlazo,
   leerFicha,
   leerPlazos,
+  listarListasDeFestivos,
   leerResumen,
   leerSoporte,
   listarEmpresas,
@@ -314,6 +316,19 @@ export function registrarRutasDelPanel(app: FastifyInstance, ahora: () => number
     const yo = await sesionDe(request, reply);
     await anularPlazo(yo.id, request.params.clave, esquemaAnulacion.parse(request.body));
     return reply.send(await leerPlazos());
+  });
+
+  // --- §19.4 · Festivos: la base recibe al autor y deja el evento -----------------------
+  app.get(`${RUTA}/festivos`, async (request, reply) => {
+    await sesionDe(request, reply);
+    return reply.send({ listas: await listarListasDeFestivos() });
+  });
+
+  app.post<{ Params: { pais: string } }>(`${RUTA}/festivos/:pais/extender`, async (request, reply) => {
+    const yo = await sesionDe(request, reply);
+    const { pais } = request.params;
+    if (!/^[A-Z]{2}$/.test(pais)) throw new ErrorParaElUsuario('No hay lista de festivos de ese país.', 'NO_EXISTE');
+    return reply.send({ lista: await extenderFestivos(yo.id, pais) });
   });
 
   // --- §12.3 · Acciones firmadas ----------------------------------------------------
