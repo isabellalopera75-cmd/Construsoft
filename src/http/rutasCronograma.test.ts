@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { agregarActividad, cambiarCantidad, eliminarActividad } from '../infraestructura/basedatos/actividad.js';
+import { crearApu } from '../infraestructura/basedatos/apu.js';
 import { activarPresupuesto, cerrarPresupuesto } from '../infraestructura/basedatos/cicloDeVida.js';
+import { renombrarNivel } from '../infraestructura/basedatos/edt.js';
 import { armarPresupuestoDeReferencia, type PresupuestoDeReferencia } from '../pruebas/presupuestoDeReferencia.js';
 import { comoSuperusuario, vencerSuscripcion } from '../pruebas/superusuario.js';
 import { VERSION_TERMINOS_DE_PRUEBA, clienteDePrueba, type Cuenta, CARPETA_LEGAL_DE_PRUEBA } from '../pruebas/clienteHttp.js';
@@ -577,5 +579,97 @@ describe('la cabecera, el calendario de la obra, hitos, trámites y restriccione
     const r = await llamar('GET', `/api/presupuestos/${vista.cronograma.presupuestoId}/cronograma`, duena.cookie);
     assert.deepEqual([r.estado, r.cuerpo.cronograma.editable], [200, false]);
     assert.equal((await escribir('PATCH', '', { fechaInicio: '2026-11-16' })).estado, 402);
+  });
+});
+
+describe('la franja «el presupuesto cambió» (D-93, D-94, CONTRATO §19.5)', () => {
+  let duena: Cuenta;
+  let referencia: PresupuestoDeReferencia;
+  let placa: { id: string };
+  let vista: Record<string, any>;
+  const leer = async () => (await llamar('GET', `/api/presupuestos/${referencia.presupuestoId}/cronograma`, duena.cookie)).cuerpo;
+  const capitulo = (nombre: string) => vista.capitulos.find((c: { nombre: string }) => c.nombre === nombre).id;
+
+  before(async () => {
+    duena = await registrar('Constructora Cronograma Aviso', '900000991-1', 'cronograma.aviso@construsoft.test');
+    referencia = await armarPresupuestoDeReferencia(duena.contexto, 'CRONO-AVISO');
+    // Una actividad con rendimiento: 30 m³ a 5 m³ por jornal de 8 h son 48 h, 6 días.
+    const apu = await crearApu(duena.contexto, {
+      nombre: 'Placa con rendimiento',
+      unidadId: referencia.concreto.unidadId,
+      rendimientoActividad: '5',
+      lineas: [{ recursoId: referencia.premezclado.id, cantidad: '1', rendimiento: '1', desperdicioPct: '0' }],
+    });
+    vista = (await llamar('POST', `/api/presupuestos/${referencia.presupuestoId}/cronograma`, duena.cookie, { fechaInicio: '2026-11-02' })).cuerpo;
+    placa = await agregarActividad(duena.contexto, capitulo('CIMENTACIÓN'), apu.id, '30');
+    vista = await leer();
+    // La primera lectura después de crear trae el ítem nuevo: entró.
+    await llamar('POST', `/api/cronogramas/${vista.cronograma.id}/aviso/cerrar`, duena.cookie, {});
+    vista = await leer();
+    assert.deepEqual([porNombre(vista, 'Placa con rendimiento').duracionDias, vista.cronograma.fin, vista.avisos.presupuesto], ['6.0', '2026-11-09T16:00', null]);
+  });
+
+  test('una cantidad que alarga la placa y la obra arma la franja con lo que cambió, y queda guardada para todos', async () => {
+    await cambiarCantidad(duena.contexto, placa.id, '40');
+    const v = await leer();
+    const aviso = v.avisos.presupuesto;
+    const actividad = porNombre(v, 'Placa con rendimiento');
+    assert.deepEqual({ ...aviso, ultimoCambio: undefined, valorTotalAntes: undefined, valorTotalAhora: undefined }, {
+      ultimoCambio: undefined,
+      entraron: [],
+      salieron: [],
+      duracionesCambiadas: [{ id: actividad.id, codigo: actividad.codigo, nombre: 'Placa con rendimiento', antesDias: '6.0', ahoraDias: '8.0' }],
+      finAntes: '2026-11-09T16:00',
+      finAhora: '2026-11-11T16:00',
+      valorTotalAntes: undefined,
+      valorTotalAhora: undefined,
+    });
+    assert.match(aviso.ultimoCambio, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+    assert.notEqual(aviso.valorTotalAntes, aviso.valorTotalAhora);
+    assert.match(aviso.valorTotalAhora, /^\d+\.\d{6}$/);
+    // Otra lectura ya no recalcula, y la franja sigue ahí: la ve todo el que abra.
+    const otra = await leer();
+    assert.deepEqual([otra.cronograma.recalculado, otra.avisos.presupuesto], [false, aviso]);
+  });
+
+  test('se acumula: lo que vuelve a su valor sale de la franja, y si no queda nada, se anula', async () => {
+    await cambiarCantidad(duena.contexto, placa.id, '30');
+    assert.equal((await leer()).avisos.presupuesto, null);
+  });
+
+  test('un cambio que no mueve nada de eso, como renombrar un capítulo, no crea franja', async () => {
+    await renombrarNivel(duena.contexto, capitulo('CIMENTACIÓN'), 'CIMENTACIÓN Y PLACAS');
+    const v = await leer();
+    assert.deepEqual([v.cronograma.recalculado, v.avisos.presupuesto], [true, null]);
+  });
+
+  test('un ítem que entra y sale desaparece de las dos listas; uno que estaba y sale aparece en «salieron»', async () => {
+    const nuevo = await agregarActividad(duena.contexto, vista.capitulos[2].id, referencia.concreto.id, '2');
+    const conNuevo = (await leer()).avisos.presupuesto;
+    assert.deepEqual([conNuevo.entraron.length, conNuevo.salieron.length], [1, 0]);
+    await eliminarActividad(duena.contexto, nuevo.id);
+    assert.equal((await leer()).avisos.presupuesto, null, 'entró y salió, y el valor volvió: no queda nada');
+
+    const topografia = porNombre(vista, 'Topografía y replanteo');
+    await eliminarActividad(duena.contexto, referencia.actividades['Topografía y replanteo']!.id);
+    const aviso = (await leer()).avisos.presupuesto;
+    assert.deepEqual([aviso.entraron, aviso.salieron], [[], [{ id: topografia.id, codigo: `X-${topografia.codigo}`, nombre: 'Topografía y replanteo' }]]);
+  });
+
+  test('cerrarla la quita para todos, y cualquier escritura del cronograma también', async () => {
+    const v = await leer();
+    assert.notEqual(v.avisos.presupuesto, null);
+    assert.equal((await llamar('POST', `/api/cronogramas/${v.cronograma.id}/aviso/cerrar`, duena.cookie, {})).estado, 204);
+    assert.equal((await leer()).avisos.presupuesto, null);
+
+    await cambiarCantidad(duena.contexto, placa.id, '35');
+    const conFranja = await leer();
+    assert.notEqual(conFranja.avisos.presupuesto, null);
+    const editada = await llamar('PATCH', `/api/cronogramas/${conFranja.cronograma.id}/actividades/${porNombre(conFranja, 'Excavación manual').id}`, duena.cookie, {
+      version: conFranja.cronograma.version,
+      cuadrillas: 2,
+    });
+    assert.deepEqual([editada.estado, editada.cuerpo.avisos.presupuesto], [200, null], editada.crudo);
+    assert.equal((await leer()).avisos.presupuesto, null);
   });
 });

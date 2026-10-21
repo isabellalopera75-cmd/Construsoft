@@ -1,3 +1,4 @@
+import { acumularAviso } from '../../cronograma/aviso.js';
 import { ErrorDeCalendario } from '../../cronograma/calendarioCompilado.js';
 import { estaAlDia, type FilaActividad, type FilaCalculo, type FilasDelCronograma } from '../../cronograma/filas.js';
 import type { TipoDeRestriccion } from '../../cronograma/motor.js';
@@ -262,8 +263,13 @@ async function ponerAlDiaConElPresupuestoEn(cliente: ClienteEnContexto, filas: P
   );
 }
 
-/** Corre el motor y escribe sus resultados en una sentencia. Devuelve las filas ya con el cálculo nuevo. */
-async function recalcularEn(cliente: ClienteEnContexto, cronogramaId: string): Promise<FilasDelCronograma> {
+/**
+ * Corre el motor y escribe sus resultados en una sentencia. Devuelve las filas
+ * ya con el cálculo nuevo. Con `armarFranja`, si lo que dejó el cronograma
+ * desactualizado fue un cambio del presupuesto, arma o acumula la franja
+ * (D-93): lo hace la lectura, no una escritura del cronograma, que la anula.
+ */
+async function recalcularEn(cliente: ClienteEnContexto, cronogramaId: string, armarFranja: boolean): Promise<FilasDelCronograma> {
   await cliente.query('SELECT 1 FROM app.cronograma WHERE id = $1 FOR UPDATE', [cronogramaId]);
   const antes = (await cargarFilasEn(cliente, cronogramaId))!;
   await ponerAlDiaConElPresupuestoEn(cliente, antes);
@@ -320,7 +326,7 @@ async function recalcularEn(cliente: ClienteEnContexto, cronogramaId: string): P
   );
 
   // Las filas, con el cálculo que se acaba de escribir: no hace falta leerlo de nuevo.
-  const nuevos = new Map<string, FilaCalculo>(
+  const nuevos: Map<string, FilaCalculo> = new Map(
     calculos.map((k) => [
       k.actividadId,
       {
@@ -338,6 +344,16 @@ async function recalcularEn(cliente: ClienteEnContexto, cronogramaId: string): P
       },
     ]),
   );
+  let aviso = filas.cabecera.aviso;
+  const cambioElPresupuesto = antes.cabecera.calculadoVersion !== null && antes.cabecera.calculadoRevision !== antes.presupuesto.revision;
+  if (armarFranja && cambioElPresupuesto) {
+    const nuevo = acumularAviso(antes, { ...filas, calculos: nuevos });
+    if (nuevo !== 'SIN_CAMBIO') {
+      await cliente.query('UPDATE app.cronograma SET aviso_presupuesto = $2::jsonb WHERE id = $1', [cronogramaId, nuevo === null ? null : JSON.stringify(nuevo)]);
+      aviso = nuevo;
+    }
+  }
+
   return {
     ...filas,
     cabecera: {
@@ -345,6 +361,7 @@ async function recalcularEn(cliente: ClienteEnContexto, cronogramaId: string): P
       calculadoVersion: filas.cabecera.version,
       calculadoRevision: filas.presupuesto.revision,
       calculadoValorTotal: filas.presupuesto.valorTotal,
+      aviso,
     },
     calculos: nuevos,
   };
@@ -355,7 +372,7 @@ async function alDiaEn(cliente: ClienteEnContexto, cronogramaId: string, lineaBa
   let filas = (await cargarFilasEn(cliente, cronogramaId))!;
   let recalculado = false;
   if (!estaAlDia(filas)) {
-    filas = await recalcularEn(cliente, cronogramaId);
+    filas = await recalcularEn(cliente, cronogramaId, true);
     recalculado = true;
   }
   const lineaBase = lineaBaseId === null ? null : await leerLineaBaseEn(cliente, cronogramaId, lineaBaseId);
@@ -444,7 +461,7 @@ export async function editarCronograma(
     }
     await cambio(cliente, filas);
     await cliente.query('UPDATE app.cronograma SET version = version + 1, aviso_presupuesto = NULL WHERE id = $1', [cronogramaId]);
-    return { tipo: 'HECHO', leido: { filas: await recalcularEn(cliente, cronogramaId), recalculado: false, lineaBase: null } };
+    return { tipo: 'HECHO', leido: { filas: await recalcularEn(cliente, cronogramaId, false), recalculado: false, lineaBase: null } };
   });
 }
 
@@ -582,7 +599,7 @@ export async function guardarLineaBase(
       );
     }
     if (!estaAlDia(filas)) {
-      filas = await recalcularEn(cliente, cronogramaId);
+      filas = await recalcularEn(cliente, cronogramaId, true);
       return { tipo: 'DESACTUALIZADO', leido: { filas, recalculado: true, lineaBase: null } };
     }
     if (reemplazaId === null) {
