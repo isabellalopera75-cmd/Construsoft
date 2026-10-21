@@ -5,6 +5,8 @@ import {
   copiarFestivos,
   crearCalendario,
   eliminarCalendario,
+  leerCalendario,
+  listarCalendarios,
   marcarCalendarioPorDefecto,
   ponerExcepcion,
   quitarExcepcion,
@@ -106,6 +108,19 @@ export function registrarRutasDeCalendarios(app: FastifyInstance, sesionDe: Sesi
     if (!UUID.test(id)) throw noExiste();
     return id;
   };
+
+  // El desplegable: PRESUPUESTOS.VER, porque crear un cronograma elige un
+  // calendario; desde la pestaña de configuración, ?para=CONFIG (§19.3).
+  app.get('/api/calendarios', async (request, reply) => {
+    const contexto = await sesionDe(request, reply);
+    const { para } = z.object({ para: z.enum(['CONFIG'], 'Para leer los calendarios desde la configuración, use ?para=CONFIG.').optional() }).parse(request.query);
+    return reply.send({ calendarios: await listarCalendarios(contexto, para === 'CONFIG' ? 'CONFIG.PREFERENCIAS' : 'PRESUPUESTOS.VER') });
+  });
+
+  app.get<{ Params: { id: string } }>('/api/configuracion/calendarios/:id', async (request, reply) => {
+    const contexto = await sesionDe(request, reply);
+    return reply.send(existente(await leerCalendario(contexto, idDe(request.params.id))));
+  });
 
   app.post('/api/configuracion/calendarios', async (request, reply) => {
     const contexto = await sesionDe(request, reply);

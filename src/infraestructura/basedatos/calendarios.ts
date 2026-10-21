@@ -288,3 +288,17 @@ export async function copiarFestivos(
     return { copiados, calendario: (await leerCalendarioEn(cliente, id, true))! };
   });
 }
+
+// -----------------------------------------------------------------------------
+//  Leer (CONTRATO §19.3): el desplegable con PRESUPUESTOS.VER, o con
+//  CONFIG.PREFERENCIAS desde la pestaña; el detalle, con CONFIG.PREFERENCIAS.
+// -----------------------------------------------------------------------------
+
+export async function listarCalendarios(contexto: ContextoTenant, permiso: 'PRESUPUESTOS.VER' | 'CONFIG.PREFERENCIAS'): Promise<CalendarioResumen[]> {
+  return ejecutarConPermiso(contexto, permiso, (cliente) => listarCalendariosEn(cliente));
+}
+
+/** null si no es un calendario de esta empresa (lo ajeno y la copia de un cronograma son lo mismo). */
+export async function leerCalendario(contexto: ContextoTenant, id: string): Promise<Calendario | null> {
+  return ejecutarConPermiso(contexto, 'CONFIG.PREFERENCIAS', (cliente) => leerCalendarioEn(cliente, id, true));
+}

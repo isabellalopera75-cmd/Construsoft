@@ -105,3 +105,30 @@ describe('listas propias de festivos: permiso y aislamiento (D-90)', () => {
     assert.deepEqual(intacta, { nombre: 'Privada de A' });
   });
 });
+
+describe('leer los festivos: el desplegable y el detalle (CONTRATO §19.4)', () => {
+  test('el desplegable trae las listas de la plataforma y solo las propias de la empresa, con su cuenta de fechas y sus años', async () => {
+    const a = await registrar('Constructora Festivos Lectura A', '900000996-6', 'festivos.lectura.a@construsoft.test');
+    const b = await registrar('Constructora Festivos Lectura B', '900000997-7', 'festivos.lectura.b@construsoft.test');
+    await llamar('POST', '/api/configuracion/festivos', a.cookie, { nombre: 'Feria', fechas: FERIA });
+    await llamar('POST', '/api/configuracion/festivos', b.cookie, { nombre: 'De B', fechas: [] });
+    const lector = await asistenteCon(a, 'festivos.lectura.lector@construsoft.test', ['PRESUPUESTOS.VER']);
+    const r = await llamar('GET', '/api/festivos', lector);
+    assert.equal(r.estado, 200, r.crudo);
+    const colombia = r.cuerpo.plataforma.find((l: { pais: string }) => l.pais === 'CO');
+    assert.deepEqual([colombia.nombre, colombia.anioDesde], ['Festivos de Colombia', 2026]);
+    assert.deepEqual(r.cuerpo.propias.map((l: { nombre: string; fechas: number; desde: number; hasta: number }) => [l.nombre, l.fechas, l.desde, l.hasta]), [['Feria', 2, 2026, 2027]]);
+    assert.equal((await llamar('GET', '/api/festivos?para=CONFIG', lector)).estado, 403);
+    assert.equal((await llamar('GET', '/api/festivos?para=CONFIG', a.cookie)).estado, 200);
+  });
+
+  test('el detalle de una lista propia pide CONFIG.PREFERENCIAS, y la de otra empresa no existe', async () => {
+    const a = await registrar('Constructora Festivos Detalle A', '900000998-8', 'festivos.detalle.a@construsoft.test');
+    const b = await registrar('Constructora Festivos Detalle B', '900000999-9', 'festivos.detalle.b@construsoft.test');
+    const lista = (await llamar('POST', '/api/configuracion/festivos', a.cookie, { nombre: 'Feria', fechas: FERIA })).cuerpo;
+    assert.deepEqual((await llamar('GET', `/api/configuracion/festivos/${lista.id}`, a.cookie)).cuerpo, lista);
+    assert.equal((await llamar('GET', `/api/configuracion/festivos/${lista.id}`, b.cookie)).estado, 404);
+    const lector = await asistenteCon(a, 'festivos.detalle.lector@construsoft.test', ['PRESUPUESTOS.VER']);
+    assert.equal((await llamar('GET', `/api/configuracion/festivos/${lista.id}`, lector)).estado, 403);
+  });
+});

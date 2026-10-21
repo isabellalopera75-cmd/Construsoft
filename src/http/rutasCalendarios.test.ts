@@ -227,3 +227,35 @@ describe('calendarios: permiso y aislamiento', () => {
     assert.deepEqual(intacto, { nombre: 'Lunes a viernes', por_defecto: true });
   });
 });
+
+describe('leer los calendarios: el desplegable y el detalle (CONTRATO §19.3)', () => {
+  test('el desplegable pide PRESUPUESTOS.VER, o CONFIG.PREFERENCIAS con ?para=CONFIG; solo trae los de la empresa, no las copias', async () => {
+    const duena = await registrar('Constructora Calendarios Lectura', '900000993-3', 'calendarios.lectura@construsoft.test');
+    const lector = await asistenteCon(duena, 'calendarios.lector@construsoft.test', ['PRESUPUESTOS.VER']);
+    const configura = await asistenteCon(duena, 'calendarios.configura@construsoft.test', ['CONFIG.PREFERENCIAS']);
+    const r = await llamar('GET', '/api/calendarios', lector);
+    assert.equal(r.estado, 200, r.crudo);
+    assert.deepEqual(r.cuerpo.calendarios.map((c: { nombre: string; porDefecto: boolean; horasSemana: string }) => [c.nombre, c.porDefecto, c.horasSemana]), [['Lunes a viernes', true, '40.0']]);
+    assert.equal((await llamar('GET', '/api/calendarios', configura)).estado, 403);
+    assert.equal((await llamar('GET', '/api/calendarios?para=CONFIG', configura)).estado, 200);
+    assert.equal((await llamar('GET', '/api/calendarios?para=CONFIG', lector)).estado, 403);
+    const malo = await llamar('GET', '/api/calendarios?para=OTRA', duena.cookie);
+    assert.deepEqual([malo.estado, malo.cuerpo.campo], [422, 'para']);
+  });
+
+  test('el detalle pide CONFIG.PREFERENCIAS; el de otra empresa, o la copia de un cronograma, no existe', async () => {
+    const duena = await registrar('Constructora Calendarios Detalle', '900000994-4', 'calendarios.detalle@construsoft.test');
+    const inicial = await calendarioInicial(duena);
+    const r = await llamar('GET', `/api/configuracion/calendarios/${inicial}`, duena.cookie);
+    assert.deepEqual([r.estado, r.cuerpo.nombre, r.cuerpo.tipo, r.cuerpo.horasSemana], [200, 'Lunes a viernes', 'EMPRESA', '40.0']);
+    const lector = await asistenteCon(duena, 'calendarios.detalle.lector@construsoft.test', ['PRESUPUESTOS.VER']);
+    assert.equal((await llamar('GET', `/api/configuracion/calendarios/${inicial}`, lector)).estado, 403);
+    const otra = await registrar('Constructora Calendarios Detalle B', '900000995-5', 'calendarios.detalle.b@construsoft.test');
+    assert.equal((await llamar('GET', `/api/configuracion/calendarios/${inicial}`, otra.cookie)).estado, 404);
+    const copia = await comoSuperusuario(async (c) => {
+      const { rows } = await c.query<{ id: string }>("SELECT id FROM app.calendario WHERE tipo = 'OBRA' LIMIT 1");
+      return rows[0]?.id ?? null;
+    });
+    if (copia) assert.equal((await llamar('GET', `/api/configuracion/calendarios/${copia}`, duena.cookie)).estado, 404);
+  });
+});

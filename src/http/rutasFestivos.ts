@@ -2,7 +2,14 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { ContextoTenant } from '../infraestructura/basedatos/contextoTenant.js';
 import { ErrorParaElUsuario } from '../infraestructura/basedatos/errorParaElUsuario.js';
-import { crearListaPropia, eliminarListaPropia, reemplazarListaPropia, type FechaFestiva } from '../infraestructura/basedatos/festivos.js';
+import {
+  crearListaPropia,
+  eliminarListaPropia,
+  leerListaPropia,
+  listarFestivos,
+  reemplazarListaPropia,
+  type FechaFestiva,
+} from '../infraestructura/basedatos/festivos.js';
 import { UUID } from './rechazo.js';
 import { SIN_CAMPOS_DE_MAS, comoUnCampo, esFecha } from './validacion.js';
 
@@ -47,6 +54,21 @@ export function registrarRutasDeFestivos(app: FastifyInstance, sesionDe: SesionD
     if (!UUID.test(id)) throw noExiste();
     return id;
   };
+
+  // El desplegable: las listas de la plataforma y las propias (§19.4), con el
+  // mismo permiso que el de los calendarios.
+  app.get('/api/festivos', async (request, reply) => {
+    const contexto = await sesionDe(request, reply);
+    const { para } = z.object({ para: z.enum(['CONFIG'], 'Para leer los festivos desde la configuración, use ?para=CONFIG.').optional() }).parse(request.query);
+    return reply.send(await listarFestivos(contexto, para === 'CONFIG' ? 'CONFIG.PREFERENCIAS' : 'PRESUPUESTOS.VER'));
+  });
+
+  app.get<{ Params: { id: string } }>('/api/configuracion/festivos/:id', async (request, reply) => {
+    const contexto = await sesionDe(request, reply);
+    const lista = await leerListaPropia(contexto, idDe(request.params.id));
+    if (!lista) throw noExiste();
+    return reply.send(lista);
+  });
 
   app.post('/api/configuracion/festivos', async (request, reply) => {
     const contexto = await sesionDe(request, reply);

@@ -78,3 +78,51 @@ export async function eliminarListaPropia(contexto: ContextoTenant, id: string):
     return rowCount === 1;
   });
 }
+
+// -----------------------------------------------------------------------------
+//  Leer (CONTRATO §19.4): el desplegable con PRESUPUESTOS.VER, o con
+//  CONFIG.PREFERENCIAS desde la pestaña; el detalle, con CONFIG.PREFERENCIAS.
+// -----------------------------------------------------------------------------
+
+export interface ListaDeLaPlataformaParaElegir {
+  id: string;
+  pais: string;
+  nombre: string;
+  anioDesde: number;
+  anioHasta: number;
+}
+
+export interface ListaPropiaResumen {
+  id: string;
+  nombre: string;
+  fechas: number;
+  desde: number | null;
+  hasta: number | null;
+}
+
+export async function listarFestivos(
+  contexto: ContextoTenant,
+  permiso: 'PRESUPUESTOS.VER' | 'CONFIG.PREFERENCIAS',
+): Promise<{ plataforma: ListaDeLaPlataformaParaElegir[]; propias: ListaPropiaResumen[] }> {
+  return ejecutarConPermiso(contexto, permiso, async (cliente) => {
+    const plataforma = await cliente.query<ListaDeLaPlataformaParaElegir>(
+      `SELECT id, pais, nombre, anio_desde AS "anioDesde", anio_hasta AS "anioHasta"
+         FROM plataforma.lista_festivos ORDER BY pais`,
+    );
+    // La RLS deja ver solo las de esta empresa (D-90).
+    const propias = await cliente.query<ListaPropiaResumen>(
+      `SELECT l.id, l.nombre, count(f.fecha)::int AS fechas,
+              min(extract(year FROM f.fecha))::int AS desde, max(extract(year FROM f.fecha))::int AS hasta
+         FROM app.lista_festivos_propia l
+         LEFT JOIN app.lista_festivos_propia_fecha f ON f.lista_id = l.id
+        GROUP BY l.id
+        ORDER BY lower(l.nombre), l.id`,
+    );
+    return { plataforma: plataforma.rows, propias: propias.rows };
+  });
+}
+
+/** null si la lista no es de esta empresa. */
+export async function leerListaPropia(contexto: ContextoTenant, id: string): Promise<ListaPropia | null> {
+  return ejecutarConPermiso(contexto, 'CONFIG.PREFERENCIAS', (cliente) => leerListaPropiaEn(cliente, id));
+}
