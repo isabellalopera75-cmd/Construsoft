@@ -5,7 +5,7 @@ import type { FastifyInstance } from 'fastify';
 import { agregarActividad, cambiarCantidad, eliminarActividad } from '../infraestructura/basedatos/actividad.js';
 import { activarPresupuesto, cerrarPresupuesto } from '../infraestructura/basedatos/cicloDeVida.js';
 import { armarPresupuestoDeReferencia, type PresupuestoDeReferencia } from '../pruebas/presupuestoDeReferencia.js';
-import { comoSuperusuario } from '../pruebas/superusuario.js';
+import { comoSuperusuario, vencerSuscripcion } from '../pruebas/superusuario.js';
 import { VERSION_TERMINOS_DE_PRUEBA, clienteDePrueba, type Cuenta, CARPETA_LEGAL_DE_PRUEBA } from '../pruebas/clienteHttp.js';
 import { construirServidor } from './servidor.js';
 
@@ -460,5 +460,122 @@ describe('las curvas y las líneas base (CONTRATO §19.7–§19.8)', () => {
     assert.match(r.cuerpo.mensaje, /El presupuesto cambió desde que usted abrió el cronograma/);
     assert.equal(r.cuerpo.cronograma.cronograma.recalculado, true);
     assert.deepEqual((await leer()).lineasBase, []);
+  });
+});
+
+describe('la cabecera, el calendario de la obra, hitos, trámites y restricciones (CONTRATO §19.6)', () => {
+  let duena: Cuenta;
+  let vista: Record<string, any>;
+  const escribir = async (metodo: 'POST' | 'PUT' | 'PATCH' | 'DELETE', ruta: string, cuerpo?: Record<string, unknown>) => {
+    const url = `/api/cronogramas/${vista.cronograma.id}${ruta}`;
+    const r =
+      metodo === 'DELETE'
+        ? await llamar('DELETE', `${url}${url.includes('?') ? '&' : '?'}version=${vista.cronograma.version}`, duena.cookie)
+        : await llamar(metodo, url, duena.cookie, { version: vista.cronograma.version, ...cuerpo });
+    if (r.estado === 200) vista = r.cuerpo;
+    return r;
+  };
+
+  before(async () => {
+    duena = await registrar('Constructora Cronograma Calendario', '900000988-8', 'cronograma.calendario@construsoft.test');
+    const { presupuestoId } = await armarPresupuestoDeReferencia(duena.contexto, 'CRONO-CALENDARIO');
+    vista = (await llamar('POST', `/api/presupuestos/${presupuestoId}/cronograma`, duena.cookie, { fechaInicio: '2026-11-02' })).cuerpo;
+    await escribir('PATCH', `/actividades/${porNombre(vista, 'Topografía y replanteo').id}`, { duracionManualDias: '2' });
+  });
+
+  test('mover la fecha de inicio corre todo lo que no tiene restricciones, y deja su evento en el historial', async () => {
+    const r = await escribir('PATCH', '', { fechaInicio: '2026-11-09' });
+    assert.equal(r.estado, 200, r.crudo);
+    assert.deepEqual([vista.cronograma.fechaInicio, porNombre(vista, 'Topografía y replanteo').inicio], ['2026-11-09', '2026-11-09T07:00']);
+    const historial = await llamar('GET', `/api/presupuestos/${vista.cronograma.presupuestoId}/historial?tipo=CRONOGRAMA_FECHA_INICIO`, duena.cookie);
+    assert.equal(historial.cuerpo.eventos.length, 1, historial.crudo);
+  });
+
+  test('el calendario de la obra se edita solo en la obra: con 10 h por día, dos días de 8 h son 1,6 días y las mismas horas', async () => {
+    const diez = [{ inicio: '07:00', fin: '12:00' }, { inicio: '13:00', fin: '18:00' }];
+    const r = await escribir('PUT', '/calendario-obra', { nombre: 'Obra, 10 horas', horasPorDia: '10', semana: [diez, diez, diez, diez, diez, [], []] });
+    assert.equal(r.estado, 200, r.crudo);
+    const topografia = porNombre(vista, 'Topografía y replanteo');
+    // 16 horas guardadas; un día de 10 h y seis horas del siguiente (RN-27).
+    assert.deepEqual([topografia.duracionManualDias, topografia.inicio, topografia.fin, vista.calendarios.obra.nombre], ['1.6', '2026-11-09T07:00', '2026-11-10T14:00', 'Obra, 10 horas']);
+    assert.equal(topografia.finAMitadDeJornada, true);
+    const empresa = await llamar('GET', '/api/configuracion/preferencias', duena.cookie);
+    assert.equal(empresa.estado, 200);
+  });
+
+  test('un festivo en el calendario de la obra corre las fechas, y quitarlo las devuelve', async () => {
+    await escribir('PUT', '/calendario-obra/excepciones/2026-11-09', { motivo: 'Festivo local', tramos: [] });
+    assert.equal(porNombre(vista, 'Topografía y replanteo').inicio, '2026-11-10T07:00');
+    await escribir('DELETE', '/calendario-obra/excepciones/2026-11-09');
+    assert.equal(porNombre(vista, 'Topografía y replanteo').inicio, '2026-11-09T07:00');
+  });
+
+  test('reemplazar el calendario de la obra por uno de la empresa vuelve a sus 8 h, y deja su evento', async () => {
+    const calendarios = (await llamar('GET', '/api/calendarios', duena.cookie)).cuerpo.calendarios as { id: string; porDefecto: boolean }[] | undefined;
+    const elDeDefecto = calendarios?.find((c) => c.porDefecto)?.id
+      ?? (await comoSuperusuario(async (c) => (await c.query<{ id: string }>("SELECT id FROM app.calendario WHERE tenant_id = $1 AND tipo = 'EMPRESA' AND por_defecto", [duena.contexto.tenantId])).rows[0]!.id));
+    const r = await escribir('PUT', '/calendario', { calendarioId: elDeDefecto });
+    assert.equal(r.estado, 200, r.crudo);
+    assert.deepEqual([vista.calendarios.obra.nombre, porNombre(vista, 'Topografía y replanteo').fin], ['Lunes a viernes', '2026-11-10T16:00']);
+    const historial = await llamar('GET', `/api/presupuestos/${vista.cronograma.presupuestoId}/historial?tipo=CRONOGRAMA_CALENDARIO`, duena.cookie);
+    assert.equal(historial.cuerpo.eventos.length, 1);
+  });
+
+  test('hitos y trámites: el código automático, la espera en el corrido, el subgrupo y la posición', async () => {
+    await escribir('POST', '/grupos', { nombre: 'Licencias' });
+    const grupo = vista.grupos[0];
+    assert.equal(grupo.nombre, 'Licencias');
+    const espera = await escribir('POST', '/actividades', { tipo: 'SIN_COSTO', nombre: 'Curado de la placa', duracionManualDias: '7', usaCorrido: true, grupoId: grupo.id });
+    assert.equal(espera.estado, 200, espera.crudo);
+    const curado = porNombre(vista, 'Curado de la placa');
+    assert.deepEqual([curado.codigo, curado.usaCorrido, curado.duracionDias, curado.grupoId], ['T-001', true, '7.0', grupo.id]);
+    await escribir('POST', '/actividades', { tipo: 'HITO_FIN', nombre: 'Entrega de la licencia', grupoId: grupo.id });
+    const entrega = porNombre(vista, 'Entrega de la licencia');
+    assert.equal(entrega.codigo, 'H-003');
+    // Los subgrupos van después de la raíz de «Hitos y trámites»; la espera, primera de su subgrupo.
+    const nombres = vista.actividades.map((a: Actividad) => a.nombre);
+    assert.deepEqual(nombres.slice(-4), ['Inicio del proyecto', 'Fin del proyecto', 'Curado de la placa', 'Entrega de la licencia']);
+    await escribir('PUT', `/actividades/${entrega.id}/posicion`, { posicion: 1 });
+    assert.deepEqual(vista.actividades.map((a: Actividad) => a.nombre).slice(-2), ['Entrega de la licencia', 'Curado de la placa']);
+    const fuera = await escribir('PUT', `/actividades/${entrega.id}/posicion`, { posicion: 3 });
+    assert.deepEqual([fuera.estado, fuera.cuerpo.campo], [422, 'posicion']);
+    // Un subgrupo con actividades no se elimina.
+    assert.equal((await escribir('DELETE', `/grupos/${grupo.id}`)).estado, 422);
+    // Un hito no lleva duración, y una actividad del presupuesto no se renombra aquí.
+    const conDuracion = await escribir('POST', '/actividades', { tipo: 'HITO_INICIO', nombre: 'Malo', duracionManualDias: '1' });
+    assert.deepEqual([conDuracion.estado, conDuracion.cuerpo.campo], [422, 'duracionManualDias']);
+    const renombrar = await escribir('PATCH', `/actividades/${porNombre(vista, 'Excavación manual').id}`, { nombre: 'Otro nombre' });
+    assert.deepEqual([renombrar.estado, renombrar.cuerpo.campo], [422, 'nombre']);
+    const codigoDeItem = await escribir('PATCH', `/actividades/${entrega.id}`, { codigo: '9.9' });
+    assert.deepEqual([codigoDeItem.estado, codigoDeItem.cuerpo.campo], [422, 'codigo']);
+  });
+
+  test('las restricciones: la fecha empuja el inicio; una pareja que la base no admite llega con su campo del contrato', async () => {
+    const excavacion = porNombre(vista, 'Excavación manual');
+    const r = await escribir('PATCH', `/actividades/${excavacion.id}`, { duracionManualDias: '1', restriccion: { tipo: 'INICIO_DESPUES', fecha: '2026-11-18' } });
+    assert.equal(r.estado, 200, r.crudo);
+    assert.deepEqual([porNombre(vista, 'Excavación manual').inicio, porNombre(vista, 'Excavación manual').restriccion], ['2026-11-18T07:00', { tipo: 'INICIO_DESPUES', fecha: '2026-11-18' }]);
+    const pareja = await escribir('PATCH', `/actividades/${excavacion.id}`, { restriccionSecundaria: { tipo: 'INICIO_ANTES', fecha: '2026-11-10' } });
+    assert.deepEqual([pareja.estado, pareja.cuerpo.campo], [422, 'restriccionSecundaria.fecha'], pareja.crudo);
+    const sinFecha = await escribir('PATCH', `/actividades/${excavacion.id}`, { restriccion: { tipo: 'FIN_ANTES', fecha: null } });
+    assert.deepEqual([sinFecha.estado, sinFecha.cuerpo.campo], [422, 'restriccion.fecha'], sinFecha.crudo);
+    const tipoMalo = await escribir('PATCH', `/actividades/${excavacion.id}`, { restriccion: { tipo: 'CUANDO_SEA', fecha: '2026-11-10' } });
+    assert.deepEqual([tipoMalo.estado, tipoMalo.cuerpo.campo], [422, 'restriccion.tipo']);
+    const fueraDeTipo = await escribir('PATCH', `/actividades/${excavacion.id}`, { usaCorrido: true });
+    assert.deepEqual([fueraDeTipo.estado, fueraDeTipo.cuerpo.campo], [422, 'usaCorrido']);
+  });
+
+  test('cerrar la franja no lleva versión ni la sube: 204', async () => {
+    const antes = vista.cronograma.version;
+    const r = await llamar('POST', `/api/cronogramas/${vista.cronograma.id}/aviso/cerrar`, duena.cookie, {});
+    assert.equal(r.estado, 204, r.crudo);
+    assert.equal((await llamar('GET', `/api/presupuestos/${vista.cronograma.presupuestoId}/cronograma`, duena.cookie)).cuerpo.cronograma.version, antes);
+  });
+
+  test('con la suscripción vencida se lee, con editable falso, y escribir es 402', async () => {
+    await vencerSuscripcion(duena.contexto.tenantId);
+    const r = await llamar('GET', `/api/presupuestos/${vista.cronograma.presupuestoId}/cronograma`, duena.cookie);
+    assert.deepEqual([r.estado, r.cuerpo.cronograma.editable], [200, false]);
+    assert.equal((await escribir('PATCH', '', { fechaInicio: '2026-11-16' })).estado, 402);
   });
 });
