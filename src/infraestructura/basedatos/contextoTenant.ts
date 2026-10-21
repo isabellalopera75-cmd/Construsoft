@@ -110,13 +110,14 @@ function validarUuid(valor: string, campo: string): void {
 async function ejecutarComoTenant<T>(
   contexto: ContextoTenant,
   operacion: (cliente: ClienteEnContexto) => Promise<T>,
+  enUnaFoto = false,
 ): Promise<T> {
   validarUuid(contexto.tenantId, 'tenantId');
   validarUuid(contexto.usuarioId, 'usuarioId');
 
   const cliente = await pool.connect();
   try {
-    await cliente.query('BEGIN');
+    await cliente.query(enUnaFoto ? 'BEGIN ISOLATION LEVEL REPEATABLE READ' : 'BEGIN');
     await cliente.query('SELECT set_config($1, $2, true)', ['app.tenant_id', contexto.tenantId]);
     await cliente.query('SELECT set_config($1, $2, true)', ['app.usuario_id', contexto.usuarioId]);
 
@@ -229,6 +230,41 @@ export async function ejecutarConPermiso<T>(
     await cliente.query('SELECT app.fn_exigir_permiso($1)', [permiso]);
     return operacion(cliente);
   });
+}
+
+/**
+ * ejecutarConPermiso en REPEATABLE READ: todas las lecturas de `operacion` ven
+ * la misma foto de la base. Es lo que necesita el recálculo del cronograma
+ * (bitácora del 20 de octubre, B4): lee el presupuesto, las actividades y los
+ * calendarios en varias consultas, y una edición de cantidad que confirme en
+ * medio no puede dejarle la mitad de cada cosa.
+ *
+ * Si otra transacción cambió una fila que esta quiere bloquear después de
+ * tomar su foto, PostgreSQL responde 40001 (no se puede serializar) y la
+ * transacción se repite entera, hasta dos veces más: la segunda vuelta ya ve
+ * el cambio, y casi siempre encuentra hecho lo que iba a hacer. Reintentar no
+ * es traducir el error a HTTP; por eso el código vive aquí y no en errores.ts.
+ */
+export async function ejecutarConPermisoEnUnaFoto<T>(
+  contexto: ContextoTenant,
+  permiso: CodigoPermiso,
+  operacion: (cliente: ClienteEnContexto) => Promise<T>,
+): Promise<T> {
+  for (let intento = 1; ; intento += 1) {
+    try {
+      return await ejecutarComoTenant(
+        contexto,
+        async (cliente) => {
+          await cliente.query('SELECT app.fn_exigir_permiso($1)', [permiso]);
+          return operacion(cliente);
+        },
+        true,
+      );
+    } catch (error) {
+      const serializacion = typeof error === 'object' && error !== null && (error as { code?: unknown }).code === '40001';
+      if (!serializacion || intento === 3) throw error;
+    }
+  }
 }
 
 // Vive en src/comun/ porque también lo usa la interfaz; se reexporta aquí para

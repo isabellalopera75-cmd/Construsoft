@@ -92,6 +92,28 @@ describe('traducirError: el único lugar donde un rechazo se vuelve HTTP (04 §8
     );
   });
 
+  test('un círculo (P0001 con su columna) lleva además los ids del detalle de la base, y solo esa llave (CONTRATO §19.6)', () => {
+    const circulo = Object.assign(errorDeLaBase('P0001', 'Esta relación cerraría un círculo entre 1.1, 1.2'), {
+      column: 'predecesoraId',
+      detail: '{"ciclo": ["a", "b"]}',
+    });
+    assert.deepEqual(traducirError(circulo), {
+      estado: 422,
+      mensaje: 'Esta relación cerraría un círculo entre 1.1, 1.2',
+      campo: 'predecesoraId',
+      extra: { ciclo: ['a', 'b'] },
+      borrarCookie: false,
+    });
+    const otroDetalle = Object.assign(errorDeLaBase('P0001', 'otro rechazo'), { detail: '{"cualquier": 1}' });
+    assert.equal(traducirError(otroDetalle).extra, undefined);
+    const noJson = Object.assign(errorDeLaBase('P0001', 'otro rechazo'), { detail: 'texto suelto' });
+    assert.equal(traducirError(noJson).extra, undefined);
+  });
+
+  test('un ErrorParaElUsuario de CONFLICTO es 409, con su campo si lo trae', () => {
+    assert.deepEqual(traducirError(new ErrorParaElUsuario('Ya tiene cronograma.', 'CONFLICTO')), { estado: 409, mensaje: 'Ya tiene cronograma.', borrarCookie: false });
+  });
+
   test('un código repetido es 409 con un mensaje para personas, no el de PostgreSQL', () => {
     const r = traducirError(
       errorDeLaBase('23505', 'llave duplicada viola restricción de unicidad «presupuesto_tenant_id_codigo_key»', 'presupuesto_tenant_id_codigo_key'),

@@ -8,16 +8,18 @@
  *    mismo que no existir en absoluto.
  *  · RECHAZADO: existe, pero la operación no se puede hacer así (un enlace
  *    vencido, un registro sin aceptar los términos).
+ *  · CONFLICTO: choca con lo que ya hay (un presupuesto que ya tiene su
+ *    cronograma). Es el 409.
  *
  * Los rechazos que levanta la BASE no pasan por aquí: llegan con su SQLSTATE,
  * y los traduce src/http/errores.ts.
  */
 export class ErrorParaElUsuario extends Error {
-  readonly motivo: 'NO_EXISTE' | 'RECHAZADO';
+  readonly motivo: 'NO_EXISTE' | 'RECHAZADO' | 'CONFLICTO';
   /** El dato del pedido que hay que corregir, cuando es uno solo (contrato §2). */
   readonly campo: string | undefined;
 
-  constructor(mensaje: string, motivo: 'NO_EXISTE' | 'RECHAZADO', campo?: string) {
+  constructor(mensaje: string, motivo: 'NO_EXISTE' | 'RECHAZADO' | 'CONFLICTO', campo?: string) {
     super(mensaje);
     this.name = 'ErrorParaElUsuario';
     this.motivo = motivo;

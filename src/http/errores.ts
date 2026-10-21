@@ -10,6 +10,12 @@ export interface RespuestaDeError {
   mensaje: string;
   /** El dato del pedido al que se refiere el rechazo, cuando la base lo dice (contrato §2). */
   campo?: string;
+  /**
+   * Las llaves de más que el contrato le permite a un rechazo puntual. Hoy una
+   * sola: `ciclo`, los ids de un círculo de relaciones (§19.6), que la base
+   * manda en el DETAIL del error.
+   */
+  extra?: Record<string, unknown>;
   borrarCookie: boolean;
 }
 
@@ -76,6 +82,20 @@ function columnaDe(error: unknown): string | undefined {
     : undefined;
 }
 
+/** `ciclo` del DETAIL de un rechazo de la base, si lo trae como JSON (CONTRATO §19.6). */
+function extraDe(error: unknown): Record<string, unknown> | undefined {
+  if (typeof error !== 'object' || error === null || !('detail' in error) || typeof error.detail !== 'string') return undefined;
+  try {
+    const detalle: unknown = JSON.parse(error.detail);
+    if (typeof detalle === 'object' && detalle !== null && Array.isArray((detalle as { ciclo?: unknown }).ciclo)) {
+      return { ciclo: (detalle as { ciclo: unknown[] }).ciclo };
+    }
+  } catch {
+    // Un detalle que no es JSON no trae nada para la pantalla.
+  }
+  return undefined;
+}
+
 function restriccionDe(error: unknown): string | undefined {
   return typeof error === 'object' && error !== null && 'constraint' in error && typeof error.constraint === 'string'
     ? error.constraint
@@ -111,7 +131,7 @@ export function esNegacionDePermiso(error: unknown): boolean {
  */
 export function traducirError(error: unknown): RespuestaDeError {
   if (error instanceof ErrorParaElUsuario) {
-    const estado = error.motivo === 'NO_EXISTE' ? 404 : 422;
+    const estado = error.motivo === 'NO_EXISTE' ? 404 : error.motivo === 'CONFLICTO' ? 409 : 422;
     return error.campo
       ? { estado, mensaje: error.message, campo: error.campo, borrarCookie: false }
       : { estado, mensaje: error.message, borrarCookie: false };
@@ -138,9 +158,14 @@ export function traducirError(error: unknown): RespuestaDeError {
     // para la pantalla, que lo muestra tal cual (02 §2).
     case 'P0001': {
       const campo = columnaDe(error);
-      return campo
-        ? { estado: 422, mensaje: mensajeDeLaBase, campo, borrarCookie: false }
-        : { estado: 422, mensaje: mensajeDeLaBase, borrarCookie: false };
+      const extra = extraDe(error);
+      return {
+        estado: 422,
+        mensaje: mensajeDeLaBase,
+        ...(campo ? { campo } : {}),
+        ...(extra ? { extra } : {}),
+        borrarCookie: false,
+      };
     }
     case '23505': {
       const restriccion = restriccionDe(error) ?? '';

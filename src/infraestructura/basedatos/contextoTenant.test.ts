@@ -376,6 +376,8 @@ describe('el problema que este wrapper existe para evitar', () => {
         'actualizarHashAlIngresar',
         'consumirTokenRecuperacion',
         'ejecutarConPermiso',
+        // La misma puerta con permiso, en REPEATABLE READ (B4): no es un camino sin permiso.
+        'ejecutarConPermisoEnUnaFoto',
         'emitirTokenRecuperacion',
         'leerArranqueDeSesion',
         'leerLogo',
