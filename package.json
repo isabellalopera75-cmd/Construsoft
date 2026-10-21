@@ -23,6 +23,7 @@
     "migrar": "node --env-file=.env --import tsx src/dueno/migrar.ts"
   },
   "dependencies": {
+    "@fastify/compress": "9.2.0",
     "@fastify/cookie": "^11.1.2",
     "@node-rs/argon2": "^2.2.1",
     "exceljs": "^4.4.0",

@@ -1,4 +1,5 @@
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
+import compress from '@fastify/compress';
 import cookie from '@fastify/cookie';
 import { z } from 'zod';
 import {
@@ -121,6 +122,10 @@ export async function construirServidor(opciones: OpcionesServidor): Promise<Fas
   const ahora = opciones.ahora ?? Date.now;
   const app = Fastify({ logger: false, trustProxy: opciones.proxiesDeConfianza ?? false });
   await app.register(cookie, { secret: opciones.secretoSesion });
+  // P9 · Comprimir con gzip lo que pase de 1 KB, si el navegador lo acepta. La
+  // vista de un cronograma de 1.500 actividades son 1,6 MB de JSON y viaja en
+  // cada edición (CONTRATO §19.1); comprimida pesa una fracción.
+  await app.register(compress, { threshold: 1024 });
 
   // Límite de intentos (04 §5). Por correo frena la serie contra una cuenta;
   // por IP, la serie que reparte un correo distinto en cada intento.

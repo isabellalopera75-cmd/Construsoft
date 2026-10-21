@@ -1,6 +1,7 @@
 import { after, before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
+import { gunzipSync } from 'node:zlib';
 import type { FastifyInstance } from 'fastify';
 import { agregarActividad, cambiarCantidad, eliminarActividad } from '../infraestructura/basedatos/actividad.js';
 import { crearApu } from '../infraestructura/basedatos/apu.js';
@@ -671,5 +672,25 @@ describe('la franja «el presupuesto cambió» (D-93, D-94, CONTRATO §19.5)', (
     });
     assert.deepEqual([editada.estado, editada.cuerpo.avisos.presupuesto], [200, null], editada.crudo);
     assert.equal((await leer()).avisos.presupuesto, null);
+  });
+});
+
+describe('la vista viaja comprimida si el navegador la acepta (P9, CONTRATO §19.1)', () => {
+  test('con accept-encoding gzip, la respuesta llega en gzip y se descomprime en la misma vista', async () => {
+    const duena = await registrar('Constructora Cronograma Gzip', '900000992-2', 'cronograma.gzip@construsoft.test');
+    const { presupuestoId } = await armarPresupuestoDeReferencia(duena.contexto, 'CRONO-GZIP');
+    await llamar('POST', `/api/presupuestos/${presupuestoId}/cronograma`, duena.cookie, { fechaInicio: '2026-11-02' });
+    const r = await app.inject({
+      method: 'GET',
+      url: `/api/presupuestos/${presupuestoId}/cronograma`,
+      remoteAddress: otraIp(),
+      headers: { cookie: duena.cookie, 'accept-encoding': 'gzip' },
+    });
+    assert.equal(r.statusCode, 200);
+    assert.equal(r.headers['content-encoding'], 'gzip');
+    const vista = JSON.parse(gunzipSync(r.rawPayload).toString('utf8'));
+    assert.equal(vista.cronograma.presupuestoId, presupuestoId);
+    const sinComprimir = await llamar('GET', `/api/presupuestos/${presupuestoId}/cronograma`, duena.cookie);
+    assert.ok(r.rawPayload.length < sinComprimir.crudo.length / 3, `${r.rawPayload.length} de ${sinComprimir.crudo.length} bytes`);
   });
 });
