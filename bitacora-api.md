@@ -15,6 +15,41 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-20 · martes, el aviso del presupuesto necesita dos datos que la base no guarda
+
+**Qué necesito de ti. Es un cambio de esquema; me bloquea solo el aviso
+(D-93).** El resto del paso 4 sigue.
+
+El aviso compara contra el cálculo anterior, y de él la base guarda las
+fechas y las duraciones (`actividad_calculo`). Así salen `duracionesCambiadas`,
+`finAntes` y `entraron`, que son las actividades sin cálculo anterior. Hay dos
+cosas que no salen de ningún lado:
+
+- **`valorTotalAntes`.** Es el valor total del presupuesto cuando se hizo el
+  cálculo anterior, y ninguna tabla lo conserva.
+- **`salieron`.** Al borrar un ítem, su actividad queda con
+  `presupuesto_item_id` nulo y código `X-…`, pero nada dice si estaba en el
+  presupuesto en el cálculo anterior. Una huérfana de hace un mes y una de
+  hoy se ven iguales, y sin eso la franja volvería a listar las viejas.
+
+**Propongo lo mínimo, las dos escritas por el recálculo:**
+
+- `app.cronograma.calculado_valor_total app.dinero`, nula hasta el primer
+  cálculo, con `UPDATE` para la aplicación como las otras `calculado_*`;
+- `app.actividad_calculo.en_presupuesto boolean NOT NULL`: si la actividad
+  tenía ítem al calcularse.
+
+Con eso, `salieron` son las huérfanas cuyo cálculo anterior dice
+`en_presupuesto = true`. Si prefieres otra forma, como una foto en `jsonb`
+del cálculo, me sirve igual; lo que hace falta es el dato.
+
+**Para que lo sepas:** a una actividad huérfana sin duración manual le dejo
+la duración de su último cálculo, en vez de cero. Así no se acorta en
+silencio la cadena que el usuario tiene que ver romperse (RN-33). El 07 no lo
+dice; si debe ser otra cosa, avísame.
+
+---
+
 ## 2026-10-20 · martes, §19.3–§19.4 sin las lecturas, RF-APU-25 y el motor
 
 **Hecho** (cada paso con su commit y el hook en verde; el último, 610 de 610)
