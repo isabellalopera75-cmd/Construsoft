@@ -46,8 +46,14 @@ const esquemaLinea = z.strictObject(
   SIN_CAMPOS_DE_MAS,
 );
 
+const MENSAJE_RENDIMIENTO = 'El rendimiento de la actividad va como texto, mayor que cero y con hasta cuatro decimales: «5.25» unidades por jornal.';
+
 const camposDelApu = {
   nombre: z.string('Escriba el nombre de la actividad.').trim().min(1, 'Escriba el nombre de la actividad.'),
+  // RF-APU-25 · El rango lo defiende también la base (D-85); aquí, para dar el campo.
+  rendimientoActividad: z
+    .union([z.null(), z.string(MENSAJE_RENDIMIENTO).regex(/^\d{1,8}(\.\d{1,4})?$/, MENSAJE_RENDIMIENTO).refine((v) => /[1-9]/.test(v), MENSAJE_RENDIMIENTO)], MENSAJE_RENDIMIENTO)
+    .optional(),
   unidadId: z.string('Elija una unidad de medida.').regex(UUID, 'Elija una unidad de medida.'),
   lineas: z
     .array(esquemaLinea, 'Agregue al menos una línea de recurso.')
@@ -89,6 +95,7 @@ function resumen(a: ResumenApu) {
 function detalle(a: Apu) {
   return {
     ...resumen(a),
+    rendimientoActividad: a.rendimientoActividad,
     lineas: a.lineas.map((l) => ({
       recursoId: l.recursoId,
       recursoCodigo: l.recursoCodigo,

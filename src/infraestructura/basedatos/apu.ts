@@ -25,6 +25,12 @@ export interface LineaApu {
 export interface DatosApu {
   nombre: string;
   unidadId: string;
+  /**
+   * RF-APU-25 · Unidades por jornal, hasta cuatro decimales. Al crear, si no
+   * viene, nace sin él. Al editar, si no viene se conserva el de la versión
+   * vigente, y con null se quita (CONTRATO §6).
+   */
+  rendimientoActividad?: string | null | undefined;
   lineas: LineaApu[];
 }
 
@@ -62,6 +68,8 @@ export interface ResumenApu {
 
 /** Un APU con la composición de su versión vigente. */
 export interface Apu extends ResumenApu {
+  /** RF-APU-25 · El de la versión vigente, "5.0000", o null. */
+  rendimientoActividad: string | null;
   lineas: LineaApuVigente[];
 }
 
@@ -143,9 +151,14 @@ async function leerConCliente(cliente: ClienteEnContexto, id: string): Promise<A
       ORDER BY orden`,
     [cabecera.version_vigente_id],
   );
+  const { rows: version } = await cliente.query<{ rendimiento_actividad: string | null }>(
+    'SELECT rendimiento_actividad FROM app.apu_version WHERE id = $1',
+    [cabecera.version_vigente_id],
+  );
 
   return {
     ...filaAResumen(cabecera),
+    rendimientoActividad: version[0]!.rendimiento_actividad,
     lineas: lineas.map((linea) => ({
       orden: linea.orden,
       recursoId: linea.recurso_id,
@@ -214,9 +227,10 @@ export async function crearApu(contexto: ContextoTenant, datos: DatosApu): Promi
     );
     const id = rows[0]!.id;
 
+    // Los dos últimos argumentos son de la 0004: fijar el rendimiento, aunque sea nulo.
     await cliente.query(
-      `SELECT app.fn_nueva_version_apu($1, $2::jsonb, NULL, NULL, 'Versión inicial')`,
-      [id, lineasAJson(datos.lineas)],
+      `SELECT app.fn_nueva_version_apu($1, $2::jsonb, NULL, NULL, 'Versión inicial', $3, true)`,
+      [id, lineasAJson(datos.lineas), datos.rendimientoActividad ?? null],
     );
 
     return (await leerConCliente(cliente, id))!;
@@ -289,9 +303,10 @@ export async function editarApu(
 ): Promise<ResultadoEditarApu> {
   return ejecutarConPermiso(contexto, 'APU.EDITAR', async (cliente) => {
     await exigirNombreLibre(cliente, datos.nombre, id);
+    // Sin rendimiento en la petición, la versión nueva hereda el de la vigente (0004).
     await cliente.query(
-      `SELECT app.fn_nueva_version_apu($1, $2::jsonb, $3, $4, 'Edición del APU')`,
-      [id, lineasAJson(datos.lineas), datos.nombre, datos.unidadId],
+      `SELECT app.fn_nueva_version_apu($1, $2::jsonb, $3, $4, 'Edición del APU', $5, $6)`,
+      [id, lineasAJson(datos.lineas), datos.nombre, datos.unidadId, datos.rendimientoActividad ?? null, datos.rendimientoActividad !== undefined],
     );
 
     const { rows } = await cliente.query<{ fn_reapuntar_apu: number }>(

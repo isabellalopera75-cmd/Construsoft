@@ -6,6 +6,7 @@ import { crearPresupuesto } from '../infraestructura/basedatos/presupuesto.js';
 import { agregarCapitulo } from '../infraestructura/basedatos/edt.js';
 import { agregarActividad } from '../infraestructura/basedatos/actividad.js';
 import { crearRecurso, type Recurso } from '../infraestructura/basedatos/recurso.js';
+import { comoSuperusuario } from '../pruebas/superusuario.js';
 import { vencerSuscripcion } from '../pruebas/superusuario.js';
 import { VERSION_TERMINOS_DE_PRUEBA, clienteDePrueba, type Cuenta, CARPETA_LEGAL_DE_PRUEBA } from '../pruebas/clienteHttp.js';
 import { construirServidor } from './servidor.js';
@@ -278,5 +279,41 @@ describe('aislamiento: los APU de otra empresa no existen (RN-01)', () => {
     assert.deepEqual(respuestas[0], [200, 0]);
     assert.deepEqual(respuestas[1], respuestas[0]);
     assert.equal(await mesaDeB(), antes);
+  });
+});
+
+describe('el rendimiento de la actividad en el formulario de APU (RF-APU-25, CONTRATO §6)', () => {
+  test('nace con él o sin él; editar sin mandarlo lo conserva, con null lo quita; cada cambio es una versión nueva', async () => {
+    const duena = await registrar('Constructora APU Rendimiento', '900000989-9', 'apu.rendimiento@construsoft.test');
+    const { concreto } = await empresaConRecursos(duena);
+    const creado = await llamar('POST', '/api/apus', duena.cookie, { ...concreto, rendimientoActividad: '5' });
+    assert.equal(creado.estado, 201, creado.crudo);
+    assert.equal(creado.cuerpo.rendimientoActividad, '5.0000');
+    const id = creado.cuerpo.id;
+    assert.equal((await llamar('GET', `/api/apus/${id}`, duena.cookie)).cuerpo.rendimientoActividad, '5.0000');
+
+    const sinMandarlo = await llamar('PUT', `/api/apus/${id}`, duena.cookie, { ...concreto, nombre: 'Concreto para zapatas' });
+    assert.equal(sinMandarlo.estado, 200, sinMandarlo.crudo);
+    assert.equal(sinMandarlo.cuerpo.apu.rendimientoActividad, '5.0000');
+
+    const otro = await llamar('PUT', `/api/apus/${id}`, duena.cookie, { ...concreto, nombre: 'Concreto para zapatas', rendimientoActividad: '7.25' });
+    assert.equal(otro.cuerpo.apu.rendimientoActividad, '7.2500');
+
+    const quitado = await llamar('PUT', `/api/apus/${id}`, duena.cookie, { ...concreto, nombre: 'Concreto para zapatas', rendimientoActividad: null });
+    assert.equal(quitado.cuerpo.apu.rendimientoActividad, null);
+    const versiones = await comoSuperusuario(async (c) => (await c.query('SELECT rendimiento_actividad FROM app.apu_version WHERE apu_id = $1 ORDER BY numero', [id])).rows.map((r) => r.rendimiento_actividad));
+    assert.deepEqual(versiones, ['5.0000', '5.0000', '7.2500', null]);
+
+    const sinEl = await llamar('POST', '/api/apus', duena.cookie, { ...concreto, nombre: 'Concreto sin rendimiento' });
+    assert.equal(sinEl.cuerpo.rendimientoActividad, null);
+  });
+
+  test('cero, negativo, con más de cuatro decimales o como número: 422 en rendimientoActividad', async () => {
+    const duena = await registrar('Constructora APU Rendimiento Malo', '900000990-0', 'apu.rendimiento.malo@construsoft.test');
+    const { concreto } = await empresaConRecursos(duena);
+    for (const rendimientoActividad of ['0', '0.0000', '-1', '1.23456', 'cinco', 5]) {
+      const r = await llamar('POST', '/api/apus', duena.cookie, { ...concreto, nombre: `Malo ${String(rendimientoActividad)}`, rendimientoActividad });
+      assert.deepEqual([r.estado, r.cuerpo.campo], [422, 'rendimientoActividad'], String(rendimientoActividad));
+    }
   });
 });
