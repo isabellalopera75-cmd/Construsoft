@@ -13,7 +13,7 @@ import {
 import type { ContextoTenant } from '../infraestructura/basedatos/contextoTenant.js';
 import { ErrorParaElUsuario } from '../infraestructura/basedatos/errorParaElUsuario.js';
 import { UUID } from './rechazo.js';
-import { SIN_CAMPOS_DE_MAS } from './validacion.js';
+import { SIN_CAMPOS_DE_MAS, comoUnCampo, esFecha } from './validacion.js';
 
 /*
  * Los calendarios de la empresa (CONTRATO §19.3, RF-CFG-29, D-86). Escribir
@@ -50,13 +50,6 @@ function problemaDeTramos(valor: unknown): string | null {
   }
   return null;
 }
-
-/** Valida un valor entero como un solo campo: el error se marca en `semana` o `tramos`, no en una celda. */
-const comoUnCampo = <T>(problema: (v: unknown) => string | null) =>
-  z.unknown().superRefine((v, ctx) => {
-    const mensaje = problema(v);
-    if (mensaje) ctx.addIssue({ code: 'custom', message: mensaje });
-  }).transform((v) => v as T);
 
 const semana = comoUnCampo<Tramo[][]>((v) => {
   if (!Array.isArray(v) || v.length !== 7) return 'La semana trae los siete días, de lunes a domingo, cada uno con sus tramos.';
@@ -98,13 +91,8 @@ const esquemaCopiarFestivos = z.strictObject(
   SIN_CAMPOS_DE_MAS,
 );
 
-/** Una fecha de calendario de verdad: «2026-02-30» no lo es. */
 function fechaDeLaRuta(texto: string): string {
-  const [a, m, d] = texto.split('-').map(Number);
-  const valida =
-    /^\d{4}-\d{2}-\d{2}$/.test(texto) &&
-    new Date(Date.UTC(a!, m! - 1, d!)).toISOString().slice(0, 10) === texto;
-  if (!valida) throw new ErrorParaElUsuario(`«${texto}» no es una fecha. Escríbala como AAAA-MM-DD.`, 'RECHAZADO', 'fecha');
+  if (!esFecha(texto)) throw new ErrorParaElUsuario(`«${texto}» no es una fecha. Escríbala como AAAA-MM-DD.`, 'RECHAZADO', 'fecha');
   return texto;
 }
 

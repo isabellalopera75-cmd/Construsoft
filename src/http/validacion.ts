@@ -22,3 +22,26 @@ export function decimalComoTexto(enteros: number, tipo: string, mensaje: string)
   const forma = new RegExp(String.raw`^\d{1,${enteros}}(\.\d{1,6})?$`);
   return z.string(`${tipo} va como texto, con punto decimal: «12.5».`).regex(forma, mensaje);
 }
+
+/** Una fecha AAAA-MM-DD que existe en el calendario: «2026-02-30» no. */
+export function esFecha(texto: unknown): texto is string {
+  if (typeof texto !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(texto)) return false;
+  const [a, m, d] = texto.split('-').map(Number);
+  return new Date(Date.UTC(a!, m! - 1, d!)).toISOString().slice(0, 10) === texto;
+}
+
+/**
+ * Valida un valor entero —una semana de tramos, una lista de fechas— como un
+ * solo campo: el error se marca en el control (`semana`, `fechas`) y no en una
+ * celda suya (`semana.0.1.inicio`), que la pantalla no tiene cómo señalar.
+ * `problema` devuelve el mensaje del primer error, o null si no hay.
+ */
+export function comoUnCampo<T>(problema: (v: unknown) => string | null) {
+  return z
+    .unknown()
+    .superRefine((v, ctx) => {
+      const mensaje = problema(v);
+      if (mensaje) ctx.addIssue({ code: 'custom', message: mensaje });
+    })
+    .transform((v) => v as T);
+}

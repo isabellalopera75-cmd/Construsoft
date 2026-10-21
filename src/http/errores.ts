@@ -32,6 +32,7 @@ const MENSAJES_DE_RESTRICCION: Record<string, string> = {
   ux_unidad_simbolo:
     'Ya existe una unidad con ese símbolo en su empresa. «Kg» y «kg» son el mismo símbolo: use otro.',
   ux_calendario_nombre: 'Ya hay un calendario con ese nombre en su empresa. Use otro nombre, o edite el que ya existe.',
+  ux_lista_festivos_propia_nombre: 'Ya hay una lista de festivos con ese nombre en su empresa. Use otro nombre, o edite la que ya existe.',
   ck_presupuesto_texto_no_vacio: 'El código, el nombre y la ubicación del proyecto son obligatorios.',
   ck_recurso_precios_cuadran:
     'El precio base y el precio total no cuadran con el IVA: el que se calcula es el otro multiplicado o dividido por (1 + IVA/100), redondeado a seis decimales.',
@@ -50,6 +51,7 @@ const CAMPO_DE_RESTRICCION: Record<string, string> = {
   ux_recurso_nombre: 'nombre',
   ux_apu_nombre: 'nombre',
   ux_calendario_nombre: 'nombre',
+  ux_lista_festivos_propia_nombre: 'nombre',
 };
 
 /** La sesión no sirve: no hay cookie, la firma no vale, venció, o el sello ya no es el de la base. */

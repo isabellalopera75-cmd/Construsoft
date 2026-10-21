@@ -25,6 +25,7 @@ import { registrarRutasDeRecursos } from './rutasRecursos.js';
 import { registrarRutasDeApu } from './rutasApu.js';
 import { registrarRutasDeConfiguracion } from './rutasConfiguracion.js';
 import { registrarRutasDeCalendarios } from './rutasCalendarios.js';
+import { registrarRutasDeFestivos } from './rutasFestivos.js';
 import { registrarRutasDeExportacion } from './rutasExportacion.js';
 import { registrarRutasDeCicloDeVida } from './rutasCicloDeVida.js';
 import { registrarRutasDeImportacion } from './rutasImportacion.js';
@@ -330,6 +331,9 @@ export async function construirServidor(opciones: OpcionesServidor): Promise<Fas
 
   // --- CONTRATO §19.3 · Los calendarios de la empresa ---------------------------------
   registrarRutasDeCalendarios(app, sesionDe);
+
+  // --- CONTRATO §19.4 · Las listas propias de festivos ----------------------------------
+  registrarRutasDeFestivos(app, sesionDe);
 
   // --- 02 §9.5 y §10.1 · Exportación y versiones ----------------------------------
   registrarRutasDeExportacion(app, sesionDe);
