@@ -1,0 +1,99 @@
+{
+  "granularidad": "SEMANA",
+  "periodos": [
+    {
+      "periodo": "2026-11-02",
+      "facturacion": "19250000.000000",
+      "costo": "21133750.000000",
+      "facturacionAcumulada": "19250000.000000",
+      "costoAcumulado": "21133750.000000"
+    },
+    {
+      "periodo": "2026-11-09",
+      "facturacion": "15241350.000000",
+      "costo": "16433750.000000",
+      "facturacionAcumulada": "34491350.000000",
+      "costoAcumulado": "37567500.000000"
+    },
+    {
+      "periodo": "2026-11-16",
+      "facturacion": "70607724.375000",
+      "costo": "62210000.000000",
+      "facturacionAcumulada": "105099074.375000",
+      "costoAcumulado": "99777500.000000"
+    },
+    {
+      "periodo": "2026-11-23",
+      "facturacion": "30503728.125000",
+      "costo": "29052500.000000",
+      "facturacionAcumulada": "135602802.500000",
+      "costoAcumulado": "128830000.000000"
+    },
+    {
+      "periodo": "2026-11-30",
+      "facturacion": "24805030.750000",
+      "costo": "22392250.000000",
+      "facturacionAcumulada": "160407833.250000",
+      "costoAcumulado": "151222250.000000"
+    },
+    {
+      "periodo": "2026-12-07",
+      "facturacion": "20182321.750000",
+      "costo": "17816750.000000",
+      "facturacionAcumulada": "180590155.000000",
+      "costoAcumulado": "169039000.000000"
+    }
+  ],
+  "totales": {
+    "facturacion": "180590155.000000",
+    "costo": "169039000.000000"
+  },
+  "lineaBase": {
+    "id": "01a15cf7-f934-7070-97ce-c767440bf7a6",
+    "nombre": "Contrato",
+    "periodos": [
+      {
+        "periodo": "2026-11-02",
+        "facturacion": "19250000.000000",
+        "costo": "21278653.846155",
+        "facturacionAcumulada": "19250000.000000",
+        "costoAcumulado": "21278653.846155"
+      },
+      {
+        "periodo": "2026-11-09",
+        "facturacion": "16837890.000000",
+        "costo": "17898653.846155",
+        "facturacionAcumulada": "36087890.000000",
+        "costoAcumulado": "39177307.692310"
+      },
+      {
+        "periodo": "2026-11-16",
+        "facturacion": "88264912.500000",
+        "costo": "76953653.846155",
+        "facturacionAcumulada": "124352802.500000",
+        "costoAcumulado": "116130961.538465"
+      },
+      {
+        "periodo": "2026-11-23",
+        "facturacion": "12790903.000000",
+        "costo": "14552653.846155",
+        "facturacionAcumulada": "137143705.500000",
+        "costoAcumulado": "130683615.384620"
+      },
+      {
+        "periodo": "2026-11-30",
+        "facturacion": "37232643.250000",
+        "costo": "32812153.846155",
+        "facturacionAcumulada": "174376348.750000",
+        "costoAcumulado": "163495769.230775"
+      },
+      {
+        "periodo": "2026-12-07",
+        "facturacion": "6213806.250000",
+        "costo": "5543230.769225",
+        "facturacionAcumulada": "180590155.000000",
+        "costoAcumulado": "169039000.000000"
+      }
+    ]
+  }
+}

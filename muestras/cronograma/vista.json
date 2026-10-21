@@ -1,0 +1,730 @@
+{
+  "cronograma": {
+    "id": "01a15cf7-ec3d-7046-93bd-8e468584a2c4",
+    "presupuestoId": "01a15cf7-ea3a-703b-838f-3911f14b4505",
+    "version": 22,
+    "fechaInicio": "2026-11-02",
+    "editable": true,
+    "recalculado": false,
+    "inicio": "2026-11-02T07:00",
+    "fin": "2026-12-09T16:00",
+    "duracionDias": "28.0"
+  },
+  "calendarios": {
+    "obra": {
+      "id": "01a15cf7-ec42-7047-8b69-4f091c7fe584",
+      "nombre": "Lunes a viernes",
+      "tipo": "OBRA",
+      "horasPorDia": "8.00",
+      "porDefecto": false,
+      "semana": [
+        [
+          {
+            "inicio": "07:00",
+            "fin": "12:00"
+          },
+          {
+            "inicio": "13:00",
+            "fin": "16:00"
+          }
+        ],
+        [
+          {
+            "inicio": "07:00",
+            "fin": "12:00"
+          },
+          {
+            "inicio": "13:00",
+            "fin": "16:00"
+          }
+        ],
+        [
+          {
+            "inicio": "07:00",
+            "fin": "12:00"
+          },
+          {
+            "inicio": "13:00",
+            "fin": "16:00"
+          }
+        ],
+        [
+          {
+            "inicio": "07:00",
+            "fin": "12:00"
+          },
+          {
+            "inicio": "13:00",
+            "fin": "16:00"
+          }
+        ],
+        [
+          {
+            "inicio": "07:00",
+            "fin": "12:00"
+          },
+          {
+            "inicio": "13:00",
+            "fin": "16:00"
+          }
+        ],
+        [],
+        []
+      ],
+      "horasDia": [
+        "8.0",
+        "8.0",
+        "8.0",
+        "8.0",
+        "8.0",
+        "0.0",
+        "0.0"
+      ],
+      "horasSemana": "40.0",
+      "excepciones": [],
+      "festivos": {
+        "origen": null,
+        "hasta": null
+      }
+    },
+    "corrido": {
+      "id": "01a15cf7-ec7e-7052-a67f-604a2458879e",
+      "nombre": "Corrido (24 horas, todos los días)",
+      "tipo": "CORRIDO",
+      "horasPorDia": "24.00",
+      "porDefecto": false,
+      "semana": [
+        [
+          {
+            "inicio": "00:00",
+            "fin": "24:00"
+          }
+        ],
+        [
+          {
+            "inicio": "00:00",
+            "fin": "24:00"
+          }
+        ],
+        [
+          {
+            "inicio": "00:00",
+            "fin": "24:00"
+          }
+        ],
+        [
+          {
+            "inicio": "00:00",
+            "fin": "24:00"
+          }
+        ],
+        [
+          {
+            "inicio": "00:00",
+            "fin": "24:00"
+          }
+        ],
+        [
+          {
+            "inicio": "00:00",
+            "fin": "24:00"
+          }
+        ],
+        [
+          {
+            "inicio": "00:00",
+            "fin": "24:00"
+          }
+        ]
+      ],
+      "horasDia": [
+        "24.0",
+        "24.0",
+        "24.0",
+        "24.0",
+        "24.0",
+        "24.0",
+        "24.0"
+      ],
+      "horasSemana": "168.0",
+      "excepciones": [],
+      "festivos": {
+        "origen": null,
+        "hasta": null
+      }
+    }
+  },
+  "capitulos": [
+    {
+      "id": "01a15cf7-ea52-703c-80cc-042e4c69b8e4",
+      "padreId": null,
+      "codigo": "1",
+      "nombre": "PRELIMINARES",
+      "nivel": 1,
+      "posicion": 1,
+      "inicio": "2026-11-02T07:00",
+      "fin": "2026-11-27T16:00",
+      "duracionDias": "20.0",
+      "critico": true
+    },
+    {
+      "id": "01a15cf7-eb07-7040-8b94-7c350315ff10",
+      "padreId": null,
+      "codigo": "2",
+      "nombre": "CIMENTACIÓN",
+      "nivel": 1,
+      "posicion": 2,
+      "inicio": "2026-11-09T07:00",
+      "fin": "2026-11-23T16:00",
+      "duracionDias": "11.0",
+      "critico": true
+    },
+    {
+      "id": "01a15cf7-eb64-7043-ba42-f63b1d5a2824",
+      "padreId": null,
+      "codigo": "3",
+      "nombre": "ESTRUCTURA",
+      "nivel": 1,
+      "posicion": 3,
+      "inicio": "2026-12-01T07:00",
+      "fin": "2026-12-09T16:00",
+      "duracionDias": "7.0",
+      "critico": true
+    }
+  ],
+  "grupos": [],
+  "actividades": [
+    {
+      "id": "01a15cf7-ec87-705a-ada4-54f531940618",
+      "tipo": "ITEM",
+      "codigo": "1.1",
+      "nombre": "Topografía y replanteo",
+      "capituloId": "01a15cf7-ea52-703c-80cc-042e4c69b8e4",
+      "grupoId": null,
+      "orden": 1,
+      "presupuestoItemId": "01a15cf7-eaae-703d-b567-63f983f01f32",
+      "enPresupuesto": true,
+      "cantidad": "1.000000",
+      "unidad": "Glb",
+      "rendimiento": null,
+      "costo": "3200000.000000",
+      "cuadrillas": 1,
+      "usaCorrido": false,
+      "duracionCalculadaDias": null,
+      "duracionManualDias": "2.0",
+      "duracionDias": "2.0",
+      "restriccion": null,
+      "restriccionSecundaria": null,
+      "inicio": "2026-11-02T07:00",
+      "fin": "2026-11-03T16:00",
+      "inicioTardio": "2026-11-02T07:00",
+      "finTardio": "2026-11-03T16:00",
+      "holguraTotalDias": "0.0",
+      "holguraLibreDias": "0.0",
+      "critica": true,
+      "finAMitadDeJornada": false
+    },
+    {
+      "id": "01a15cf7-eca8-705b-854f-238ba9ffd07e",
+      "tipo": "ITEM",
+      "codigo": "1.2",
+      "nombre": "Estudio de suelos",
+      "capituloId": "01a15cf7-ea52-703c-80cc-042e4c69b8e4",
+      "grupoId": null,
+      "orden": 2,
+      "presupuestoItemId": "01a15cf7-ead9-703e-87ed-00c3e8322c06",
+      "enPresupuesto": true,
+      "cantidad": "1.000000",
+      "unidad": "Glb",
+      "rendimiento": null,
+      "costo": "4800000.000000",
+      "cuadrillas": 1,
+      "usaCorrido": false,
+      "duracionCalculadaDias": null,
+      "duracionManualDias": "3.0",
+      "duracionDias": "3.0",
+      "restriccion": null,
+      "restriccionSecundaria": null,
+      "inicio": "2026-11-04T07:00",
+      "fin": "2026-11-06T16:00",
+      "inicioTardio": "2026-11-04T07:00",
+      "finTardio": "2026-11-06T16:00",
+      "holguraTotalDias": "0.0",
+      "holguraLibreDias": "0.0",
+      "critica": true,
+      "finAMitadDeJornada": false
+    },
+    {
+      "id": "01a15cf7-ecaa-705c-9cff-e6ad45638318",
+      "tipo": "ITEM",
+      "codigo": "1.3",
+      "nombre": "Director de obra",
+      "capituloId": "01a15cf7-ea52-703c-80cc-042e4c69b8e4",
+      "grupoId": null,
+      "orden": 3,
+      "presupuestoItemId": "01a15cf7-eaf1-703f-b3dd-ece9331db524",
+      "enPresupuesto": true,
+      "cantidad": "6.000000",
+      "unidad": "Ms",
+      "rendimiento": null,
+      "costo": "45000000.000000",
+      "cuadrillas": 1,
+      "usaCorrido": false,
+      "duracionCalculadaDias": null,
+      "duracionManualDias": "20.0",
+      "duracionDias": "20.0",
+      "restriccion": null,
+      "restriccionSecundaria": null,
+      "inicio": "2026-11-02T07:00",
+      "fin": "2026-11-27T16:00",
+      "inicioTardio": "2026-11-12T07:00",
+      "finTardio": "2026-12-09T16:00",
+      "holguraTotalDias": "8.0",
+      "holguraLibreDias": "8.0",
+      "critica": false,
+      "finAMitadDeJornada": false
+    },
+    {
+      "id": "01a15cf7-ecad-705d-87d0-b2fdfd3a7fab",
+      "tipo": "ITEM",
+      "codigo": "2.1",
+      "nombre": "Excavación manual",
+      "capituloId": "01a15cf7-eb07-7040-8b94-7c350315ff10",
+      "grupoId": null,
+      "orden": 4,
+      "presupuestoItemId": "01a15cf7-eb27-7041-8be2-a0aa1f596d7a",
+      "enPresupuesto": true,
+      "cantidad": "120.000000",
+      "unidad": "m³",
+      "rendimiento": null,
+      "costo": "4620000.000000",
+      "cuadrillas": 1,
+      "usaCorrido": false,
+      "duracionCalculadaDias": null,
+      "duracionManualDias": "7.0",
+      "duracionDias": "7.0",
+      "restriccion": null,
+      "restriccionSecundaria": null,
+      "inicio": "2026-11-09T07:00",
+      "fin": "2026-11-17T16:00",
+      "inicioTardio": "2026-11-09T07:00",
+      "finTardio": "2026-11-17T16:00",
+      "holguraTotalDias": "0.0",
+      "holguraLibreDias": "0.0",
+      "critica": true,
+      "finAMitadDeJornada": false
+    },
+    {
+      "id": "01a15cf7-ecae-705e-8b1f-2e70d00c7659",
+      "tipo": "ITEM",
+      "codigo": "2.2",
+      "nombre": "Concreto 3000 PSI para zapatas",
+      "capituloId": "01a15cf7-eb07-7040-8b94-7c350315ff10",
+      "grupoId": null,
+      "orden": 5,
+      "presupuestoItemId": "01a15cf7-eb48-7042-bd1e-e2638be42162",
+      "enPresupuesto": true,
+      "cantidad": "100.000000",
+      "unidad": "m³",
+      "rendimiento": null,
+      "costo": "63675000.000000",
+      "cuadrillas": 1,
+      "usaCorrido": false,
+      "duracionCalculadaDias": null,
+      "duracionManualDias": "4.0",
+      "duracionDias": "4.0",
+      "restriccion": null,
+      "restriccionSecundaria": null,
+      "inicio": "2026-11-18T07:00",
+      "fin": "2026-11-23T16:00",
+      "inicioTardio": "2026-11-18T07:00",
+      "finTardio": "2026-11-23T16:00",
+      "holguraTotalDias": "0.0",
+      "holguraLibreDias": "0.0",
+      "critica": true,
+      "finAMitadDeJornada": false
+    },
+    {
+      "id": "01a15cf7-ecb0-705f-92fa-2642a1548310",
+      "tipo": "ITEM",
+      "codigo": "3.1",
+      "nombre": "Acero de refuerzo 60.000 PSI",
+      "capituloId": "01a15cf7-eb64-7043-ba42-f63b1d5a2824",
+      "grupoId": null,
+      "orden": 6,
+      "presupuestoItemId": "01a15cf7-eb9c-7044-b40c-1fcf937747ec",
+      "enPresupuesto": true,
+      "cantidad": "4500.000000",
+      "unidad": "Kg",
+      "rendimiento": null,
+      "costo": "30825000.000000",
+      "cuadrillas": 1,
+      "usaCorrido": false,
+      "duracionCalculadaDias": null,
+      "duracionManualDias": "6.0",
+      "duracionDias": "6.0",
+      "restriccion": null,
+      "restriccionSecundaria": null,
+      "inicio": "2026-12-02T07:00",
+      "fin": "2026-12-09T16:00",
+      "inicioTardio": "2026-12-02T07:00",
+      "finTardio": "2026-12-09T16:00",
+      "holguraTotalDias": "0.0",
+      "holguraLibreDias": "0.0",
+      "critica": true,
+      "finAMitadDeJornada": false
+    },
+    {
+      "id": "01a15cf7-ecb1-7060-90c4-40551c6e2875",
+      "tipo": "ITEM",
+      "codigo": "3.2",
+      "nombre": "Formaleta metálica",
+      "capituloId": "01a15cf7-eb64-7043-ba42-f63b1d5a2824",
+      "grupoId": null,
+      "orden": 7,
+      "presupuestoItemId": "01a15cf7-ebcf-7045-a5a2-af7deac9ecae",
+      "enPresupuesto": true,
+      "cantidad": "350.000000",
+      "unidad": "m²",
+      "rendimiento": null,
+      "costo": "6370000.000000",
+      "cuadrillas": 1,
+      "usaCorrido": false,
+      "duracionCalculadaDias": null,
+      "duracionManualDias": "5.0",
+      "duracionDias": "5.0",
+      "restriccion": null,
+      "restriccionSecundaria": null,
+      "inicio": "2026-12-01T07:00",
+      "fin": "2026-12-07T16:00",
+      "inicioTardio": "2026-12-01T07:00",
+      "finTardio": "2026-12-07T16:00",
+      "holguraTotalDias": "0.0",
+      "holguraLibreDias": "0.0",
+      "critica": true,
+      "finAMitadDeJornada": false
+    },
+    {
+      "id": "01a15cf7-ecb6-7061-9923-ed425b1b201f",
+      "tipo": "ADMINISTRACION",
+      "codigo": "ADM",
+      "nombre": "Administración y supervisión de obra",
+      "capituloId": null,
+      "grupoId": null,
+      "orden": 0,
+      "presupuestoItemId": null,
+      "enPresupuesto": false,
+      "cantidad": null,
+      "unidad": null,
+      "rendimiento": null,
+      "costo": "10549000.000000",
+      "cuadrillas": 1,
+      "usaCorrido": false,
+      "duracionCalculadaDias": null,
+      "duracionManualDias": null,
+      "duracionDias": "28.0",
+      "restriccion": null,
+      "restriccionSecundaria": null,
+      "inicio": "2026-11-02T07:00",
+      "fin": "2026-12-09T16:00",
+      "inicioTardio": null,
+      "finTardio": null,
+      "holguraTotalDias": null,
+      "holguraLibreDias": null,
+      "critica": false,
+      "finAMitadDeJornada": false
+    },
+    {
+      "id": "01a15cf7-ecc2-7062-b5c1-559734994f74",
+      "tipo": "HITO_INICIO",
+      "codigo": "H-001",
+      "nombre": "Inicio del proyecto",
+      "capituloId": null,
+      "grupoId": null,
+      "orden": 1,
+      "presupuestoItemId": null,
+      "enPresupuesto": false,
+      "cantidad": null,
+      "unidad": null,
+      "rendimiento": null,
+      "costo": "0.000000",
+      "cuadrillas": 1,
+      "usaCorrido": false,
+      "duracionCalculadaDias": null,
+      "duracionManualDias": null,
+      "duracionDias": "0.0",
+      "restriccion": null,
+      "restriccionSecundaria": null,
+      "inicio": "2026-11-02T07:00",
+      "fin": "2026-11-02T07:00",
+      "inicioTardio": "2026-11-02T07:00",
+      "finTardio": "2026-11-02T07:00",
+      "holguraTotalDias": "0.0",
+      "holguraLibreDias": "0.0",
+      "critica": true,
+      "finAMitadDeJornada": false
+    },
+    {
+      "id": "01a15cf7-ecc5-7063-8eba-a03f433b07e3",
+      "tipo": "HITO_FIN",
+      "codigo": "H-002",
+      "nombre": "Fin del proyecto",
+      "capituloId": null,
+      "grupoId": null,
+      "orden": 2,
+      "presupuestoItemId": null,
+      "enPresupuesto": false,
+      "cantidad": null,
+      "unidad": null,
+      "rendimiento": null,
+      "costo": "0.000000",
+      "cuadrillas": 1,
+      "usaCorrido": false,
+      "duracionCalculadaDias": null,
+      "duracionManualDias": null,
+      "duracionDias": "0.0",
+      "restriccion": {
+        "tipo": "FIN_ANTES",
+        "fecha": "2027-01-29"
+      },
+      "restriccionSecundaria": null,
+      "inicio": "2026-12-09T16:00",
+      "fin": "2026-12-09T16:00",
+      "inicioTardio": "2026-12-09T16:00",
+      "finTardio": "2026-12-09T16:00",
+      "holguraTotalDias": "0.0",
+      "holguraLibreDias": "0.0",
+      "critica": true,
+      "finAMitadDeJornada": false
+    },
+    {
+      "id": "01a15cf7-f20a-7064-94f7-b16f2f6b3eee",
+      "tipo": "SIN_COSTO",
+      "codigo": "T-001",
+      "nombre": "Curado del concreto",
+      "capituloId": null,
+      "grupoId": null,
+      "orden": 3,
+      "presupuestoItemId": null,
+      "enPresupuesto": false,
+      "cantidad": null,
+      "unidad": null,
+      "rendimiento": null,
+      "costo": "0.000000",
+      "cuadrillas": 1,
+      "usaCorrido": true,
+      "duracionCalculadaDias": null,
+      "duracionManualDias": "7.0",
+      "duracionDias": "7.0",
+      "restriccion": null,
+      "restriccionSecundaria": null,
+      "inicio": "2026-11-23T16:00",
+      "fin": "2026-11-30T16:00",
+      "inicioTardio": "2026-11-24T07:00",
+      "finTardio": "2026-12-01T07:00",
+      "holguraTotalDias": "0.6",
+      "holguraLibreDias": "0.6",
+      "critica": false,
+      "finAMitadDeJornada": true
+    }
+  ],
+  "dependencias": [
+    {
+      "id": "01a15cf7-f2e1-7065-ac32-54cf3f7af33f",
+      "predecesoraId": "01a15cf7-ecc2-7062-b5c1-559734994f74",
+      "sucesoraId": "01a15cf7-ec87-705a-ada4-54f531940618",
+      "tipo": "FC",
+      "desfaseDias": "0.0"
+    },
+    {
+      "id": "01a15cf7-f334-7066-9121-3711aa308a6d",
+      "predecesoraId": "01a15cf7-ec87-705a-ada4-54f531940618",
+      "sucesoraId": "01a15cf7-eca8-705b-854f-238ba9ffd07e",
+      "tipo": "FC",
+      "desfaseDias": "0.0"
+    },
+    {
+      "id": "01a15cf7-f39b-7067-bd68-f37fe0bc931b",
+      "predecesoraId": "01a15cf7-ec87-705a-ada4-54f531940618",
+      "sucesoraId": "01a15cf7-ecaa-705c-9cff-e6ad45638318",
+      "tipo": "CC",
+      "desfaseDias": "0.0"
+    },
+    {
+      "id": "01a15cf7-f40f-7068-975a-a1bf0827b4d2",
+      "predecesoraId": "01a15cf7-eca8-705b-854f-238ba9ffd07e",
+      "sucesoraId": "01a15cf7-ecad-705d-87d0-b2fdfd3a7fab",
+      "tipo": "FC",
+      "desfaseDias": "0.0"
+    },
+    {
+      "id": "01a15cf7-f4d3-7069-a03e-708b4354e52b",
+      "predecesoraId": "01a15cf7-ecad-705d-87d0-b2fdfd3a7fab",
+      "sucesoraId": "01a15cf7-ecae-705e-8b1f-2e70d00c7659",
+      "tipo": "FC",
+      "desfaseDias": "0.0"
+    },
+    {
+      "id": "01a15cf7-f5ba-706a-adbf-752fcda183a8",
+      "predecesoraId": "01a15cf7-ecae-705e-8b1f-2e70d00c7659",
+      "sucesoraId": "01a15cf7-f20a-7064-94f7-b16f2f6b3eee",
+      "tipo": "FC",
+      "desfaseDias": "0.0"
+    },
+    {
+      "id": "01a15cf7-f6c9-706b-873a-203004147ab3",
+      "predecesoraId": "01a15cf7-f20a-7064-94f7-b16f2f6b3eee",
+      "sucesoraId": "01a15cf7-ecb1-7060-90c4-40551c6e2875",
+      "tipo": "FC",
+      "desfaseDias": "0.0"
+    },
+    {
+      "id": "01a15cf7-f73a-706c-b632-54e01af19eda",
+      "predecesoraId": "01a15cf7-ecb1-7060-90c4-40551c6e2875",
+      "sucesoraId": "01a15cf7-ecb0-705f-92fa-2642a1548310",
+      "tipo": "CC",
+      "desfaseDias": "1.0"
+    },
+    {
+      "id": "01a15cf7-f7a7-706d-8768-948f60499d0c",
+      "predecesoraId": "01a15cf7-ecb0-705f-92fa-2642a1548310",
+      "sucesoraId": "01a15cf7-ecc5-7063-8eba-a03f433b07e3",
+      "tipo": "FC",
+      "desfaseDias": "0.0"
+    },
+    {
+      "id": "01a15cf7-f81b-706e-b8b3-217235d0db84",
+      "predecesoraId": "01a15cf7-ecaa-705c-9cff-e6ad45638318",
+      "sucesoraId": "01a15cf7-ecc5-7063-8eba-a03f433b07e3",
+      "tipo": "FF",
+      "desfaseDias": "0.0"
+    }
+  ],
+  "revision": {
+    "sinProgramar": [],
+    "yaNoEstan": [],
+    "manualDistinta": [],
+    "sinRendimiento": [],
+    "sinPredecesora": [
+      "01a15cf7-ecc2-7062-b5c1-559734994f74"
+    ],
+    "sinSucesora": [
+      "01a15cf7-ecc5-7063-8eba-a03f433b07e3"
+    ],
+    "holguraNegativa": []
+  },
+  "avisos": {
+    "presupuesto": null,
+    "festivos": null,
+    "administracion": {
+      "lineaBaseId": "01a15cf7-f934-7070-97ce-c767440bf7a6",
+      "finLineaBase": "2026-12-07T16:00",
+      "finActual": "2026-12-09T16:00",
+      "diasDeMas": "2.0"
+    }
+  },
+  "lineasBase": [
+    {
+      "id": "01a15cf7-f934-7070-97ce-c767440bf7a6",
+      "nombre": "Contrato",
+      "guardadaEn": "2026-10-21T05:38:37.448Z",
+      "guardadaPor": "Ingeniera de muestras",
+      "fin": "2026-12-07T16:00"
+    }
+  ],
+  "lineaBase": {
+    "id": "01a15cf7-f934-7070-97ce-c767440bf7a6",
+    "nombre": "Contrato",
+    "guardadaEn": "2026-10-21T05:38:37.448Z",
+    "actividades": [
+      {
+        "actividadId": "01a15cf7-ec87-705a-ada4-54f531940618",
+        "inicio": "2026-11-02T07:00",
+        "fin": "2026-11-03T16:00",
+        "duracionDias": "2.0",
+        "variacionInicioDias": "0.0",
+        "variacionFinDias": "0.0"
+      },
+      {
+        "actividadId": "01a15cf7-eca8-705b-854f-238ba9ffd07e",
+        "inicio": "2026-11-04T07:00",
+        "fin": "2026-11-06T16:00",
+        "duracionDias": "3.0",
+        "variacionInicioDias": "0.0",
+        "variacionFinDias": "0.0"
+      },
+      {
+        "actividadId": "01a15cf7-ecaa-705c-9cff-e6ad45638318",
+        "inicio": "2026-11-02T07:00",
+        "fin": "2026-11-27T16:00",
+        "duracionDias": "20.0",
+        "variacionInicioDias": "0.0",
+        "variacionFinDias": "0.0"
+      },
+      {
+        "actividadId": "01a15cf7-ecad-705d-87d0-b2fdfd3a7fab",
+        "inicio": "2026-11-09T07:00",
+        "fin": "2026-11-13T16:00",
+        "duracionDias": "5.0",
+        "variacionInicioDias": "0.0",
+        "variacionFinDias": "2.0"
+      },
+      {
+        "actividadId": "01a15cf7-ecae-705e-8b1f-2e70d00c7659",
+        "inicio": "2026-11-16T07:00",
+        "fin": "2026-11-19T16:00",
+        "duracionDias": "4.0",
+        "variacionInicioDias": "2.0",
+        "variacionFinDias": "2.0"
+      },
+      {
+        "actividadId": "01a15cf7-ecb0-705f-92fa-2642a1548310",
+        "inicio": "2026-11-30T07:00",
+        "fin": "2026-12-07T16:00",
+        "duracionDias": "6.0",
+        "variacionInicioDias": "2.0",
+        "variacionFinDias": "2.0"
+      },
+      {
+        "actividadId": "01a15cf7-ecb1-7060-90c4-40551c6e2875",
+        "inicio": "2026-11-27T07:00",
+        "fin": "2026-12-03T16:00",
+        "duracionDias": "5.0",
+        "variacionInicioDias": "2.0",
+        "variacionFinDias": "2.0"
+      },
+      {
+        "actividadId": "01a15cf7-ecb6-7061-9923-ed425b1b201f",
+        "inicio": "2026-11-02T07:00",
+        "fin": "2026-12-07T16:00",
+        "duracionDias": "26.0",
+        "variacionInicioDias": "0.0",
+        "variacionFinDias": "2.0"
+      },
+      {
+        "actividadId": "01a15cf7-ecc2-7062-b5c1-559734994f74",
+        "inicio": "2026-11-02T07:00",
+        "fin": "2026-11-02T07:00",
+        "duracionDias": "0.0",
+        "variacionInicioDias": "0.0",
+        "variacionFinDias": "0.0"
+      },
+      {
+        "actividadId": "01a15cf7-ecc5-7063-8eba-a03f433b07e3",
+        "inicio": "2026-12-07T16:00",
+        "fin": "2026-12-07T16:00",
+        "duracionDias": "0.0",
+        "variacionInicioDias": "2.0",
+        "variacionFinDias": "2.0"
+      },
+      {
+        "actividadId": "01a15cf7-f20a-7064-94f7-b16f2f6b3eee",
+        "inicio": "2026-11-19T16:00",
+        "fin": "2026-11-26T16:00",
+        "duracionDias": "7.0",
+        "variacionInicioDias": "4.0",
+        "variacionFinDias": "4.0"
+      }
+    ]
+  }
+}
