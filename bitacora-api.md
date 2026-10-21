@@ -15,6 +15,76 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-21 · miércoles, la exportación: el Gantt en PDF y el XML de Project
+
+**Hecho** (el hook en verde; el último, 662 de 662)
+
+- **El Gantt en PDF** (`131a568`), en `GET …/exportar?formato=pdf&escala=…`.
+  - Carta apaisada, con las fuentes incrustadas como en la oferta. A la
+    izquierda va la tabla (código, actividad, días, inicio y fin); a la
+    derecha, la escala de tiempo.
+  - El dibujo:
+    - los capítulos como barras resumen;
+    - las actividades en azul, o en rojo si son críticas;
+    - la administración en gris;
+    - los hitos como rombos, verde el de inicio y negro el de fin;
+    - la línea base como una barra amarilla debajo;
+    - las relaciones como líneas en codo;
+    - una marca naranja al final de una barra que termina a mitad de
+      jornada (RN-27);
+    - el tiempo no laborable sombreado en la escala por día.
+  - **Si la obra no cabe a lo ancho, el tiempo sigue en otra hoja**, como
+    imprime P6, y la tabla se repite. Por día caben unos 30 días por hoja,
+    por semana unos 90 y por mes unos 7 meses.
+  - Cada hoja dice quién la emite, qué cronograma es, la línea base si hay, y
+    «Página i de n».
+  - Lo revisé dibujado, no solo leyendo su texto.
+- **El XML de Project** (`ff8dc3a`), en `GET …/exportar?formato=xml&costo=…`.
+  - Los capítulos y los grupos de «Hitos y trámites» son tareas resumen en su
+    nivel de la EDT, y el código va en `WBS`. Van los dos calendarios, con sus
+    tramos y excepciones.
+  - Las relaciones van con su tipo y su desfase.
+  - La restricción principal va con la fecha al comienzo o al cierre de la
+    jornada, como la usa el motor (A7).
+  - «Inicio el» e «inicio obligatorio» salen como MSO; «fin el» y «fin
+    obligatorio», como MFO. La secundaria se conserva solo si es «fin en o
+    antes de», como `Deadline`.
+  - La administración va como tarea normal.
+  - Con `costo=true`, las actividades del presupuesto y la administración
+    llevan su costo como `FixedCost`, en centavos como lo guarda MSPDI. La
+    conversión se hace sobre el texto, sin coma flotante.
+  - Comprobé que el archivo está bien formado con un lector de XML.
+    **No lo abrí en Project ni en ProjectLibre:** no tengo ninguno de los dos.
+- **El XER no está.** `GET /api/exportacion/p6` devuelve la lista vacía, y
+  `formato=xer` es 422 en `p6` hasta que lleguen las muestras.
+- **Otros rechazos de la ruta:** un `formato`, una `escala` o un `costo` que
+  no existen son 422 con su campo. Sin `PRESUPUESTOS.EXPORTAR` es 403, y el
+  cronograma de otra empresa, 404.
+
+**Qué divergió.** Nada de las formas del §19.9. Hay tres cosas que el
+contrato no dice y que resolví así:
+
+- La escala del PDF, en puntos por día: 12 por día, 4 por semana y 1,6 por
+  mes. El sombreado de lo no laborable va solo por día, porque en semanas o
+  meses no se leería.
+- Una relación se dibuja solo si sus dos actividades caen en la misma hoja,
+  contando hacia abajo.
+- En el XML, el desfase va en días (`LagFormat 7`), y una actividad del
+  corrido lleva su calendario propio (`CalendarUID 2`).
+
+**Qué necesito de ti**
+
+- **Que el dueño abra un XML en ProjectLibre**, para encontrar los errores
+  gruesos, como dice el 07 §6.9. Se descarga de cualquier cronograma con
+  `formato=xml`.
+- **Los XER de muestra**, que siguen pendientes, para el XER y para confirmar
+  P8 (§19.11).
+
+**Para que lo sepas:** una corrida del hook tardó 549 s por una pausa de la
+máquina. La batería completa tarda 158 s.
+
+---
+
 ## 2026-10-20 · martes, la 0007, el aviso, P7, P8, P9 y las cuatro lecturas
 
 **Hecho** (cada commit con el hook en verde; el último, 654 de 654)
