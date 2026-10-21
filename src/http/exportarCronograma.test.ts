@@ -185,4 +185,27 @@ describe('el XML para Project (RF-PRG-11, CONTRATO §19.9)', () => {
     const xml = (await exportar('formato=xml')).xml;
     assert.match(xml, /<Name>Entrega &lt;acta&gt; &amp; firma<\/Name>/);
   });
+
+  test('una espera del corrido va en días transcurridos, y el desfase hacia ella también: 7 «edías», no 21 días de 8 h', async () => {
+    vista = (await llamar('POST', `/api/cronogramas/${vista.cronograma.id}/actividades`, duena.cookie, {
+      version: vista.cronograma.version, tipo: 'SIN_COSTO', nombre: 'Curado de la placa', duracionManualDias: '7', usaCorrido: true,
+    })).cuerpo;
+    const id = (nombre: string) => vista.actividades.find((x: { nombre: string }) => x.nombre === nombre).id;
+    vista = (await llamar('POST', `/api/cronogramas/${vista.cronograma.id}/dependencias`, duena.cookie, {
+      version: vista.cronograma.version, predecesoraId: id('Excavación manual'), sucesoraId: id('Curado de la placa'), tipo: 'FC', desfaseDias: '1',
+    })).cuerpo;
+    const xml = (await exportar('formato=xml')).xml;
+    const curado = tareaDe(xml, 'Curado de la placa');
+    assert.deepEqual([campo(curado, 'Duration'), campo(curado, 'DurationFormat'), campo(curado, 'CalendarUID')], ['PT168H0M0S', '8', '2']);
+    // Un día del corrido son 24 h: 14.400 décimas de minuto, en días transcurridos.
+    assert.deepEqual([campo(curado, 'LinkLag'), campo(curado, 'LagFormat')], ['14400', '8']);
+    // Lo que no es del corrido sigue en días de trabajo.
+    assert.equal(campo(tareaDe(xml, 'Topografía y replanteo'), 'DurationFormat'), '7');
+  });
+
+  test('las tareas resumen de «Hitos y trámites» llevan su WBS: HT y HT-1, HT-2… por subgrupo, para que Project no invente uno que choque con un capítulo', async () => {
+    vista = (await llamar('POST', `/api/cronogramas/${vista.cronograma.id}/grupos`, duena.cookie, { version: vista.cronograma.version, nombre: 'Licencias' })).cuerpo;
+    const xml = (await exportar('formato=xml')).xml;
+    assert.deepEqual([campo(tareaDe(xml, 'Hitos y trámites'), 'WBS'), campo(tareaDe(xml, 'Licencias'), 'WBS')], ['HT', 'HT-1']);
+  });
 });

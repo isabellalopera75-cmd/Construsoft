@@ -19,6 +19,11 @@ import { filasEnOrden, type Fila } from './gantt.js';
  *   - «Inicio el» e «inicio obligatorio» son la misma en Project (MSO), y
  *     «fin el» y «fin obligatorio», también (MFO).
  *   - La administración sale como tarea normal: Project no tiene Level of Effort.
+ *   - Una espera del corrido, y el desfase hacia ella, van en días transcurridos
+ *     (DurationFormat y LagFormat 8, «edías»). Project pasa las horas a días
+ *     con los minutos por día del proyecto, no con el calendario de la tarea:
+ *     168 h corridas en días de trabajo se verían como «21 días» (lo encontró
+ *     el producto leyendo el archivo con MPXJ, 21 de octubre de 2026).
  *
  * Los capítulos y los grupos de «Hitos y trámites» son tareas resumen, en el
  * nivel que tienen en la EDT. Las fechas van como las calculó el motor; Project
@@ -60,6 +65,9 @@ const esDeInicio = (r: Restriccion) => r.tipo.startsWith('INICIO');
 
 /** FC, CC, FF y CF en los números de Project: FF = 0, FS = 1, SF = 2, SS = 3. */
 const TIPO_DE_RELACION = { FF: 0, FC: 1, CF: 2, CC: 3 } as const;
+
+/** DurationFormat y LagFormat de MSPDI: 7 son días de trabajo; 8, días transcurridos. */
+const formatoDeDias = (a: ActividadEnVista) => (a.usaCorrido ? 8 : 7);
 
 /** El costo en centavos, como lo guarda MSPDI. Sobre el texto: el dinero no pasa por Number (regla 1.1). */
 function centavos(costo: string): string {
@@ -115,6 +123,12 @@ export function generarXmlProject(datos: DatosDelXml): string {
       return desde === Infinity ? null : [desde, hasta];
     };
 
+    // «Hitos y trámites» es HT y sus subgrupos HT-1, HT-2…: sin WBS, Project
+    // (o MPXJ) numera el resumen por su cuenta, y ese número puede chocar con
+    // el de un capítulo.
+    let subgrupo = 0;
+    const wbsDelTitulo = (nivel: number) => (nivel === 1 ? 'HT' : `HT-${(subgrupo += 1)}`);
+
     const tarea = (f: Fila, i: number): string => {
       const partes = [etiqueta('UID', i + 1), etiqueta('ID', i + 1)];
       if (f.tipo !== 'actividad') {
@@ -122,7 +136,7 @@ export function generarXmlProject(datos: DatosDelXml): string {
         const rango = rangoDeResumen(i, f.nivel) ?? [aMinutos(vista.cronograma.inicio), aMinutos(vista.cronograma.inicio)];
         partes.push(
           etiqueta('Name', nombre),
-          ...(f.tipo === 'capitulo' ? [etiqueta('WBS', f.codigo)] : []),
+          etiqueta('WBS', f.tipo === 'capitulo' ? f.codigo : wbsDelTitulo(f.nivel)),
           etiqueta('OutlineLevel', f.nivel),
           etiqueta('Start', fechaHora(rango[0])),
           etiqueta('Finish', fechaHora(rango[1])),
@@ -145,7 +159,7 @@ export function generarXmlProject(datos: DatosDelXml): string {
         etiqueta('Start', fechaHora(inicio)),
         etiqueta('Finish', fechaHora(fin)),
         etiqueta('Duration', duracion(hito ? 0 : c.minutosLaborablesEntre(inicio, fin))),
-        etiqueta('DurationFormat', 7),
+        etiqueta('DurationFormat', formatoDeDias(a)),
         etiqueta('Milestone', hito ? 1 : 0),
         etiqueta('Summary', 0),
       );
@@ -162,7 +176,8 @@ export function generarXmlProject(datos: DatosDelXml): string {
         if (uid === undefined) continue;
         partes.push(
           `<PredecessorLink><PredecessorUID>${uid}</PredecessorUID><Type>${TIPO_DE_RELACION[d.tipo as keyof typeof TIPO_DE_RELACION]}</Type>` +
-            `<CrossProject>0</CrossProject><LinkLag>${(desfaseDe.get(d.id) ?? 0) * 10}</LinkLag><LagFormat>7</LagFormat></PredecessorLink>`,
+            // RN-29 · El desfase se cuenta en el calendario de la sucesora, que es esta tarea.
+            `<CrossProject>0</CrossProject><LinkLag>${(desfaseDe.get(d.id) ?? 0) * 10}</LinkLag><LagFormat>${formatoDeDias(a)}</LagFormat></PredecessorLink>`,
         );
       }
       return `<Task>${partes.join('')}</Task>`;
