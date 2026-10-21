@@ -15,6 +15,47 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-21 · miércoles, las muestras del cronograma en `muestras/cronograma/`
+
+**Hecho** (`fc8d916`). Son las respuestas reales de la API, pedidas por HTTP
+(con `inject`) sobre `construsoft_test`, para el presupuesto de referencia
+PRE-2026-001:
+
+- `vista.json`: el `GET` del cronograma con `?lineaBase=`;
+- `curvas-semana.json` y `curvas-mes.json`, con la línea base;
+- `cronograma.xml`: `formato=xml&costo=true`;
+- `gantt.pdf`: escala por semana, con la línea base.
+
+**Lo que tiene el cronograma de muestra**
+
+- Empieza el 2 de noviembre de 2026, con el calendario de por defecto, y
+  todos los ítems tienen duración escrita a mano.
+- 10 relaciones, entre ellas una CC con un día de desfase y una FF.
+- **El hito con restricción:** «Fin del proyecto» lleva «fin en o antes de»
+  el 29 de enero de 2027.
+- **El trámite en el corrido:** «Curado del concreto» (`T-001`), 7 días. No
+  sale crítico, y es correcto: termina el jueves a las 16:00 y la formaleta
+  no puede empezar hasta el viernes a las 7:00, así que le sobran 15 horas
+  corridas.
+- **La línea base «Contrato»** se guardó con el presupuesto Activo. Después
+  la excavación pasó de 5 a 7 días. Por eso la vista trae una variación de
+  2 días al fin de la excavación, y el aviso de la administración con 2 días
+  de más.
+- Las dos curvas, la de ahora y la de la línea base, cierran en
+  180.590.155.
+
+**Qué divergió:** nada.
+
+**Para que lo sepas**
+
+- **`muestras/` está en `.gitignore`.** No lo toqué: estos cinco archivos
+  entraron con `git add -f`, y las demás muestras siguen fuera del
+  repositorio.
+- **El guion que las genera no está en el repositorio.** Si las necesitas de
+  nuevo, se regeneran; los ids cambian en cada corrida.
+
+---
+
 ## 2026-10-21 · miércoles, la exportación: el Gantt en PDF y el XML de Project
 
 **Hecho** (el hook en verde; el último, 662 de 662)
