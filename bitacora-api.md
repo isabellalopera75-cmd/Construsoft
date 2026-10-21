@@ -15,6 +15,96 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-20 · martes, el paso 4: §19.5–§19.8 construidos y RNF-29 medido
+
+**Hecho** (cada commit con el hook en verde; el último, 642 de 642)
+
+- **`81d0fce`.** Tres piezas que usa todo lo demás:
+  - `traducirError` pasa el `ciclo` del detalle de la base;
+  - `ErrorParaElUsuario` tiene un 409 propio (`CONFLICTO`);
+  - `ejecutarConPermisoEnUnaFoto` es la transacción en REPEATABLE READ de
+    B4, con hasta dos reintentos ante 40001.
+- **`f2f1afb`, leer, crear y editar (§19.5–§19.6).**
+  - Están las 21 rutas de escritura y la lectura, que recalcula si hace
+    falta.
+  - Cada escritura bloquea la fila del cronograma, compara la versión,
+    aplica el cambio, sube la versión, anula la franja y recalcula, todo en
+    la misma transacción. Los resultados entran en un solo upsert.
+  - Antes de calcular, la API pone las actividades al día con el
+    presupuesto: primero el refresco y después las inserciones, como pediste.
+- **`7535d66`, las curvas y las líneas base (§19.7–§19.8).**
+  - El motor entrega los minutos por día y `fn_curvas` reparte la plata;
+    las acumuladas salen de la base. La facturación del presupuesto de
+    referencia cierra en 180.590.155.
+  - Las líneas base cubren P1: si el cronograma estaba desactualizado al
+    guardar, la API recalcula, no guarda y responde 409 con la vista.
+- **`88234c3` y `31142c0`, 27 pruebas HTTP del cronograma.** Cubren:
+  - que el presupuesto manda: un ítem nuevo, uno que sale (`X-`), una
+    cantidad que cambia;
+  - el Cerrado, el solo lectura y la suscripción vencida;
+  - el aislamiento;
+  - el calendario de la obra, los hitos, los trámites y las restricciones.
+
+  Probé con mutaciones el rechazo explícito del Cerrado y la creación de
+  las actividades de los ítems nuevos.
+
+**RNF-29, medido** sobre la base, con 1.500 actividades, 3.000 relaciones y
+30 frentes (mediana de 7 vueltas):
+
+| Operación | Tiempo |
+|---|---|
+| Una edición completa: bloquear, cambiar, poner al día, motor, escribir y confirmar | **294 ms** (máximo 341) |
+| La lectura que recalcula tras un cambio del presupuesto | **304 ms** |
+| Leer un cronograma al día | 55 ms |
+| Armar la vista | 53 ms |
+
+Las dos operaciones que mide RNF-29 quedan por debajo de los 500 ms. El
+primer cálculo, al crear, tardó 470 ms. Duplicar ese presupuesto, con su
+cronograma, tarda 1,2 s.
+
+**Qué divergió, y cómo lo resolví**
+
+- **Los campos de las restricciones.** La base marca sus rechazos con
+  `restriccionTipo`, `restriccionFecha`, `restriccion2Tipo` y
+  `restriccion2Fecha`; el §19.6 dice `restriccion.tipo`, `restriccion.fecha`,
+  `restriccionSecundaria.tipo` y `restriccionSecundaria.fecha`. La API los
+  traduce a los del contrato, y la base no cambia.
+- **Un segundo cronograma para el mismo presupuesto.** La base lo rechaza
+  como P0001, que sería 422; el §19.5 dice 409. La API lo pregunta antes y
+  responde 409.
+- **Cosas que el contrato no dice, resueltas así; si alguna no te sirve, se
+  cambia:**
+  - **El `costo` de `ADM`** es la administración del AIU del presupuesto
+    (RN-37).
+  - **`recalculado` es falso al crear**, aunque crear calcula, porque el
+    campo habla de una lectura.
+  - **Las fechas tardías de un instante** de inicio (un hito de inicio, una
+    actividad de duración cero) caen en el siguiente instante laborable, como
+    las tempranas; las de un hito de fin, al cierre. Antes salían al cierre
+    del viernes anterior, a veces antes de que empezara el cronograma. Lo
+    encontró una prueba, y lo corregí en el motor.
+  - **`?lineaBase=`** de una línea base de otro cronograma es 404.
+
+**Qué necesito de ti**
+
+- **Sigue abierto, de entradas anteriores:**
+  - el cambio de esquema del aviso (D-93); hasta entonces `avisos.presupuesto`
+    sale siempre nulo;
+  - el permiso de las cuatro lecturas de calendarios y festivos;
+  - P7, RF-APU-25 en el formulario de APU;
+  - P8, «lo más tarde posible» y la holgura total.
+- **P9. La vista pesa 1,6 MB de JSON con 1.500 actividades, y viaja en cada
+  edición** (§19.1). Medido así, cabe en los 500 ms en la máquina, pero en
+  una red lenta no. Propongo comprimir las respuestas (gzip) con
+  `@fastify/compress`. Es una dependencia nueva y no cambia ninguna forma.
+  ¿Te parece, o prefieres que la edición devuelva menos?
+
+**Lo que sigue de mi lado:** la exportación (§19.9). El PDF del Gantt no
+depende de nada. El XER espera los archivos de muestra, y el XML lo armo
+contra el esquema de Project.
+
+---
+
 ## 2026-10-20 · martes, el aviso del presupuesto necesita dos datos que la base no guarda
 
 **Qué necesito de ti. Es un cambio de esquema; me bloquea solo el aviso
