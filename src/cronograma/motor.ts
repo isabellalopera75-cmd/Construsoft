@@ -281,7 +281,8 @@ export function calcularCronograma(entrada: EntradaDelMotor): ResultadoDelMotor 
     );
   };
   // De la última a la primera, para que cada una se corra con sus sucesoras ya en su lugar.
-  // La holgura total se queda como salió del cálculo: correrla no la vuelve crítica.
+  // P6 corre las fechas TEMPRANAS (respuesta del producto a P8, 20 de octubre):
+  // la holgura total, tardías menos tempranas, baja en lo que se corrió.
   for (const i of [...orden].reverse()) {
     const n = nodos[i]!;
     if (n.actividad.restriccion?.tipo !== 'LO_MAS_TARDE') continue;
@@ -291,6 +292,7 @@ export function calcularCronograma(entrada: EntradaDelMotor): ResultadoDelMotor 
     const d = n.actividad.duracionMinutos;
     n.inicio = c.siguienteInstanteLaborable(c.sumarMinutosLaborables(n.inicio, libre));
     n.fin = d > 0 ? c.sumarMinutosLaborables(n.inicio, d) : n.inicio;
+    n.holguraTotal = c.minutosLaborablesEntre(n.fin, n.finTardio);
   }
   for (const n of nodos) n.holguraLibre = holguraLibre(n);
 

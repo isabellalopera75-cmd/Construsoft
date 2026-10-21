@@ -169,10 +169,12 @@ describe('las restricciones de P6 (RN-30, D-87, A7)', () => {
     assert.equal(r.actividades.get('A')!.holguraTotalMinutos, -8 * H);
   });
 
-  test('«lo más tarde posible» consume su holgura libre: termina justo cuando la sucesora la necesita', () => {
+  test('«lo más tarde posible» corre sus fechas tempranas hasta consumir la holgura libre, y la total baja en lo mismo (P8)', () => {
     const r = calcular([act('A', 16), act('B', 8, { restriccion: { tipo: 'LO_MAS_TARDE', fecha: null } }), act('C', 8)], [dep('A', 'C'), dep('B', 'C')]);
-    assert.deepEqual(fechas(r.actividades.get('B')!), ['2026-11-03T07:00', '2026-11-03T16:00']);
-    assert.equal(r.actividades.get('B')!.holguraLibreMinutos, 0);
+    assert.deepEqual(vista(r.actividades.get('B')!), {
+      inicio: '2026-11-03T07:00', fin: '2026-11-03T16:00', inicioTardio: '2026-11-03T07:00', finTardio: '2026-11-03T16:00',
+      holguraTotal: 0, holguraLibre: 0, critica: true,
+    });
   });
 });
 
