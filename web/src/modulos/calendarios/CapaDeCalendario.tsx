@@ -4,7 +4,7 @@ import type { Calendario, DatosDeCalendario, ListasDeFestivos, Tramo } from '../
 import { Capa } from '../../componentes/Capa.tsx';
 import { Icono } from '../../componentes/Icono.tsx';
 import { useSesion } from '../../sesion.tsx';
-import { DIAS_DE_LA_SEMANA } from '../cronograma/tiempo.ts';
+import { DIAS_DE_LA_SEMANA, hoy } from '../cronograma/tiempo.ts';
 import { CopiarFestivos, ExcepcionesDeCalendario, FormularioDeSemana, resumenDeCalendario } from './Calendarios.tsx';
 import { RejillaDeHoras } from './RejillaDeHoras.tsx';
 import { bloquesDe } from './tramos.ts';
@@ -33,12 +33,14 @@ interface Props {
   alQuitarExcepcion: (fecha: string) => Promise<void>;
   /** Devuelve cuántas fechas entraron, o null si la ruta no lo dice. */
   alCopiarFestivos: (listaId: string, propia: boolean) => Promise<number | null>;
+  /** El mes que abre la vista de mes: el del inicio de la obra, o el de hoy. */
+  mesInicial?: string;
   /** Desde configuración, con `?para=CONFIG` (CONTRATO §19). */
   rutaListas?: string;
   alCerrar: () => void;
 }
 
-export function CapaDeCalendario({ rutaListas = '/api/festivos', calendario, editable, nota, accionesExtra, pie, alGuardarSemana, alGuardarExcepcion, alQuitarExcepcion, alCopiarFestivos, alCerrar }: Props) {
+export function CapaDeCalendario({ mesInicial, rutaListas = '/api/festivos', calendario, editable, nota, accionesExtra, pie, alGuardarSemana, alGuardarExcepcion, alQuitarExcepcion, alCopiarFestivos, alCerrar }: Props) {
   const { arranque } = useSesion();
   const formato = arranque.formatoNumerico;
   const [editando, setEditando] = useState(false);
@@ -98,7 +100,7 @@ export function CapaDeCalendario({ rutaListas = '/api/festivos', calendario, edi
           ) : null}
         </div>
 
-        <ExcepcionesDeCalendario calendario={calendario} editable={editable} alGuardar={alGuardarExcepcion} alQuitar={alQuitarExcepcion} />
+        <ExcepcionesDeCalendario calendario={calendario} editable={editable} alGuardar={alGuardarExcepcion} alQuitar={alQuitarExcepcion} mesInicial={mesInicial ?? hoy()} />
         {pie}
       </Capa>
 

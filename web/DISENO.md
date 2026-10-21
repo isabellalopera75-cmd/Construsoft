@@ -683,6 +683,12 @@ mouse viaje menos:
   su media hora y si se trabaja. El llenado rápido (entrada, horas, almuerzo,
   días y un sábado más corto) pinta la tabla. Debajo, cada día en texto. La
   misma capa sirve para el calendario de la empresa y para el de la obra.
+- **El mes del calendario** (pedido del dueño, 21 de octubre de 2026, porque
+  la semana tipo sola no se entendía): cada fecha como queda con la semana
+  tipo y las excepciones, con sus horas, como la vista de mes de P6. Los
+  festivos y días libres van con borde punteado de aviso y su motivo, y los
+  días con otras horas, con borde punteado terracota: el borde y el texto
+  dicen lo que el color sugiere. Un clic en un día abre su excepción.
 - **Configuración** gana la pestaña «Calendarios y festivos», y Preferencias
   la tarjeta «Programación de obra» (horas por jornal e inicio de semana), con
   el mismo «Guardar preferencias». El formulario de APU gana el rendimiento de

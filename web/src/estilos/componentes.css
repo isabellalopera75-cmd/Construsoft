@@ -1802,3 +1802,33 @@ button.paso-del-indicador:hover { color: var(--texto); }
 @media (prefers-reduced-motion: reduce) {
   .gantt { scroll-behavior: auto; }
 }
+
+/* --- El mes de un calendario (pedido del dueño, 21 de octubre de 2026) ------ */
+.mes-del-calendario { display: grid; gap: var(--e2); }
+.mes-del-calendario-cabecera { display: flex; align-items: center; gap: var(--e2); }
+.mes-del-calendario-titulo { margin: 0; min-width: 12rem; text-align: center; font-weight: var(--peso-fuerte); text-transform: capitalize; }
+.boton-adelante .icono { transform: scaleX(-1); }
+.mes-del-calendario-tabla { width: 100%; border-collapse: separate; border-spacing: 3px; table-layout: fixed; font-size: var(--letra-sm); }
+.mes-del-calendario-tabla th { font-weight: var(--peso-medio); color: var(--texto-segundo); text-align: left; padding: 0 var(--e1); text-transform: capitalize; }
+.mes-del-calendario-tabla td { padding: 0; height: 58px; vertical-align: top; }
+.mes-del-calendario-tabla td[data-fuera='si'] { background: transparent; }
+.mes-dia {
+  display: grid; align-content: start; gap: 1px; width: 100%; height: 100%; padding: var(--e1) var(--e2);
+  border: 1px solid var(--borde-tenue); border-radius: var(--radio-sm); background: var(--bg-campo); color: var(--texto);
+  text-align: left; font: inherit; overflow: hidden;
+}
+button.mes-dia { cursor: pointer; }
+button.mes-dia:hover { border-color: var(--borde-campo); }
+.mes-dia-numero { font-family: var(--fuente-cifra); font-weight: var(--peso-fuerte); }
+.mes-dia-horas { font-family: var(--fuente-cifra); font-size: var(--letra-xs); color: var(--texto-segundo); }
+.mes-dia-motivo { font-size: var(--letra-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+td[data-tipo='laborable'] .mes-dia { background: color-mix(in srgb, var(--terracota-boton) 14%, var(--bg-campo)); border-color: color-mix(in srgb, var(--terracota-boton) 40%, var(--borde-tenue)); }
+td[data-tipo='no-laborable'] .mes-dia { background: var(--gantt-no-laborable); color: var(--texto-segundo); }
+td[data-tipo='excepcion-libre'] .mes-dia { background: var(--gantt-no-laborable); border: 1px dashed var(--aviso); color: var(--texto-segundo); }
+td[data-tipo='excepcion-libre'] .mes-dia-motivo { color: var(--aviso); }
+td[data-tipo='excepcion-horas'] .mes-dia { background: color-mix(in srgb, var(--terracota-boton) 14%, var(--bg-campo)); border: 1px dashed var(--terracota); }
+.leyenda-dia { display: inline-block; width: 14px; height: 12px; border-radius: 2px; border: 1px solid var(--borde-tenue); }
+.leyenda-dia[data-tipo='laborable'] { background: color-mix(in srgb, var(--terracota-boton) 14%, var(--bg-campo)); border-color: color-mix(in srgb, var(--terracota-boton) 40%, var(--borde-tenue)); }
+.leyenda-dia[data-tipo='no-laborable'] { background: var(--gantt-no-laborable); }
+.leyenda-dia[data-tipo='excepcion-libre'] { background: var(--gantt-no-laborable); border: 1px dashed var(--aviso); }
+.leyenda-dia[data-tipo='excepcion-horas'] { background: color-mix(in srgb, var(--terracota-boton) 14%, var(--bg-campo)); border: 1px dashed var(--terracota); }

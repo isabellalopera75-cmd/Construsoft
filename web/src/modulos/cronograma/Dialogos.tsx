@@ -247,6 +247,7 @@ export function CalendarioDeLaObra({ vista, escribir, alCerrar }: { vista: Vista
       <CapaDeCalendario
         calendario={vista.calendarios.obra}
         editable={editable}
+        mesInicial={vista.cronograma.fechaInicio}
         nota="Es la copia de este proyecto: cambiarla recalcula el cronograma y no toca el calendario de la empresa. Los cambios de calendario quedan en el historial."
         alCerrar={alCerrar}
         alGuardarSemana={async (d) => { await atender('Editar el calendario de la obra', 'PUT', base, { ...d }); }}

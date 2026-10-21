@@ -8,6 +8,7 @@ import { Icono } from '../../componentes/Icono.tsx';
 import { leerCifra, paraEditar, soloCifra } from '../../entrada.ts';
 import { useSesion } from '../../sesion.tsx';
 import { DIAS_DE_LA_SEMANA, diaDe, diaDeLaSemana, fechaConDia } from '../cronograma/tiempo.ts';
+import { MesDelCalendario } from './MesDelCalendario.tsx';
 import { RejillaDeHoras } from './RejillaDeHoras.tsx';
 import { bloquesDe, contar, describirTramos, horaDeBloque, horasDeBloques, llenar, tramosDe, type Dia } from './tramos.ts';
 
@@ -195,12 +196,15 @@ interface PropsExcepciones {
   editable: boolean;
   alGuardar: (fecha: string, motivo: string | null, tramos: Tramo[]) => Promise<void>;
   alQuitar: (fecha: string) => Promise<void>;
+  /** El mes que abre la vista de mes. */
+  mesInicial: string;
 }
 
-export function ExcepcionesDeCalendario({ calendario, editable, alGuardar, alQuitar }: PropsExcepciones) {
+export function ExcepcionesDeCalendario({ calendario, editable, alGuardar, alQuitar, mesInicial }: PropsExcepciones) {
   const { arranque } = useSesion();
   const formato = arranque.formatoNumerico;
-  const [editando, setEditando] = useState<Excepcion | 'nueva' | null>(null);
+  // Una excepción que existe, o una nueva (con la fecha del día que se tocó en el mes, si se tocó uno).
+  const [editando, setEditando] = useState<Excepcion | { nueva: string } | null>(null);
   const [quitando, setQuitando] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [verTodas, setVerTodas] = useState(false);
@@ -211,11 +215,20 @@ export function ExcepcionesDeCalendario({ calendario, editable, alGuardar, alQui
   return (
     <div className="excepciones">
       <div className="excepciones-cabecera">
+        <p className="bloque-de-precio-titulo">El mes</p>
+      </div>
+      <MesDelCalendario
+        calendario={calendario}
+        mesInicial={mesInicial}
+        editable={editable}
+        alElegir={(fecha) => setEditando(lista.find((x) => x.fecha === fecha) ?? { nueva: fecha })}
+      />
+      <div className="excepciones-cabecera">
         <p className="bloque-de-precio-titulo">
           Excepciones {lista.length > 0 ? <span className="pestana-conteo">{lista.length}</span> : null}
         </p>
         {editable ? (
-          <button type="button" className="boton boton-secundario boton-chico-texto" onClick={() => setEditando('nueva')}>
+          <button type="button" className="boton boton-secundario boton-chico-texto" onClick={() => setEditando({ nueva: '' })}>
             <Icono nombre="mas" tamano={16} />
             Agregar excepción
           </button>
@@ -280,24 +293,26 @@ export function ExcepcionesDeCalendario({ calendario, editable, alGuardar, alQui
       {editando ? (
         <FormularioDeExcepcion
           calendario={calendario}
-          excepcion={editando === 'nueva' ? null : editando}
+          excepcion={'nueva' in editando ? null : editando}
+          fechaInicial={'nueva' in editando ? editando.nueva : ''}
           alCerrar={() => setEditando(null)}
           alGuardar={async (f, m, t) => { await alGuardar(f, m, t); setEditando(null); }}
+          alQuitar={async (f) => { await alQuitar(f); setEditando(null); }}
         />
       ) : null}
     </div>
   );
 }
 
-function FormularioDeExcepcion({ calendario, excepcion, alGuardar, alCerrar }: { calendario: Calendario; excepcion: Excepcion | null; alGuardar: (fecha: string, motivo: string | null, tramos: Tramo[]) => Promise<void>; alCerrar: () => void }) {
-  const [fecha, setFecha] = useState(excepcion?.fecha ?? '');
+function FormularioDeExcepcion({ calendario, excepcion, fechaInicial, alGuardar, alQuitar, alCerrar }: { calendario: Calendario; excepcion: Excepcion | null; fechaInicial: string; alGuardar: (fecha: string, motivo: string | null, tramos: Tramo[]) => Promise<void>; alQuitar: (fecha: string) => Promise<void>; alCerrar: () => void }) {
+  const [fecha, setFecha] = useState(excepcion?.fecha ?? fechaInicial);
   const [motivo, setMotivo] = useState(excepcion?.motivo ?? '');
   const [trabaja, setTrabaja] = useState(excepcion ? excepcion.tramos.length > 0 : false);
   const [dia, setDia] = useState<Dia>(() => bloquesDe(excepcion?.tramos ?? []));
   const [errores, setErrores] = useState<{ fecha?: string; tramos?: string }>({});
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
-  const hayCambios = fecha !== (excepcion?.fecha ?? '') || motivo !== (excepcion?.motivo ?? '') || trabaja !== Boolean(excepcion?.tramos.length);
+  const hayCambios = fecha !== (excepcion?.fecha ?? fechaInicial) || motivo !== (excepcion?.motivo ?? '') || trabaja !== Boolean(excepcion?.tramos.length);
 
   // Al marcar «se trabaja con otras horas», se arranca de las horas normales de ese día.
   function cambiarTrabaja(si: boolean) {
@@ -326,13 +341,27 @@ function FormularioDeExcepcion({ calendario, excepcion, alGuardar, alCerrar }: {
 
   return (
     <Capa
-      titulo={excepcion ? `Excepción del ${fechaConDia(excepcion.fecha)}` : 'Agregar excepción'}
+      titulo={excepcion ? `Excepción del ${fechaConDia(excepcion.fecha)}` : fechaInicial ? `Excepción del ${fechaConDia(fechaInicial)}` : 'Agregar excepción'}
       alCerrar={alCerrar}
       hayCambios={hayCambios}
       error={error}
       alEnviar={() => void enviar()}
       acciones={(cerrar) => (
         <>
+          {excepcion ? (
+            <button
+              type="button"
+              className="boton boton-peligroso boton-aparte"
+              disabled={enviando}
+              onClick={async () => {
+                setEnviando(true);
+                setError(null);
+                try { await alQuitar(excepcion.fecha); } catch (e) { setEnviando(false); setError(mensajeDe(e, 'No se quitó la excepción.')); }
+              }}
+            >
+              Quitar la excepción
+            </button>
+          ) : null}
           <button type="button" className="boton boton-secundario" onClick={cerrar} disabled={enviando}>Cancelar</button>
           <button type="submit" className="boton boton-principal" disabled={enviando}>{enviando ? 'Guardando…' : 'Guardar excepción'}</button>
         </>
@@ -346,6 +375,7 @@ function FormularioDeExcepcion({ calendario, excepcion, alGuardar, alCerrar }: {
           {(a) => <input {...a} autoComplete="off" value={motivo} onChange={(e) => setMotivo(e.target.value)} />}
         </Campo>
       </div>
+      {excepcion ? <p className="campo-ayuda">«Quitar la excepción» devuelve ese día a la semana tipo.</p> : null}
       <fieldset className="campo grupo-en-linea">
         <legend className="etiqueta">Ese día</legend>
         <label className="casilla"><input type="radio" name="trabaja" checked={!trabaja} onChange={() => cambiarTrabaja(false)} /><span>No se trabaja</span></label>
