@@ -2,7 +2,9 @@ import { after, before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
-import { armarPresupuestoDeReferencia } from '../pruebas/presupuestoDeReferencia.js';
+import { agregarActividad, cambiarCantidad, eliminarActividad } from '../infraestructura/basedatos/actividad.js';
+import { activarPresupuesto, cerrarPresupuesto } from '../infraestructura/basedatos/cicloDeVida.js';
+import { armarPresupuestoDeReferencia, type PresupuestoDeReferencia } from '../pruebas/presupuestoDeReferencia.js';
 import { VERSION_TERMINOS_DE_PRUEBA, clienteDePrueba, type Cuenta, CARPETA_LEGAL_DE_PRUEBA } from '../pruebas/clienteHttp.js';
 import { construirServidor } from './servidor.js';
 
@@ -15,7 +17,7 @@ import { construirServidor } from './servidor.js';
  */
 
 let app: FastifyInstance;
-const { otraIp, registrar } = clienteDePrueba(() => app);
+const { otraIp, registrar, asistenteCon } = clienteDePrueba(() => app);
 
 before(async () => {
   app = await construirServidor({ carpetaLegal: CARPETA_LEGAL_DE_PRUEBA, secretoSesion: randomBytes(32).toString('hex'), versionTerminos: VERSION_TERMINOS_DE_PRUEBA });
@@ -230,5 +232,129 @@ describe('editar: duraciones, relaciones, la versión y los círculos (CONTRATO 
     assert.deepEqual([...r.cuerpo.ciclo].sort(), [porNombre(vista, 'Excavación manual').id, porNombre(vista, 'Topografía y replanteo').id].sort());
     const leida = await llamar('GET', `/api/presupuestos/${vista.cronograma.presupuestoId}/cronograma`, duena.cookie);
     assert.deepEqual([leida.cuerpo.cronograma.version, leida.cuerpo.dependencias.length], [vista.cronograma.version, 1]);
+  });
+});
+
+describe('el presupuesto manda sobre el cronograma (RN-33, D-91)', () => {
+  let duena: Cuenta;
+  let referencia: PresupuestoDeReferencia;
+  let vista: Record<string, any>;
+  const leer = async () => (await llamar('GET', `/api/presupuestos/${referencia.presupuestoId}/cronograma`, duena.cookie)).cuerpo;
+
+  before(async () => {
+    duena = await registrar('Constructora Cronograma Presupuesto', '900000984-4', 'cronograma.presupuesto@construsoft.test');
+    referencia = await armarPresupuestoDeReferencia(duena.contexto, 'CRONO-MANDA');
+    vista = (await llamar('POST', `/api/presupuestos/${referencia.presupuestoId}/cronograma`, duena.cookie, { fechaInicio: '2026-11-02' })).cuerpo;
+  });
+
+  test('cambiar una cantidad deja el cronograma desactualizado: la lectura siguiente lo recalcula sin mover la versión', async () => {
+    await cambiarCantidad(duena.contexto, referencia.actividades['Excavación manual']!.id, '130');
+    const primera = await leer();
+    assert.deepEqual([primera.cronograma.recalculado, primera.cronograma.version, porNombre(primera, 'Excavación manual').cantidad], [true, 1, '130.000000']);
+    assert.equal((await leer()).cronograma.recalculado, false);
+  });
+
+  test('un ítem nuevo aparece en su capítulo, sin relaciones y «sin programar»', async () => {
+    const estructura = vista.capitulos.find((c: { nombre: string }) => c.nombre === 'ESTRUCTURA').id;
+    const item = await agregarActividad(duena.contexto, estructura, referencia.concreto.id, '12');
+    const v = await leer();
+    const nueva = v.actividades.find((a: Actividad) => a.presupuestoItemId === item.id);
+    assert.deepEqual([nueva.tipo, nueva.capituloId, nueva.codigo, nueva.enPresupuesto], ['ITEM', estructura, item.codigoItem, true]);
+    assert.ok(v.revision.sinProgramar.includes(nueva.id));
+    // En el orden de la EDT: justo después de la formaleta, el último ítem de ESTRUCTURA.
+    const ids = v.actividades.map((a: Actividad) => a.id);
+    assert.equal(ids.indexOf(nueva.id), ids.indexOf(porNombre(v, 'Formaleta metálica').id) + 1);
+    vista = v;
+  });
+
+  test('un ítem que sale del presupuesto queda «ya no está», con código X-, sus relaciones y su duración; el usuario lo borra', async () => {
+    const suelos = porNombre(vista, 'Estudio de suelos');
+    vista = (await llamar('PATCH', `/api/cronogramas/${vista.cronograma.id}/actividades/${suelos.id}`, duena.cookie, { version: vista.cronograma.version, duracionManualDias: '1' })).cuerpo;
+    vista = (
+      await llamar('POST', `/api/cronogramas/${vista.cronograma.id}/dependencias`, duena.cookie, {
+        version: vista.cronograma.version,
+        predecesoraId: suelos.id,
+        sucesoraId: porNombre(vista, 'Excavación manual').id,
+        tipo: 'FC',
+        desfaseDias: '0',
+      })
+    ).cuerpo;
+
+    await eliminarActividad(duena.contexto, referencia.actividades['Estudio de suelos']!.id);
+    const v = await leer();
+    const huerfana = v.actividades.find((a: Actividad) => a.id === suelos.id);
+    assert.deepEqual(
+      [huerfana.enPresupuesto, huerfana.capituloId, huerfana.presupuestoItemId, huerfana.codigo, huerfana.duracionDias],
+      [false, null, null, `X-${suelos.codigo}`, '1.0'],
+    );
+    assert.deepEqual([v.revision.yaNoEstan, v.dependencias.length], [[suelos.id], 1]);
+    const tipos = v.actividades.map((a: Actividad) => a.tipo);
+    assert.equal(v.actividades.indexOf(huerfana), tipos.indexOf('ADMINISTRACION') - 1);
+
+    const borrada = await llamar('DELETE', `/api/cronogramas/${v.cronograma.id}/actividades/${suelos.id}?version=${v.cronograma.version}`, duena.cookie);
+    assert.equal(borrada.estado, 200, borrada.crudo);
+    assert.deepEqual([borrada.cuerpo.actividades.some((a: Actividad) => a.id === suelos.id), borrada.cuerpo.dependencias.length], [false, 0]);
+    vista = borrada.cuerpo;
+  });
+
+  test('la actividad de un ítem que sigue en el presupuesto, y la administración, no se borran: 422', async () => {
+    for (const nombre of ['Topografía y replanteo', 'Administración y supervisión de obra']) {
+      const r = await llamar('DELETE', `/api/cronogramas/${vista.cronograma.id}/actividades/${porNombre(vista, nombre).id}?version=${vista.cronograma.version}`, duena.cookie);
+      assert.equal(r.estado, 422, `${nombre}: ${r.crudo}`);
+    }
+  });
+
+  test('con el presupuesto Cerrado se lee y se recalcula, pero no se escribe (RN-34)', async () => {
+    await activarPresupuesto(duena.contexto, referencia.presupuestoId);
+    await cerrarPresupuesto(duena.contexto, referencia.presupuestoId);
+    const v = await leer();
+    assert.deepEqual([v.cronograma.editable, v.cronograma.recalculado], [false, true]);
+    const r = await llamar('PATCH', `/api/cronogramas/${v.cronograma.id}/actividades/${porNombre(v, 'Topografía y replanteo').id}`, duena.cookie, {
+      version: v.cronograma.version,
+      cuadrillas: 1,
+    });
+    assert.deepEqual([r.estado, r.cuerpo.campo], [422, undefined], r.crudo);
+    assert.match(r.cuerpo.mensaje, /Cerrado/);
+    assert.equal((await leer()).cronograma.version, v.cronograma.version);
+  });
+});
+
+describe('cronograma: permiso y aislamiento (RN-43, RN-01)', () => {
+  let duena: Cuenta;
+  let vista: Record<string, any>;
+
+  before(async () => {
+    duena = await registrar('Constructora Cronograma Permiso', '900000985-5', 'cronograma.permiso@construsoft.test');
+    const { presupuestoId } = await armarPresupuestoDeReferencia(duena.contexto, 'CRONO-PERMISO');
+    vista = (await llamar('POST', `/api/presupuestos/${presupuestoId}/cronograma`, duena.cookie, { fechaInicio: '2026-11-02' })).cuerpo;
+  });
+
+  test('quien solo ve el presupuesto lee el cronograma con editable falso, y escribir es 403', async () => {
+    const lector = await asistenteCon(duena, 'cronograma.lector@construsoft.test', ['PRESUPUESTOS.VER']);
+    const r = await llamar('GET', `/api/presupuestos/${vista.cronograma.presupuestoId}/cronograma`, lector);
+    assert.deepEqual([r.estado, r.cuerpo.cronograma.editable], [200, false]);
+    const escribe = await llamar('PATCH', `/api/cronogramas/${vista.cronograma.id}`, lector, { version: vista.cronograma.version, fechaInicio: '2026-11-09' });
+    assert.equal(escribe.estado, 403);
+  });
+
+  test('el cronograma de otra empresa no existe: leerlo, crearlo, editarlo o cerrar su aviso es 404', async () => {
+    const otra = await registrar('Constructora Cronograma Ajena', '900000986-6', 'cronograma.ajena@construsoft.test');
+    const id = vista.cronograma.id;
+    const actividad = vista.actividades[0].id;
+    for (const [metodo, url, cuerpo] of [
+      ['GET', `/api/presupuestos/${vista.cronograma.presupuestoId}/cronograma`, undefined],
+      ['POST', `/api/presupuestos/${vista.cronograma.presupuestoId}/cronograma`, { fechaInicio: '2026-11-02' }],
+      ['PATCH', `/api/cronogramas/${id}`, { version: 1, fechaInicio: '2026-11-09' }],
+      ['PATCH', `/api/cronogramas/${id}/actividades/${actividad}`, { version: 1, cuadrillas: 2 }],
+      ['POST', `/api/cronogramas/${id}/grupos`, { version: 1, nombre: 'Robado' }],
+      ['DELETE', `/api/cronogramas/${id}/actividades/${actividad}?version=1`, undefined],
+      ['POST', `/api/cronogramas/${id}/aviso/cerrar`, {}],
+      ['GET', '/api/presupuestos/no-es-un-id/cronograma', undefined],
+    ] as const) {
+      const r = await llamar(metodo, url, otra.cookie, cuerpo);
+      assert.equal(r.estado, 404, `${metodo} ${url}: ${r.crudo}`);
+    }
+    const intacto = await llamar('GET', `/api/presupuestos/${vista.cronograma.presupuestoId}/cronograma`, duena.cookie);
+    assert.deepEqual([intacto.cuerpo.cronograma.version, intacto.cuerpo.cronograma.fechaInicio, intacto.cuerpo.grupos], [1, '2026-11-02', []]);
   });
 });
