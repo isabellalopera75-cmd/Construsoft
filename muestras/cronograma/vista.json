@@ -1,9 +1,10 @@
 {
   "cronograma": {
-    "id": "01a15cf7-ec3d-7046-93bd-8e468584a2c4",
-    "presupuestoId": "01a15cf7-ea3a-703b-838f-3911f14b4505",
+    "id": "01a15f09-50b2-7046-95ad-b284c6a30400",
+    "presupuestoId": "01a15f09-4e89-703b-9fd5-51bc75b4fb97",
     "version": 22,
     "fechaInicio": "2026-11-02",
+    "inicioSemana": 1,
     "editable": true,
     "recalculado": false,
     "inicio": "2026-11-02T07:00",
@@ -12,7 +13,7 @@
   },
   "calendarios": {
     "obra": {
-      "id": "01a15cf7-ec42-7047-8b69-4f091c7fe584",
+      "id": "01a15f09-50b5-7047-b9ea-8f7afbd9d5ce",
       "nombre": "Lunes a viernes",
       "tipo": "OBRA",
       "horasPorDia": "8.00",
@@ -88,7 +89,7 @@
       }
     },
     "corrido": {
-      "id": "01a15cf7-ec7e-7052-a67f-604a2458879e",
+      "id": "01a15f09-50d4-7052-9b78-964f2e8c8999",
       "nombre": "Corrido (24 horas, todos los días)",
       "tipo": "CORRIDO",
       "horasPorDia": "24.00",
@@ -156,7 +157,7 @@
   },
   "capitulos": [
     {
-      "id": "01a15cf7-ea52-703c-80cc-042e4c69b8e4",
+      "id": "01a15f09-4eb7-703c-bca8-b92d71979a86",
       "padreId": null,
       "codigo": "1",
       "nombre": "PRELIMINARES",
@@ -168,7 +169,7 @@
       "critico": true
     },
     {
-      "id": "01a15cf7-eb07-7040-8b94-7c350315ff10",
+      "id": "01a15f09-4fc2-7040-9851-a5c2e727b41e",
       "padreId": null,
       "codigo": "2",
       "nombre": "CIMENTACIÓN",
@@ -180,7 +181,7 @@
       "critico": true
     },
     {
-      "id": "01a15cf7-eb64-7043-ba42-f63b1d5a2824",
+      "id": "01a15f09-502b-7043-85c5-7b33ea737698",
       "padreId": null,
       "codigo": "3",
       "nombre": "ESTRUCTURA",
@@ -195,14 +196,14 @@
   "grupos": [],
   "actividades": [
     {
-      "id": "01a15cf7-ec87-705a-ada4-54f531940618",
+      "id": "01a15f09-50dc-705a-8b8c-9c155159f184",
       "tipo": "ITEM",
       "codigo": "1.1",
       "nombre": "Topografía y replanteo",
-      "capituloId": "01a15cf7-ea52-703c-80cc-042e4c69b8e4",
+      "capituloId": "01a15f09-4eb7-703c-bca8-b92d71979a86",
       "grupoId": null,
       "orden": 1,
-      "presupuestoItemId": "01a15cf7-eaae-703d-b567-63f983f01f32",
+      "presupuestoItemId": "01a15f09-4f42-703d-ba7c-51c8a1d313a7",
       "enPresupuesto": true,
       "cantidad": "1.000000",
       "unidad": "Glb",
@@ -225,14 +226,14 @@
       "finAMitadDeJornada": false
     },
     {
-      "id": "01a15cf7-eca8-705b-854f-238ba9ffd07e",
+      "id": "01a15f09-50ed-705b-aa44-95083fbbb699",
       "tipo": "ITEM",
       "codigo": "1.2",
       "nombre": "Estudio de suelos",
-      "capituloId": "01a15cf7-ea52-703c-80cc-042e4c69b8e4",
+      "capituloId": "01a15f09-4eb7-703c-bca8-b92d71979a86",
       "grupoId": null,
       "orden": 2,
-      "presupuestoItemId": "01a15cf7-ead9-703e-87ed-00c3e8322c06",
+      "presupuestoItemId": "01a15f09-4f85-703e-8dde-80529f89328c",
       "enPresupuesto": true,
       "cantidad": "1.000000",
       "unidad": "Glb",
@@ -255,14 +256,14 @@
       "finAMitadDeJornada": false
     },
     {
-      "id": "01a15cf7-ecaa-705c-9cff-e6ad45638318",
+      "id": "01a15f09-50ef-705c-a06d-b7615f731ff3",
       "tipo": "ITEM",
       "codigo": "1.3",
       "nombre": "Director de obra",
-      "capituloId": "01a15cf7-ea52-703c-80cc-042e4c69b8e4",
+      "capituloId": "01a15f09-4eb7-703c-bca8-b92d71979a86",
       "grupoId": null,
       "orden": 3,
-      "presupuestoItemId": "01a15cf7-eaf1-703f-b3dd-ece9331db524",
+      "presupuestoItemId": "01a15f09-4fa1-703f-bfbf-1676b7fdd777",
       "enPresupuesto": true,
       "cantidad": "6.000000",
       "unidad": "Ms",
@@ -285,14 +286,14 @@
       "finAMitadDeJornada": false
     },
     {
-      "id": "01a15cf7-ecad-705d-87d0-b2fdfd3a7fab",
+      "id": "01a15f09-50f0-705d-8b63-394e5d29f53d",
       "tipo": "ITEM",
       "codigo": "2.1",
       "nombre": "Excavación manual",
-      "capituloId": "01a15cf7-eb07-7040-8b94-7c350315ff10",
+      "capituloId": "01a15f09-4fc2-7040-9851-a5c2e727b41e",
       "grupoId": null,
       "orden": 4,
-      "presupuestoItemId": "01a15cf7-eb27-7041-8be2-a0aa1f596d7a",
+      "presupuestoItemId": "01a15f09-4ff0-7041-b8e6-46458adbbf09",
       "enPresupuesto": true,
       "cantidad": "120.000000",
       "unidad": "m³",
@@ -315,14 +316,14 @@
       "finAMitadDeJornada": false
     },
     {
-      "id": "01a15cf7-ecae-705e-8b1f-2e70d00c7659",
+      "id": "01a15f09-50f1-705e-b3f5-3911a78b5dfb",
       "tipo": "ITEM",
       "codigo": "2.2",
       "nombre": "Concreto 3000 PSI para zapatas",
-      "capituloId": "01a15cf7-eb07-7040-8b94-7c350315ff10",
+      "capituloId": "01a15f09-4fc2-7040-9851-a5c2e727b41e",
       "grupoId": null,
       "orden": 5,
-      "presupuestoItemId": "01a15cf7-eb48-7042-bd1e-e2638be42162",
+      "presupuestoItemId": "01a15f09-500f-7042-bcd3-ffb5bcd5f05a",
       "enPresupuesto": true,
       "cantidad": "100.000000",
       "unidad": "m³",
@@ -345,14 +346,14 @@
       "finAMitadDeJornada": false
     },
     {
-      "id": "01a15cf7-ecb0-705f-92fa-2642a1548310",
+      "id": "01a15f09-50f1-705f-9bc0-0ceed7d8775d",
       "tipo": "ITEM",
       "codigo": "3.1",
       "nombre": "Acero de refuerzo 60.000 PSI",
-      "capituloId": "01a15cf7-eb64-7043-ba42-f63b1d5a2824",
+      "capituloId": "01a15f09-502b-7043-85c5-7b33ea737698",
       "grupoId": null,
       "orden": 6,
-      "presupuestoItemId": "01a15cf7-eb9c-7044-b40c-1fcf937747ec",
+      "presupuestoItemId": "01a15f09-505a-7044-9677-b7b4b00d6fb2",
       "enPresupuesto": true,
       "cantidad": "4500.000000",
       "unidad": "Kg",
@@ -375,14 +376,14 @@
       "finAMitadDeJornada": false
     },
     {
-      "id": "01a15cf7-ecb1-7060-90c4-40551c6e2875",
+      "id": "01a15f09-50f2-7060-bf95-56d4b7136feb",
       "tipo": "ITEM",
       "codigo": "3.2",
       "nombre": "Formaleta metálica",
-      "capituloId": "01a15cf7-eb64-7043-ba42-f63b1d5a2824",
+      "capituloId": "01a15f09-502b-7043-85c5-7b33ea737698",
       "grupoId": null,
       "orden": 7,
-      "presupuestoItemId": "01a15cf7-ebcf-7045-a5a2-af7deac9ecae",
+      "presupuestoItemId": "01a15f09-5078-7045-91bf-bf47a5f73a3f",
       "enPresupuesto": true,
       "cantidad": "350.000000",
       "unidad": "m²",
@@ -405,7 +406,7 @@
       "finAMitadDeJornada": false
     },
     {
-      "id": "01a15cf7-ecb6-7061-9923-ed425b1b201f",
+      "id": "01a15f09-50f5-7061-b39e-abf87ef81dea",
       "tipo": "ADMINISTRACION",
       "codigo": "ADM",
       "nombre": "Administración y supervisión de obra",
@@ -435,7 +436,7 @@
       "finAMitadDeJornada": false
     },
     {
-      "id": "01a15cf7-ecc2-7062-b5c1-559734994f74",
+      "id": "01a15f09-50fb-7062-b1aa-ce2544117644",
       "tipo": "HITO_INICIO",
       "codigo": "H-001",
       "nombre": "Inicio del proyecto",
@@ -465,7 +466,7 @@
       "finAMitadDeJornada": false
     },
     {
-      "id": "01a15cf7-ecc5-7063-8eba-a03f433b07e3",
+      "id": "01a15f09-50fc-7063-8ddb-eab28276abe0",
       "tipo": "HITO_FIN",
       "codigo": "H-002",
       "nombre": "Fin del proyecto",
@@ -498,7 +499,7 @@
       "finAMitadDeJornada": false
     },
     {
-      "id": "01a15cf7-f20a-7064-94f7-b16f2f6b3eee",
+      "id": "01a15f09-55fb-7064-a5a2-475669dd26f6",
       "tipo": "SIN_COSTO",
       "codigo": "T-001",
       "nombre": "Curado del concreto",
@@ -530,72 +531,72 @@
   ],
   "dependencias": [
     {
-      "id": "01a15cf7-f2e1-7065-ac32-54cf3f7af33f",
-      "predecesoraId": "01a15cf7-ecc2-7062-b5c1-559734994f74",
-      "sucesoraId": "01a15cf7-ec87-705a-ada4-54f531940618",
+      "id": "01a15f09-571a-7065-937a-1cd28223f189",
+      "predecesoraId": "01a15f09-50fb-7062-b1aa-ce2544117644",
+      "sucesoraId": "01a15f09-50dc-705a-8b8c-9c155159f184",
       "tipo": "FC",
       "desfaseDias": "0.0"
     },
     {
-      "id": "01a15cf7-f334-7066-9121-3711aa308a6d",
-      "predecesoraId": "01a15cf7-ec87-705a-ada4-54f531940618",
-      "sucesoraId": "01a15cf7-eca8-705b-854f-238ba9ffd07e",
+      "id": "01a15f09-578d-7066-9ec9-c95e3c075086",
+      "predecesoraId": "01a15f09-50dc-705a-8b8c-9c155159f184",
+      "sucesoraId": "01a15f09-50ed-705b-aa44-95083fbbb699",
       "tipo": "FC",
       "desfaseDias": "0.0"
     },
     {
-      "id": "01a15cf7-f39b-7067-bd68-f37fe0bc931b",
-      "predecesoraId": "01a15cf7-ec87-705a-ada4-54f531940618",
-      "sucesoraId": "01a15cf7-ecaa-705c-9cff-e6ad45638318",
+      "id": "01a15f09-57fa-7067-9f94-eaf93a52e665",
+      "predecesoraId": "01a15f09-50dc-705a-8b8c-9c155159f184",
+      "sucesoraId": "01a15f09-50ef-705c-a06d-b7615f731ff3",
       "tipo": "CC",
       "desfaseDias": "0.0"
     },
     {
-      "id": "01a15cf7-f40f-7068-975a-a1bf0827b4d2",
-      "predecesoraId": "01a15cf7-eca8-705b-854f-238ba9ffd07e",
-      "sucesoraId": "01a15cf7-ecad-705d-87d0-b2fdfd3a7fab",
+      "id": "01a15f09-5867-7068-baa0-441ede95766a",
+      "predecesoraId": "01a15f09-50ed-705b-aa44-95083fbbb699",
+      "sucesoraId": "01a15f09-50f0-705d-8b63-394e5d29f53d",
       "tipo": "FC",
       "desfaseDias": "0.0"
     },
     {
-      "id": "01a15cf7-f4d3-7069-a03e-708b4354e52b",
-      "predecesoraId": "01a15cf7-ecad-705d-87d0-b2fdfd3a7fab",
-      "sucesoraId": "01a15cf7-ecae-705e-8b1f-2e70d00c7659",
+      "id": "01a15f09-58da-7069-8f43-a8d795f11c4a",
+      "predecesoraId": "01a15f09-50f0-705d-8b63-394e5d29f53d",
+      "sucesoraId": "01a15f09-50f1-705e-b3f5-3911a78b5dfb",
       "tipo": "FC",
       "desfaseDias": "0.0"
     },
     {
-      "id": "01a15cf7-f5ba-706a-adbf-752fcda183a8",
-      "predecesoraId": "01a15cf7-ecae-705e-8b1f-2e70d00c7659",
-      "sucesoraId": "01a15cf7-f20a-7064-94f7-b16f2f6b3eee",
+      "id": "01a15f09-5947-706a-bb8f-700cc39a0df6",
+      "predecesoraId": "01a15f09-50f1-705e-b3f5-3911a78b5dfb",
+      "sucesoraId": "01a15f09-55fb-7064-a5a2-475669dd26f6",
       "tipo": "FC",
       "desfaseDias": "0.0"
     },
     {
-      "id": "01a15cf7-f6c9-706b-873a-203004147ab3",
-      "predecesoraId": "01a15cf7-f20a-7064-94f7-b16f2f6b3eee",
-      "sucesoraId": "01a15cf7-ecb1-7060-90c4-40551c6e2875",
+      "id": "01a15f09-59b2-706b-af92-91deca7d1a57",
+      "predecesoraId": "01a15f09-55fb-7064-a5a2-475669dd26f6",
+      "sucesoraId": "01a15f09-50f2-7060-bf95-56d4b7136feb",
       "tipo": "FC",
       "desfaseDias": "0.0"
     },
     {
-      "id": "01a15cf7-f73a-706c-b632-54e01af19eda",
-      "predecesoraId": "01a15cf7-ecb1-7060-90c4-40551c6e2875",
-      "sucesoraId": "01a15cf7-ecb0-705f-92fa-2642a1548310",
+      "id": "01a15f09-5a17-706c-8a2a-860280c31218",
+      "predecesoraId": "01a15f09-50f2-7060-bf95-56d4b7136feb",
+      "sucesoraId": "01a15f09-50f1-705f-9bc0-0ceed7d8775d",
       "tipo": "CC",
       "desfaseDias": "1.0"
     },
     {
-      "id": "01a15cf7-f7a7-706d-8768-948f60499d0c",
-      "predecesoraId": "01a15cf7-ecb0-705f-92fa-2642a1548310",
-      "sucesoraId": "01a15cf7-ecc5-7063-8eba-a03f433b07e3",
+      "id": "01a15f09-5a7d-706d-9a27-dc330b2ebb9b",
+      "predecesoraId": "01a15f09-50f1-705f-9bc0-0ceed7d8775d",
+      "sucesoraId": "01a15f09-50fc-7063-8ddb-eab28276abe0",
       "tipo": "FC",
       "desfaseDias": "0.0"
     },
     {
-      "id": "01a15cf7-f81b-706e-b8b3-217235d0db84",
-      "predecesoraId": "01a15cf7-ecaa-705c-9cff-e6ad45638318",
-      "sucesoraId": "01a15cf7-ecc5-7063-8eba-a03f433b07e3",
+      "id": "01a15f09-5aed-706e-8658-f974d40efbcc",
+      "predecesoraId": "01a15f09-50ef-705c-a06d-b7615f731ff3",
+      "sucesoraId": "01a15f09-50fc-7063-8ddb-eab28276abe0",
       "tipo": "FF",
       "desfaseDias": "0.0"
     }
@@ -606,10 +607,10 @@
     "manualDistinta": [],
     "sinRendimiento": [],
     "sinPredecesora": [
-      "01a15cf7-ecc2-7062-b5c1-559734994f74"
+      "01a15f09-50fb-7062-b1aa-ce2544117644"
     ],
     "sinSucesora": [
-      "01a15cf7-ecc5-7063-8eba-a03f433b07e3"
+      "01a15f09-50fc-7063-8ddb-eab28276abe0"
     ],
     "holguraNegativa": []
   },
@@ -617,7 +618,7 @@
     "presupuesto": null,
     "festivos": null,
     "administracion": {
-      "lineaBaseId": "01a15cf7-f934-7070-97ce-c767440bf7a6",
+      "lineaBaseId": "01a15f09-5c13-7070-9da3-02adc68f8bfd",
       "finLineaBase": "2026-12-07T16:00",
       "finActual": "2026-12-09T16:00",
       "diasDeMas": "2.0"
@@ -625,20 +626,20 @@
   },
   "lineasBase": [
     {
-      "id": "01a15cf7-f934-7070-97ce-c767440bf7a6",
+      "id": "01a15f09-5c13-7070-9da3-02adc68f8bfd",
       "nombre": "Contrato",
-      "guardadaEn": "2026-10-21T05:38:37.448Z",
+      "guardadaEn": "2026-10-21T15:16:51.295Z",
       "guardadaPor": "Ingeniera de muestras",
       "fin": "2026-12-07T16:00"
     }
   ],
   "lineaBase": {
-    "id": "01a15cf7-f934-7070-97ce-c767440bf7a6",
+    "id": "01a15f09-5c13-7070-9da3-02adc68f8bfd",
     "nombre": "Contrato",
-    "guardadaEn": "2026-10-21T05:38:37.448Z",
+    "guardadaEn": "2026-10-21T15:16:51.295Z",
     "actividades": [
       {
-        "actividadId": "01a15cf7-ec87-705a-ada4-54f531940618",
+        "actividadId": "01a15f09-50dc-705a-8b8c-9c155159f184",
         "inicio": "2026-11-02T07:00",
         "fin": "2026-11-03T16:00",
         "duracionDias": "2.0",
@@ -646,7 +647,7 @@
         "variacionFinDias": "0.0"
       },
       {
-        "actividadId": "01a15cf7-eca8-705b-854f-238ba9ffd07e",
+        "actividadId": "01a15f09-50ed-705b-aa44-95083fbbb699",
         "inicio": "2026-11-04T07:00",
         "fin": "2026-11-06T16:00",
         "duracionDias": "3.0",
@@ -654,7 +655,7 @@
         "variacionFinDias": "0.0"
       },
       {
-        "actividadId": "01a15cf7-ecaa-705c-9cff-e6ad45638318",
+        "actividadId": "01a15f09-50ef-705c-a06d-b7615f731ff3",
         "inicio": "2026-11-02T07:00",
         "fin": "2026-11-27T16:00",
         "duracionDias": "20.0",
@@ -662,7 +663,7 @@
         "variacionFinDias": "0.0"
       },
       {
-        "actividadId": "01a15cf7-ecad-705d-87d0-b2fdfd3a7fab",
+        "actividadId": "01a15f09-50f0-705d-8b63-394e5d29f53d",
         "inicio": "2026-11-09T07:00",
         "fin": "2026-11-13T16:00",
         "duracionDias": "5.0",
@@ -670,7 +671,7 @@
         "variacionFinDias": "2.0"
       },
       {
-        "actividadId": "01a15cf7-ecae-705e-8b1f-2e70d00c7659",
+        "actividadId": "01a15f09-50f1-705e-b3f5-3911a78b5dfb",
         "inicio": "2026-11-16T07:00",
         "fin": "2026-11-19T16:00",
         "duracionDias": "4.0",
@@ -678,7 +679,7 @@
         "variacionFinDias": "2.0"
       },
       {
-        "actividadId": "01a15cf7-ecb0-705f-92fa-2642a1548310",
+        "actividadId": "01a15f09-50f1-705f-9bc0-0ceed7d8775d",
         "inicio": "2026-11-30T07:00",
         "fin": "2026-12-07T16:00",
         "duracionDias": "6.0",
@@ -686,7 +687,7 @@
         "variacionFinDias": "2.0"
       },
       {
-        "actividadId": "01a15cf7-ecb1-7060-90c4-40551c6e2875",
+        "actividadId": "01a15f09-50f2-7060-bf95-56d4b7136feb",
         "inicio": "2026-11-27T07:00",
         "fin": "2026-12-03T16:00",
         "duracionDias": "5.0",
@@ -694,7 +695,7 @@
         "variacionFinDias": "2.0"
       },
       {
-        "actividadId": "01a15cf7-ecb6-7061-9923-ed425b1b201f",
+        "actividadId": "01a15f09-50f5-7061-b39e-abf87ef81dea",
         "inicio": "2026-11-02T07:00",
         "fin": "2026-12-07T16:00",
         "duracionDias": "26.0",
@@ -702,7 +703,7 @@
         "variacionFinDias": "2.0"
       },
       {
-        "actividadId": "01a15cf7-ecc2-7062-b5c1-559734994f74",
+        "actividadId": "01a15f09-50fb-7062-b1aa-ce2544117644",
         "inicio": "2026-11-02T07:00",
         "fin": "2026-11-02T07:00",
         "duracionDias": "0.0",
@@ -710,7 +711,7 @@
         "variacionFinDias": "0.0"
       },
       {
-        "actividadId": "01a15cf7-ecc5-7063-8eba-a03f433b07e3",
+        "actividadId": "01a15f09-50fc-7063-8ddb-eab28276abe0",
         "inicio": "2026-12-07T16:00",
         "fin": "2026-12-07T16:00",
         "duracionDias": "0.0",
@@ -718,7 +719,7 @@
         "variacionFinDias": "2.0"
       },
       {
-        "actividadId": "01a15cf7-f20a-7064-94f7-b16f2f6b3eee",
+        "actividadId": "01a15f09-55fb-7064-a5a2-475669dd26f6",
         "inicio": "2026-11-19T16:00",
         "fin": "2026-11-26T16:00",
         "duracionDias": "7.0",
