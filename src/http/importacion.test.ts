@@ -248,3 +248,64 @@ describe('importar APU desde Excel (CONTRATO §10.4)', () => {
     assert.equal((await pedir('/api/apus/plantilla', vencida.cookie)).statusCode, 402);
   });
 });
+
+describe('importar una lista propia de festivos desde Excel (CONTRATO §19.4)', () => {
+  let duena: Cuenta;
+
+  before(async () => {
+    duena = await registrar('Constructora Importa Festivos', '900000980-0', 'importa.festivos@construsoft.test');
+  });
+
+  test('la plantilla trae Instrucciones primero y Festivos con Fecha y Nombre', async () => {
+    const r = await pedir('/api/configuracion/festivos/plantilla', duena.cookie);
+    assert.equal(r.statusCode, 200, r.body);
+    assert.match(String(r.headers['content-disposition']), /Plantilla de festivos\.xlsx/);
+    const libro = new ExcelJS.Workbook();
+    await libro.xlsx.load(r.rawPayload as never);
+    assert.deepEqual(libro.worksheets.map((h) => h.name), ['Instrucciones', 'Festivos']);
+    assert.deepEqual([libro.getWorksheet('Festivos')!.getCell('A1').value, libro.getWorksheet('Festivos')!.getCell('B1').value], ['Fecha', 'Nombre']);
+  });
+
+  test('el archivo bueno crea la lista con el nombre de la ruta y responde la lista (201)', async () => {
+    const archivo = await plantillaLlena('/api/configuracion/festivos/plantilla', duena.cookie, {
+      Festivos: [['2026-08-07', 'Feria de las Flores'], [new Date(Date.UTC(2027, 7, 6)), null]],
+    });
+    const r = await subir(`/api/configuracion/festivos/importar?nombre=${encodeURIComponent('Feria de Medellín')}`, duena.cookie, archivo);
+    assert.equal(r.estado, 201, r.crudo);
+    assert.deepEqual({ ...r.cuerpo, id: undefined }, {
+      id: undefined,
+      nombre: 'Feria de Medellín',
+      fechas: [{ fecha: '2026-08-07', nombre: 'Feria de las Flores' }, { fecha: '2027-08-06', nombre: null }],
+    });
+  });
+
+  test('todo o nada: con una fila mala no se crea la lista, y se dicen todos los errores', async () => {
+    const archivo = await plantillaLlena('/api/configuracion/festivos/plantilla', duena.cookie, {
+      Festivos: [['2026-08-07', 'Bien'], ['mañana', null], ['2026-08-07', 'Repetida']],
+    });
+    const r = await subir('/api/configuracion/festivos/importar?nombre=Mala', duena.cookie, archivo);
+    assert.equal(r.estado, 422, r.crudo);
+    assert.match(r.cuerpo.mensaje!, /2 errores y no se importó nada/);
+    assert.deepEqual(r.cuerpo.errores!.map((e) => [e.hoja, e.fila, e.columna]), [['Festivos', 3, 'Fecha'], ['Festivos', 4, 'Fecha']]);
+    const repetida = await subir('/api/configuracion/festivos/importar?nombre=Mala', duena.cookie, await plantillaLlena('/api/configuracion/festivos/plantilla', duena.cookie, { Festivos: [['2026-08-07', null]] }));
+    assert.equal(repetida.estado, 201, 'la lista «Mala» no quedó creada a medias');
+  });
+
+  test('sin nombre en la ruta es 422 en nombre; un nombre que ya existe, 409 en nombre', async () => {
+    const archivo = await plantillaLlena('/api/configuracion/festivos/plantilla', duena.cookie, { Festivos: [['2026-12-31', null]] });
+    const sinNombre = await subir('/api/configuracion/festivos/importar', duena.cookie, archivo);
+    assert.deepEqual([sinNombre.estado, (sinNombre.cuerpo as { campo?: string }).campo], [422, 'nombre']);
+    await subir('/api/configuracion/festivos/importar?nombre=Duplicada', duena.cookie, archivo);
+    const otraVez = await subir('/api/configuracion/festivos/importar?nombre=duplicada', duena.cookie, archivo);
+    assert.deepEqual([otraVez.estado, (otraVez.cuerpo as { campo?: string }).campo], [409, 'nombre']);
+  });
+
+  test('un archivo que no es Excel es 422 sin errores; sin CONFIG.PREFERENCIAS, 403 al descargar y al subir', async () => {
+    const r = await subir('/api/configuracion/festivos/importar?nombre=X', duena.cookie, Buffer.from('fecha,nombre\n'));
+    assert.equal(r.estado, 422);
+    assert.equal(r.cuerpo.errores, undefined);
+    const sinPermiso = await asistenteCon(duena, 'importa.festivos.sinpermiso@construsoft.test', ['PRESUPUESTOS.VER']);
+    assert.equal((await pedir('/api/configuracion/festivos/plantilla', sinPermiso)).statusCode, 403);
+    assert.equal((await subir('/api/configuracion/festivos/importar?nombre=X', sinPermiso, Buffer.from('PK'))).estado, 403);
+  });
+});

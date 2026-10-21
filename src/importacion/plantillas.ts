@@ -124,3 +124,26 @@ export async function generarPlantillaDeApu(unidades: string[], catalogo: Recurs
   lista(apu, 'C', rangos.unidades, 'la unidad');
   return Buffer.from(await libro.xlsx.writeBuffer());
 }
+
+// --- CONTRATO §19.4 · Una lista propia de festivos -------------------------------
+export const HOJA_FESTIVOS = 'Festivos';
+export const COLUMNAS_FESTIVOS = ['Fecha', 'Nombre'] as const;
+
+export async function generarPlantillaDeFestivos(): Promise<Buffer> {
+  const libro = new ExcelJS.Workbook();
+  instrucciones(libro, [
+    'Importar una lista propia de festivos desde Excel',
+    '',
+    `Llene la hoja «${HOJA_FESTIVOS}»: una fila por fecha, desde la fila 2. Hasta ${MAXIMO_DE_FILAS} filas.`,
+    'Fecha es obligatoria: una fecha de Excel, o un texto como 2026-08-07 (año, mes y día).',
+    'Nombre es opcional: el motivo del día, por ejemplo «Feria de las Flores».',
+    'Una fecha no puede repetirse en el archivo.',
+    '',
+    'La lista es privada de su empresa: solo ella la ve y la usa. El nombre de la lista lo escribe al subir el archivo.',
+    'Si alguna fila tiene un error, no se importa nada y se le dice cuál corregir: hoja, fila y columna.',
+  ]);
+  const hoja = libro.addWorksheet(HOJA_FESTIVOS);
+  encabezado(hoja, COLUMNAS_FESTIVOS, [14, 42]);
+  hoja.getColumn(1).numFmt = 'yyyy-mm-dd';
+  return Buffer.from(await libro.xlsx.writeBuffer());
+}

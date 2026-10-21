@@ -4,8 +4,10 @@ import { listarUnidadesParaElegir } from '../infraestructura/basedatos/configura
 import { crearRecursosEnBloque, listarRecursos } from '../infraestructura/basedatos/recurso.js';
 import { crearApusEnBloque, listarApus } from '../infraestructura/basedatos/apu.js';
 import { FallasEnBloque } from '../infraestructura/basedatos/enBloque.js';
-import { generarPlantillaDeApu, generarPlantillaDeRecursos, HOJA_APU, HOJA_RECURSOS } from '../importacion/plantillas.js';
-import { ArchivoNoValido, leerArchivoDeApu, leerArchivoDeRecursos, type ErrorDeFila } from '../importacion/lectura.js';
+import { crearListaPropia } from '../infraestructura/basedatos/festivos.js';
+import { ErrorParaElUsuario } from '../infraestructura/basedatos/errorParaElUsuario.js';
+import { generarPlantillaDeApu, generarPlantillaDeFestivos, generarPlantillaDeRecursos, HOJA_APU, HOJA_FESTIVOS, HOJA_RECURSOS } from '../importacion/plantillas.js';
+import { ArchivoNoValido, leerArchivoDeApu, leerArchivoDeFestivos, leerArchivoDeRecursos, type ErrorDeFila } from '../importacion/lectura.js';
 import { traducirError } from './errores.js';
 
 /*
@@ -29,7 +31,7 @@ function adjunto(reply: FastifyReply, nombre: string, archivo: Buffer) {
 }
 
 /** Quien no puede crear recibe el 403 antes de descargar o de subir nada. */
-const exigir = (contexto: ContextoTenant, permiso: 'RECURSOS.CREAR' | 'APU.CREAR') =>
+const exigir = (contexto: ContextoTenant, permiso: 'RECURSOS.CREAR' | 'APU.CREAR' | 'CONFIG.PREFERENCIAS') =>
   ejecutarConPermiso(contexto, permiso, async () => undefined);
 
 export function registrarRutasDeImportacion(app: FastifyInstance, sesionDe: SesionDe): void {
@@ -42,7 +44,7 @@ export function registrarRutasDeImportacion(app: FastifyInstance, sesionDe: Sesi
     async function importar(
       reply: FastifyReply,
       hojaPrincipal: string,
-      leer: () => Promise<{ errores: ErrorDeFila[]; crear: () => Promise<number> }>,
+      leer: () => Promise<{ errores: ErrorDeFila[]; crear: () => Promise<object> }>,
     ) {
       let lectura;
       try {
@@ -54,7 +56,7 @@ export function registrarRutasDeImportacion(app: FastifyInstance, sesionDe: Sesi
       let errores = lectura.errores;
       if (errores.length === 0) {
         try {
-          return reply.code(201).send({ creados: await lectura.crear() });
+          return reply.code(201).send(await lectura.crear());
         } catch (error) {
           if (!(error instanceof FallasEnBloque)) throw error;
           // Lo que la base rechazó dentro de la transacción, en la fila que lo causó.
@@ -83,7 +85,7 @@ export function registrarRutasDeImportacion(app: FastifyInstance, sesionDe: Sesi
       return importar(reply, HOJA_RECURSOS, async () => {
         const [unidades, catalogo] = await Promise.all([listarUnidadesParaElegir(contexto, 'RECURSOS.VER'), listarRecursos(contexto)]);
         const { recursos, errores } = await leerArchivoDeRecursos(comoArchivo(request.body), unidades, catalogo);
-        return { errores, crear: () => crearRecursosEnBloque(contexto, recursos) };
+        return { errores, crear: async () => ({ creados: await crearRecursosEnBloque(contexto, recursos) }) };
       });
     });
 
@@ -115,7 +117,27 @@ export function registrarRutasDeImportacion(app: FastifyInstance, sesionDe: Sesi
       return importar(reply, HOJA_APU, async () => {
         const [{ recursos, unidades }, existentes] = await Promise.all([catalogoDe(contexto), listarApus(contexto)]);
         const { apus, errores } = await leerArchivoDeApu(comoArchivo(request.body), unidades, recursos, existentes);
-        return { errores, crear: () => crearApusEnBloque(contexto, apus) };
+        return { errores, crear: async () => ({ creados: await crearApusEnBloque(contexto, apus) }) };
+      });
+    });
+
+    // --- CONTRATO §19.4 · Una lista propia de festivos ---------------------------------
+    // Responde la lista creada, no { creados }: la pantalla la muestra enseguida.
+    // Un nombre de lista que ya existe es el 409 de siempre, con su campo.
+    importacion.get('/api/configuracion/festivos/plantilla', async (request, reply) => {
+      const contexto = await sesionDe(request, reply);
+      await exigir(contexto, 'CONFIG.PREFERENCIAS');
+      return adjunto(reply, 'Plantilla de festivos.xlsx', await generarPlantillaDeFestivos());
+    });
+
+    importacion.post<{ Querystring: { nombre?: string } }>('/api/configuracion/festivos/importar', async (request, reply) => {
+      const contexto = await sesionDe(request, reply);
+      await exigir(contexto, 'CONFIG.PREFERENCIAS');
+      const nombre = (request.query.nombre ?? '').trim();
+      if (!nombre) throw new ErrorParaElUsuario('Escriba el nombre de la lista antes de subir el archivo.', 'RECHAZADO', 'nombre');
+      return importar(reply, HOJA_FESTIVOS, async () => {
+        const { fechas, errores } = await leerArchivoDeFestivos(comoArchivo(request.body));
+        return { errores, crear: () => crearListaPropia(contexto, { nombre, fechas }) };
       });
     });
   });

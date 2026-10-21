@@ -2,8 +2,8 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import ExcelJS from 'exceljs';
 import { cifraDeCelda } from './celdas.js';
-import { generarPlantillaDeApu, generarPlantillaDeRecursos } from './plantillas.js';
-import { ArchivoNoValido, leerArchivoDeApu, leerArchivoDeRecursos } from './lectura.js';
+import { generarPlantillaDeApu, generarPlantillaDeFestivos, generarPlantillaDeRecursos, HOJA_FESTIVOS } from './plantillas.js';
+import { ArchivoNoValido, leerArchivoDeApu, leerArchivoDeFestivos, leerArchivoDeRecursos } from './lectura.js';
 
 const UNIDADES = [
   { id: 'u-kg', simbolo: 'Kg' },
@@ -160,5 +160,49 @@ describe('leerArchivoDeApu (CONTRATO §10.4)', () => {
     assert.match(errores[4]!.mensaje, /no puede ser cero/);
     assert.match(errores[5]!.mensaje, /no es un material/);
     assert.deepEqual(apus, []);
+  });
+});
+
+describe('leerArchivoDeFestivos: la hoja Festivos (CONTRATO §19.4)', () => {
+  test('la fecha llega como fecha de Excel o como texto AAAA-MM-DD; el nombre es opcional', async () => {
+    const archivo = await llenar(await generarPlantillaDeFestivos(), {
+      [HOJA_FESTIVOS]: [
+        [new Date(Date.UTC(2026, 7, 7)), 'Feria de las Flores'],
+        ['2027-08-06', null],
+      ],
+    });
+    assert.deepEqual(await leerArchivoDeFestivos(archivo), {
+      fechas: [
+        { fecha: '2026-08-07', nombre: 'Feria de las Flores' },
+        { fecha: '2027-08-06', nombre: null },
+      ],
+      errores: [],
+    });
+  });
+
+  test('todos los errores de una vez: una fecha que no es fecha, una vacía y una repetida, cada uno en su fila; un número en la columna es una fecha de Excel', async () => {
+    const archivo = await llenar(await generarPlantillaDeFestivos(), {
+      [HOJA_FESTIVOS]: [
+        ['2026-08-07', 'Feria'],
+        ['7 de agosto', null],
+        [null, 'Sin fecha'],
+        ['2026-08-07', 'Otra vez'],
+        [45000, null],
+      ],
+    });
+    const { fechas, errores } = await leerArchivoDeFestivos(archivo);
+    assert.deepEqual(
+      errores.map((e) => [e.fila, e.columna]),
+      [[3, 'Fecha'], [4, 'Fecha'], [5, 'Fecha']],
+    );
+    assert.match(errores[2]!.mensaje, /fila 2/);
+    // La columna de la plantilla tiene formato de fecha: un número escrito ahí
+    // es, para Excel, el día que ese número cuenta desde 1900.
+    assert.deepEqual(fechas.map((f) => f.fecha), ['2026-08-07', '2023-03-15']);
+  });
+
+  test('sin la hoja, o sin ninguna fecha, el archivo entero no sirve', async () => {
+    await assert.rejects(leerArchivoDeFestivos(await generarPlantillaDeRecursos([])), ArchivoNoValido);
+    await assert.rejects(leerArchivoDeFestivos(await generarPlantillaDeFestivos()), /ninguna fecha/);
   });
 });

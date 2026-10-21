@@ -3,9 +3,11 @@ import { cifraDeCelda, valorDeCelda } from './celdas.js';
 import {
   COLUMNAS_APU,
   COLUMNAS_COMPOSICION,
+  COLUMNAS_FESTIVOS,
   COLUMNAS_RECURSOS,
   HOJA_APU,
   HOJA_COMPOSICION,
+  HOJA_FESTIVOS,
   HOJA_RECURSOS,
   MAXIMO_DE_FILAS,
   TIPOS,
@@ -306,4 +308,49 @@ export async function leerArchivoDeApu(
   errores.sort((a, b) => (a.hoja === b.hoja ? a.fila - b.fila : a.hoja === HOJA_APU ? -1 : 1));
   const apus = [...porClave.values()].filter((a) => a.valido).map(({ valido: _, ...apu }) => apu);
   return { apus, errores };
+}
+
+export interface FestivoAImportar {
+  fecha: string;
+  nombre: string | null;
+}
+
+/**
+ * La fecha de una celda: una fecha de Excel (exceljs la entrega como Date en
+ * UTC) o un texto AAAA-MM-DD que exista en el calendario. Un número suelto no
+ * vale: sin el formato de fecha, nadie sabe que 45000 es el 15 de marzo.
+ */
+function fechaDeCelda(valor: string | number): string | null {
+  if (typeof valor !== 'string') return null;
+  const texto = /^\d{4}-\d{2}-\d{2}T00:00:00\.000Z$/.test(valor) ? valor.slice(0, 10) : valor;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(texto)) return null;
+  const [a, m, d] = texto.split('-').map(Number);
+  return new Date(Date.UTC(a!, m! - 1, d!)).toISOString().slice(0, 10) === texto ? texto : null;
+}
+
+export async function leerArchivoDeFestivos(archivo: Buffer): Promise<{ fechas: FestivoAImportar[]; errores: ErrorDeFila[] }> {
+  const filas = hojaDeLaPlantilla(await abrir(archivo), HOJA_FESTIVOS, COLUMNAS_FESTIVOS);
+  if (filas.length === 0) {
+    throw new ArchivoNoValido(`La hoja «${HOJA_FESTIVOS}» no trae ninguna fecha: escríbalas desde la fila 2.`);
+  }
+  const [cFecha] = COLUMNAS_FESTIVOS;
+  const filaDeLaFecha = new Map<string, number>();
+  const fechas: FestivoAImportar[] = [];
+  const errores: ErrorDeFila[] = [];
+  for (const { numero, valores } of filas) {
+    const error = (mensaje: string) => errores.push({ hoja: HOJA_FESTIVOS, fila: numero, columna: cFecha, mensaje });
+    const [fecha, nombre] = completas(valores, 2) as [Celda, Celda];
+    if (fecha === null) {
+      error('Escriba la fecha.');
+      continue;
+    }
+    const texto = fechaDeCelda(fecha);
+    if (!texto) error(`«${fecha}» no es una fecha. Escríbala como fecha de Excel o como 2026-08-07.`);
+    else if (filaDeLaFecha.has(texto)) error(`La fecha ${texto} ya está en la fila ${filaDeLaFecha.get(texto)}: no puede repetirse.`);
+    else {
+      filaDeLaFecha.set(texto, numero);
+      fechas.push({ fecha: texto, nombre: nombre === null ? null : String(nombre) });
+    }
+  }
+  return { fechas, errores };
 }
