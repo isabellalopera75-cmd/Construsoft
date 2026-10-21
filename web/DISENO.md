@@ -683,6 +683,11 @@ mouse viaje menos:
   su media hora y si se trabaja. El llenado rápido (entrada, horas, almuerzo,
   días y un sábado más corto) pinta la tabla. Debajo, cada día en texto. La
   misma capa sirve para el calendario de la empresa y para el de la obra.
+- **La semana tipo lleva rótulos** (pedido del dueño, 21 de octubre de 2026):
+  «Semana tipo» y una línea que dice que se repite todas las semanas, «Hora del
+  día · cada hora tiene dos casillas de 30 minutos» sobre la tabla, y las horas
+  escritas como «8:00», una etiqueta cada dos horas con una raya más marcada,
+  porque «10:00» no cabe sobre una sola hora.
 - **El mes del calendario** (pedido del dueño, 21 de octubre de 2026, porque
   la semana tipo sola no se entendía): cada fecha como queda con la semana
   tipo y las excepciones, con sus horas, como la vista de mes de P6. Los

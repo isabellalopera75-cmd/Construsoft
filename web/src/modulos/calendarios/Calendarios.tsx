@@ -170,9 +170,9 @@ export function FormularioDeSemana({ titulo, textoGuardar, inicial, nota, alGuar
 
       <div className="bloque-de-semana">
         <p className="bloque-de-precio-titulo">
-          La semana · <span className="cifra-en-texto">{horasDeBloques(totalSemana).replace('.', formato.separadorDecimal)} h</span>
+          Semana tipo · <span className="cifra-en-texto">{horasDeBloques(totalSemana).replace('.', formato.separadorDecimal)} h</span>
         </p>
-        <p className="campo-ayuda">Marque arrastrando, o con las flechas y la barra espaciadora. Cada casilla es media hora. Un turno que pasa la medianoche se marca en los dos días.</p>
+        <p className="campo-ayuda">Cómo se trabaja un lunes cualquiera, un martes cualquiera…: se repite todas las semanas. Las fechas concretas (festivos, días libres) van en las excepciones. Marque las medias horas que se trabajan arrastrando, o con las flechas y la barra espaciadora. Un turno que pasa la medianoche se marca en los dos días.</p>
         <RejillaDeHoras
           titulo="Horas de trabajo de cada día de la semana"
           filas={dias.map((d, i) => ({ etiqueta: DIAS_DE_LA_SEMANA[i] ?? '', dia: d }))}
@@ -215,7 +215,7 @@ export function ExcepcionesDeCalendario({ calendario, editable, alGuardar, alQui
   return (
     <div className="excepciones">
       <div className="excepciones-cabecera">
-        <p className="bloque-de-precio-titulo">El mes</p>
+        <p className="bloque-de-precio-titulo">El mes: la semana tipo con las excepciones</p>
       </div>
       <MesDelCalendario
         calendario={calendario}

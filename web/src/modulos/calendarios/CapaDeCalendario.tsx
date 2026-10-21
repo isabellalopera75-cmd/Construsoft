@@ -75,7 +75,8 @@ export function CapaDeCalendario({ mesInicial, rutaListas = '/api/festivos', cal
       >
         {nota ? <p className="nota-de-capa"><Icono nombre="aviso" tamano={18} /><span>{nota}</span></p> : null}
         <div className="capa-ancha-contenido">
-          <p className="dato-de-apoyo">{resumenDeCalendario(calendario, formato)}</p>
+          <p className="bloque-de-precio-titulo">Semana tipo</p>
+          <p className="campo-ayuda">Cómo se trabaja un lunes cualquiera, un martes cualquiera…: se repite todas las semanas. {resumenDeCalendario(calendario, formato)}. Las fechas concretas están en el mes, más abajo.</p>
           <RejillaDeHoras
             titulo={`Semana del calendario ${calendario.nombre}`}
             filas={calendario.semana.map((d, i) => ({ etiqueta: DIAS_DE_LA_SEMANA[i] ?? '', dia: bloquesDe(d) }))}

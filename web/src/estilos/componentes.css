@@ -1549,14 +1549,16 @@ button.paso-del-indicador:hover { color: var(--texto); }
 
 .rejilla-de-horas-marco { overflow-x: auto; border: 1px solid var(--borde-tenue); border-radius: var(--radio-md); }
 .rejilla-de-horas { display: grid; min-width: max-content; user-select: none; touch-action: none; font-size: var(--letra-xs); }
-.rejilla-fila { display: grid; grid-template-columns: 6.5rem repeat(48, 13px) 3.5rem; align-items: stretch; }
-.rejilla-encabezado { grid-template-columns: 6.5rem repeat(24, 26px) 3.5rem; color: var(--texto-segundo); }
+.rejilla-fila { display: grid; grid-template-columns: 6.5rem repeat(48, 15px) 3.5rem; align-items: stretch; }
+.rejilla-encabezado { grid-template-columns: 6.5rem repeat(12, 60px) 3.5rem; color: var(--texto-segundo); }
+.rejilla-titulo-horas { margin: 0; padding: var(--e2) 0 0 6.5rem; min-width: max-content; font-size: var(--letra-xs); color: var(--texto-segundo); }
 .rejilla-encabezado > span { padding: var(--e1) 0; }
 .rejilla-hora { text-align: left; padding-left: 2px !important; border-left: 1px solid var(--borde-tenue); font-family: var(--fuente-cifra); }
 .rejilla-dia { padding: 0 var(--e2); display: flex; align-items: center; font-size: var(--letra-sm); }
 .rejilla-total { display: flex; align-items: center; justify-content: flex-end; padding: 0 var(--e2); font-size: var(--letra-sm); }
 .rejilla-celda { height: 26px; border-top: 1px solid var(--borde-tenue); background: var(--bg-campo); cursor: pointer; }
 .rejilla-celda[data-hora-entera='si'] { border-left: 1px solid var(--borde-tenue); }
+.rejilla-celda[data-celda$='-0'], .rejilla-celda[data-celda$='-4'], .rejilla-celda[data-celda$='-8'], .rejilla-celda[data-celda$='-12'], .rejilla-celda[data-celda$='-16'], .rejilla-celda[data-celda$='-20'], .rejilla-celda[data-celda$='-24'], .rejilla-celda[data-celda$='-28'], .rejilla-celda[data-celda$='-32'], .rejilla-celda[data-celda$='-36'], .rejilla-celda[data-celda$='-40'], .rejilla-celda[data-celda$='-44'] { border-left-color: var(--borde-campo); }
 .rejilla-celda[data-marcada='si'] { background: var(--terracota-boton); }
 .rejilla-celda:focus-visible { outline: 2px solid var(--terracota); outline-offset: -2px; position: relative; z-index: 1; }
 .rejilla-de-horas[data-quieta='si'] .rejilla-celda { cursor: default; }

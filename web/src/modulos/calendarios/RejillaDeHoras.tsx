@@ -91,6 +91,8 @@ export function RejillaDeHoras({ titulo, filas, alCambiar, soloLectura = false }
 
   return (
     <div className="rejilla-de-horas-marco">
+      {/* Dice qué son los números de arriba (pedido del dueño, 21 de octubre de 2026). */}
+      <p className="rejilla-titulo-horas" aria-hidden="true">Hora del día · cada hora tiene dos casillas de 30 minutos</p>
       <div
         ref={rejilla}
         className="rejilla-de-horas"
@@ -103,9 +105,10 @@ export function RejillaDeHoras({ titulo, filas, alCambiar, soloLectura = false }
       >
         <div role="row" className="rejilla-fila rejilla-encabezado">
           <span role="columnheader" className="rejilla-dia">Día</span>
-          {Array.from({ length: BLOQUES / 2 }, (_, h) => (
-            <span key={h} role="columnheader" className="rejilla-hora" aria-label={`${horaDeBloque(h * 2)} a ${horaDeBloque(h * 2 + 2)}`}>
-              {h}
+          {/* Una etiqueta cada dos horas: «10:00» no cabe sobre una sola hora. */}
+          {Array.from({ length: BLOQUES / 4 }, (_, i) => (
+            <span key={i} role="columnheader" className="rejilla-hora" aria-label={`${horaDeBloque(i * 4)} a ${horaDeBloque(i * 4 + 4)}`}>
+              {i * 2}:00
             </span>
           ))}
           <span role="columnheader" className="rejilla-total">Horas</span>
