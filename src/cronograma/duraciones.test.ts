@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { diasDeMinutos, horasDeDias, minutosCalculados, minutosDeDesfase, minutosDeDuracionManual } from './duraciones.js';
+import { diasDeHoras, diasDeMinutos, horasDeDias, minutosCalculados, minutosDeDesfase, minutosDeDuracionManual } from './duraciones.js';
 
 describe('la duración calculada: cantidad ÷ rendimiento × horas por jornal ÷ cuadrillas (07 §6.1)', () => {
   test('el ejemplo del 07: 30 m³ a 5 m³ por jornal, con jornal de 8 h, son 48 h; con dos cuadrillas, 24', () => {
@@ -34,6 +34,13 @@ describe('días y horas (CONTRATO §19.1)', () => {
       [10080, '24.00', '7.0'],
     ];
     for (const [minutos, factor, esperado] of casos) assert.equal(diasDeMinutos(minutos, factor), esperado, `${minutos} min a ${factor} h`);
+  });
+
+  test('las horas guardadas, a días con un decimal: 48,45 h de 9,5 h son 5,1 días; −4 h de 8 h, −0,5', () => {
+    assert.equal(diasDeHoras('48.4500', '9.50'), '5.1');
+    assert.equal(diasDeHoras('-4.0000', '8.00'), '-0.5');
+    assert.equal(diasDeHoras('0.0000', '24.00'), '0.0');
+    assert.equal(diasDeHoras('0.4000', '8.00'), '0.1');
   });
 
   test('lo que se escribe en días se guarda en horas, sin redondear: 5,1 días de 9,5 h son 48,45 h', () => {

@@ -189,6 +189,22 @@ describe('los hitos (RN-28)', () => {
   });
 });
 
+describe('las fechas tardías de un instante', () => {
+  test('una actividad de duración cero sin relaciones: sus fechas tardías son las tempranas, no el cierre del viernes anterior', () => {
+    const r = calcular([act('A', 0), hitoInicio('I')]);
+    assert.deepEqual(vista(r.actividades.get('A')!), {
+      inicio: '2026-11-02T07:00', fin: '2026-11-02T07:00', inicioTardio: '2026-11-02T07:00', finTardio: '2026-11-02T07:00',
+      holguraTotal: 0, holguraLibre: 0, critica: true,
+    });
+    assert.equal(deMinutos(r.actividades.get('I')!.inicioTardio!), '2026-11-02T07:00');
+  });
+
+  test('un hito de inicio al final de la obra queda al comienzo de la jornada siguiente; uno de fin, al cierre', () => {
+    const r = calcular([act('A', 40), hitoInicio('I'), hitoFin('F')], [dep('A', 'I'), dep('A', 'F')]);
+    assert.deepEqual([deMinutos(r.actividades.get('I')!.inicioTardio!), deMinutos(r.actividades.get('F')!.finTardio!)], ['2026-11-09T07:00', '2026-11-06T16:00']);
+  });
+});
+
 describe('la administración, el fin a mitad de jornada y los ciclos', () => {
   test('la administración va del primer inicio al último fin de las actividades del presupuesto, sin hitos, trámites ni las que ya no están (RN-37)', () => {
     const r = calcular([

@@ -35,7 +35,15 @@ export interface DefinicionDeCalendario {
 }
 
 /** El calendario no puede responder: no tiene horas laborables, o la cuenta se sale del horizonte. */
-export class ErrorDeCalendario extends Error {}
+export class ErrorDeCalendario extends Error {
+  constructor(
+    mensaje: string,
+    /** FUERA_DEL_HORIZONTE se arregla compilando un horizonte más largo; SIN_HORAS, no. */
+    readonly motivo: 'SIN_HORAS' | 'FUERA_DEL_HORIZONTE',
+  ) {
+    super(mensaje);
+  }
+}
 
 export interface CalendarioCompilado {
   siguienteInstanteLaborable(t: number): number;
@@ -77,7 +85,7 @@ export function compilarCalendario(definicion: DefinicionDeCalendario, horizonte
     }
   }
   if (inicios.length === 0) {
-    throw new ErrorDeCalendario('El calendario no tiene ninguna hora laborable: marque al menos un tramo en la semana o en una excepción.');
+    throw new ErrorDeCalendario('El calendario no tiene ninguna hora laborable: marque al menos un tramo en la semana o en una excepción.', 'SIN_HORAS');
   }
 
   // acumulado[k]: minutos laborables antes del intervalo k; acumulado[n], el total.
@@ -90,6 +98,7 @@ export function compilarCalendario(definicion: DefinicionDeCalendario, horizonte
   const fueraDelHorizonte = () =>
     new ErrorDeCalendario(
       `El cálculo se sale de las fechas que el calendario cubre (${horizonte.desde} a ${horizonte.hasta}). Revise la fecha de inicio, los desfases y las restricciones.`,
+      'FUERA_DEL_HORIZONTE',
     );
   const exigirDentro = (t: number) => {
     if (t < desdeMinuto || t > hastaMinuto) throw fueraDelHorizonte();

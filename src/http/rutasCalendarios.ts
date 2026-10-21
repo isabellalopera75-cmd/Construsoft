@@ -62,7 +62,7 @@ const semana = comoUnCampo<Tramo[][]>((v) => {
 
 const MENSAJE_HORAS_POR_DIA = '«1 día = X h» va de más de 0 a 24 horas, con hasta dos decimales.';
 
-const esquemaCalendario = z.strictObject(
+export const esquemaCalendario = z.strictObject(
   {
     nombre: z.string('Escriba el nombre del calendario.').trim().min(1, 'Escriba el nombre del calendario.'),
     // Comparar contra 0 y 24 no es dinero: es el tope físico de un día.
@@ -75,7 +75,7 @@ const esquemaCalendario = z.strictObject(
   SIN_CAMPOS_DE_MAS,
 );
 
-const esquemaExcepcion = z.strictObject(
+export const esquemaExcepcion = z.strictObject(
   {
     motivo: z.string().trim().nullable().optional().transform((v) => v || null),
     tramos: comoUnCampo<Tramo[]>(problemaDeTramos),
@@ -83,7 +83,7 @@ const esquemaExcepcion = z.strictObject(
   SIN_CAMPOS_DE_MAS,
 );
 
-const esquemaCopiarFestivos = z.strictObject(
+export const esquemaCopiarFestivos = z.strictObject(
   {
     listaId: z.string('Elija la lista de festivos.').regex(UUID, 'Elija la lista de festivos.'),
     propia: z.boolean('Indique si la lista es de la plataforma o propia.'),
@@ -91,7 +91,7 @@ const esquemaCopiarFestivos = z.strictObject(
   SIN_CAMPOS_DE_MAS,
 );
 
-function fechaDeLaRuta(texto: string): string {
+export function fechaDeLaRuta(texto: string): string {
   if (!esFecha(texto)) throw new ErrorParaElUsuario(`«${texto}» no es una fecha. Escríbala como AAAA-MM-DD.`, 'RECHAZADO', 'fecha');
   return texto;
 }

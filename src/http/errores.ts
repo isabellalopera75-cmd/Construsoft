@@ -39,6 +39,9 @@ const MENSAJES_DE_RESTRICCION: Record<string, string> = {
     'Ya existe una unidad con ese símbolo en su empresa. «Kg» y «kg» son el mismo símbolo: use otro.',
   ux_calendario_nombre: 'Ya hay un calendario con ese nombre en su empresa. Use otro nombre, o edite el que ya existe.',
   ux_lista_festivos_propia_nombre: 'Ya hay una lista de festivos con ese nombre en su empresa. Use otro nombre, o edite la que ya existe.',
+  ux_dependencia_par: 'Ya hay una relación entre esas dos actividades. Edite esa en vez de crear otra.',
+  ux_actividad_codigo: 'Ya hay una actividad con ese código en este cronograma (RN-42). Use otro.',
+  ux_grupo_tramite_nombre: 'Ya hay un subgrupo con ese nombre en este cronograma. Use otro nombre.',
   ck_presupuesto_texto_no_vacio: 'El código, el nombre y la ubicación del proyecto son obligatorios.',
   ck_recurso_precios_cuadran:
     'El precio base y el precio total no cuadran con el IVA: el que se calcula es el otro multiplicado o dividido por (1 + IVA/100), redondeado a seis decimales.',
@@ -58,6 +61,21 @@ const CAMPO_DE_RESTRICCION: Record<string, string> = {
   ux_apu_nombre: 'nombre',
   ux_calendario_nombre: 'nombre',
   ux_lista_festivos_propia_nombre: 'nombre',
+  ux_dependencia_par: 'predecesoraId',
+  ux_actividad_codigo: 'codigo',
+  ux_grupo_tramite_nombre: 'nombre',
+};
+
+/**
+ * La base marca las restricciones de una actividad con el nombre de su
+ * columna (USING COLUMN = 'restriccion2Tipo'); el contrato las nombra como
+ * el campo anidado que manda la pantalla (CONTRATO §19.6).
+ */
+const CAMPO_DE_COLUMNA: Record<string, string> = {
+  restriccionTipo: 'restriccion.tipo',
+  restriccionFecha: 'restriccion.fecha',
+  restriccion2Tipo: 'restriccionSecundaria.tipo',
+  restriccion2Fecha: 'restriccionSecundaria.fecha',
 };
 
 /** La sesión no sirve: no hay cookie, la firma no vale, venció, o el sello ya no es el de la base. */
@@ -77,9 +95,8 @@ function codigoDe(error: unknown): string | undefined {
  * adivina nada leyendo el texto del mensaje.
  */
 function columnaDe(error: unknown): string | undefined {
-  return typeof error === 'object' && error !== null && 'column' in error && typeof error.column === 'string'
-    ? error.column
-    : undefined;
+  const columna = typeof error === 'object' && error !== null && 'column' in error && typeof error.column === 'string' ? error.column : undefined;
+  return columna === undefined ? undefined : (CAMPO_DE_COLUMNA[columna] ?? columna);
 }
 
 /** `ciclo` del DETAIL de un rechazo de la base, si lo trae como JSON (CONTRATO §19.6). */

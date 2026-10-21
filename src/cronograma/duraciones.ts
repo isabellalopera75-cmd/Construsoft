@@ -48,6 +48,15 @@ export function diasDeMinutos(minutos: number, horasPorDia: string): string {
   return `${decimas < 0n ? '-' : ''}${absoluto / 10n}.${absoluto % 10n}`;
 }
 
+/** Horas guardadas a días del calendario, con un decimal, sin pasar por minutos (CONTRATO §19.1). */
+export function diasDeHoras(horas: string, horasPorDia: string): string {
+  const [h, hd] = racional(horas);
+  const [f, fd] = racional(horasPorDia);
+  const decimas = redondeo(h * fd * 10n, hd * f);
+  const absoluto = decimas < 0n ? -decimas : decimas;
+  return `${decimas < 0n ? '-' : ''}${absoluto / 10n}.${absoluto % 10n}`;
+}
+
 /** Días escritos por la persona, a horas para guardar: exacto, con cuatro decimales como numeric(12,4). */
 export function horasDeDias(dias: string, horasPorDia: string): string {
   const [d, dd] = racional(dias);

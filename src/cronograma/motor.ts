@@ -251,6 +251,12 @@ export function calcularCronograma(entrada: EntradaDelMotor): ResultadoDelMotor 
     } else if (finObligatorio !== null) {
       n.finTardio = finObligatorio;
       n.inicioTardio = d > 0 ? c.sumarMinutosLaborables(finObligatorio, -d) : finObligatorio;
+    } else if (d === 0 && n.actividad.tipo !== 'HITO_FIN') {
+      // Un instante de inicio va, también tarde, en el siguiente instante
+      // laborable, como en el paso hacia adelante: si no, quedaría al cierre
+      // de la jornada anterior, a veces antes de que el cronograma empiece.
+      // Es el mismo punto del trabajo, así que la holgura no cambia.
+      n.inicioTardio = n.finTardio = c.siguienteInstanteLaborable(c.anteriorCierreLaborable(hasta));
     } else {
       n.finTardio = c.anteriorCierreLaborable(hasta);
       n.inicioTardio = d > 0 ? c.sumarMinutosLaborables(n.finTardio, -d) : n.finTardio;
