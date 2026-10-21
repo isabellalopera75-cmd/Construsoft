@@ -60,6 +60,9 @@ export function FormularioDeApu({ apuId, nombreInicial, alCerrar, alGuardar, alC
   const [unidades, setUnidades] = useState<Unidad[] | null>(null);
   const [nombre, setNombre] = useState(nombreInicial ?? '');
   const [unidadId, setUnidadId] = useState('');
+  // RF-APU-25 · Lo que hace la cuadrilla completa en un jornal; de aquí sale la
+  // duración en el cronograma. Opcional.
+  const [rendimiento, setRendimiento] = useState('');
   const [lineas, setLineas] = useState<LineaEnEdicion[]>([]);
   const [original, setOriginal] = useState('');
   const [errores, setErrores] = useState<Record<string, string>>({});
@@ -88,9 +91,11 @@ export function FormularioDeApu({ apuId, nombreInicial, alCerrar, alGuardar, alC
     setApu(leido);
     setNombre(leido.nombre);
     setUnidadId(leido.unidadId);
+    const rend = leido.rendimientoActividad === null ? '' : paraEditar(leido.rendimientoActividad, formato);
+    setRendimiento(rend);
     const enEdicion = leido.lineas.map((l) => desdeLinea(l));
     setLineas(enEdicion);
-    setOriginal(huella(leido.nombre, leido.unidadId, enEdicion));
+    setOriginal(huella(leido.nombre, leido.unidadId, rend, enEdicion));
   }
 
   function desdeLinea(l: LineaDeApu): LineaEnEdicion {
@@ -146,12 +151,19 @@ export function FormularioDeApu({ apuId, nombreInicial, alCerrar, alGuardar, alC
     ? aTexto(subtotales.reduce((acc, s) => sumar(acc, leer(s ?? '0')), leer('0')))
     : null;
 
-  const hayCambios = modo === 'edicion' && huella(nombre, unidadId, lineas) !== (apuId ? original : huella('', '', []));
+  const hayCambios = modo === 'edicion' && huella(nombre, unidadId, rendimiento, lineas) !== (apuId ? original : huella('', '', '', []));
 
   function validar(): DatosDeApu | null {
     const faltan: Record<string, string> = {};
     if (nombre.trim() === '') faltan['nombre'] = 'Escriba el nombre de la actividad.';
     if (unidadId === '') faltan['unidadId'] = 'Elija la unidad de medida.';
+    let rendimientoActividad: string | null = null;
+    if (rendimiento.trim() !== '') {
+      const r = leerCifra(rendimiento, { nombre: 'el rendimiento de la actividad', decimales: 4 });
+      if ('error' in r) faltan['rendimientoActividad'] = r.error;
+      else if (!/[1-9]/.test(r.valor)) faltan['rendimientoActividad'] = 'El rendimiento de la actividad no puede ser cero: déjelo vacío si la duración se va a escribir a mano.';
+      else rendimientoActividad = r.valor;
+    }
     if (lineas.length === 0) faltan['lineas'] = 'Agregue al menos un recurso: un APU sin composición no tiene costo y no puede entrar en un proyecto.';
     const cuerpoLineas = lineas.map((l, i) => {
       const c = leerCifra(l.cantidad, { nombre: 'la cantidad', permitirCero: false });
@@ -173,7 +185,14 @@ export function FormularioDeApu({ apuId, nombreInicial, alCerrar, alGuardar, alC
     });
     setErrores(faltan);
     if (Object.values(faltan).some(Boolean)) return null;
-    return { nombre: nombre.trim(), unidadId, lineas: cuerpoLineas };
+    // En el POST, vacío es «nace sin rendimiento» y no se manda; en el PUT,
+    // null lo quita (CONTRATO §6).
+    return {
+      nombre: nombre.trim(),
+      unidadId,
+      ...(rendimientoActividad !== null || apuId ? { rendimientoActividad } : {}),
+      lineas: cuerpoLineas,
+    };
   }
 
   async function enviar() {
@@ -227,7 +246,7 @@ export function FormularioDeApu({ apuId, nombreInicial, alCerrar, alGuardar, alC
 
   function tratarError(e: unknown) {
     setEnviando(false);
-    if (e instanceof ErrorDeApi && e.campo && (e.campo === 'nombre' || e.campo === 'unidadId' || e.campo.startsWith('lineas'))) {
+    if (e instanceof ErrorDeApi && e.campo && (e.campo === 'nombre' || e.campo === 'unidadId' || e.campo === 'rendimientoActividad' || e.campo.startsWith('lineas'))) {
       setErrores({ [e.campo]: e.message });
     } else {
       setError(e instanceof ErrorDeApi ? e.message : 'Algo falló y no se guardó el APU. Intente de nuevo.');
@@ -321,6 +340,14 @@ export function FormularioDeApu({ apuId, nombreInicial, alCerrar, alGuardar, alC
               <p className="dato-estatico">{apu.unidadSimbolo}</p>
             </div>
             <div className="campo">
+              <span className="etiqueta">Rendimiento de la actividad</span>
+              <p className="dato-estatico">
+                {apu.rendimientoActividad === null
+                  ? <span className="dato-de-apoyo">Sin rendimiento</span>
+                  : `${paraEditar(apu.rendimientoActividad, formato)} ${apu.unidadSimbolo} por jornal`}
+              </p>
+            </div>
+            <div className="campo">
               <span className="etiqueta">Estado</span>
               <p className="dato-estatico">
                 <span className="insignia" data-estado={apu.activo ? 'ACTIVO' : 'CERRADO'}>{apu.activo ? 'Activo' : 'Inactivo'}</span>
@@ -354,6 +381,23 @@ export function FormularioDeApu({ apuId, nombreInicial, alCerrar, alGuardar, alC
                   <option value="" disabled>{unidades === null ? 'Cargando…' : 'Elija la unidad'}</option>
                   {(unidades ?? []).map((u) => <option key={u.id} value={u.id}>{u.simbolo} · {u.descripcion}</option>)}
                 </select>
+              )}
+            </Campo>
+          </div>
+        ) : null}
+
+        {!consulta && (!apuId || apu) ? (
+          <div className="fila-de-rendimiento">
+            <Campo
+              etiqueta="Rendimiento de la actividad (unidades por jornal)"
+              ayuda={`Cuántas ${unidades?.find((u) => u.id === unidadId)?.simbolo ?? 'unidades'} hace la cuadrilla completa en un jornal. De aquí sale la duración en el cronograma. Es opcional: sin él, la duración se escribe a mano. No es el rendimiento de cada recurso de la composición.`}
+              error={errores['rendimientoActividad']}
+            >
+              {(a) => (
+                <input {...a} className="campo-cifra-corto" inputMode="decimal" autoComplete="off" value={rendimiento} onChange={(e) => {
+                  setRendimiento(soloCifra(e.target.value, formato.separadorDecimal));
+                  if (errores['rendimientoActividad']) setErrores((x) => ({ ...x, rendimientoActividad: '' }));
+                }} />
               )}
             </Campo>
           </div>
@@ -465,8 +509,8 @@ export function FormularioDeApu({ apuId, nombreInicial, alCerrar, alGuardar, alC
   );
 }
 
-function huella(nombre: string, unidadId: string, lineas: LineaEnEdicion[]): string {
-  return JSON.stringify([nombre, unidadId, lineas.map((l) => [l.recursoId, l.cantidad, l.rendimiento, l.desperdicio])]);
+function huella(nombre: string, unidadId: string, rendimiento: string, lineas: LineaEnEdicion[]): string {
+  return JSON.stringify([nombre, unidadId, rendimiento, lineas.map((l) => [l.recursoId, l.cantidad, l.rendimiento, l.desperdicio])]);
 }
 
 function TablaDeComposicion({

@@ -33,6 +33,12 @@ export const NOMBRES_DE_EVENTO: Record<TipoEvento, string> = {
   RECURSO_MODIFICADO: 'Recurso modificado',
   APU_VERSIONADO: 'Versión nueva de APU',
   ADMIN_RESTABLECIDO: 'Administrador designado',
+  CRONOGRAMA_CREADO: 'Cronograma creado',
+  CRONOGRAMA_FECHA_INICIO: 'Fecha de inicio del cronograma',
+  CRONOGRAMA_CALENDARIO: 'Calendario del cronograma',
+  LINEA_BASE_GUARDADA: 'Línea base guardada',
+  LINEA_BASE_REEMPLAZADA: 'Línea base reemplazada',
+  LINEA_BASE_ELIMINADA: 'Línea base eliminada',
 };
 
 export function Historial({ presupuestoId, alCerrar, version }: { presupuestoId: string; alCerrar: () => void; version: number }) {

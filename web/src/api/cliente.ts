@@ -19,6 +19,13 @@ export class ErrorDeApi extends Error {
   errores: ErrorDeFila[] | undefined;
   /** Segundos que pide esperar un 429, si los dijo (cabecera Retry-After). */
   readonly reintentarEn: number | undefined;
+  /**
+   * El cuerpo entero del rechazo. Tres errores del cronograma traen una llave
+   * más que `mensaje` y `campo` (CONTRATO §19.1): `cronograma` en el 409 de
+   * versión, `ciclo` en una relación circular y `lineaBaseId` en un nombre de
+   * línea base repetido. Quien los necesita los lee de aquí.
+   */
+  cuerpo: unknown = null;
 
   constructor(estado: number, mensaje: string, campo?: string, reintentarEn?: number) {
     super(mensaje);
@@ -129,6 +136,7 @@ export async function pedir<T>(ruta: string, opciones: Opciones = {}): Promise<T
 
   const rechazo = new ErrorDeApi(respuesta.status, mensaje, campo, segundosDeEspera(respuesta));
   if (Array.isArray(error?.errores)) rechazo.errores = error.errores as ErrorDeFila[];
+  rechazo.cuerpo = cuerpoLeido;
   throw rechazo;
 }
 

@@ -11,6 +11,7 @@ import { ProveedorDeAvisos } from './componentes/Avisos.tsx';
 import { ListaDeApu } from './modulos/apu/ListaDeApu.tsx';
 import { Configuracion } from './modulos/configuracion/Configuracion.tsx';
 import { Mesa } from './modulos/mesa/Mesa.tsx';
+import { Cronograma } from './modulos/cronograma/Cronograma.tsx';
 import { Recursos } from './modulos/recursos/Recursos.tsx';
 import { Presupuestos } from './pantallas/Presupuestos.tsx';
 import { Recuperacion } from './pantallas/Recuperacion.tsx';
@@ -172,6 +173,16 @@ function Adentro({ ruta }: { ruta: Ruta }) {
         <Cascaron ruta={ruta} migas={[INICIO, { nombre: 'Proyectos', ruta: { pantalla: 'presupuestos' } }, { nombre: 'Mesa de trabajo' }]}>
           {/* key: abrir otro presupuesto (al duplicar) empieza una mesa nueva. */}
           <Mesa key={ruta.id} id={ruta.id} />
+        </Cascaron>
+      );
+    case 'cronograma':
+      if (!permitido('PRESUPUESTOS.VER')) break;
+      return (
+        <Cascaron
+          ruta={ruta}
+          migas={[INICIO, { nombre: 'Proyectos', ruta: { pantalla: 'presupuestos' } }, { nombre: 'Mesa de trabajo', ruta: { pantalla: 'mesa', id: ruta.id } }, { nombre: 'Cronograma' }]}
+        >
+          <Cronograma key={ruta.id} presupuestoId={ruta.id} />
         </Cascaron>
       );
     case 'recursos':

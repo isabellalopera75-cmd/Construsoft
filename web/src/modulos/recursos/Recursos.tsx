@@ -280,7 +280,7 @@ export function Recursos() {
             </>
           }
           alCerrar={() => setImportando(false)}
-          alImportar={(n) => {
+          alImportar={({ creados: n }) => {
             setImportando(false);
             avisar(n === 1 ? 'Se importó 1 recurso.' : `Se importaron ${n} recursos.`);
             setIntento((x) => x + 1);

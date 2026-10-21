@@ -1368,7 +1368,7 @@ CambioDePlazo = { clave, nombre, valor, vigenteDesde: Fecha | null, motivo,
 `fn_purgar_empresas` sigue igual por fuera. Su `motivo` ya no dice «60 días» ni
 «10 días»: dice la fecha en que venció el plazo.
 
-## 19. Programación de obra (PROPUESTO el 20 de octubre de 2026, sin construir)
+## 19. Programación de obra (propuesto el 20 de octubre de 2026; API construida el 20 y 21 de octubre salvo el XER; pantalla del 21 de octubre)
 
 El módulo 1 (documento 07, capítulo 6). La base ya lo sostiene:
 
@@ -1377,6 +1377,7 @@ El módulo 1 (documento 07, capítulo 6). La base ya lo sostiene:
 | 0004 | calendarios de la empresa, festivos, horas por jornal, rendimiento | `docs/prueba-d84-d91.sql` |
 | 0005 | el cronograma, sus actividades, relaciones, resultados, curvas y líneas base | `docs/prueba-d81-d92.sql` |
 | 0006 | el aviso de que el presupuesto cambió (D-93) | `docs/prueba-d93.sql` |
+| 0007 | lo que vio el cálculo anterior: valor total y si cada actividad estaba en el presupuesto (D-94) | `docs/prueba-d94.sql` |
 
 Qué escribe la base y qué hace la API está en las entradas del 20 de octubre
 de las dos bitácoras. Aquí van las rutas y las formas.
@@ -1595,7 +1596,9 @@ VistaCronograma = {
     editable: boolean,          // EDITAR, suscripción vigente y presupuesto no Cerrado
     recalculado: boolean,       // este GET recalculó
     inicio: FechaHora, fin: FechaHora,  // del proyecto
-    duracionDias: string        // en el calendario de la obra
+    duracionDias: string,       // en el calendario de la obra
+    inicioSemana: number        // 1 = lunes … 7 = domingo, el de la empresa (§19.2);
+                                // agregado el 21 de octubre de 2026
   },
   calendarios: { obra: Calendario, corrido: Calendario },
   capitulos: Capitulo[],
@@ -1742,12 +1745,25 @@ LineaBaseEnVista = { id, nombre, guardadaEn: Instante,
   presupuesto sigue igual». Sin línea base a la vista, no hay aviso.
 - **Para el Gantt**, la pantalla sombrea el tiempo no laborable con
   `calendarios.obra` (el corrido no tiene).
+- **`inicioSemana`** (agregado el 21 de octubre de 2026, al construir la
+  pantalla). El Gantt arma sus semanas con el día en que empieza la semana de
+  la empresa (RF-CFG-33), y la pantalla no puede leer las preferencias sin
+  `CONFIG.PREFERENCIAS`. Es el mismo dato que usan las curvas (§19.7).
 
 ### 19.6 Editar el cronograma
 
 Todas llevan `version` (en el cuerpo; en un `DELETE`, como `?version=n`) y
 responden 200 `VistaCronograma`. Crear responde 201. Permiso:
 `PRESUPUESTOS.EDITAR`.
+
+**Todas aceptan `?lineaBase=<id>`, como el `GET`** (agregado el 21 de octubre
+de 2026, al construir la pantalla). La respuesta trae entonces la
+`lineaBase` y el aviso de la administración de esa línea base, igual que el
+`GET`. Sin esto, cada edición dejaba el Gantt sin las barras de la línea base
+que la persona estaba mirando, y la pantalla tendría que pedir el `GET` otra
+vez después de cada escritura. El `cronograma` del 409 de versión (§19.1) va
+también con esa línea base. Un `lineaBase` que no es de este cronograma se
+trata igual que en el `GET`.
 
 | Método y ruta | Cuerpo |
 |---|---|
@@ -1932,6 +1948,10 @@ decidió el dueño (07 §6.9), no cada clic.
 
 ### 19.11 Lo que falta para cerrar el §19
 
+- **Dos cambios del 21 de octubre de 2026, que pidió la pantalla:**
+  `inicioSemana` en la cabecera de la `VistaCronograma` (§19.5) y
+  `?lineaBase=` en todas las escrituras y en el 409 (§19.6). Mientras la API no
+  mande `inicioSemana`, la pantalla toma el lunes.
 - La lista de versiones de P6 del XER, que depende de los archivos de muestra.
 - Confirmar en P6, con esos mismos archivos, la holgura total de una
   actividad «lo más tarde posible» (§19.6). Si P6 la deja sin reducir, se

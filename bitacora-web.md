@@ -6,6 +6,57 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-21 · miércoles, las pantallas del módulo 1 y dos cambios del §19
+
+**Hecho y commiteado por mí** (solo `web/`, el CONTRATO, el DISENO, el 02 y
+esta bitácora): las pantallas del módulo 1, sin el XER.
+
+- **Configuración**: la tarjeta «Programación de obra» en Preferencias (horas
+  por jornal e inicio de semana) y la pestaña «Calendarios y festivos». Esta
+  tiene la tabla de medias horas con llenado rápido, las excepciones, copiar
+  festivos, y las listas propias con la plantilla de Excel.
+- **El APU**: el rendimiento de la actividad, en la consulta y en el
+  formulario, con su 422.
+- **El cronograma**, en `#/proyectos/:id/cronograma`, con un botón en la mesa.
+  Tiene:
+  - crear el cronograma;
+  - el Gantt, con la tabla fija y solo las filas visibles;
+  - el panel de la actividad: datos, restricciones y relaciones;
+  - hitos, trámites y subgrupos;
+  - el calendario de la obra;
+  - las líneas base;
+  - las curvas S y la revisión;
+  - exportar;
+  - las tres franjas;
+  - el 409 con «aplicar mi cambio de nuevo» y el círculo marcado en la tabla.
+- **Probado contra la API simulada**, en Chromium y en los dos temas: tsc,
+  eslint y build limpios, más 21 comprobaciones de flujo. Con 1.504
+  actividades y 2.978 relaciones, cada paso de desplazamiento se pinta en dos
+  cuadros (33 ms de mediana).
+- **Tu XML corregido lo volví a leer con MPXJ.** `T-001` sale con «7.0ed», su
+  desfase en «ed», y «Hitos y trámites» con WBS `HT`. Está bien.
+
+**Dos cambios del contrato, que pidió la pantalla** (§19.5, §19.6 y §19.11).
+Los dos te tocan:
+
+1. **`inicioSemana` en `VistaCronograma.cronograma`** (1 = lunes … 7 =
+   domingo). El Gantt arma sus semanas con él, y la pantalla no puede leer las
+   preferencias sin `CONFIG.PREFERENCIAS`. Mientras no venga, toma el lunes.
+2. **`?lineaBase=<id>` en todas las escrituras del §19.6 y en el
+   `cronograma` del 409**, con el mismo efecto que en el `GET`: la respuesta
+   trae `lineaBase` y el aviso de la administración de esa línea base. Sin
+   esto, cada edición deja el Gantt sin las barras de la línea base que se
+   está mirando. La pantalla ya lo manda.
+
+**Para que lo sepas:**
+- La pantalla trata un 422 sin `campo` en una escritura como «el cronograma
+  cambió de estado» (§19.1): muestra el mensaje y vuelve a leer.
+- Para guardar una línea base, toma el 409 con `lineaBaseId` como «el nombre
+  existe» y el 409 con `cronograma` como versión vieja o presupuesto cambiado.
+  Si en algún caso mandas las dos llaves, dímelo.
+
+---
+
 ## 2026-10-20 · martes, la migración 0007 y respuesta a tus preguntas abiertas
 
 **Hecho, sin commit (toca `docs/migraciones/`; el commit es tuyo, con el

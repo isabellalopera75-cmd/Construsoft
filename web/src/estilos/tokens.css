@@ -55,6 +55,15 @@
   --peligro: #ef4444;
   --aviso: #f59e0b;
 
+  /* El azul de los gráficos (programación de obra, 21 de octubre de 2026). No
+     es de la paleta de la maqueta: el Gantt y las curvas S necesitan un
+     segundo tono que no sea un estado. Es el primero de la paleta de la guía
+     de gráficos, escalonado para el fondo oscuro. Medido con su validador
+     sobre #0f1420: contra el terracota, separación para daltonismo de 23,8
+     (objetivo 8); contra el peligro, 24,0; contraste de marca gráfica >= 3:1.
+     No se usa para texto. */
+  --azul-grafico: #3987e5;
+
   --sombra-tarjeta: 0 4px 20px rgba(0, 0, 0, 0.2);
   --sombra-flotante: 0 8px 30px rgba(0, 0, 0, 0.35);
 
@@ -140,6 +149,27 @@
      dos tarjetas de formulario de unos 560px cada una, que es lo que pide
      una tabla de usuarios sin soltar columnas. */
   --ancho-configuracion: 1160px;
+
+  /* --- Programación de obra (07 §6.6) ------------------------------------ */
+  /* La tabla del Gantt: código, actividad, días, inicio, fin y holgura.
+     El resto del ancho es del tiempo. */
+  --ancho-tabla-gantt: 600px;
+  /* Lo que dice cada marca del Gantt. Son alias: ningún tono nuevo salvo el
+     azul de arriba. La ruta crítica en el tono de peligro y lo normal en
+     azul, como en el PDF del Gantt que arma la API. */
+  --gantt-barra: var(--azul-grafico);
+  --gantt-critica: var(--peligro);
+  --gantt-resumen: var(--texto);
+  --gantt-administracion: var(--texto-apagado);
+  --gantt-linea-base: var(--aviso);
+  --gantt-hito-inicio: var(--exito);
+  --gantt-hito-fin: var(--texto);
+  --gantt-mitad: var(--terracota);
+  --gantt-relacion: var(--texto-apagado);
+  --gantt-no-laborable: color-mix(in srgb, var(--texto-apagado) 16%, transparent);
+  /* Las curvas S: facturación en terracota y costo en azul. */
+  --serie-facturacion: var(--terracota);
+  --serie-costo: var(--azul-grafico);
 }
 
 /* --- Tema claro ---------------------------------------------------------- */
@@ -182,6 +212,9 @@
   --exito: #057f59;
   --peligro: #d82323;
   --aviso: #a75b05;
+  /* Sobre blanco y sobre #f4f5f8: contra el terracota, 25,1; contra el
+     peligro, 26,9; contraste >= 3:1 en los dos fondos. */
+  --azul-grafico: #2a78d6;
 
   --sombra-tarjeta: 0 4px 20px rgba(0, 0, 0, 0.1);
   --sombra-flotante: 0 8px 30px rgba(0, 0, 0, 0.15);
@@ -212,6 +245,7 @@
     --exito: #057f59;
     --peligro: #d82323;
     --aviso: #a75b05;
+    --azul-grafico: #2a78d6;
     --sombra-tarjeta: 0 4px 20px rgba(0, 0, 0, 0.1);
     --sombra-flotante: 0 8px 30px rgba(0, 0, 0, 0.15);
   }

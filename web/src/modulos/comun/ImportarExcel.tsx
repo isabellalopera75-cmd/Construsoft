@@ -19,18 +19,30 @@ import { Icono } from '../../componentes/Icono.tsx';
 const TAMANO_MAXIMO = 2 * 1024 * 1024;
 const TIPO_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
-interface Props {
+interface Props<R> {
   titulo: string;
   /** «recursos» o «APU», para los textos. */
   que: string;
   rutaPlantilla: string;
-  rutaImportar: string;
+  /** Lo que trae la plantilla, bajo «Descargue la plantilla». */
+  textoPlantilla?: string;
+  /**
+   * La ruta, o una función que la arma con lo que se escribió en `extra` (el
+   * nombre de una lista de festivos va en la consulta, CONTRATO §19.4). Si la
+   * función devuelve null, ya marcó lo que falta y no se sube nada.
+   */
+  rutaImportar: string | (() => string | null);
+  /** Un campo más, antes del archivo. */
+  extra?: ReactNode;
+  /** Un rechazo con `campo` que es de `extra`: lo muestra quien llama. */
+  alErrorDeCampo?: (e: ErrorDeApi) => boolean;
   instrucciones: ReactNode;
   alCerrar: () => void;
-  alImportar: (creados: number) => void;
+  /** Recibe la respuesta: `{ creados }` en recursos y APU, la lista en festivos. */
+  alImportar: (respuesta: R) => void;
 }
 
-export function ImportarExcel({ titulo, que, rutaPlantilla, rutaImportar, instrucciones, alCerrar, alImportar }: Props) {
+export function ImportarExcel<R = { creados: number }>({ titulo, que, rutaPlantilla, textoPlantilla, rutaImportar, extra, alErrorDeCampo, instrucciones, alCerrar, alImportar }: Props<R>) {
   const idArchivo = useId();
   const [archivo, setArchivo] = useState<File | null>(null);
   const [errorDelArchivo, setErrorDelArchivo] = useState<string | null>(null);
@@ -61,20 +73,22 @@ export function ImportarExcel({ titulo, que, rutaPlantilla, rutaImportar, instru
 
   async function importar() {
     if (enviando) return;
+    const ruta = typeof rutaImportar === 'string' ? rutaImportar : rutaImportar();
     if (!archivo) {
       setErrorDelArchivo('Elija primero el archivo lleno.');
       return;
     }
+    if (ruta === null) return;
     setEnviando(true);
     setError(null);
     setInforme(null);
     try {
       // El tipo se fija aunque el navegador no lo sepa: la API decide por él.
       const conTipo = archivo.type === TIPO_XLSX ? archivo : new File([archivo], archivo.name, { type: TIPO_XLSX });
-      const r = await pedir<{ creados: number }>(rutaImportar, { metodo: 'POST', archivo: conTipo });
-      alImportar(r.creados);
+      alImportar(await pedir<R>(ruta, { metodo: 'POST', archivo: conTipo }));
     } catch (e) {
       setEnviando(false);
+      if (e instanceof ErrorDeApi && e.campo && alErrorDeCampo?.(e)) return;
       if (e instanceof ErrorDeApi && e.errores && e.errores.length > 0) {
         setInforme(e.errores);
         setError(e.message);
@@ -103,7 +117,7 @@ export function ImportarExcel({ titulo, que, rutaPlantilla, rutaImportar, instru
       <ol className="pasos-de-importacion">
         <li>
           <span className="paso-titulo">Descargue la plantilla</span>
-          <span className="campo-ayuda">Trae las listas de tipos y de unidades de su empresa, y las instrucciones en la primera hoja.</span>
+          <span className="campo-ayuda">{textoPlantilla ?? 'Trae las listas de tipos y de unidades de su empresa, y las instrucciones en la primera hoja.'}</span>
           <a className="boton boton-secundario boton-chico-texto" href={rutaPlantilla} download>
             <Icono nombre="descargar" tamano={16} />
             Descargar plantilla
@@ -119,6 +133,7 @@ export function ImportarExcel({ titulo, que, rutaPlantilla, rutaImportar, instru
             Se revisa entera antes de guardar. Si una fila tiene un error, no se importa ninguna y se le dice cuál
             corregir; corrija el archivo y vuelva a subirlo.
           </span>
+          {extra}
           <div className="campo">
             <label htmlFor={idArchivo}>Archivo lleno (.xlsx)</label>
             <input

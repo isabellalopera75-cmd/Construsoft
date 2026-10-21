@@ -268,7 +268,10 @@ export type TipoEvento =
   | 'CAMBIO_ESTADO' | 'REAPERTURA' | 'ITEM_AGREGADO' | 'ITEM_ELIMINADO' | 'CANTIDAD_MODIFICADA'
   | 'PRECIO_MODIFICADO' | 'CAPITULO_AGREGADO' | 'CAPITULO_ELIMINADO' | 'AIU_MODIFICADO'
   | 'PRESUPUESTO_ARCHIVADO' | 'PRESUPUESTO_DESARCHIVADO' | 'PRESUPUESTO_ELIMINADO'
-  | 'PRESUPUESTO_DUPLICADO' | 'RECURSO_MODIFICADO' | 'APU_VERSIONADO' | 'ADMIN_RESTABLECIDO';
+  | 'PRESUPUESTO_DUPLICADO' | 'RECURSO_MODIFICADO' | 'APU_VERSIONADO' | 'ADMIN_RESTABLECIDO'
+  // CONTRATO §19.10 · Los hechos del cronograma que guarda el historial.
+  | 'CRONOGRAMA_CREADO' | 'CRONOGRAMA_FECHA_INICIO' | 'CRONOGRAMA_CALENDARIO'
+  | 'LINEA_BASE_GUARDADA' | 'LINEA_BASE_REEMPLAZADA' | 'LINEA_BASE_ELIMINADA';
 
 export interface Evento {
   id: string;
@@ -369,11 +372,19 @@ export interface LineaDeApu {
 
 export interface Apu extends ApuDeLista {
   lineas: LineaDeApu[];
+  /**
+   * RF-APU-25 · Unidades que hace la cuadrilla completa en un jornal, de la
+   * versión vigente («5.0000»). Nulo: sin rendimiento, la duración se escribe
+   * a mano en el cronograma.
+   */
+  rendimientoActividad: string | null;
 }
 
 export interface DatosDeApu {
   nombre: string;
   unidadId: string;
+  /** En el PUT: si no viene, se conserva; con null, se quita (CONTRATO §6). */
+  rendimientoActividad?: string | null;
   lineas: { recursoId: string; cantidad: Cantidad; rendimiento: Cantidad; desperdicioPct?: Porcentaje }[];
 }
 
@@ -402,6 +413,10 @@ export interface Preferencias {
   decimalesVista: 0 | 1 | 2;
   notifVencimiento: boolean;
   notifCambioEstado: boolean;
+  /** CONTRATO §19.2 · «8.00», de 1 a 24 (D-84). */
+  horasPorJornal: string;
+  /** 1 = lunes … 7 = domingo (RF-CFG-33). */
+  inicioSemana: number;
 }
 
 export type EstadoDePago = 'EXITOSO' | 'PENDIENTE' | 'RECHAZADO';

@@ -15,13 +15,15 @@ import { useEffect, useState } from 'react';
  */
 
 /** Las pestañas de Configuración (02 §11). */
-export type PestanaDeConfiguracion = 'cuenta' | 'empresa' | 'preferencias' | 'suscripcion' | 'usuarios';
-const PESTANAS: readonly PestanaDeConfiguracion[] = ['cuenta', 'empresa', 'preferencias', 'suscripcion', 'usuarios'];
+export type PestanaDeConfiguracion = 'cuenta' | 'empresa' | 'preferencias' | 'calendarios' | 'suscripcion' | 'usuarios';
+const PESTANAS: readonly PestanaDeConfiguracion[] = ['cuenta', 'empresa', 'preferencias', 'calendarios', 'suscripcion', 'usuarios'];
 
 export type Ruta =
   | { pantalla: 'inicio' }
   | { pantalla: 'presupuestos' }
   | { pantalla: 'mesa'; id: string }
+  // El cronograma va 1 a 1 con el proyecto (D-82): cuelga de su dirección.
+  | { pantalla: 'cronograma'; id: string }
   | { pantalla: 'recursos' }
   | { pantalla: 'apu' }
   | { pantalla: 'configuracion'; pestana?: PestanaDeConfiguracion }
@@ -42,6 +44,9 @@ export function leerRuta(hash: string): Ruta {
   if (esProyectos && partes.length === 1) return { pantalla: 'presupuestos' };
   if (esProyectos && segunda !== undefined && partes.length === 2) {
     return { pantalla: 'mesa', id: decodeURIComponent(segunda) };
+  }
+  if (esProyectos && segunda !== undefined && partes.length === 3 && partes[2] === 'cronograma') {
+    return { pantalla: 'cronograma', id: decodeURIComponent(segunda) };
   }
   if (primera === 'recursos' && partes.length === 1) return { pantalla: 'recursos' };
   if (primera === 'apu' && partes.length === 1) return { pantalla: 'apu' };
@@ -67,6 +72,7 @@ export function enlaceA(ruta: Ruta): string {
     case 'inicio': return '#/';
     case 'presupuestos': return '#/proyectos';
     case 'mesa': return `#/proyectos/${encodeURIComponent(ruta.id)}`;
+    case 'cronograma': return `#/proyectos/${encodeURIComponent(ruta.id)}/cronograma`;
     case 'recursos': return '#/recursos';
     case 'apu': return '#/apu';
     case 'configuracion': return ruta.pestana ? `#/configuracion/${ruta.pestana}` : '#/configuracion';

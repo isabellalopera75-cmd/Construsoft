@@ -13,6 +13,10 @@ import { pestanasDeConfiguracion } from './pestanas.ts';
 import { Logotipo } from './Logotipo.tsx';
 import { SuscripcionPestana } from './Suscripcion.tsx';
 import { Usuarios } from './Usuarios.tsx';
+import { PestanaDeCalendarios } from '../calendarios/PestanaDeCalendarios.tsx';
+import { leerHorasDelDia } from '../calendarios/Calendarios.tsx';
+import { paraEditar, soloCifra } from '../../entrada.ts';
+import { DIAS_DE_LA_SEMANA } from '../cronograma/tiempo.ts';
 import { formatearNumero } from '../../formato.ts';
 import { ir, type PestanaDeConfiguracion } from '../../navegacion.ts';
 import { useSesion } from '../../sesion.tsx';
@@ -57,6 +61,7 @@ export function Configuracion({ pestana }: { pestana: PestanaDeConfiguracion | u
         {actual === 'cuenta' ? <MiCuentaPestana /> : null}
         {actual === 'empresa' ? <EmpresaPestana /> : null}
         {actual === 'preferencias' ? <PreferenciasPestana /> : null}
+        {actual === 'calendarios' ? <PestanaDeCalendarios /> : null}
         {actual === 'suscripcion' ? <SuscripcionPestana /> : null}
         {actual === 'usuarios' ? <Usuarios /> : null}
       </div>
@@ -310,10 +315,17 @@ function PreferenciasPestana() {
   const [form, setForm] = useState<Preferencias | null>(null);
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  // Las horas por jornal se escriben como texto, con la coma de la empresa.
+  const [jornal, setJornal] = useState('');
+  const [errorJornal, setErrorJornal] = useState<string | null>(null);
+  const formatoActual = useSesion().arranque.formatoNumerico;
 
   useEffect(() => {
-    if (datos) setForm(datos);
-  }, [datos]);
+    if (datos) {
+      setForm(datos);
+      setJornal(paraEditar(datos.horasPorJornal, formatoActual));
+    }
+  }, [datos, formatoActual]);
 
   if (error) return <ErrorDeSeccion mensaje={error} alReintentar={releer} />;
   if (!form) return <p className="campo-ayuda">Cargando…</p>;
@@ -323,16 +335,22 @@ function PreferenciasPestana() {
   async function enviar(e: FormEvent) {
     e.preventDefault();
     if (!form || enviando || iguales) return;
+    const h = leerHorasDelDia(jornal, 'las horas por jornal', '1');
+    if ('error' in h) {
+      setErrorJornal(h.error);
+      return;
+    }
     setEnviando(true);
     setErrorGeneral(null);
     try {
-      const guardadas = await pedir<Preferencias>('/api/configuracion/preferencias', { metodo: 'PUT', cuerpo: form });
+      const guardadas = await pedir<Preferencias>('/api/configuracion/preferencias', { metodo: 'PUT', cuerpo: { ...form, horasPorJornal: h.valor } });
       poner(guardadas);
       // El formato numérico sale del arranque: se relee para que toda cifra cambie ya.
       await recargar();
       avisar('Preferencias guardadas. Las cifras ya se muestran con el formato nuevo.');
     } catch (err) {
-      setErrorGeneral(err instanceof ErrorDeApi ? err.message : 'No se guardaron las preferencias. Intente de nuevo.');
+      if (err instanceof ErrorDeApi && err.campo === 'horasPorJornal') setErrorJornal(err.message);
+      else setErrorGeneral(err instanceof ErrorDeApi ? err.message : 'No se guardaron las preferencias. Intente de nuevo.');
     } finally {
       setEnviando(false);
     }
@@ -350,6 +368,7 @@ function PreferenciasPestana() {
           { etiqueta: 'Moneda base', valor: guardadas.monedaBase === 'COP' ? 'COP · Peso colombiano' : guardadas.monedaBase },
           { etiqueta: 'Así se ve una cifra', valor: <span className="cifra">{formatearNumero('180590155.4567', formatoGuardado)}</span> },
           { etiqueta: 'Avisos por correo', valor: `${avisosActivos} de 2 activos` },
+          { etiqueta: 'Jornal', valor: `${paraEditar(guardadas.horasPorJornal, formatoGuardado)} h · semana desde el ${(DIAS_DE_LA_SEMANA[guardadas.inicioSemana - 1] ?? '').toLowerCase()}` },
         ]} />
       </Seccion>
       {/* Un solo formulario para las dos tarjetas: un «Guardar» guarda las dos. */}
@@ -398,6 +417,25 @@ function PreferenciasPestana() {
               </div>
             </fieldset>
           </Seccion>
+          <div className="columna-de-tarjetas">
+          <Seccion titulo="Programación de obra" ayuda="Las usa el cronograma. Cada proyecto se lleva las horas por jornal al crearse: cambiarlas aquí no mueve los proyectos que ya existen.">
+            <fieldset className="grupo-sin-borde formulario" disabled={soloLectura}>
+              <div className="fila-de-campos">
+                <Campo etiqueta="Horas por jornal" ayuda="Lo que dura el «día» del rendimiento de un APU. De 1 a 24." error={errorJornal}>
+                  {(a) => (
+                    <input {...a} className="campo-cifra-corto" inputMode="decimal" autoComplete="off" value={jornal} onChange={(e) => { setJornal(soloCifra(e.target.value, formatoActual.separadorDecimal)); setErrorJornal(null); }} />
+                  )}
+                </Campo>
+                <Campo etiqueta="La semana empieza el" ayuda="Para la curva semanal y el Gantt.">
+                  {(a) => (
+                    <select {...a} value={form.inicioSemana} onChange={(e) => setForm({ ...form, inicioSemana: e.target.selectedIndex + 1 })}>
+                      {DIAS_DE_LA_SEMANA.map((d, i) => <option key={d} value={i + 1}>{d}</option>)}
+                    </select>
+                  )}
+                </Campo>
+              </div>
+            </fieldset>
+          </Seccion>
           <Seccion titulo="Avisos por correo">
             <fieldset className="campo grupo-sin-borde" disabled={soloLectura}>
               <legend className="solo-lectores">Avisos por correo</legend>
@@ -417,6 +455,7 @@ function PreferenciasPestana() {
               </div>
             )}
           </Seccion>
+          </div>
         </DosColumnas>
       </form>
       <Unidades />

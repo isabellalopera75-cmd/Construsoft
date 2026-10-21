@@ -3,6 +3,7 @@ import { ErrorDeApi, pedir } from '../../api/cliente.ts';
 import type { ActividadDeMesa, Mesa as DatosDeMesa, NodoDeMesa, Pie, Presupuesto, Version } from '../../api/tipos.ts';
 import { useAvisos } from '../../componentes/Avisos.tsx';
 import { BotonVolver } from '../../cascaron/Cascaron.tsx';
+import { enlaceA } from '../../navegacion.ts';
 import { Confirmacion } from '../../componentes/Confirmacion.tsx';
 import { Icono } from '../../componentes/Icono.tsx';
 import { InsigniaDeEstado } from '../../componentes/Insignia.tsx';
@@ -309,6 +310,11 @@ export function Mesa({ id }: { id: string }) {
                   </a>
                 </span>
               ) : null}
+              {/* El cronograma va 1 a 1 con el proyecto (D-82): se entra de aquí. */}
+              <a className="boton boton-secundario" href={enlaceA({ pantalla: 'cronograma', id: cabecera.id })}>
+                <Icono nombre="gantt" />
+                Cronograma
+              </a>
               <button type="button" className="boton boton-secundario" onClick={() => setDialogo({ tipo: 'versiones' })}>
                 <Icono nombre="version" />
                 Versiones

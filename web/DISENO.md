@@ -610,6 +610,90 @@ mouse viaje menos:
 - Piezas en `modulos/configuracion/piezas.tsx`: `Seccion` con `accion`,
   `Fichas` y `DosColumnas`.
 
+### 21 de octubre de 2026 · Programación de obra (07 §6, CONTRATO §19)
+
+- **El cronograma usa el ancho entero.** Es la única pantalla sin los 1280 px
+  de §7: el Gantt es una línea de tiempo, no texto que leer, y cada píxel de
+  más es tiempo a la vista. Queda a revisión del dueño. Se entra desde la mesa
+  («Cronograma») y vive en `#/proyectos/:id/cronograma`.
+- **Tabla y barras en un solo desplazamiento.** La tabla (código, actividad,
+  días, inicio, fin, holgura) queda fija a la izquierda al correr el tiempo, y
+  la escala fija arriba al bajar. Con el panel de una actividad abierto, la
+  tabla suelta inicio y fin, que están en el panel, para que quede tiempo a la
+  vista.
+- **Solo se pintan las filas visibles** (RNF-29), con las flechas que cruzan
+  ese tramo. Medido con 1.504 actividades y 2.978 relaciones en Chromium: la
+  primera pintura tarda 430 ms, hay 38 filas en el documento, y cada paso de
+  400 px de desplazamiento se pinta en dos cuadros (33 ms de mediana, 53 ms en
+  el percentil 95). El alto de la fila es una cifra de `Gantt.tsx`, no un token:
+  el cálculo de qué fila cae dónde la necesita, y se le pasa al CSS como
+  variable.
+- **Una fecha-hora del cronograma se corta, no se parsea.** Es la excepción a
+  §5, y es a propósito: «2026-11-02T07:00» es la hora local de la obra, sin
+  zona (CONTRATO §19.1). Pasarla por `Date` la leería como hora del navegador o
+  como UTC, y se correría. Las posiciones del Gantt son minutos enteros
+  contados con el calendario civil, en `modulos/cronograma/tiempo.ts`. Los
+  instantes con «Z» (cuándo se guardó una línea base, el último cambio del
+  presupuesto) siguen la regla de §5.
+- **Los colores del Gantt** son alias en `tokens.css`: lo normal en azul y lo
+  crítico en el tono de peligro, como el PDF del Gantt que arma la API; los
+  capítulos como barra resumen en el color del texto; la administración
+  rayada; la línea base en el tono de aviso, debajo; los hitos como rombos,
+  verde el de inicio y del color del texto el de fin; y una marca terracota al
+  final de la barra que termina a mitad de jornada (RN-27). Lo crítico no se
+  dice solo con color: la holgura está en su columna, y el panel lo dice con
+  palabra. Hay una leyenda sobre el Gantt.
+- **`--azul-grafico` es el único tono nuevo.** Hacía falta un segundo tono que
+  no fuera un estado, para el Gantt y para las curvas. Es el primero de la
+  paleta de la guía de gráficos, escalonado para cada tema, y está medido con
+  su validador: separación para daltonismo de 23,8 contra el terracota y 24,0
+  contra el peligro en oscuro, y de 25,1 y 26,9 en claro (el objetivo es 8);
+  contraste de marca gráfica de 3:1 o más sobre los dos fondos de cada tema.
+  No se usa para texto.
+- **Las curvas S** van en terracota (facturación) y azul (costo), con la línea
+  base punteada en el mismo tono. Tienen leyenda y el nombre de cada curva al
+  final de la línea, en color de texto; un globo con las cuatro cifras del
+  periodo al pasar el mouse o con las flechas; y la tabla de cifras al lado.
+  Las cifras son el texto del servidor. Para dibujar hace falta una posición, y
+  la única conversión de dinero a número de toda la interfaz está en
+  `Curvas.tsx` (`aproximar`), con la regla de lint desactivada en esa línea y
+  su razón: sirve para poner un punto en el plano, no se muestra, no se suma y
+  no se guarda.
+- **El 409 no pierde el trabajo** (07 §6.9). Si otra persona cambió el
+  cronograma, la pantalla muestra la versión nueva y una franja con el cambio
+  rechazado en palabras («Cambios en 3.1») y un botón para volver a aplicarlo
+  sobre la versión nueva. Toda escritura pasa por una sola función
+  (`escribir`), que lleva la versión y atiende el 409, el círculo y el 422 sin
+  campo.
+- **Un círculo de relaciones** marca en la tabla, con una raya roja a la
+  izquierda, todas las actividades que lo forman, y el panel dice por qué no se
+  guardó.
+- **Las franjas** van arriba del Gantt, a la vista de todos: el cambio del
+  presupuesto (D-93), con lo que entró, salió o cambió de duración, el fin y el
+  valor total antes y después, y «Entendido, cerrar aviso» para quien puede
+  editar; los festivos que no alcanzan al fin de la obra, con «Copiar
+  festivos»; y los días de más contra la línea base que se está mirando.
+- **La línea base que se mira** se elige sobre el Gantt y se recuerda en el
+  navegador por proyecto. Sin elección guardada, se muestra la primera que se
+  guardó, que suele ser la del contrato; sin ella, el aviso de la
+  administración no aparecería nunca. La escala (día, semana, mes) también se
+  recuerda.
+- **El calendario es una cuadrícula de medias horas**, como en P6: se pinta
+  arrastrando, o con las flechas y la barra espaciadora; cada celda dice su día,
+  su media hora y si se trabaja. El llenado rápido (entrada, horas, almuerzo,
+  días y un sábado más corto) pinta la tabla. Debajo, cada día en texto. La
+  misma capa sirve para el calendario de la empresa y para el de la obra.
+- **Configuración** gana la pestaña «Calendarios y festivos», y Preferencias
+  la tarjeta «Programación de obra» (horas por jornal e inicio de semana), con
+  el mismo «Guardar preferencias». El formulario de APU gana el rendimiento de
+  la actividad bajo el nombre y la unidad, con su explicación para que no se
+  confunda con el rendimiento de cada recurso (RF-APU-25).
+- **Piezas nuevas**: `modulos/calendarios/` (la cuadrícula, la capa de un
+  calendario, las excepciones, copiar festivos y la pestaña) y
+  `modulos/cronograma/` (la pantalla, el Gantt, el panel de la actividad, las
+  capas, las curvas y la revisión). Los iconos nuevos son de Lucide:
+  calendario, gantt, curva, rombo, enlace, bandera y revisión.
+
 ## 12. Lo que todavía no está decidido
 
 Para que nadie lo lea creyendo que está completo:

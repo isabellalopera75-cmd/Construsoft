@@ -182,7 +182,7 @@ export function ListaDeApu() {
             </>
           }
           alCerrar={() => setImportando(false)}
-          alImportar={(n) => {
+          alImportar={({ creados: n }) => {
             setImportando(false);
             avisar(n === 1 ? 'Se importó 1 APU.' : `Se importaron ${n} APU.`);
             releer();

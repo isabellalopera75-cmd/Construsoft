@@ -12,6 +12,8 @@ export function pestanasDeConfiguracion(puede: (p: Permiso) => boolean): { id: P
     { id: 'cuenta' as const, nombre: 'Mi cuenta', visible: true },
     { id: 'empresa' as const, nombre: 'Datos de empresa', visible: puede('CONFIG.EMPRESA') },
     { id: 'preferencias' as const, nombre: 'Preferencias y unidades', visible: puede('CONFIG.PREFERENCIAS') },
+    // CONTRATO §19.3 y §19.4: los calendarios y los festivos son preferencias de la empresa.
+    { id: 'calendarios' as const, nombre: 'Calendarios y festivos', visible: puede('CONFIG.PREFERENCIAS') },
     { id: 'suscripcion' as const, nombre: 'Suscripción', visible: puede('CONFIG.SUSCRIPCION') },
     { id: 'usuarios' as const, nombre: 'Usuarios', visible: puede('USUARIOS.GESTIONAR') },
   ]

@@ -68,7 +68,7 @@ export const MODULOS: readonly Modulo[] = [
     ruta: { pantalla: 'configuracion' },
     nombre: 'Configuración',
     icono: 'configuracion',
-    descripcion: 'Cuenta, empresa, suscripción, preferencias y unidades',
+    descripcion: 'Cuenta, empresa, suscripción, preferencias, unidades y calendarios',
     permiso: null,
   },
 ];
@@ -80,7 +80,7 @@ export function useModulosVisibles(): readonly Modulo[] {
 
 /** A qué módulo pertenece una pantalla, para marcarlo en la barra. */
 function moduloDe(ruta: Ruta): Ruta['pantalla'] {
-  return ruta.pantalla === 'mesa' ? 'presupuestos' : ruta.pantalla;
+  return ruta.pantalla === 'mesa' || ruta.pantalla === 'cronograma' ? 'presupuestos' : ruta.pantalla;
 }
 
 /*
