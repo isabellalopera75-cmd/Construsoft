@@ -94,6 +94,8 @@ export interface FilasDelCronograma {
     /** D-94 · El valor total del presupuesto en el último cálculo. */
     calculadoValorTotal: string | null;
     aviso: unknown;
+    /** RF-CFG-33 · 1 = lunes … 7 = domingo: el de la empresa, para las semanas del Gantt. */
+    inicioSemana: number;
   };
   presupuesto: {
     estado: 'ABIERTO' | 'ACTIVO' | 'CERRADO';

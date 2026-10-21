@@ -47,6 +47,7 @@ async function cargarFilasEn(cliente: ClienteEnContexto, cronogramaId: string): 
     calculado_revision: string | null;
     calculado_valor_total: string | null;
     aviso_presupuesto: unknown;
+    inicio_semana: number;
     estado: FilasDelCronograma['presupuesto']['estado'];
     revision: string;
     horas_por_jornal: string;
@@ -56,8 +57,11 @@ async function cargarFilasEn(cliente: ClienteEnContexto, cronogramaId: string): 
   }>(
     `SELECT c.id, c.presupuesto_id, c.tenant_id, ${FECHA('c.fecha_inicio')} AS fecha_inicio, c.version,
             c.calculado_version, c.calculado_revision, c.calculado_valor_total, c.aviso_presupuesto,
-            p.estado, p.revision, p.horas_por_jornal, p.total_administracion, p.valor_total, p.fecha_modificacion
-       FROM app.cronograma c JOIN app.presupuesto p ON p.id = c.presupuesto_id
+            p.estado, p.revision, p.horas_por_jornal, p.total_administracion, p.valor_total, p.fecha_modificacion,
+            e.inicio_semana
+       FROM app.cronograma c
+       JOIN app.presupuesto p ON p.id = c.presupuesto_id
+       JOIN app.configuracion_empresa e ON e.tenant_id = c.tenant_id
       WHERE c.id = $1`,
     [cronogramaId],
   );
@@ -159,6 +163,7 @@ async function cargarFilasEn(cliente: ClienteEnContexto, cronogramaId: string): 
       calculadoRevision: c.calculado_revision === null ? null : Number(c.calculado_revision),
       calculadoValorTotal: c.calculado_valor_total,
       aviso: c.aviso_presupuesto,
+      inicioSemana: c.inicio_semana,
     },
     presupuesto: {
       estado: c.estado,
@@ -403,10 +408,10 @@ export async function leerCronogramaDelPresupuesto(
 }
 
 /** El mismo, buscado por el id del cronograma. null si no es de esta empresa. */
-export async function leerCronograma(contexto: ContextoTenant, cronogramaId: string): Promise<CronogramaLeido | null> {
+export async function leerCronograma(contexto: ContextoTenant, cronogramaId: string, lineaBaseId: string | null = null): Promise<CronogramaLeido | null> {
   return ejecutarConPermisoEnUnaFoto(contexto, 'PRESUPUESTOS.VER', async (cliente) => {
     const { rowCount } = await cliente.query('SELECT 1 FROM app.cronograma WHERE id = $1', [cronogramaId]);
-    return rowCount === 1 ? alDiaEn(cliente, cronogramaId, null) : null;
+    return rowCount === 1 ? alDiaEn(cliente, cronogramaId, lineaBaseId) : null;
   });
 }
 
@@ -452,6 +457,7 @@ export async function editarCronograma(
   cronogramaId: string,
   version: number,
   cambio: (cliente: ClienteEnContexto, filas: FilasDelCronograma) => Promise<void>,
+  lineaBaseId: string | null = null,
 ): Promise<ResultadoDeEdicion | null> {
   return ejecutarConPermisoEnUnaFoto(contexto, 'PRESUPUESTOS.EDITAR', async (cliente) => {
     const bloqueada = await cliente.query('SELECT 1 FROM app.cronograma WHERE id = $1 FOR UPDATE', [cronogramaId]);
@@ -463,7 +469,12 @@ export async function editarCronograma(
     }
     await cambio(cliente, filas);
     await cliente.query('UPDATE app.cronograma SET version = version + 1, aviso_presupuesto = NULL WHERE id = $1', [cronogramaId]);
-    return { tipo: 'HECHO', leido: { filas: await recalcularEn(cliente, cronogramaId, false), recalculado: false, lineaBase: null } };
+    const filasNuevas = await recalcularEn(cliente, cronogramaId, false);
+    // La línea base que la persona está mirando (§19.6, 21 de octubre). Una que
+    // no es de este cronograma es 404 aquí, dentro de la transacción: la
+    // escritura no se guarda.
+    const lineaBase = lineaBaseId === null ? null : await leerLineaBaseEn(cliente, cronogramaId, lineaBaseId);
+    return { tipo: 'HECHO', leido: { filas: filasNuevas, recalculado: false, lineaBase } };
   });
 }
 

@@ -208,17 +208,27 @@ export function registrarRutasDeCronograma(app: FastifyInstance, sesionDe: Sesio
   }
 
   /** La respuesta de toda escritura: la vista, el 409 con la versión nueva, o el 404. */
-  async function responder(reply: FastifyReply, contexto: ContextoTenant, cronogramaId: string, resultado: ResultadoDeEdicion | null) {
+  async function responder(
+    reply: FastifyReply,
+    contexto: ContextoTenant,
+    cronogramaId: string,
+    resultado: ResultadoDeEdicion | null,
+    lineaBaseId: string | null,
+  ) {
     if (!resultado) throw cronogramaNoExiste();
     if (resultado.tipo === 'VERSION_VIEJA') {
-      const actual = await leerCronograma(contexto, cronogramaId);
+      const actual = await leerCronograma(contexto, cronogramaId, lineaBaseId);
       if (!actual) throw cronogramaNoExiste();
       return reply.code(409).send({ mensaje: OTRA_PERSONA, cronograma: await vista(contexto, actual) });
     }
     return reply.send(await vista(contexto, resultado.leido));
   }
 
-  /** Un cambio sobre el cronograma de la ruta, con la versión del cuerpo o de ?version=. */
+  /**
+   * Un cambio sobre el cronograma de la ruta, con la versión del cuerpo o de
+   * ?version=. Con ?lineaBase=, la respuesta (y la del 409) trae esa línea
+   * base, como el GET (§19.6, 21 de octubre).
+   */
   async function editar(
     request: FastifyRequest<{ Params: { id: string } }>,
     reply: FastifyReply,
@@ -227,7 +237,9 @@ export function registrarRutasDeCronograma(app: FastifyInstance, sesionDe: Sesio
   ) {
     const contexto = await sesionDe(request, reply);
     const cronogramaId = idDe(request.params.id, cronogramaNoExiste);
-    return responder(reply, contexto, cronogramaId, await editarCronograma(contexto, cronogramaId, versionPedida, cambio));
+    const { lineaBase } = request.query as { lineaBase?: string };
+    const lineaBaseId = lineaBase === undefined ? null : idDe(lineaBase, lineaBaseNoExiste);
+    return responder(reply, contexto, cronogramaId, await editarCronograma(contexto, cronogramaId, versionPedida, cambio, lineaBaseId), lineaBaseId);
   }
 
   // --- §19.5 · Leer y crear -----------------------------------------------------------

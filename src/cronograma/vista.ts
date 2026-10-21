@@ -63,6 +63,7 @@ export interface VistaCronograma {
     presupuestoId: string;
     version: number;
     fechaInicio: string;
+    inicioSemana: number;
     editable: boolean;
     recalculado: boolean;
     inicio: string;
@@ -269,6 +270,7 @@ export function armarVista(filas: FilasDelCronograma, opciones: OpcionesDeLaVist
         presupuestoId: filas.cabecera.presupuestoId,
         version: filas.cabecera.version,
         fechaInicio: filas.cabecera.fechaInicio,
+        inicioSemana: filas.cabecera.inicioSemana,
         editable: opciones.editable,
         recalculado: opciones.recalculado,
         inicio: deMinutos(inicio),

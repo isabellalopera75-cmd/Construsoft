@@ -75,6 +75,7 @@ describe('crear y leer el cronograma (CONTRATO §19.5, RF-PRG-01)', () => {
       presupuestoId,
       version: 1,
       fechaInicio: '2026-11-02',
+      inicioSemana: 1,
       editable: true,
       recalculado: false,
       inicio: '2026-11-02T07:00',
@@ -692,5 +693,63 @@ describe('la vista viaja comprimida si el navegador la acepta (P9, CONTRATO §19
     assert.equal(vista.cronograma.presupuestoId, presupuestoId);
     const sinComprimir = await llamar('GET', `/api/presupuestos/${presupuestoId}/cronograma`, duena.cookie);
     assert.ok(r.rawPayload.length < sinComprimir.crudo.length / 3, `${r.rawPayload.length} de ${sinComprimir.crudo.length} bytes`);
+  });
+});
+
+describe('la semana de la empresa y la línea base a la vista en cada escritura (CONTRATO §19.5–§19.6, 21 de octubre)', () => {
+  let duena: Cuenta;
+  let presupuestoId: string;
+  let vista: Record<string, any>;
+  let lineaBaseId: string;
+
+  before(async () => {
+    duena = await registrar('Constructora Cronograma Linea Base', '900001003-3', 'cronograma.lineabase@construsoft.test');
+    ({ presupuestoId } = await armarPresupuestoDeReferencia(duena.contexto, 'CRONO-LB'));
+    vista = (await llamar('POST', `/api/presupuestos/${presupuestoId}/cronograma`, duena.cookie, { fechaInicio: '2026-11-02' })).cuerpo;
+    await activarPresupuesto(duena.contexto, presupuestoId);
+    vista = (await llamar('GET', `/api/presupuestos/${presupuestoId}/cronograma`, duena.cookie)).cuerpo;
+    lineaBaseId = (await llamar('POST', `/api/cronogramas/${vista.cronograma.id}/lineas-base`, duena.cookie, { version: vista.cronograma.version, nombre: 'Contrato' })).cuerpo.lineaBase.id;
+  });
+
+  test('la cabecera trae el día en que empieza la semana de la empresa, y cambia con las preferencias', async () => {
+    assert.equal(vista.cronograma.inicioSemana, 1);
+    const preferencias = (await llamar('GET', '/api/configuracion/preferencias', duena.cookie)).cuerpo;
+    await llamar('PUT', '/api/configuracion/preferencias', duena.cookie, { ...preferencias, inicioSemana: 7 });
+    assert.equal((await llamar('GET', `/api/presupuestos/${presupuestoId}/cronograma`, duena.cookie)).cuerpo.cronograma.inicioSemana, 7);
+  });
+
+  test('una escritura con ?lineaBase= responde con esa línea base y su aviso de la administración, como el GET', async () => {
+    const topografia = porNombre(vista, 'Topografía y replanteo');
+    const r = await llamar('PATCH', `/api/cronogramas/${vista.cronograma.id}/actividades/${topografia.id}?lineaBase=${lineaBaseId}`, duena.cookie, {
+      version: vista.cronograma.version,
+      duracionManualDias: '3',
+    });
+    assert.equal(r.estado, 200, r.crudo);
+    vista = r.cuerpo;
+    assert.equal(vista.lineaBase.id, lineaBaseId);
+    assert.deepEqual([vista.avisos.administracion.lineaBaseId, vista.avisos.administracion.diasDeMas], [lineaBaseId, '3.0']);
+    const sin = await llamar('PATCH', `/api/cronogramas/${vista.cronograma.id}/actividades/${topografia.id}`, duena.cookie, { version: vista.cronograma.version, cuadrillas: 1 });
+    vista = sin.cuerpo;
+    assert.deepEqual([vista.lineaBase, vista.avisos.administracion], [null, null]);
+    const borrar = await llamar('DELETE', `/api/cronogramas/${vista.cronograma.id}/dependencias/no-existe?version=${vista.cronograma.version}&lineaBase=${lineaBaseId}`, duena.cookie);
+    assert.equal(borrar.estado, 404);
+  });
+
+  test('el 409 de versión trae el cronograma con la línea base que se estaba mirando', async () => {
+    const r = await llamar('PATCH', `/api/cronogramas/${vista.cronograma.id}?lineaBase=${lineaBaseId}`, duena.cookie, { version: vista.cronograma.version - 1, fechaInicio: '2026-11-09' });
+    assert.equal(r.estado, 409, r.crudo);
+    assert.equal(r.cuerpo.cronograma.lineaBase.id, lineaBaseId);
+  });
+
+  test('una línea base de otro cronograma es 404, como en el GET, y la escritura no se guarda', async () => {
+    const otro = await armarPresupuestoDeReferencia(duena.contexto, 'CRONO-LB-2');
+    const ajeno = (await llamar('POST', `/api/presupuestos/${otro.presupuestoId}/cronograma`, duena.cookie, { fechaInicio: '2026-11-02' })).cuerpo;
+    await activarPresupuesto(duena.contexto, otro.presupuestoId);
+    const leido = (await llamar('GET', `/api/presupuestos/${otro.presupuestoId}/cronograma`, duena.cookie)).cuerpo;
+    const lineaBaseAjena = (await llamar('POST', `/api/cronogramas/${ajeno.cronograma.id}/lineas-base`, duena.cookie, { version: leido.cronograma.version, nombre: 'Otra' })).cuerpo.lineaBase.id;
+    const r = await llamar('PATCH', `/api/cronogramas/${vista.cronograma.id}?lineaBase=${lineaBaseAjena}`, duena.cookie, { version: vista.cronograma.version, fechaInicio: '2026-11-09' });
+    assert.equal(r.estado, 404, r.crudo);
+    const despues = (await llamar('GET', `/api/presupuestos/${presupuestoId}/cronograma`, duena.cookie)).cuerpo;
+    assert.deepEqual([despues.cronograma.version, despues.cronograma.fechaInicio], [vista.cronograma.version, '2026-11-02']);
   });
 });
