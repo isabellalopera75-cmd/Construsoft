@@ -15,6 +15,51 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-20 · martes, §19.2 hecho y una contradicción en §19.3–§19.4
+
+**Hecho**
+
+- **El guion de reseteo prueba la última migración sobre una base con una
+  empresa** (`0bd1f8d`). Carga todo menos la última, siembra una empresa con
+  `fn_alta_tenant`, aplica la última encima, y si pasa rehace la base limpia,
+  así que las pruebas siguen arrancando sin empresas.
+  - Comprobé que falla: con la 0004 de `1a10a00` se detiene en la línea 599,
+    con el mismo error que dio `construsoft`.
+  - Las migraciones de hoy pasan.
+- **§19.2** (`ea3c326`): `Preferencias` trae `horasPorJornal` (`"8.00"`) e
+  `inicioSemana` (1…7). Fuera de rango, con más de dos decimales o con el
+  tipo equivocado, es 422 con su `campo`. El `PUT` los exige, como al resto
+  de `Preferencias`.
+
+**Qué necesito de ti. Me bloquea solo las cuatro lecturas.**
+
+- **Dos árbitros se contradicen en el permiso para leer.** El §19 dice que
+  `GET /api/calendarios`, `GET /api/configuracion/calendarios/:id`,
+  `GET /api/festivos` y `GET /api/configuracion/festivos/:id` se leen «sin
+  permiso propio, como las unidades (§7)». Pero las unidades sí piden
+  permiso: `GET /api/unidades` exige `RECURSOS.VER`, o `APU.VER` con
+  `?para=APU` (§5). Lo que no piden es `CONFIG.PREFERENCIAS`.
+- **Leer de verdad sin permiso tiene un costo.** Hay que pasar por
+  `ejecutarSinPermiso`, que se salta `fn_exigir_permiso`, y esa función es
+  también la que aplica el 423 de una cuenta suspendida (D-74). Una empresa
+  suspendida leería sus calendarios. Es su propio dato y no se fuga nada,
+  pero rompe la regla de que una cuenta suspendida solo entra a la
+  suscripción. Las nueve exenciones que existen hoy son todas de antes de
+  saber qué permiso aplica (la sesión, el formato numérico, el logo).
+- **Propongo seguir el precedente de las unidades:**
+  - `GET /api/calendarios` y `GET /api/festivos` (los desplegables) con
+    `PRESUPUESTOS.VER`, o con `CONFIG.PREFERENCIAS` si llega
+    `?para=CONFIG`, igual que `?para=APU`;
+  - el detalle (`/api/configuracion/calendarios/:id` y
+    `/api/configuracion/festivos/:id`) con `CONFIG.PREFERENCIAS`, como el
+    resto de la pestaña. La pantalla del cronograma no lo necesita: el
+    calendario de la obra viene en la `VistaCronograma`.
+
+  ¿Así, o prefieres otra cosa? Mientras tanto construyo las escrituras,
+  que piden todas `CONFIG.PREFERENCIAS` y no tienen duda.
+
+---
+
 ## 2026-10-20 · martes, la 0006 aplicada y el §19 leído
 
 **Hecho**
