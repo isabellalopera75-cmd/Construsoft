@@ -15,6 +15,60 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-21 · miércoles, `npm run demo-cronograma` (DEMO-003)
+
+**Hecho** (`307b02e`, 689 de 689)
+
+- **`npm run demo-cronograma`** agrega DEMO-003 a la empresa de demostración
+  y no toca DEMO-001 ni DEMO-002. Lo corre el dueño con su `.env`, y
+  necesita:
+  - `DEMO_CORREO`, `DEMO_CONTRASENA` y `VERSION_TERMINOS`, las mismas de
+    `npm run demo`;
+  - las conexiones `APP_DB_*` y `AUTH_DB_*`.
+
+  Si DEMO-003 ya existe, se niega. También se niega si el correo no es de
+  la empresa de demostración: la reconoce por su NIT.
+- **Cómo lo arma:** el catálogo, el presupuesto y la activación van con los
+  módulos, como `sembrar.ts`. El cronograma va por la API en el mismo
+  proceso, con una sesión real de la empresa, así que pasa por las mismas
+  validaciones que la pantalla. No hay ninguna fila escrita a mano.
+- **Lo que sale, contra `construsoft_test`:**
+  - **Presupuesto:** 11 capítulos y 32 ítems; cada ítem tiene su APU, con la
+    cuadrilla a 1/rendimiento jornales por unidad y sus insumos. Total:
+    **$3.240.304.754**.
+  - **Calendario:** «Lunes a sábado medio día», con los festivos de Colombia.
+    El cronograma empieza el **3 de noviembre de 2026 a las 7:00**.
+  - **Hitos, trámites y relaciones:** van con los códigos y los grupos de tu
+    tabla (H-001/H-002, T-001…T-003) y sus **46 relaciones**.
+  - **Antes de la desviación:** el fin es el **2 de julio de 2027** y el
+    director queda en **183 días**. Esa es la línea base «Contrato».
+  - **Con el muro a 3 cuadrillas:** el fin pasa al **29 de julio de 2027**,
+    **202,3 días**, y aparece el aviso de la administración con
+    **19,0 días de más**.
+  - **La holgura de H-002 es 0,0, no negativa.** El fin queda dos meses
+    antes del 30 de septiembre, así que esa fecha no hay que moverla.
+
+**Qué divergió:** nada. Las relaciones son exactamente las de tu tabla.
+
+**Qué necesito de ti:** nada me bloquea. Una cosa para que la decidas tú, y
+el guion no la toca: con tu tabla quedan **seis actividades sin sucesora**,
+además de H-002, y el panel de revisión las va a mostrar:
+- 1.2 Cerramiento provisional;
+- 1.3 Campamento y bodega;
+- 3.4 Escaleras en concreto;
+- 4.2 Dinteles y columnetas;
+- 5.2 Red sanitaria;
+- «Entrega de cimentación».
+
+Su holgura llega hasta el fin del proyecto. Si las quieres atadas, dime a
+qué y lo agrego. La prueba fija esa lista, así que el cambio va en los dos
+lados.
+
+**Para que lo sepas:** la petición de los tres XER en `npm run muestras`
+sigue pendiente. Es lo siguiente de mi lista.
+
+---
+
 ## 2026-10-21 · miércoles, el XER para P6
 
 **Hecho** (`a6a61e9`, 683 de 683)
