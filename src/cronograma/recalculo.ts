@@ -3,7 +3,7 @@ import { compilarCalendario, ErrorDeCalendario, type CalendarioCompilado } from 
 import { minutosCalculados, minutosDeDesfase, minutosDeDuracionManual } from './duraciones.js';
 import type { FilasDelCronograma } from './filas.js';
 import { calcularCronograma, type ActividadDelMotor } from './motor.js';
-import { diaDeFecha, fechaDeDia } from './tiempo.js';
+import { aMinutos, diaDeFecha, fechaDeDia } from './tiempo.js';
 
 /*
  * Del cronograma leído de la base a la entrada del motor, y de su resultado a
@@ -121,5 +121,34 @@ export function recalcular(filas: FilasDelCronograma): CalculoNuevo[] {
       holguraTotalMinutos: r.holguraTotalMinutos,
       holguraLibreMinutos: r.holguraLibreMinutos,
     };
+  });
+}
+
+/**
+ * Lo que fn_curvas y fn_guardar_linea_base reciben (D-89): los minutos
+ * laborables de cada actividad con costo en cada día. Las actividades del
+ * presupuesto y la administración; una de cero minutos va con una sola
+ * entrada, la del día en que cae (decisión del 20 de octubre de 2026).
+ */
+export function repartoEnMinutos(filas: FilasDelCronograma): { actividadIds: string[]; fechas: string[]; minutos: number[] } {
+  const conCosto = filas.actividades.filter((a) => (a.tipo === 'ITEM' && a.item !== null) || a.tipo === 'ADMINISTRACION');
+  const fechas = [filas.cabecera.fechaInicio];
+  for (const a of conCosto) {
+    const c = filas.calculos.get(a.id)!;
+    fechas.push(c.inicio.slice(0, 10), c.fin.slice(0, 10));
+  }
+  return conHorizonte(filas, fechas, (cal) => {
+    const reparto = { actividadIds: [] as string[], fechas: [] as string[], minutos: [] as number[] };
+    for (const a of conCosto) {
+      const c = filas.calculos.get(a.id)!;
+      const calendario = a.usaCorrido ? cal.CORRIDO : cal.OBRA;
+      const dias = c.duracionMinutos > 0 ? calendario.minutosPorDia(aMinutos(c.inicio), aMinutos(c.fin)) : [];
+      for (const d of dias.length > 0 ? dias : [{ fecha: c.inicio.slice(0, 10), minutos: 0 }]) {
+        reparto.actividadIds.push(a.id);
+        reparto.fechas.push(d.fecha);
+        reparto.minutos.push(d.minutos);
+      }
+    }
+    return reparto;
   });
 }

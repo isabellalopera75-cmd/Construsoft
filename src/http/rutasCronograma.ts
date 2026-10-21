@@ -9,10 +9,15 @@ import {
   cerrarAvisoDelPresupuesto,
   crearCronograma,
   editarCronograma,
+  eliminarLineaBase,
+  guardarLineaBase,
   leerCronograma,
   leerCronogramaDelPresupuesto,
+  leerCurvas,
+  listarLineasBase,
   type CronogramaLeido,
   type ResultadoDeEdicion,
+  type ResultadoDeLineaBase,
 } from '../infraestructura/basedatos/cronograma.js';
 import { ErrorParaElUsuario } from '../infraestructura/basedatos/errorParaElUsuario.js';
 import { esNegacionDePermiso } from './errores.js';
@@ -171,6 +176,7 @@ function exigirGrupo(filas: FilasDelCronograma, grupoId: string | null | undefin
 
 export function registrarRutasDeCronograma(app: FastifyInstance, sesionDe: SesionDe): void {
   const cronogramaNoExiste = () => new ErrorParaElUsuario('Ese cronograma no existe en su empresa.', 'NO_EXISTE');
+  const lineaBaseNoExiste = () => new ErrorParaElUsuario('Esa línea base no existe en este cronograma.', 'NO_EXISTE');
   const idDe = (texto: string, noExiste: () => ErrorParaElUsuario) => {
     if (!UUID.test(texto)) throw noExiste();
     return texto;
@@ -225,7 +231,7 @@ export function registrarRutasDeCronograma(app: FastifyInstance, sesionDe: Sesio
     const noExiste = () => new ErrorParaElUsuario('Ese presupuesto no existe en su empresa.', 'NO_EXISTE');
     const presupuestoId = idDe(request.params.id, noExiste);
     const { lineaBase } = request.query;
-    const lineaBaseId = lineaBase === undefined ? null : idDe(lineaBase, () => new ErrorParaElUsuario('Esa línea base no existe en este cronograma.', 'NO_EXISTE'));
+    const lineaBaseId = lineaBase === undefined ? null : idDe(lineaBase, lineaBaseNoExiste);
     const leido = await leerCronogramaDelPresupuesto(contexto, presupuestoId, lineaBaseId);
     if (leido === null) throw noExiste();
     if (leido === 'SIN_CRONOGRAMA') return reply.send({ cronograma: null });
@@ -497,6 +503,69 @@ export function registrarRutasDeCronograma(app: FastifyInstance, sesionDe: Sesio
       });
     },
   );
+
+  // --- §19.7 · Las curvas ---------------------------------------------------------------------
+  app.get<{ Params: { id: string }; Querystring: { granularidad?: string; lineaBase?: string } }>('/api/cronogramas/:id/curvas', async (request, reply) => {
+    const contexto = await sesionDe(request, reply);
+    const cronogramaId = idDe(request.params.id, cronogramaNoExiste);
+    const { granularidad, lineaBase } = request.query;
+    if (granularidad !== 'SEMANA' && granularidad !== 'MES') {
+      throw new ErrorParaElUsuario('Las curvas se ven por semana o por mes: SEMANA o MES.', 'RECHAZADO', 'granularidad');
+    }
+    const lineaBaseId = lineaBase === undefined ? null : idDe(lineaBase, lineaBaseNoExiste);
+    const curvas = await leerCurvas(contexto, cronogramaId, granularidad, lineaBaseId);
+    if (!curvas) throw cronogramaNoExiste();
+    return reply.send(curvas);
+  });
+
+  // --- §19.8 · Líneas base ----------------------------------------------------------------------
+  const esquemaLineaBase = z.strictObject({ version, nombre: nombre('de la línea base') }, SIN_CAMPOS_DE_MAS);
+  const esquemaReemplazo = z.strictObject({ version }, SIN_CAMPOS_DE_MAS);
+
+  /** Las cuatro salidas de guardar (§19.8): la foto, el 409 de versión, el de presupuesto cambiado y el de nombre. */
+  async function responderLineaBase(reply: FastifyReply, contexto: ContextoTenant, resultado: ResultadoDeLineaBase | null, codigo: 200 | 201, cronogramaId: string | null) {
+    if (!resultado) throw cronogramaId === null ? lineaBaseNoExiste() : cronogramaNoExiste();
+    if (resultado.tipo === 'HECHO') return reply.code(codigo).send({ lineaBase: resultado.lineaBase });
+    if (resultado.tipo === 'NOMBRE_REPETIDO') {
+      return reply.code(409).send({ mensaje: `Ya hay una línea base «${resultado.nombre}». ¿Quiere reemplazarla?`, campo: 'nombre', lineaBaseId: resultado.id });
+    }
+    if (resultado.tipo === 'DESACTUALIZADO') {
+      return reply.code(409).send({
+        mensaje: 'El presupuesto cambió desde que usted abrió el cronograma. Revise las fechas nuevas y vuelva a guardar la línea base.',
+        cronograma: await vista(contexto, resultado.leido),
+      });
+    }
+    const actual = await leerCronograma(contexto, resultado.cronogramaId);
+    if (!actual) throw cronogramaNoExiste();
+    return reply.code(409).send({ mensaje: OTRA_PERSONA, cronograma: await vista(contexto, actual) });
+  }
+
+  app.get<{ Params: { id: string } }>('/api/cronogramas/:id/lineas-base', async (request, reply) => {
+    const contexto = await sesionDe(request, reply);
+    const lineasBase = await listarLineasBase(contexto, idDe(request.params.id, cronogramaNoExiste));
+    if (!lineasBase) throw cronogramaNoExiste();
+    return reply.send({ lineasBase });
+  });
+
+  app.post<{ Params: { id: string } }>('/api/cronogramas/:id/lineas-base', async (request, reply) => {
+    const contexto = await sesionDe(request, reply);
+    const cronogramaId = idDe(request.params.id, cronogramaNoExiste);
+    const datos = esquemaLineaBase.parse(request.body);
+    return responderLineaBase(reply, contexto, await guardarLineaBase(contexto, { cronogramaId }, datos.version, datos.nombre), 201, cronogramaId);
+  });
+
+  app.post<{ Params: { id: string } }>('/api/lineas-base/:id/reemplazar', async (request, reply) => {
+    const contexto = await sesionDe(request, reply);
+    const reemplazaId = idDe(request.params.id, lineaBaseNoExiste);
+    const datos = esquemaReemplazo.parse(request.body);
+    return responderLineaBase(reply, contexto, await guardarLineaBase(contexto, { reemplazaId }, datos.version, null), 200, null);
+  });
+
+  app.delete<{ Params: { id: string } }>('/api/lineas-base/:id', async (request, reply) => {
+    const contexto = await sesionDe(request, reply);
+    if (!(await eliminarLineaBase(contexto, idDe(request.params.id, lineaBaseNoExiste)))) throw lineaBaseNoExiste();
+    return reply.code(204).send();
+  });
 
   // --- §19.6 · Cerrar la franja: sin versión, y no la sube (D-93) ----------------------------
   app.post<{ Params: { id: string } }>('/api/cronogramas/:id/aviso/cerrar', async (request, reply) => {

@@ -1,7 +1,7 @@
 import { ErrorDeCalendario } from '../../cronograma/calendarioCompilado.js';
 import { estaAlDia, type FilaActividad, type FilaCalculo, type FilasDelCronograma } from '../../cronograma/filas.js';
 import type { TipoDeRestriccion } from '../../cronograma/motor.js';
-import { recalcular } from '../../cronograma/recalculo.js';
+import { recalcular, repartoEnMinutos } from '../../cronograma/recalculo.js';
 import { deMinutos } from '../../cronograma/tiempo.js';
 import type { LineaBaseLeida } from '../../cronograma/vista.js';
 import { leerCalendarioEn } from './calendarios.js';
@@ -428,6 +428,177 @@ export async function editarCronograma(
 export async function cerrarAvisoDelPresupuesto(contexto: ContextoTenant, cronogramaId: string): Promise<boolean> {
   return ejecutarConPermiso(contexto, 'PRESUPUESTOS.EDITAR', async (cliente) => {
     const { rowCount } = await cliente.query('UPDATE app.cronograma SET aviso_presupuesto = NULL WHERE id = $1', [cronogramaId]);
+    return rowCount === 1;
+  });
+}
+
+// -----------------------------------------------------------------------------
+//  §19.7 · Las curvas. El dinero lo reparte la base (fn_curvas) con los minutos
+//  que entrega el motor; las acumuladas también salen de ella (regla 1.1).
+// -----------------------------------------------------------------------------
+
+export interface Periodo {
+  periodo: string;
+  facturacion: string;
+  costo: string;
+  facturacionAcumulada: string;
+  costoAcumulado: string;
+}
+
+export interface Curvas {
+  granularidad: 'SEMANA' | 'MES';
+  periodos: Periodo[];
+  totales: { facturacion: string; costo: string };
+  lineaBase: { id: string; nombre: string; periodos: Periodo[] } | null;
+}
+
+const ACUMULADAS = `
+    to_char(periodo, 'YYYY-MM-DD') AS periodo, facturacion, costo,
+    (sum(facturacion) OVER (ORDER BY periodo))::app.dinero AS "facturacionAcumulada",
+    (sum(costo) OVER (ORDER BY periodo))::app.dinero AS "costoAcumulado"`;
+
+/** null si el cronograma no es de esta empresa. Recalcula antes si hace falta (§19.7). */
+export async function leerCurvas(
+  contexto: ContextoTenant,
+  cronogramaId: string,
+  granularidad: 'SEMANA' | 'MES',
+  lineaBaseId: string | null,
+): Promise<Curvas | null> {
+  return ejecutarConPermisoEnUnaFoto(contexto, 'PRESUPUESTOS.VER', async (cliente) => {
+    const { rowCount } = await cliente.query('SELECT 1 FROM app.cronograma WHERE id = $1', [cronogramaId]);
+    if (rowCount !== 1) return null;
+    const { filas, lineaBase } = await alDiaEn(cliente, cronogramaId, lineaBaseId);
+    const reparto = repartoEnMinutos(filas);
+    const periodos = await cliente.query<Periodo>(
+      `SELECT ${ACUMULADAS} FROM app.fn_curvas($1, $2::uuid[], $3::date[], $4::int[], $5) ORDER BY periodo`,
+      [filas.cabecera.presupuestoId, reparto.actividadIds, reparto.fechas, reparto.minutos, granularidad],
+    );
+    const totales = await cliente.query<{ facturacion: string; costo: string }>(
+      `SELECT valor_total AS facturacion,
+              (total_costo_directo + total_costo_indirecto + total_administracion)::app.dinero AS costo
+         FROM app.presupuesto WHERE id = $1`,
+      [filas.cabecera.presupuestoId],
+    );
+    let curvaBase: Curvas['lineaBase'] = null;
+    if (lineaBase) {
+      // Por día en la base; la semana y el mes se arman aquí con la semana de hoy (RN-38, B6).
+      const { rows } = await cliente.query<Periodo>(
+        `WITH s AS (SELECT inicio_semana FROM app.configuracion_empresa WHERE tenant_id = $3),
+              p AS (
+                SELECT CASE WHEN $2 = 'SEMANA'
+                            THEN d.fecha - ((extract(isodow FROM d.fecha)::int - s.inicio_semana + 7) % 7)
+                            ELSE date_trunc('month', d.fecha)::date END AS periodo,
+                       sum(d.facturacion)::app.dinero AS facturacion, sum(d.costo)::app.dinero AS costo
+                  FROM app.linea_base_periodo d CROSS JOIN s
+                 WHERE d.linea_base_id = $1
+                 GROUP BY 1)
+         SELECT ${ACUMULADAS} FROM p ORDER BY periodo`,
+        [lineaBase.id, granularidad, filas.cabecera.tenantId],
+      );
+      curvaBase = { id: lineaBase.id, nombre: lineaBase.nombre, periodos: rows };
+    }
+    return { granularidad, periodos: periodos.rows, totales: totales.rows[0]!, lineaBase: curvaBase };
+  });
+}
+
+// -----------------------------------------------------------------------------
+//  §19.8 · Líneas base. Solo con el presupuesto Activo; guardar no sube la
+//  versión, porque no es una entrada.
+// -----------------------------------------------------------------------------
+
+export interface LineaBaseResumen {
+  id: string;
+  nombre: string;
+  guardadaEn: Date;
+  guardadaPor: string | null;
+  fin: string;
+}
+
+const RESUMEN_DE_LINEA_BASE = `
+    SELECT lb.id, lb.nombre, lb.guardada_en AS "guardadaEn", u.nombre AS "guardadaPor", ${FECHA_HORA('max(x.fin)')} AS fin
+      FROM app.linea_base lb
+      LEFT JOIN app.usuario u ON u.id = lb.guardada_por
+      LEFT JOIN app.linea_base_actividad x ON x.linea_base_id = lb.id`;
+
+export type ResultadoDeLineaBase =
+  | { tipo: 'HECHO'; lineaBase: LineaBaseResumen }
+  | { tipo: 'VERSION_VIEJA'; cronogramaId: string }
+  | { tipo: 'DESACTUALIZADO'; leido: CronogramaLeido }
+  | { tipo: 'NOMBRE_REPETIDO'; id: string; nombre: string };
+
+/**
+ * Guarda (o reemplaza, con `reemplazaId`) la foto de lo que la persona vio.
+ * Si el cronograma no estaba al día, lo que vio ya no es lo que se guardaría:
+ * recalcula, no guarda y lo dice (§19.8). null si no es de esta empresa.
+ */
+export async function guardarLineaBase(
+  contexto: ContextoTenant,
+  ubicacion: { cronogramaId: string } | { reemplazaId: string },
+  version: number,
+  nombre: string | null,
+): Promise<ResultadoDeLineaBase | null> {
+  return ejecutarConPermisoEnUnaFoto(contexto, 'PRESUPUESTOS.EDITAR', async (cliente) => {
+    let cronogramaId: string;
+    let reemplazaId: string | null = null;
+    if ('cronogramaId' in ubicacion) cronogramaId = ubicacion.cronogramaId;
+    else {
+      const { rows } = await cliente.query<{ cronograma_id: string }>('SELECT cronograma_id FROM app.linea_base WHERE id = $1', [ubicacion.reemplazaId]);
+      if (!rows[0]) return null;
+      cronogramaId = rows[0].cronograma_id;
+      reemplazaId = ubicacion.reemplazaId;
+    }
+    const bloqueada = await cliente.query('SELECT 1 FROM app.cronograma WHERE id = $1 FOR UPDATE', [cronogramaId]);
+    if (bloqueada.rowCount !== 1) return null;
+    let filas = (await cargarFilasEn(cliente, cronogramaId))!;
+    if (filas.cabecera.version !== version) return { tipo: 'VERSION_VIEJA', cronogramaId };
+    if (filas.presupuesto.estado !== 'ACTIVO') {
+      throw new ErrorParaElUsuario(
+        `Las líneas base se guardan solo con el presupuesto Activo, y este está ${filas.presupuesto.estado === 'ABIERTO' ? 'Abierto' : 'Cerrado'} (RF-PRG-09).`,
+        'RECHAZADO',
+      );
+    }
+    if (!estaAlDia(filas)) {
+      filas = await recalcularEn(cliente, cronogramaId);
+      return { tipo: 'DESACTUALIZADO', leido: { filas, recalculado: true, lineaBase: null } };
+    }
+    if (reemplazaId === null) {
+      const { rows } = await cliente.query<{ id: string; nombre: string }>(
+        'SELECT id, nombre FROM app.linea_base WHERE cronograma_id = $1 AND lower(btrim(nombre)) = lower(btrim($2))',
+        [cronogramaId, nombre],
+      );
+      if (rows[0]) return { tipo: 'NOMBRE_REPETIDO', id: rows[0].id, nombre: rows[0].nombre };
+    }
+    const reparto = repartoEnMinutos(filas);
+    const { rows } = await cliente.query<{ id: string }>('SELECT app.fn_guardar_linea_base($1, $2, $3::uuid[], $4::date[], $5::int[], $6) AS id', [
+      cronogramaId,
+      nombre,
+      reparto.actividadIds,
+      reparto.fechas,
+      reparto.minutos,
+      reemplazaId,
+    ]);
+    const resumen = await cliente.query<LineaBaseResumen>(`${RESUMEN_DE_LINEA_BASE} WHERE lb.id = $1 GROUP BY lb.id, u.nombre`, [rows[0]!.id]);
+    return { tipo: 'HECHO', lineaBase: resumen.rows[0]! };
+  });
+}
+
+/** null si el cronograma no es de esta empresa. */
+export async function listarLineasBase(contexto: ContextoTenant, cronogramaId: string): Promise<LineaBaseResumen[] | null> {
+  return ejecutarConPermiso(contexto, 'PRESUPUESTOS.VER', async (cliente) => {
+    const { rowCount } = await cliente.query('SELECT 1 FROM app.cronograma WHERE id = $1', [cronogramaId]);
+    if (rowCount !== 1) return null;
+    const { rows } = await cliente.query<LineaBaseResumen>(
+      `${RESUMEN_DE_LINEA_BASE} WHERE lb.cronograma_id = $1 GROUP BY lb.id, u.nombre ORDER BY lb.guardada_en, lb.id`,
+      [cronogramaId],
+    );
+    return rows;
+  });
+}
+
+/** Solo con el presupuesto Activo: lo rechaza la base, y deja su evento si entra. false si no es de esta empresa. */
+export async function eliminarLineaBase(contexto: ContextoTenant, lineaBaseId: string): Promise<boolean> {
+  return ejecutarConPermiso(contexto, 'PRESUPUESTOS.EDITAR', async (cliente) => {
+    const { rowCount } = await cliente.query('DELETE FROM app.linea_base WHERE id = $1', [lineaBaseId]);
     return rowCount === 1;
   });
 }

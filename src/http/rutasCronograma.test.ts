@@ -5,6 +5,7 @@ import type { FastifyInstance } from 'fastify';
 import { agregarActividad, cambiarCantidad, eliminarActividad } from '../infraestructura/basedatos/actividad.js';
 import { activarPresupuesto, cerrarPresupuesto } from '../infraestructura/basedatos/cicloDeVida.js';
 import { armarPresupuestoDeReferencia, type PresupuestoDeReferencia } from '../pruebas/presupuestoDeReferencia.js';
+import { comoSuperusuario } from '../pruebas/superusuario.js';
 import { VERSION_TERMINOS_DE_PRUEBA, clienteDePrueba, type Cuenta, CARPETA_LEGAL_DE_PRUEBA } from '../pruebas/clienteHttp.js';
 import { construirServidor } from './servidor.js';
 
@@ -356,5 +357,108 @@ describe('cronograma: permiso y aislamiento (RN-43, RN-01)', () => {
     }
     const intacto = await llamar('GET', `/api/presupuestos/${vista.cronograma.presupuestoId}/cronograma`, duena.cookie);
     assert.deepEqual([intacto.cuerpo.cronograma.version, intacto.cuerpo.cronograma.fechaInicio, intacto.cuerpo.grupos], [1, '2026-11-02', []]);
+  });
+});
+
+describe('las curvas y las líneas base (CONTRATO §19.7–§19.8)', () => {
+  let duena: Cuenta;
+  let referencia: PresupuestoDeReferencia;
+  let vista: Record<string, any>;
+  const editarActividad = async (nombre: string, cambios: Record<string, unknown>) => {
+    const r = await llamar('PATCH', `/api/cronogramas/${vista.cronograma.id}/actividades/${porNombre(vista, nombre).id}`, duena.cookie, {
+      version: vista.cronograma.version,
+      ...cambios,
+    });
+    assert.equal(r.estado, 200, r.crudo);
+    vista = r.cuerpo;
+  };
+  const leer = async (consulta = '') => (await llamar('GET', `/api/presupuestos/${referencia.presupuestoId}/cronograma${consulta}`, duena.cookie)).cuerpo;
+
+  before(async () => {
+    duena = await registrar('Constructora Cronograma Curvas', '900000987-7', 'cronograma.curvas@construsoft.test');
+    referencia = await armarPresupuestoDeReferencia(duena.contexto, 'CRONO-CURVAS');
+    vista = (await llamar('POST', `/api/presupuestos/${referencia.presupuestoId}/cronograma`, duena.cookie, { fechaInicio: '2026-11-02' })).cuerpo;
+    // Una cadena de nueve semanas: cada ítem dura una o dos y sigue al anterior.
+    const nombres = vista.actividades.filter((a: Actividad) => a.tipo === 'ITEM').map((a: Actividad) => a.nombre);
+    for (const [i, nombre] of nombres.entries()) await editarActividad(nombre, { duracionManualDias: i % 2 === 0 ? '5' : '10' });
+    for (let i = 1; i < nombres.length; i += 1) {
+      const r = await llamar('POST', `/api/cronogramas/${vista.cronograma.id}/dependencias`, duena.cookie, {
+        version: vista.cronograma.version,
+        predecesoraId: porNombre(vista, nombres[i - 1]).id,
+        sucesoraId: porNombre(vista, nombres[i]).id,
+        tipo: 'FC',
+        desfaseDias: '0',
+      });
+      vista = r.cuerpo;
+    }
+  });
+
+  test('la facturación suma el valor total y el costo, directo más indirecto más administración; las acumuladas cierran en esos totales', async () => {
+    for (const granularidad of ['SEMANA', 'MES']) {
+      const r = await llamar('GET', `/api/cronogramas/${vista.cronograma.id}/curvas?granularidad=${granularidad}`, duena.cookie);
+      assert.equal(r.estado, 200, r.crudo);
+      const { periodos, totales } = r.cuerpo;
+      assert.equal(r.cuerpo.granularidad, granularidad);
+      // 06 §8: el presupuesto de referencia cierra en 180.590.155.
+      assert.equal(totales.facturacion, '180590155.000000');
+      const ultimo = periodos.at(-1);
+      assert.deepEqual([ultimo.facturacionAcumulada, ultimo.costoAcumulado], [totales.facturacion, totales.costo]);
+      assert.ok(periodos.length >= (granularidad === 'SEMANA' ? 9 : 3), `${granularidad}: ${periodos.length} periodos`);
+      assert.ok(periodos.every((p: { periodo: string }) => /^\d{4}-\d{2}-\d{2}$/.test(p.periodo)));
+      assert.equal(r.cuerpo.lineaBase, null);
+    }
+    const semanas = (await llamar('GET', `/api/cronogramas/${vista.cronograma.id}/curvas?granularidad=SEMANA`, duena.cookie)).cuerpo.periodos;
+    // La semana empieza el lunes (inicio_semana = 1): cada periodo se nombra por su lunes.
+    assert.ok(semanas.every((p: { periodo: string }) => new Date(`${p.periodo}T00:00Z`).getUTCDay() === 1));
+    const mala = await llamar('GET', `/api/cronogramas/${vista.cronograma.id}/curvas?granularidad=DIA`, duena.cookie);
+    assert.deepEqual([mala.estado, mala.cuerpo.campo], [422, 'granularidad']);
+  });
+
+  test('una línea base no se guarda con el presupuesto Abierto: 422 sin campo', async () => {
+    const r = await llamar('POST', `/api/cronogramas/${vista.cronograma.id}/lineas-base`, duena.cookie, { version: vista.cronograma.version, nombre: 'Contrato' });
+    assert.deepEqual([r.estado, r.cuerpo.campo], [422, undefined], r.crudo);
+  });
+
+  test('con el presupuesto Activo: guardar, no sobrescribir en silencio, reemplazar, comparar y eliminar', async () => {
+    await activarPresupuesto(duena.contexto, referencia.presupuestoId);
+    vista = await leer();
+    const guardada = await llamar('POST', `/api/cronogramas/${vista.cronograma.id}/lineas-base`, duena.cookie, { version: vista.cronograma.version, nombre: 'Contrato' });
+    assert.equal(guardada.estado, 201, guardada.crudo);
+    const lb = guardada.cuerpo.lineaBase;
+    assert.deepEqual([lb.nombre, lb.guardadaPor, lb.fin], ['Contrato', 'Admin de Constructora Cronograma Curvas', vista.cronograma.fin]);
+    assert.equal((await leer()).cronograma.version, vista.cronograma.version, 'guardar no sube la versión');
+
+    const otraVez = await llamar('POST', `/api/cronogramas/${vista.cronograma.id}/lineas-base`, duena.cookie, { version: vista.cronograma.version, nombre: ' contrato ' });
+    assert.deepEqual([otraVez.estado, otraVez.cuerpo.campo, otraVez.cuerpo.lineaBaseId], [409, 'nombre', lb.id], otraVez.crudo);
+    assert.equal(otraVez.cuerpo.mensaje, 'Ya hay una línea base «Contrato». ¿Quiere reemplazarla?');
+
+    // La obra se alarga una semana: la línea base la compara y avisa de la administración.
+    await editarActividad('Formaleta metálica', { duracionManualDias: '10' });
+    const comparada = await leer(`?lineaBase=${lb.id}`);
+    const formaleta = comparada.lineaBase.actividades.find((x: { actividadId: string }) => x.actividadId === porNombre(comparada, 'Formaleta metálica').id);
+    assert.deepEqual([formaleta.variacionInicioDias, formaleta.variacionFinDias, formaleta.duracionDias], ['0.0', '5.0', '5.0']);
+    assert.deepEqual([comparada.avisos.administracion.lineaBaseId, comparada.avisos.administracion.diasDeMas], [lb.id, '5.0']);
+    assert.equal((await leer()).avisos.administracion, null, 'sin línea base a la vista, no hay aviso');
+
+    const curvas = await llamar('GET', `/api/cronogramas/${vista.cronograma.id}/curvas?granularidad=MES&lineaBase=${lb.id}`, duena.cookie);
+    assert.equal(curvas.cuerpo.lineaBase.periodos.at(-1).facturacionAcumulada, '180590155.000000');
+
+    const reemplazada = await llamar('POST', `/api/lineas-base/${lb.id}/reemplazar`, duena.cookie, { version: vista.cronograma.version });
+    assert.equal(reemplazada.estado, 200, reemplazada.crudo);
+    assert.deepEqual([reemplazada.cuerpo.lineaBase.id, reemplazada.cuerpo.lineaBase.fin], [lb.id, vista.cronograma.fin]);
+    const lista = await llamar('GET', `/api/cronogramas/${vista.cronograma.id}/lineas-base`, duena.cookie);
+    assert.deepEqual(lista.cuerpo.lineasBase.map((x: { nombre: string }) => x.nombre), ['Contrato']);
+
+    assert.equal((await llamar('DELETE', `/api/lineas-base/${lb.id}`, duena.cookie)).estado, 204);
+    assert.deepEqual((await leer()).lineasBase, []);
+  });
+
+  test('si el cronograma estaba desactualizado al pedir guardar, no se guarda: 409 con la vista recalculada', async () => {
+    await comoSuperusuario((c) => c.query('UPDATE app.cronograma SET calculado_version = NULL, calculado_revision = NULL WHERE id = $1', [vista.cronograma.id]));
+    const r = await llamar('POST', `/api/cronogramas/${vista.cronograma.id}/lineas-base`, duena.cookie, { version: vista.cronograma.version, nombre: 'Tarde' });
+    assert.equal(r.estado, 409, r.crudo);
+    assert.match(r.cuerpo.mensaje, /El presupuesto cambió desde que usted abrió el cronograma/);
+    assert.equal(r.cuerpo.cronograma.cronograma.recalculado, true);
+    assert.deepEqual((await leer()).lineasBase, []);
   });
 });
