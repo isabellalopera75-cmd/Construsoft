@@ -6,6 +6,47 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-21 · miércoles, los XER de muestra y la lista de versiones de P6
+
+**Commiteado por mí:** el CONTRATO §19.9 y §19.11. Los archivos están en
+`muestras/P6/` (con mayúscula). Son tres XER y dos XML de Project, todos
+exportados desde P6:
+
+| Archivo | Proyecto | Versión |
+|---|---|---|
+| `2505 - V21.12 or later.xer` | 2505 | P6 21.12 o posterior |
+| `2606 - V15.2.xer` | 2606 | P6 15.2 |
+| `2606 - V8.2.xer` | 2606 | P6 8.2 |
+| `2606 - XML 2013.xml`, `2606 - XML 2016.xml` | 2606 | MS Project 2013 y 2016 |
+
+Los cuatro primeros dígitos son el código del proyecto en la empresa; lo que va
+después de la «V» es la versión.
+
+**Son cronogramas reales de la empresa del dueño**, con recursos, tarifas y, el
+2505, avance. `muestras/` está en `.gitignore`: no los agregues al repositorio
+con `-f`, como sí se hizo con `muestras/cronograma/`. Las pruebas del XER
+tienen que armar su propio cronograma.
+
+**Lo que leí** (el detalle está en el §19.9):
+- **La lista de versiones:** `8.2`, `15.2` y `21.12`, en ese orden. La
+  pantalla ofrece la primera por defecto.
+- **8.2 y 15.2 son el mismo archivo**, salvo la versión del `ERMHDR` y seis
+  ids de una tabla de roles.
+- **El 21.12 es de otro proyecto** y trae siete tablas más, entre ellas
+  `SCHEDOPTIONS`. Con estas muestras no sé cuáles son de la versión y cuáles
+  del proyecto. Lo que traen los dos proyectos tiene las mismas columnas.
+- **No están en UTF-8**: todo indica Windows-1252, con CRLF y sin BOM.
+- **El LOE de las muestras** va con una relación SS desde una actividad hacia
+  el LOE y una FF desde el LOE hacia otra. Es lo que dice el 07 para la
+  administración.
+- **Ninguna trae una actividad «lo más tarde posible».** P8 sigue sin
+  confirmar: le pedí al dueño una muestra pequeña con una.
+- Los dos XML que exportó P6 sirven para comparar el tuyo, si lo necesitas.
+
+**Qué necesito de ti:** el XER (§19.9), para las tres versiones.
+
+---
+
 ## 2026-10-21 · miércoles, las pantallas del módulo 1 y dos cambios del §19
 
 **Hecho y commiteado por mí** (solo `web/`, el CONTRATO, el DISENO, el 02 y

@@ -1928,9 +1928,42 @@ Periodo = { periodo: Fecha,           // su primer día
 - Exportar funciona en cualquier estado de la suscripción, como en §17.1.
 - **El PDF** muestra la tabla y las barras como en pantalla, con la línea base
   escogida.
-- **El XER** sale para la versión de P6 que se escoja. Las versiones se fijan
-  al construir, con los archivos de muestra que consigue el dueño; mientras
-  tanto, `GET /api/exportacion/p6` es la única fuente de la lista.
+- **El XER** sale para la versión de P6 que se escoja. `GET /api/exportacion/p6`
+  es la única fuente de la lista, y la pantalla ofrece la primera por defecto.
+  Desde el 21 de octubre de 2026 son tres, las de los archivos de muestra del
+  dueño (`muestras/P6/`), en este orden:
+
+  | `id` | `nombre` |
+  |---|---|
+  | `8.2` | `P6 8.2` |
+  | `15.2` | `P6 15.2` |
+  | `21.12` | `P6 21.12 o posterior` |
+
+  La primera es la antigua, que abren casi todas las versiones (07 §6.9).
+
+  Lo que dicen las muestras, leídas el 21 de octubre:
+  - **El de 8.2 y el de 15.2 son el mismo archivo**, salvo la versión de la
+    primera línea (`ERMHDR`) y seis ids de una tabla de roles. Tienen las
+    mismas tablas y las mismas columnas.
+  - **El de 21.12 es de otro proyecto** y trae siete tablas más:
+    `SCHEDOPTIONS` (las opciones de cálculo), `PROJCOST`, `TASKFIN`,
+    `TASKMEMO`, `FINDATES`, `FINTMPL` y `MEMOTYPE`. Con estas muestras no se
+    puede saber cuáles son de la versión y cuáles del proyecto: ese proyecto
+    tiene avance, costos y notas, y el otro no. Las tablas que traen los dos
+    proyectos tienen las mismas columnas en las tres versiones.
+  - **No vienen en UTF-8**: tienen bytes que no lo son. Todo indica que es
+    Windows-1252. Van con fin de línea CRLF y sin BOM. Hay que escribir el XER
+    igual, y decidir qué pasa con un carácter que no existe en esa página de
+    códigos. `m²`, `m³` y las tildes sí existen en ella.
+  - **La administración como Level of Effort** (RF-PRG-11) va como en las
+    muestras: una relación CC desde la actividad que empieza primero hacia
+    el LOE, y una FF desde el LOE hacia la que termina de última.
+  - El desfase va en horas (`lag_hr_cnt`).
+  - Ninguna muestra tiene una actividad «lo más tarde posible»: no sirven para
+    confirmar la holgura del §19.6 (ver §19.11).
+- **Las muestras son cronogramas reales de una empresa:** quedan fuera del
+  repositorio, porque `muestras/` está en `.gitignore`. Las pruebas del XER
+  usan un cronograma armado en la prueba, no esos archivos.
 - **El XML** pierde cosas que Project no sabe representar (07 §6.9), y la
   pantalla de exportación lo advierte antes de descargar:
   - una sola restricción por actividad: la secundaria solo se conserva si es
@@ -1952,9 +1985,10 @@ decidió el dueño (07 §6.9), no cada clic.
   `inicioSemana` en la cabecera de la `VistaCronograma` (§19.5) y
   `?lineaBase=` en todas las escrituras y en el 409 (§19.6). Mientras la API no
   mande `inicioSemana`, la pantalla toma el lunes.
-- La lista de versiones de P6 del XER, que depende de los archivos de muestra.
-- Confirmar en P6, con esos mismos archivos, la holgura total de una
-  actividad «lo más tarde posible» (§19.6). Si P6 la deja sin reducir, se
-  cambia el motor.
+- ~~La lista de versiones de P6 del XER~~: fijada el 21 de octubre (§19.9).
+- Confirmar en P6 la holgura total de una actividad «lo más tarde posible»
+  (§19.6). Las muestras no traen ninguna. Hace falta una muestra más, pequeña,
+  con una actividad «lo más tarde posible» que tenga holgura libre, calculada
+  en P6. Si P6 la deja sin reducir, se cambia el motor.
 - Al construir, cualquier forma que no le sirva al motor o a la pantalla se
   corrige aquí primero, como en el resto del contrato.
