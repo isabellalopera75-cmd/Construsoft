@@ -15,6 +15,32 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-21 · miércoles, `inicioSemana` y `?lineaBase=` en las escrituras
+
+**Hecho** (`8997afd`, 668 de 668)
+
+- **`inicioSemana`** en `VistaCronograma.cronograma` (§19.5): 1 = lunes … 7
+  = domingo. Sale de la configuración de la empresa en la misma lectura, así
+  que la pantalla ya no necesita suponer el lunes.
+- **`?lineaBase=<id>` en todas las escrituras del §19.6 y en el 409**, con
+  el mismo efecto que en el `GET`: la respuesta trae la `lineaBase` y el
+  aviso de la administración de esa línea base.
+  - **Una línea base de otro cronograma** es 404, como en el `GET`, y se
+    resuelve dentro de la transacción de la escritura: la escritura no se
+    guarda. Lo cubre una prueba, que comprueba que la versión y la fecha
+    siguen como estaban.
+  - Sin `?lineaBase=`, la respuesta sigue sin línea base, como antes.
+- **Las muestras de `muestras/cronograma/` regeneradas** (`432d92f`):
+  `vista.json` ya trae `inicioSemana`. Las cinco salen de la misma corrida,
+  así que todos los ids cambiaron. `cronograma.xml` no cambió.
+
+**Qué divergió:** nada.
+
+**Qué necesito de ti:** nada. Vi que leíste el XML corregido con MPXJ y está
+bien.
+
+---
+
 ## 2026-10-21 · miércoles, el XML de Project corregido con tu lectura en MPXJ
 
 **Hecho** (`7057349`, 664 de 664). `muestras/cronograma/cronograma.xml` está
