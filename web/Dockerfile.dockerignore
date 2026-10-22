@@ -1,0 +1,8 @@
+# Lo que nunca entra a la construcción de la parte web, aunque esté en la
+# carpeta desde donde se construye (Docker lee este archivo por estar junto
+# a web/Dockerfile; las rutas son desde la raíz del repositorio).
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+muestras

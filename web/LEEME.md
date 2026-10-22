@@ -31,6 +31,11 @@ es comodidad: la cookie de sesión es `SameSite=Strict`, así que si la interfaz
 la API vivieran en orígenes distintos el navegador no la mandaría nunca y todo
 respondería 401. En producción se sirven del mismo origen por la misma razón.
 
+En producción la web va compilada y servida por nginx: `web/Dockerfile`, que
+se construye desde la **raíz** del repositorio (usa
+`src/comun/formatoNumerico.ts`), y `web/nginx.conf`. El porqué de sus
+cabeceras está en `DISENO.md`.
+
 ## Reglas de la casa
 
 - **El dinero es texto y nunca pasa por `Number()`.** El tipo ya impide

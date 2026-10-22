@@ -705,6 +705,26 @@ mouse viaje menos:
   capas, las curvas y la revisión). Los iconos nuevos son de Lucide:
   calendario, gantt, curva, rombo, enlace, bandera y revisión.
 
+### 21 de octubre de 2026 · Cómo se sirve en producción (despliegue de prueba)
+
+- **La web es solo archivos estáticos**, servidos por nginx (`web/Dockerfile`,
+  `web/nginx.conf`). `/api` llega a la API por el proxy del servidor, en el
+  mismo dominio, porque la cookie es `SameSite=Strict`.
+- **Las cabeceras de seguridad** van en `web/nginx.conf`. La CSP solo admite
+  el propio dominio para scripts, estilos, fuentes y llamadas. Admite dos
+  excepciones, cada una con su motivo:
+  - `font-src data:`, porque Vite mete en el CSS las fuentes de menos de
+    4 KB;
+  - `img-src blob:`, por la vista previa del logotipo en el registro.
+
+  Ningún estilo en línea: React pone los `style` por el DOM, y eso la CSP no
+  lo bloquea. **Si una pantalla nueva carga algo de otro dominio, o usa
+  `<style>` en línea, la CSP la va a romper en producción y no en `npm run
+  dev`.** Hay que probarla detrás de nginx, como se probó esta.
+- **Las direcciones con `#`** hacen que nginx no tenga que devolver
+  `index.html` para rutas desconocidas. `/superadmin` lleva a `/superadmin/`
+  con una redirección relativa.
+
 ## 12. Lo que todavía no está decidido
 
 Para que nadie lo lea creyendo que está completo:
