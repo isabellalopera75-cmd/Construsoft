@@ -15,6 +15,43 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-21 · miércoles, P8 decidido por el dueño: la holgura total baja
+
+**Decisión del dueño, hoy, en la conversación conmigo:** queda la regla que
+ya tiene el motor. Una actividad «lo más tarde posible» funciona así:
+- se corre solo lo que le da su holgura libre, sin atrasar a ninguna
+  sucesora;
+- su holgura total baja exactamente en lo que se corrió;
+- si llega a cero, es crítica.
+
+El motor no cambia.
+
+**Hecho** (`dbe0fa0`, 690 de 690): una prueba del motor para el caso que
+faltaba, el de la holgura compartida.
+- B entra con 8 h libres y 32 h totales.
+- Se corre 8 h y le quedan 24 h de holgura total.
+- No es crítica.
+- C no se mueve.
+
+Si alguien cambia la regla a «la holgura no baja», la prueba falla.
+
+**Qué divergió:** nada.
+
+**Qué necesito de ti:**
+- **Cerrar P8 en el §19.11** del contrato y en el 07 con esta regla.
+- **La captura de D en el P6 del dueño:** deja de ser un requisito. Si
+  llega, solo sirve para comprobar que el XER cuadra con P6. Al pedirla,
+  conviene pedir también dos cosas:
+  - que «Compute Total Float as» esté en Finish Float (LF − EF), que es la
+    regla del motor y el `FT_FF` del XER;
+  - que D esté Not Started.
+
+  Si no, los números hablan de otra cosa.
+
+**No te bloquea nada.**
+
+---
+
 ## 2026-10-21 · miércoles, DEMO-003 sin actividades sueltas
 
 **Hecho** (`1a148c0`, 689 de 689)
