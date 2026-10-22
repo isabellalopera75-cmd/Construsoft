@@ -210,10 +210,17 @@ interface Props {
   ruta: Ruta;
   /** «Dónde estoy»: las migas, de la más general a la actual. */
   migas: readonly { nombre: string; ruta?: Ruta }[];
+  /**
+   * Sin el tope de 1280 px: las pantallas de tablas (la mesa, el cronograma,
+   * Proyectos, APU, Recursos) usan todo el ancho que tengan, con el menú a la
+   * izquierda, plegado o arriba (pedido del dueño, 21 de octubre de 2026).
+   * Los formularios y los textos se quedan con su ancho.
+   */
+  anchoCompleto?: boolean;
   children: ReactNode;
 }
 
-export function Cascaron({ ruta, migas, children }: Props) {
+export function Cascaron({ ruta, migas, anchoCompleto = false, children }: Props) {
   const { arranque, salir } = useSesion();
   const [pasadas, setPasadas] = useState(0);
   const recientes = useProyectosRecientes(pasadas);
@@ -345,7 +352,9 @@ export function Cascaron({ ruta, migas, children }: Props) {
 
         <AvisoDeSuscripcion />
 
-        <main id="contenido" className="contenido" tabIndex={-1}>
+        {/* data-pantalla: para lo que el CSS ajusta a una pantalla sola (el
+            margen de APU y Recursos). */}
+        <main id="contenido" className="contenido" data-ancho={anchoCompleto ? 'completo' : undefined} data-pantalla={ruta.pantalla} tabIndex={-1}>
           {children}
         </main>
       </div>

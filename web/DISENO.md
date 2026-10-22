@@ -725,6 +725,25 @@ mouse viaje menos:
   `index.html` para rutas desconocidas. `/superadmin` lleva a `/superadmin/`
   con una redirección relativa.
 
+### 21 de octubre de 2026 · Las pantallas de tablas usan todo el ancho (pedido del dueño)
+
+- La mesa, el cronograma, Proyectos, APU y Recursos no tienen el tope de
+  1280 px (`Cascaron anchoCompleto`): llenan lo que deje el menú, abierto,
+  plegado o arriba. Inicio, Configuración y lo «suelto» del cronograma
+  (cargando, error) se quedan con su ancho y centrados.
+- **El ancho de más se lo lleva el texto, no los huecos.** En la mesa, unidad,
+  cantidad, precio, valor e incidencia miden lo que su cifra; el resto es de
+  la descripción. Con más de 1300 px de tabla, las cifras llevan un aire fijo
+  entre ellas. En APU, Recursos y la lista de Proyectos, con más de 900 px de
+  tabla, las columnas cortas no se parten; en la lista de Proyectos el nombre
+  se lleva el sobrante, y en APU y Recursos el nombre ocupa el 45 % y el resto
+  se reparte, para no dejar un hueco en medio de la fila.
+- **APU y Recursos llevan 48 px de margen a los lados** (24 en las demás),
+  desde 1025 px de ventana: son catálogos que se leen fila por fila. El
+  marco marca la pantalla en `#contenido` con `data-pantalla`.
+- **El pie de la mesa va en una sola línea** (con mouse): cada etiqueta al
+  lado de su cifra y el botón del desglose de 30 px. Mide 48 px en vez de 80.
+
 ## 12. Lo que todavía no está decidido
 
 Para que nadie lo lea creyendo que está completo:

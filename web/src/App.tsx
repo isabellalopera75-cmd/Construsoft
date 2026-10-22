@@ -163,14 +163,14 @@ function Adentro({ ruta }: { ruta: Ruta }) {
     case 'presupuestos':
       if (!permitido('PRESUPUESTOS.VER')) break;
       return (
-        <Cascaron ruta={ruta} migas={[INICIO, { nombre: 'Proyectos' }]}>
+        <Cascaron ruta={ruta} migas={[INICIO, { nombre: 'Proyectos' }]} anchoCompleto>
           <Presupuestos />
         </Cascaron>
       );
     case 'mesa':
       if (!permitido('PRESUPUESTOS.VER')) break;
       return (
-        <Cascaron ruta={ruta} migas={[INICIO, { nombre: 'Proyectos', ruta: { pantalla: 'presupuestos' } }, { nombre: 'Mesa de trabajo' }]}>
+        <Cascaron ruta={ruta} migas={[INICIO, { nombre: 'Proyectos', ruta: { pantalla: 'presupuestos' } }, { nombre: 'Mesa de trabajo' }]} anchoCompleto>
           {/* key: abrir otro presupuesto (al duplicar) empieza una mesa nueva. */}
           <Mesa key={ruta.id} id={ruta.id} />
         </Cascaron>
@@ -181,6 +181,7 @@ function Adentro({ ruta }: { ruta: Ruta }) {
         <Cascaron
           ruta={ruta}
           migas={[INICIO, { nombre: 'Proyectos', ruta: { pantalla: 'presupuestos' } }, { nombre: 'Mesa de trabajo', ruta: { pantalla: 'mesa', id: ruta.id } }, { nombre: 'Cronograma' }]}
+          anchoCompleto
         >
           <Cronograma key={ruta.id} presupuestoId={ruta.id} />
         </Cascaron>
@@ -188,14 +189,14 @@ function Adentro({ ruta }: { ruta: Ruta }) {
     case 'recursos':
       if (!permitido('RECURSOS.VER')) break;
       return (
-        <Cascaron ruta={ruta} migas={[INICIO, { nombre: 'Recursos' }]}>
+        <Cascaron ruta={ruta} migas={[INICIO, { nombre: 'Recursos' }]} anchoCompleto>
           <Recursos />
         </Cascaron>
       );
     case 'apu':
       if (!permitido('APU.VER')) break;
       return (
-        <Cascaron ruta={ruta} migas={[INICIO, { nombre: 'APU' }]}>
+        <Cascaron ruta={ruta} migas={[INICIO, { nombre: 'APU' }]} anchoCompleto>
           <ListaDeApu />
         </Cascaron>
       );

@@ -195,6 +195,37 @@
   padding: var(--e6) var(--e5) var(--e7);
 }
 .contenido:focus { outline: none; }
+/* Las pantallas de tablas usan todo el ancho (Cascaron anchoCompleto): una
+   tabla de presupuesto o un catálogo gana columnas legibles con cada píxel,
+   al revés que un texto. Pedido del dueño, 21 de octubre de 2026. */
+.contenido[data-ancho='completo'] { max-width: none; }
+
+/* APU y Recursos, más margen a los lados (pedido del dueño, 21 de octubre):
+   son catálogos que se leen fila por fila, y pegados al borde cansan. */
+@media (min-width: 1025px) {
+  .contenido:is([data-pantalla='apu'], [data-pantalla='recursos']) { padding-inline: var(--e7); }
+}
+
+/* Y el ancho de más se lo lleva el texto, no los huecos: las columnas cortas
+   (código, unidad, cifras, estado, acciones) miden lo que su contenido, y
+   el resto va a la descripción o al nombre, como en una hoja de cálculo.
+   Sin esto, a 1920 px quedaban 200 px vacíos entre cifra y cifra. */
+.tabla-mesa :is(.col-cantidad, .col-precio, .col-valor) { width: 1%; white-space: nowrap; }
+/* Entre cifra y cifra, un aire fijo, solo si sobra ancho: en una tabla de
+   1000 px ese aire es lo que la descripción necesita para no partirse. */
+@container (min-width: 1300px) {
+  .tabla-mesa :is(th, td):is(.col-und, .col-cantidad, .col-precio, .col-valor, .col-incidencia) { padding-left: var(--e5); }
+}
+/* En los catálogos, con ancho de sobra (en una tabla angosta, las columnas
+   secundarias se sueltan y el nombre puede partirse). */
+@container (min-width: 900px) {
+  :is(.tabla-apu, .tabla-recursos, .tabla-presupuestos) td.col-nombre { width: 100%; }
+  :is(.tabla-apu, .tabla-recursos, .tabla-presupuestos) :is(th, td):not(.col-nombre) { white-space: nowrap; }
+  /* En APU y Recursos el nombre no se lo lleva todo (pedido del dueño, 21 de
+     octubre): con 45 %, el resto se reparte entre las demás columnas y no
+     queda un hueco en medio de la fila. */
+  :is(.tabla-apu, .tabla-recursos) td.col-nombre { width: 45%; }
+}
 
 .velo-del-cajon { display: none; }
 
@@ -1589,16 +1620,15 @@ button.paso-del-indicador:hover { color: var(--texto); }
 .fila-de-rendimiento .campo { max-width: 40rem; }
 
 /* --- El cronograma ----------------------------------------------------------- */
-/* El Gantt usa el ancho entero: es una línea de tiempo, no texto que leer, y
-   cada píxel de más es tiempo a la vista (decisión de construcción, a revisión
-   del dueño). */
-.contenido:has(> .cronograma:not(.cronograma-suelto)) { max-width: none; }
+/* El Gantt usa el ancho entero (Cascaron anchoCompleto): es una línea de
+   tiempo, y cada píxel de más es tiempo a la vista. Lo suelto —cargando, sin
+   cronograma, un error— vuelve al ancho de siempre, centrado. */
 .cronograma { display: grid; gap: var(--e3); min-width: 0; }
 .cronograma > * { min-width: 0; }
 @media (min-width: 1025px) {
   .cronograma[data-panel='abierto'] { margin-right: calc(var(--ancho-panel) - var(--e5)); }
 }
-.cronograma-suelto { max-width: var(--ancho-contenido); }
+.cronograma-suelto { max-width: var(--ancho-contenido); margin-inline: auto; width: 100%; }
 .titulo-de-cronograma-proyecto { font-family: var(--fuente-texto); font-weight: var(--peso-medio); color: var(--texto-segundo); font-size: var(--letra-md); }
 .recalculando { display: inline-flex; align-items: center; gap: var(--e1); font-size: var(--letra-sm); color: var(--texto-segundo); }
 .crear-cronograma { padding: var(--e5); display: grid; gap: var(--e3); max-width: 760px; }
@@ -1834,3 +1864,19 @@ td[data-tipo='excepcion-horas'] .mes-dia { background: color-mix(in srgb, var(--
 .leyenda-dia[data-tipo='no-laborable'] { background: var(--gantt-no-laborable); }
 .leyenda-dia[data-tipo='excepcion-libre'] { background: var(--gantt-no-laborable); border: 1px dashed var(--aviso); }
 .leyenda-dia[data-tipo='excepcion-horas'] { background: color-mix(in srgb, var(--terracota-boton) 14%, var(--bg-campo)); border: 1px dashed var(--terracota); }
+
+/* --- El pie de la mesa, más pequeño (pedido del dueño, 21 de octubre) -----
+   Una sola línea: cada etiqueta al lado de su cifra, y el botón del desglose
+   del alto de los demás controles de la mesa. Le devuelve a la tabla unos
+   40 px. */
+@media (pointer: fine) {
+  .barra-del-pie { padding: var(--e2) var(--e4); gap: var(--e1); border-radius: var(--radio-md); }
+  .renglones-del-pie { gap: var(--e1) var(--e6); align-items: baseline; }
+  .renglones-del-pie div { display: flex; align-items: baseline; gap: var(--e2); }
+  .renglones-del-pie dt { font-size: var(--letra-xs); }
+  .renglones-del-pie dd { font-size: var(--letra-md); }
+  .renglon-total dd { font-size: var(--letra-lg); }
+  .barra-del-pie-cifras > .boton { min-height: 30px; padding: 0 var(--e3); font-size: var(--letra-xs); gap: var(--e1); }
+  .barra-del-pie-cifras > .boton .icono { width: 16px; height: 16px; }
+  .aviso-del-pie { padding: var(--e1) var(--e3); font-size: var(--letra-xs); }
+}
