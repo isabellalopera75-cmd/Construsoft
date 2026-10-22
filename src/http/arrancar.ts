@@ -18,6 +18,9 @@
  *   PROXIES_DE_CONFIANZA  opcional; direcciones o subredes del proxy, separadas
  *                     por comas. Nunca «true» (ver configuracion.ts).
  *   PUERTO            opcional; 3000 por defecto.
+ *   HOST              opcional; 127.0.0.1 por defecto, que solo atiende a la
+ *                     propia máquina. En el contenedor, 0.0.0.0: si no, el
+ *                     proxy (Traefik) no la alcanza.
  *
  * Además, las de las tres conexiones a la base (APP_DB_*, AUTH_DB_* y, para el
  * panel del superadministrador, SUPERADMIN_DB_*), que leen los módulos de la
@@ -40,7 +43,6 @@ const app = await construirServidor(configuracion);
 if (configuracion.terminosProvisionales) {
   console.warn(`⚠ Términos PROVISIONALES (${configuracion.versionTerminos}): esta instalación no es para uso real.`);
 }
-const puerto = Number(process.env.PUERTO ?? 3000);
-await app.listen({ port: puerto, host: '127.0.0.1' });
-console.log(`→ API de Construsoft escuchando en http://127.0.0.1:${puerto}`);
+await app.listen({ port: configuracion.puerto, host: configuracion.host });
+console.log(`→ API de Construsoft escuchando en http://${configuracion.host}:${configuracion.puerto}`);
 programarPurgaDiaria({ purgar: purgarEmpresas, avisar: (texto) => console.log(`[${new Date().toISOString()}] ${texto}`) });

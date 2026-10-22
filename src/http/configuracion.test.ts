@@ -61,3 +61,21 @@ describe('configuración del arranque: términos provisionales y proxy (04 §7, 
     assert.throws(() => leerConfiguracion({ ...base, VERSION_TERMINOS: 'v', PROXIES_DE_CONFIANZA: 'true' }), /cualquier X-Forwarded-For/);
   });
 });
+
+describe('dónde escucha: en el PC del dueño, solo la máquina; en el contenedor, la red de Docker', () => {
+  test('sin HOST ni PUERTO, 127.0.0.1:3000, como siempre', () => {
+    const c = leerConfiguracion({ ...base, VERSION_TERMINOS: 'v' });
+    assert.deepEqual([c.host, c.puerto], ['127.0.0.1', 3000]);
+  });
+
+  test('HOST=0.0.0.0 para que Traefik la alcance dentro del contenedor, y PUERTO como número', () => {
+    const c = leerConfiguracion({ ...base, VERSION_TERMINOS: 'v', HOST: '0.0.0.0', PUERTO: '8080' });
+    assert.deepEqual([c.host, c.puerto], ['0.0.0.0', 8080]);
+  });
+
+  test('un PUERTO que no es un puerto no arranca', () => {
+    for (const PUERTO of ['abc', '0', '70000', '30.5']) {
+      assert.throws(() => leerConfiguracion({ ...base, VERSION_TERMINOS: 'v', PUERTO }), /PUERTO/, PUERTO);
+    }
+  });
+});

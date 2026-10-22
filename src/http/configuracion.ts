@@ -13,6 +13,12 @@ export interface Configuracion {
   contactoTerminos: string | null;
   /** Direcciones o subredes del proxy cuyo X-Forwarded-For se cree; null si no hay proxy. */
   proxiesDeConfianza: string[] | null;
+  /**
+   * Dónde escucha. En el PC del dueño, 127.0.0.1: nadie más la alcanza. En el
+   * contenedor, HOST=0.0.0.0, para que el proxy (Traefik) llegue a ella.
+   */
+  host: string;
+  puerto: number;
 }
 
 const PREFIJO_PROVISIONAL = 'PROVISIONAL-';
@@ -79,11 +85,19 @@ export function leerConfiguracion(entorno: Record<string, string | undefined>): 
     proxiesDeConfianza = proxies.split(',').map((p) => p.trim()).filter(Boolean);
   }
 
+  const textoPuerto = entorno.PUERTO?.trim() || '3000';
+  const puerto = Number(textoPuerto);
+  if (!/^\d+$/.test(textoPuerto) || puerto < 1 || puerto > 65535) {
+    throw new Error(`PUERTO=«${textoPuerto}» no es un puerto: escriba un número entero entre 1 y 65535, o quítelo para usar el 3000.`);
+  }
+
   return {
     secretoSesion,
     versionTerminos,
     terminosProvisionales: esProvisional,
     contactoTerminos,
     proxiesDeConfianza,
+    host: entorno.HOST?.trim() || '127.0.0.1',
+    puerto,
   };
 }

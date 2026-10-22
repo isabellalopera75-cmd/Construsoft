@@ -50,6 +50,8 @@ export interface OpcionesServidor {
   carpetaLegal?: string;
   /** El reloj, inyectable para probar el vencimiento de la sesión. */
   ahora?: () => number;
+  /** Dónde va la línea de un error inesperado: la salida de errores, que Dokploy muestra en su registro. */
+  registrarError?: (linea: string) => void;
 }
 
 const QUINCE_MINUTOS = 15 * 60 * 1000;
@@ -168,7 +170,9 @@ export async function construirServidor(opciones: OpcionesServidor): Promise<Fas
     throw new Rechazo(estado, mensaje);
   }
 
-  app.setErrorHandler((error, _request, reply) => {
+  const registrarError = opciones.registrarError ?? ((linea: string) => console.error(linea));
+
+  app.setErrorHandler((error, request, reply) => {
     if (error instanceof Rechazo) {
       return reply.code(error.estado).headers(error.cabeceras).send({ mensaje: error.message });
     }
@@ -191,6 +195,23 @@ export async function construirServidor(opciones: OpcionesServidor): Promise<Fas
       return reply.code(400).send({ mensaje: 'La petición no tiene la forma esperada.' });
     }
     const respuesta = traducirError(error);
+    if (respuesta.estado >= 500) {
+      // 04 §6 · Lo mínimo para saber qué falló: la hora, el método, la ruta como
+      // está declarada (sin ids ni consulta) y el error. Nunca el cuerpo, la
+      // cookie ni la IP: son datos de la persona.
+      const e = error instanceof Error ? error : new Error(String(error));
+      registrarError(
+        JSON.stringify({
+          hora: new Date().toISOString(),
+          metodo: request.method,
+          ruta: request.routeOptions.url ?? '(ninguna)',
+          estado: respuesta.estado,
+          error: `${e.name}: ${e.message}`,
+          ...('code' in e && typeof e.code === 'string' ? { codigo: e.code } : {}),
+          pila: e.stack?.split('\n').slice(1, 9).map((l) => l.trim()),
+        }),
+      );
+    }
     if (respuesta.borrarCookie) reply.clearCookie(NOMBRE_COOKIE, { path: '/' });
     return reply.code(respuesta.estado).send({
       mensaje: respuesta.mensaje,
@@ -294,6 +315,13 @@ export async function construirServidor(opciones: OpcionesServidor): Promise<Fas
   app.get('/api/sesion', async (request, reply) => {
     return reply.send(await leerArranqueDeSesion(await sesionDe(request, reply)));
   });
+
+  // --- Despliegue · La IP que la API le atribuye a quien pregunta. Detrás de
+  // Traefik, sirve para comprobar PROXIES_DE_CONFIANZA: si desde dos redes
+  // distintas sale la misma IP interna, el límite de intentos por IP (04 §8.6)
+  // trataría a todos como una sola persona. Es la propia IP de quien pregunta:
+  // no revela nada de nadie más.
+  app.get('/api/diagnostico/ip', async (request, reply) => reply.send({ ip: request.ip }));
 
   app.delete('/api/sesion', async (_request, reply) => {
     reply.clearCookie(NOMBRE_COOKIE, { path: '/' });

@@ -1,0 +1,11 @@
+# Defensa para quien construya la imagen desde su carpeta y no desde el clon de
+# GitHub: el .env tiene las contraseñas de los roles de la base y nunca entra a
+# una imagen. La web tiene el suyo, web/Dockerfile.dockerignore.
+**/.env
+**/.env.*
+**/node_modules
+**/dist
+muestras
+.git
+.tmp
+.atl
