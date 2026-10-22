@@ -176,6 +176,20 @@ describe('las restricciones de P6 (RN-30, D-87, A7)', () => {
       holguraTotal: 0, holguraLibre: 0, critica: true,
     });
   });
+
+  test('con holgura compartida, se corre solo su holgura libre: la total baja en eso y no llega a cero (decidido el 21 de octubre)', () => {
+    // C tiene 24 h propias hasta el fin que fija X. B llega con 8 h libres y 32 totales:
+    // correrla las 32 atrasaría a C, así que se corre 8 y le quedan 24, sin ser crítica.
+    const r = calcular(
+      [act('A', 16), act('B', 8, { restriccion: { tipo: 'LO_MAS_TARDE', fecha: null } }), act('C', 8), act('X', 48)],
+      [dep('A', 'C'), dep('B', 'C')],
+    );
+    assert.deepEqual(vista(r.actividades.get('B')!), {
+      inicio: '2026-11-03T07:00', fin: '2026-11-03T16:00', inicioTardio: '2026-11-06T07:00', finTardio: '2026-11-06T16:00',
+      holguraTotal: 24, holguraLibre: 0, critica: false,
+    });
+    assert.equal(vista(r.actividades.get('C')!).inicio, '2026-11-04T07:00', 'C no se movió');
+  });
 });
 
 describe('los hitos (RN-28)', () => {
