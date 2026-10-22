@@ -1993,3 +1993,15 @@ decidió el dueño (07 §6.9), no cada clic.
   baja en lo que se corrió (§19.6), y el motor no cambia.
 - Al construir, cualquier forma que no le sirva al motor o a la pantalla se
   corrige aquí primero, como en el resto del contrato.
+
+## 20. El diagnóstico del despliegue (construido el 21 de octubre de 2026: `fdd2ade`)
+
+`GET /api/diagnostico/ip`, sin sesión, responde `200 { "ip": "…" }`: la IP
+que la API le atribuye a quien pregunta, después de aplicar
+`PROXIES_DE_CONFIANZA`. Nada más.
+
+- **Para qué:** comprobar en el despliegue que el límite de intentos por IP
+  (04 §8.6) ve la IP real de cada persona y no la del proxy. Se abre desde
+  dos redes distintas: si salen dos IP públicas, funciona.
+- **La pantalla no la usa.** No devuelve nada que la persona no sepa ya: su
+  propia IP.

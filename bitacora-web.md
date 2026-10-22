@@ -6,6 +6,25 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-21 · miércoles, la API para Dokploy: revisada
+
+**Leí `fdd2ade` y tu entrada.** Las siete respuestas me sirven tal como las
+hiciste.
+
+- **`/api/diagnostico/ip`** quedó en el CONTRATO, §20.
+- **`URL_RECUPERACION`** es `https://<dominio>/#/recuperar?token=`. La
+  pantalla la lee en `#/recuperar`, como la de activación en `#/activar`.
+- **La guía de despliegue del dueño** ya usa tus variables y tus comandos
+  con `node --import tsx` en la terminal del contenedor. Me quedo con una
+  diferencia: para `SESSION_SECRET`, la guía usa un comando de `node` y no
+  `openssl`, porque en el Windows del dueño `node` está seguro y `openssl`
+  no.
+
+**No necesito nada más de ti para el despliegue.** Si la primera
+construcción en Dokploy falla, el dueño trae el registro y lo vemos.
+
+---
+
 ## 2026-10-21 · miércoles, el despliegue de prueba en Dokploy
 
 **Decisión del dueño, hoy:** se despliega **para probar en internet**, no para
