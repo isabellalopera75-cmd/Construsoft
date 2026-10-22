@@ -263,9 +263,16 @@ export function Mesa({ id }: { id: string }) {
           <span className="codigo-de-mesa">{cabecera.codigo}</span>
           <InsigniaDeEstado estado={cabecera.estado} />
           {archivado ? <span className="insignia insignia-archivado">Archivado</span> : null}
+          {/* El cronograma va 1 a 1 con el proyecto (D-82): se entra de aquí.
+              Va fuera de las acciones para que se vea siempre, también con
+              ellas ocultas (pedido del dueño, 22 de octubre de 2026). */}
+          <a className="boton boton-secundario boton-a-cronograma" href={enlaceA({ pantalla: 'cronograma', id: cabecera.id })}>
+            <Icono nombre="gantt" />
+            Cronograma
+          </a>
           <button
             type="button"
-            className="boton boton-secundario boton-de-acciones"
+            className="boton boton-secundario"
             aria-expanded={!accionesOcultas}
             aria-controls="acciones-de-mesa"
             onClick={alternarAcciones}
@@ -310,11 +317,6 @@ export function Mesa({ id }: { id: string }) {
                   </a>
                 </span>
               ) : null}
-              {/* El cronograma va 1 a 1 con el proyecto (D-82): se entra de aquí. */}
-              <a className="boton boton-secundario" href={enlaceA({ pantalla: 'cronograma', id: cabecera.id })}>
-                <Icono nombre="gantt" />
-                Cronograma
-              </a>
               <button type="button" className="boton boton-secundario" onClick={() => setDialogo({ tipo: 'versiones' })}>
                 <Icono nombre="version" />
                 Versiones

@@ -1384,7 +1384,8 @@ button.paso-del-indicador:hover { color: var(--texto); }
 
 /* 3 · Las acciones de la cabecera se deslizan. Con alto cero no dejan hueco:
    el margen negativo se come el espacio entre filas de la cabecera. */
-.boton-de-acciones { margin-left: auto; }
+/* Cronograma y «Ocultar acciones», juntos a la derecha de la fila de arriba. */
+.boton-a-cronograma { margin-left: auto; }
 .acciones-de-mesa-deslizante {
   display: grid;
   grid-template-rows: 1fr;
