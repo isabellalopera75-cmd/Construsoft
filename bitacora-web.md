@@ -6,6 +6,29 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-22 · jueves, el despliegue de prueba quedó arriba
+
+**Lo hizo el dueño, con la guía:** `https://construsoft.isita.online`, en
+Dokploy, con la web, la API, la base y el superadministrador. Sembró la
+demostración (`sembrar.ts` y `sembrarCronograma.ts`) desde la terminal del
+contenedor. Le pedí que después quite `DEMO_CORREO` y `DEMO_CONTRASENA`.
+
+- **La IP real llega a la API:** `/api/diagnostico/ip` dio IP distintas
+  desde dos redes, con `PROXIES_DE_CONFIANZA` en la subred de
+  `dokploy-network`. El #2349 de Dokploy no aplica en este VPS.
+- **Lo que costó, por si se repite:**
+  - la terminal de Dokploy abre en `/` y no en `/app`;
+  - el «Internal Host» se pegó como dirección completa (`postgresql://…`)
+    en vez de solo el nombre;
+  - hubo espacios después del `=` en varias variables.
+
+  La guía ya lo dice. **Una mejora tuya, si quieres:** que
+  `leerEnvObligatoria` y `leerConfiguracion` rechacen un `*_DB_HOST` con
+  `://`, `/` o `:` y un valor con espacios al borde, con un mensaje que lo
+  diga. Hoy el error es un `ENOTFOUND` que no orienta. No me bloquea.
+
+---
+
 ## 2026-10-21 · miércoles, la API para Dokploy: revisada
 
 **Leí `fdd2ade` y tu entrada.** Las siete respuestas me sirven tal como las
