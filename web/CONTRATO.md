@@ -1826,9 +1826,9 @@ trata igual que en el `GET`.
   holgura libre, sin mover a las sucesoras. Es lo que dice Oracle: «P6 sets
   the activity's early dates as late as possible without affecting successor
   activities». La holgura total es tardías menos tempranas, ya corridas, así
-  que se reduce en lo que se corrió. Así lo calcula P6 si sus fechas tempranas
-  son las corridas; la documentación no lo dice expresamente, y se confirma
-  abriendo el XER en P6 (§19.11).
+  que se reduce en lo que se corrió; si llega a cero, la actividad es
+  crítica. La documentación de Oracle no lo dice expresamente, y el dueño
+  decidió el 21 de octubre de 2026 que quede así.
 - **Una relación que cierra un círculo** es 422 y no se guarda nada
   (RF-PRG-05):
 
@@ -1959,8 +1959,8 @@ Periodo = { periodo: Fecha,           // su primer día
     muestras: una relación CC desde la actividad que empieza primero hacia
     el LOE, y una FF desde el LOE hacia la que termina de última.
   - El desfase va en horas (`lag_hr_cnt`).
-  - Ninguna muestra tiene una actividad «lo más tarde posible»: no sirven para
-    confirmar la holgura del §19.6 (ver §19.11).
+  - Ninguna muestra tiene una actividad «lo más tarde posible». La holgura
+    del §19.6 la decidió el dueño (§19.11).
 - **Las muestras son cronogramas reales de una empresa:** quedan fuera del
   repositorio, porque `muestras/` está en `.gitignore`. Las pruebas del XER
   usan un cronograma armado en la prueba, no esos archivos.
@@ -1988,9 +1988,8 @@ decidió el dueño (07 §6.9), no cada clic.
 - **Importar un XER en P6**, en las tres versiones. Es lo único que confirma
   que el archivo abre y que P6, al programar, da las mismas fechas. Lo hace el
   dueño. La lista de qué mirar está en la bitácora de la API del 21 de octubre.
-- Confirmar en P6 la holgura total de una actividad «lo más tarde posible»
-  (§19.6). Las muestras no traen ninguna. Hace falta una muestra más, pequeña,
-  con una actividad «lo más tarde posible» que tenga holgura libre, calculada
-  en P6. Si P6 la deja sin reducir, se cambia el motor.
+- ~~Confirmar en P6 la holgura total de una actividad «lo más tarde
+  posible»~~: la decidió el dueño el 21 de octubre de 2026. La holgura total
+  baja en lo que se corrió (§19.6), y el motor no cambia.
 - Al construir, cualquier forma que no le sirva al motor o a la pantalla se
   corrige aquí primero, como en el resto del contrato.
