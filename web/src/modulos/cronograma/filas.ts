@@ -1,4 +1,5 @@
 import type { Actividad, Capitulo, Grupo, TipoDeRestriccion, VistaCronograma } from '../../api/tiposCronograma.ts';
+import type { NodoPlegable } from '../../componentes/Niveles.tsx';
 
 /*
  * Las filas de la tabla del cronograma, en el orden de la pantalla (CONTRATO
@@ -91,6 +92,46 @@ export function armarFilas(vista: VistaCronograma, plegados: ReadonlySet<string>
     });
   }
   return filas;
+}
+
+/**
+ * Las filas que se pliegan, con su profundidad (1 es la raíz), y cuántos
+ * niveles tiene la tabla contando las actividades (componentes/Niveles.tsx).
+ * Se calcula sobre la vista entera, no sobre las filas que se ven: un capítulo
+ * plegado esconde a sus hijos, pero sus hijos siguen teniendo su nivel.
+ */
+export function nivelesDelCronograma(vista: VistaCronograma): { nodos: NodoPlegable[]; niveles: number } {
+  const nodos: NodoPlegable[] = [];
+  let niveles = 1;
+  const conActividades = new Set(vista.actividades.filter((a) => a.tipo === 'ITEM' && a.capituloId).map((a) => a.capituloId));
+  const hijos = new Map<string | null, Capitulo[]>();
+  for (const c of vista.capitulos) hijos.set(c.padreId, [...(hijos.get(c.padreId) ?? []), c]);
+  const recorrer = (padre: string | null, profundidad: number) => {
+    for (const c of hijos.get(padre) ?? []) {
+      const subcapitulos = hijos.get(c.id) ?? [];
+      const actividades = conActividades.has(c.id);
+      niveles = Math.max(niveles, profundidad + (actividades ? 1 : 0));
+      if (subcapitulos.length > 0 || actividades) nodos.push({ clave: c.id, profundidad });
+      recorrer(c.id, profundidad + 1);
+    }
+  };
+  recorrer(null, 1);
+  if (vista.actividades.some((a) => a.tipo === 'ITEM' && !a.enPresupuesto)) {
+    nodos.push({ clave: 'fuera', profundidad: 1 });
+    niveles = Math.max(niveles, 2);
+  }
+  const hitos = vista.actividades.filter(esHitoOTramite);
+  if (hitos.length > 0 || vista.grupos.length > 0) {
+    nodos.push({ clave: RAIZ_DE_HITOS, profundidad: 1 });
+    niveles = Math.max(niveles, 2);
+  }
+  for (const g of vista.grupos) {
+    if (hitos.some((a) => a.grupoId === g.id)) {
+      nodos.push({ clave: g.id, profundidad: 2 });
+      niveles = Math.max(niveles, 3);
+    }
+  }
+  return { nodos, niveles };
 }
 
 // --- Restricciones (RN-30) ---------------------------------------------------------

@@ -60,6 +60,9 @@ const TRAZOS = {
   // Plegar y desplegar la barra lateral.
   plegar: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m16 15-3-3 3-3"/>',
   desplegar: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/>',
+  // Expandir y contraer toda la estructura (mesa y cronograma).
+  expandir: '<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>',
+  contraer: '<path d="m7 20 5-5 5 5"/><path d="m7 4 5 5 5-5"/>',
   // Superadministración.
   resumen: '<path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>',
   empresas: '<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/>',

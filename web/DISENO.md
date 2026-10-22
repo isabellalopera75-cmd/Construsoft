@@ -744,6 +744,28 @@ mouse viaje menos:
 - **El pie de la mesa va en una sola línea** (con mouse): cada etiqueta al
   lado de su cifra y el botón del desglose de 30 px. Mide 48 px en vez de 80.
 
+### 22 de octubre de 2026 · Niveles, columnas y el alto del Gantt (pedido del dueño)
+
+- **«Nivel», «Expandir todo» y «Contraer todo»** (`componentes/Niveles.tsx`),
+  en la barra de la estructura de la mesa y en la barra del Gantt. Funcionan
+  como los niveles de esquema de Excel: el nivel N muestra las filas a N
+  niveles o menos de la raíz, y el último lo muestra todo. Cuántos niveles hay
+  sale de la estructura, no es un número fijo. El nivel marcado se deduce de
+  lo que está plegado; si el usuario pliega una fila a mano, no queda ninguno
+  marcado. Es estado de la pantalla: no se guarda.
+- **Las columnas de la tabla del Gantt** se ajustan arrastrando el borde
+  derecho del encabezado, o con las flechas sobre ese borde (8 px; 32 con
+  Mayús). Doble clic vuelve al ancho de siempre. El ancho vive en el estado
+  del cronograma: sobrevive al cambio de pestaña y se pierde al salir.
+  «Actividad» deja de ser `1fr` y pasa a tener ancho propio, 236 px.
+- **El alto del Gantt** llega al fondo de la ventana, medido desde donde
+  empieza el Gantt en la página. Así su barra de desplazamiento de lado
+  siempre se ve sin bajar la página. Con poco espacio arriba no baja de
+  320 px. En 1440 × 900 queda en el mínimo, porque arriba están la cabecera,
+  el aviso, las pestañas, la barra y la leyenda.
+- **Cantidad y rendimiento de una línea de APU** nacen vacíos, sin el 1 de
+  antes. El 02 §6.2 lo pedía precargado; el dueño lo cambió.
+
 ## 12. Lo que todavía no está decidido
 
 Para que nadie lo lea creyendo que está completo:

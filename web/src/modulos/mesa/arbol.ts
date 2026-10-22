@@ -1,4 +1,5 @@
 import type { ActividadDeMesa, Mesa, NodoDeMesa } from '../../api/tipos.ts';
+import type { NodoPlegable } from '../../componentes/Niveles.tsx';
 
 /*
  * El árbol de la mesa se arma acá a partir de los dos arreglos planos
@@ -61,3 +62,24 @@ export function limitesDe(arbol: Arbol, padreId: string | null, tipo: Hijo['tipo
   return tipo === 'nodo' ? { primera: 1, ultima: nodos } : { primera: nodos + 1, ultima: hijos.length };
 }
 
+
+/**
+ * Las filas que se pliegan, con su profundidad (1 es el capítulo de primer
+ * nivel), y cuántos niveles tiene la mesa contando las actividades
+ * (componentes/Niveles.tsx).
+ */
+export function nivelesDeLaMesa(arbol: Arbol): { nodos: NodoPlegable[]; niveles: number } {
+  const nodos: NodoPlegable[] = [];
+  let niveles = 1;
+  const recorrer = (nodo: NodoDeMesa, profundidad: number) => {
+    const hijos = arbol.hijos.get(nodo.id) ?? [];
+    niveles = Math.max(niveles, profundidad);
+    if (hijos.length > 0) nodos.push({ clave: nodo.id, profundidad });
+    for (const h of hijos) {
+      if (h.tipo === 'nodo') recorrer(h.nodo, profundidad + 1);
+      else niveles = Math.max(niveles, profundidad + 1);
+    }
+  };
+  for (const raiz of arbol.raices) recorrer(raiz, 1);
+  return { nodos, niveles };
+}

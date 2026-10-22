@@ -11,7 +11,8 @@ import { formatearFecha, formatearFechaYHora, paraAtributo } from '../../fechas.
 import { ir } from '../../navegacion.ts';
 import { useSesion } from '../../sesion.tsx';
 import { Arbol, type OperacionesDeMesa } from './Arbol.tsx';
-import { armarArbol } from './arbol.ts';
+import { armarArbol, nivelesDeLaMesa } from './arbol.ts';
+import { ControlDeNiveles, nivelDe, plegadosHasta } from '../../componentes/Niveles.tsx';
 import { Duplicar, EditarDatos, FormularioDeNodo, type FormaDeNodo } from './Dialogos.tsx';
 import { Historial } from './Historial.tsx';
 import { BarraDelPie, PanelDeDesglose } from './Pie.tsx';
@@ -83,6 +84,8 @@ export function Mesa({ id }: { id: string }) {
   const [dialogo, setDialogo] = useState<Dialogo>(null);
   const [panel, setPanel] = useState<Panel>(null);
   const [cambios, setCambios] = useState(0);
+  // Los niveles plegados de la estructura: solo de esta pantalla, no se guardan.
+  const [plegados, setPlegados] = useState<ReadonlySet<string>>(new Set());
   const [accionesOcultas, setAccionesOcultas] = useState(accionesOcultasGuardadas);
   const alternarAcciones = () => {
     setAccionesOcultas((o) => {
@@ -185,6 +188,7 @@ export function Mesa({ id }: { id: string }) {
   }
 
   const arbol = useMemo(() => (mesa ? armarArbol(mesa) : null), [mesa]);
+  const niveles = useMemo(() => (arbol ? nivelesDeLaMesa(arbol) : { nodos: [], niveles: 1 }), [arbol]);
 
   if (fallo) {
     return (
@@ -390,6 +394,7 @@ export function Mesa({ id }: { id: string }) {
           </div>
           {archivado ? <div><dt>Archivado</dt><dd><time dateTime={paraAtributo(archivado)}>{formatearFecha(archivado)}</time></dd></div> : null}
         </dl>
+        <ControlDeNiveles niveles={niveles.niveles} actual={nivelDe(niveles.nodos, plegados, niveles.niveles)} alElegir={(n) => setPlegados(plegadosHasta(niveles.nodos, n))} />
         {editable ? (
           <button type="button" className="boton boton-secundario" disabled={ocupado} onClick={() => setDialogo({ tipo: 'nodo', forma: { tipo: 'capitulo' } })}>
             <Icono nombre="mas" />
@@ -408,7 +413,7 @@ export function Mesa({ id }: { id: string }) {
           </p>
         </div>
       ) : (
-        <Arbol arbol={arbol} editable={editable} modo={cabecera.modoEstructura} ocupado={ocupado} op={op} />
+        <Arbol arbol={arbol} plegados={plegados} setPlegados={setPlegados} editable={editable} modo={cabecera.modoEstructura} ocupado={ocupado} op={op} />
       )}
 
       <BarraDelPie pie={pie} panelAbierto={panel === 'desglose'} alAlternarPanel={() => setPanel(panel === 'desglose' ? null : 'desglose')} />

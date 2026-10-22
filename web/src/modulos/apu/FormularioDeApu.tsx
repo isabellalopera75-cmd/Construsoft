@@ -123,8 +123,11 @@ export function FormularioDeApu({ apuId, nombreInicial, alCerrar, alGuardar, alC
         unidadSimbolo: r.unidadSimbolo,
         // El subtotal usa el precio TOTAL del recurso, con IVA (02 §6.2).
         precioUnitario: r.precioTotal,
-        cantidad: '1',
-        rendimiento: '1',
+        // Vacías, sin un 1 de ejemplo (pedido del dueño, 22 de octubre de
+        // 2026): cada cifra la escribe quien arma el APU. Si falta una, guardar
+        // dice cuál.
+        cantidad: '',
+        rendimiento: '',
         desperdicio: '',
       },
     ]);

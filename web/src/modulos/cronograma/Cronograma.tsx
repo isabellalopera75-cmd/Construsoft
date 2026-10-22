@@ -8,6 +8,7 @@ import { Campo } from '../../componentes/Campo.tsx';
 import { Confirmacion } from '../../componentes/Confirmacion.tsx';
 import { Icono } from '../../componentes/Icono.tsx';
 import { InsigniaDeEstado } from '../../componentes/Insignia.tsx';
+import { ControlDeNiveles, nivelDe, plegadosHasta } from '../../componentes/Niveles.tsx';
 import { Pestanas } from '../../componentes/Pestanas.tsx';
 import { formatearFechaYHora } from '../../fechas.ts';
 import { formatearNumero } from '../../formato.ts';
@@ -16,8 +17,8 @@ import { resumenDeCalendario } from '../calendarios/Calendarios.tsx';
 import { Curvas } from './Curvas.tsx';
 import { AgregarActividad, CalendarioDeLaObra, CambiarFechaDeInicio, Exportar, FormularioDeGrupo, LineasBase } from './Dialogos.tsx';
 import { cicloDe, hayVista, mensaje, type Escribir } from './escritura.ts';
-import { armarFilas } from './filas.ts';
-import { Gantt, type Escala } from './Gantt.tsx';
+import { armarFilas, nivelesDelCronograma } from './filas.ts';
+import { ANCHOS_INICIALES, Gantt, type Anchos, type Escala } from './Gantt.tsx';
 import { PanelDeActividad } from './PanelDeActividad.tsx';
 import { contarRevision, Revision } from './Revision.tsx';
 import { dias, fechaConDia, hoy } from './tiempo.ts';
@@ -69,6 +70,7 @@ export function Cronograma({ presupuestoId }: { presupuestoId: string }) {
   const [seleccion, setSeleccion] = useState<string | null>(null);
   const [pestana, setPestana] = useState<Pestana>('gantt');
   const [plegados, setPlegados] = useState<ReadonlySet<string>>(new Set());
+  const [anchos, setAnchos] = useState<Anchos>(ANCHOS_INICIALES);
   const [escala, setEscalaEstado] = useState<Escala>(() => {
     const e = leerPreferencia('cronograma.escala');
     return e === 'DIA' || e === 'SEMANA' || e === 'MES' ? e : 'SEMANA';
@@ -173,6 +175,7 @@ export function Cronograma({ presupuestoId }: { presupuestoId: string }) {
   }, [poner, leer]);
 
   const filas = useMemo(() => (vista ? armarFilas(vista, plegados) : []), [vista, plegados]);
+  const niveles = useMemo(() => (vista ? nivelesDelCronograma(vista) : { nodos: [], niveles: 1 }), [vista]);
   const actividad = vista && seleccion ? vista.actividades.find((a) => a.id === seleccion) ?? null : null;
 
   // --- Sin proyecto, sin cronograma, cargando -------------------------------------------
@@ -210,7 +213,6 @@ export function Cronograma({ presupuestoId }: { presupuestoId: string }) {
   const obra = vista.calendarios.obra;
   const pendientes = contarRevision(vista.revision);
   const alternarPlegado = (clave: string) => setPlegados((p) => { const n = new Set(p); if (n.has(clave)) n.delete(clave); else n.add(clave); return n; });
-  const plegables = filas.filter((f) => (f.clase === 'capitulo' || f.clase === 'titulo' || f.clase === 'grupo') && f.plegable).map((f) => f.clave);
   const irA = (id: string) => { setPestana('gantt'); setSeleccion(id); };
 
   return (
@@ -302,10 +304,7 @@ export function Cronograma({ presupuestoId }: { presupuestoId: string }) {
                   {vista.lineasBase.map((l) => <option key={l.id} value={l.id}>{l.nombre}</option>)}
                 </select>
               </label>
-              <button type="button" className="boton boton-secundario boton-chico-texto" onClick={() => setPlegados(plegados.size > 0 ? new Set() : new Set(plegables))}>
-                <Icono nombre={plegados.size > 0 ? 'desplegar' : 'plegar'} tamano={16} />
-                {plegados.size > 0 ? 'Desplegar todo' : 'Plegar todo'}
-              </button>
+              <ControlDeNiveles niveles={niveles.niveles} actual={nivelDe(niveles.nodos, plegados, niveles.niveles)} alElegir={(n) => setPlegados(plegadosHasta(niveles.nodos, n))} />
               {editable ? (
                 <span className="fila-de-botones barra-del-gantt-acciones">
                   <button type="button" className="boton boton-secundario boton-chico-texto" onClick={() => setDialogo({ tipo: 'grupo-nuevo' })}>
@@ -322,6 +321,9 @@ export function Cronograma({ presupuestoId }: { presupuestoId: string }) {
             <Leyenda conBase={vista.lineaBase !== null} />
             <Gantt
               vista={vista}
+              anchos={anchos}
+              alCambiarAncho={(c, w) => setAnchos((a) => (a[c] === w ? a : { ...a, [c]: w }))}
+              sinFechas={actividad !== null}
               filas={filas}
               escala={escala}
               seleccion={seleccion}

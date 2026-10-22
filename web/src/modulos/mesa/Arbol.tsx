@@ -38,14 +38,16 @@ export interface OperacionesDeMesa {
 
 interface Props {
   arbol: ArbolArmado;
+  /** Los niveles plegados viven en la mesa, que tiene los controles de niveles. */
+  plegados: ReadonlySet<string>;
+  setPlegados: (cambiar: (p: ReadonlySet<string>) => ReadonlySet<string>) => void;
   editable: boolean;
   modo: ModoEstructura;
   ocupado: boolean;
   op: OperacionesDeMesa;
 }
 
-export function Arbol({ arbol, editable, modo, ocupado, op }: Props) {
-  const [plegados, setPlegados] = useState<Set<string>>(new Set());
+export function Arbol({ arbol, plegados, setPlegados, editable, modo, ocupado, op }: Props) {
   const [agregandoEn, setAgregandoEn] = useState<string | null>(null);
 
   const alternar = (id: string) =>

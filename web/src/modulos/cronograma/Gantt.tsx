@@ -27,6 +27,33 @@ import { diaDe, diaDeLaSemana, diaDelMes, dias, esNegativo, fechaDe, fechaTabla,
 
 export type Escala = 'DIA' | 'SEMANA' | 'MES';
 
+/*
+ * Las columnas de la tabla se ajustan arrastrando el borde derecho de su
+ * encabezado (pedido del dueño, 22 de octubre de 2026). El ancho vive en el
+ * estado de la pantalla mientras se está en ella; no se guarda.
+ */
+export type Columna = 'codigo' | 'actividad' | 'dias' | 'inicio' | 'fin' | 'holgura';
+export type Anchos = Record<Columna, number>;
+const COLUMNAS: { clave: Columna; nombre: string }[] = [
+  { clave: 'codigo', nombre: 'Código' },
+  { clave: 'actividad', nombre: 'Actividad' },
+  { clave: 'dias', nombre: 'Días' },
+  { clave: 'inicio', nombre: 'Inicio' },
+  { clave: 'fin', nombre: 'Fin' },
+  { clave: 'holgura', nombre: 'Holgura' },
+];
+export const ANCHOS_INICIALES: Anchos = { codigo: 76, actividad: 236, dias: 52, inicio: 82, fin: 82, holgura: 72 };
+const ANCHOS_MINIMOS: Anchos = { codigo: 48, actividad: 120, dias: 44, inicio: 64, fin: 64, holgura: 52 };
+const ANCHO_MAXIMO = 640;
+const limitar = (c: Columna, ancho: number) => Math.round(Math.min(ANCHO_MAXIMO, Math.max(ANCHOS_MINIMOS[c], ancho)));
+
+/*
+ * El alto del Gantt llega hasta el fondo de la ventana (pedido del dueño, 22 de
+ * octubre de 2026): así su barra de desplazamiento de lado se ve siempre, sin
+ * bajar la página. Con poco espacio arriba, no baja de este mínimo.
+ */
+const ALTO_MINIMO = 320;
+
 const ALTO_FILA = 32;
 const MARGEN_FILAS = 12;
 const PX_POR_DIA: Record<Escala, number> = { DIA: 28, SEMANA: 9, MES: 3 };
@@ -34,6 +61,10 @@ const HOLGURA_DIAS: Record<Escala, number> = { DIA: 4, SEMANA: 10, MES: 20 };
 
 interface Props {
   vista: VistaCronograma;
+  anchos: Anchos;
+  alCambiarAncho: (columna: Columna, ancho: number) => void;
+  /** Con el panel de una actividad abierto, sin inicio ni fin: están en el panel. */
+  sinFechas: boolean;
   filas: Fila[];
   escala: Escala;
   seleccion: string | null;
@@ -44,11 +75,12 @@ interface Props {
   accionesDeGrupo?: ((g: Grupo, primero: boolean, ultimo: boolean) => ReactNode) | undefined;
 }
 
-export function Gantt({ vista, filas, escala, seleccion, ciclo, plegados, alPlegar, alSeleccionar, accionesDeGrupo }: Props) {
+export function Gantt({ vista, anchos, alCambiarAncho, sinFechas, filas, escala, seleccion, ciclo, plegados, alPlegar, alSeleccionar, accionesDeGrupo }: Props) {
   const { arranque } = useSesion();
   const formato = arranque.formatoNumerico;
   const marco = useRef<HTMLDivElement>(null);
   const [ventana, setVentana] = useState({ arriba: 0, alto: 600 });
+  const [altoMaximo, setAltoMaximo] = useState<number | null>(null);
   const enfocar = useRef(false);
 
   // --- El tramo de tiempo que se dibuja ---------------------------------------
@@ -86,6 +118,33 @@ export function Gantt({ vista, filas, escala, seleccion, ciclo, plegados, alPleg
     observador.observe(el);
     return () => observador.disconnect();
   }, []);
+
+  // El alto: desde donde empieza el Gantt hasta el fondo de la ventana, menos
+  // lo que la página deja debajo de él. Se mide en la página, no en la
+  // ventana, para que no cambie al desplazarla; y otra vez si cambia algo de
+  // arriba (una franja que aparece) o el tamaño de la ventana.
+  useLayoutEffect(() => {
+    const el = marco.current;
+    const contenido = document.getElementById('contenido');
+    if (!el) return;
+    const medir = () => {
+      const caja = el.getBoundingClientRect();
+      const debajo = contenido ? Math.max(0, contenido.getBoundingClientRect().bottom - caja.bottom) : 0;
+      const libre = Math.floor(window.innerHeight - (caja.top + window.scrollY) - debajo);
+      setAltoMaximo(Math.max(ALTO_MINIMO, libre));
+    };
+    medir();
+    window.addEventListener('resize', medir);
+    const observador = new ResizeObserver(medir);
+    if (contenido) observador.observe(contenido);
+    return () => {
+      window.removeEventListener('resize', medir);
+      observador.disconnect();
+    };
+  }, []);
+
+  const columnas = COLUMNAS.map((c) => (sinFechas && (c.clave === 'inicio' || c.clave === 'fin') ? 0 : anchos[c.clave]));
+  const anchoTabla = columnas.reduce((s, w) => s + w, 0);
 
   const indice = useMemo(() => {
     const m = new Map<string, number>();
@@ -161,7 +220,12 @@ export function Gantt({ vista, filas, escala, seleccion, ciclo, plegados, alPleg
     <div
       ref={marco}
       className="gantt"
-      style={{ ['--alto-fila-gantt' as string]: `${ALTO_FILA}px` }}
+      style={{
+        ['--alto-fila-gantt' as string]: `${ALTO_FILA}px`,
+        ['--ancho-tabla-gantt' as string]: `${anchoTabla}px`,
+        ['--columnas-gantt' as string]: columnas.map((w) => `${w}px`).join(' '),
+        ...(altoMaximo === null ? {} : { maxHeight: altoMaximo }),
+      }}
       onScroll={(e) => {
         const el = e.currentTarget;
         setVentana((v) => (v.arriba === el.scrollTop ? v : { arriba: el.scrollTop, alto: el.clientHeight }));
@@ -175,12 +239,25 @@ export function Gantt({ vista, filas, escala, seleccion, ciclo, plegados, alPleg
         <div className="gantt-cabecera" role="rowgroup">
           <div className="gantt-fila-cabecera" role="row" aria-rowindex={1}>
             <div className="gantt-celdas gantt-celdas-cabecera">
-              <span role="columnheader">Código</span>
-              <span role="columnheader">Actividad</span>
-              <span role="columnheader" className="cifra">Días</span>
-              <span role="columnheader">Inicio</span>
-              <span role="columnheader">Fin</span>
-              <span role="columnheader" className="cifra" title="Holgura total, en días">Holgura</span>
+              {COLUMNAS.map((c) => (
+                <span
+                  key={c.clave}
+                  role="columnheader"
+                  className={c.clave === 'dias' || c.clave === 'holgura' ? 'gantt-encabezado cifra' : 'gantt-encabezado'}
+                  title={c.clave === 'holgura' ? 'Holgura total, en días' : undefined}
+                >
+                  {c.nombre}
+                  {sinFechas && (c.clave === 'inicio' || c.clave === 'fin') ? null : (
+                    <AsaDeColumna
+                      nombre={c.nombre}
+                      ancho={anchos[c.clave]}
+                      minimo={ANCHOS_MINIMOS[c.clave]}
+                      alCambiar={(w) => alCambiarAncho(c.clave, limitar(c.clave, w))}
+                      alReiniciar={() => alCambiarAncho(c.clave, ANCHOS_INICIALES[c.clave])}
+                    />
+                  )}
+                </span>
+              ))}
             </div>
             <Escala desde={desde} hasta={hasta} escala={escala} px={px} inicioSemana={inicioSemana} />
           </div>
@@ -224,6 +301,49 @@ export function Gantt({ vista, filas, escala, seleccion, ciclo, plegados, alPleg
         </div>
       </div>
     </div>
+  );
+}
+
+// --- El borde que ajusta el ancho de una columna ------------------------------------------
+
+/**
+ * Se arrastra con el mouse o el dedo; con el teclado, las flechas lo mueven de
+ * a 8 px (32 con Mayús). Doble clic vuelve al ancho de siempre.
+ */
+function AsaDeColumna({ nombre, ancho, minimo, alCambiar, alReiniciar }: { nombre: string; ancho: number; minimo: number; alCambiar: (w: number) => void; alReiniciar: () => void }) {
+  const arrastre = useRef<{ x: number; ancho: number } | null>(null);
+  return (
+    <span
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={`Ancho de la columna ${nombre}`}
+      aria-valuenow={ancho}
+      aria-valuemin={minimo}
+      aria-valuemax={ANCHO_MAXIMO}
+      tabIndex={0}
+      className="gantt-asa"
+      title="Arrastre para cambiar el ancho. Doble clic: el ancho de siempre."
+      onPointerDown={(e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        e.currentTarget.setPointerCapture(e.pointerId);
+        arrastre.current = { x: e.clientX, ancho };
+      }}
+      onPointerMove={(e) => {
+        const a = arrastre.current;
+        if (a) alCambiar(a.ancho + e.clientX - a.x);
+      }}
+      onPointerUp={() => { arrastre.current = null; }}
+      onPointerCancel={() => { arrastre.current = null; }}
+      onDoubleClick={alReiniciar}
+      onKeyDown={(e) => {
+        const paso = e.shiftKey ? 32 : 8;
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+          e.preventDefault();
+          alCambiar(ancho + (e.key === 'ArrowRight' ? paso : -paso));
+        }
+      }}
+    />
   );
 }
 
