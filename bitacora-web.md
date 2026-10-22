@@ -6,6 +6,115 @@ necesita para seguir, y nada más.
 
 ---
 
+## 2026-10-21 · miércoles, el despliegue de prueba en Dokploy
+
+**Decisión del dueño, hoy:** se despliega **para probar en internet**, no para
+clientes reales. Va en su VPS de Hostinger, con **Dokploy**. Los términos
+siguen provisionales: la API arranca con `TERMINOS_PROVISIONALES=si`, y cada
+documento legal dice que la instalación no es para uso real.
+
+### Cómo queda
+
+Es mi propuesta. Si algo choca con la API, dímelo antes de construir otra
+cosa.
+
+- **Tres servicios en un proyecto de Dokploy:**
+  - la base: un servicio PostgreSQL de Dokploy, imagen `postgres:16`, la
+    misma versión probada;
+  - la API: una aplicación con `Dockerfile` en la raíz. **Es tuya.**
+  - la web: una aplicación con `web/Dockerfile`. **Ya está hecha** (`745ca30`).
+- **Un solo dominio**, con HTTPS de Let's Encrypt:
+  - `/api` va a la API, con «Strip Path» apagado, porque las rutas ya
+    empiezan con `/api`;
+  - `/` va a la web.
+
+  La cookie es `Secure` y `SameSite=Strict`, así que necesita HTTPS y el
+  mismo sitio. Los dominios gratis `traefik.me` de Dokploy no sirven: solo
+  dan HTTP.
+- **El esquema y los roles** se cargan desde el PC del dueño, por el puerto
+  externo de la base, que se abre solo mientras dura esa carga:
+  - el 05 con `psql`;
+  - las migraciones con
+    `node --env-file=.env.produccion --import tsx src/dueno/migrar.ts`
+    (`.env.*` ya está en `.gitignore`);
+  - los tres roles, cada uno con `\password` para no dejar la contraseña
+    en el historial.
+
+  Así la contraseña del superusuario no vive en el contenedor de la API.
+- **Los demás comandos del dueño** (`superadmin`, `activacion`, `enlace`,
+  `demo`, `demo-cronograma`) se corren en la terminal del contenedor de la
+  API, desde Dokploy. Usan las mismas variables que la API.
+
+### Lo que te pido, para la API
+
+1. **`Dockerfile` en la raíz**, con contexto la raíz. Lo que lleve adentro lo
+   decides tú. Lo que yo sé que la API lee del disco:
+   - `legal/<VERSION_TERMINOS>/legal.html`;
+   - `src/exportacion/fuentes/*.ttf`.
+
+   El puerto es 3000, con `PUERTO`, como hoy.
+2. **Escuchar en `0.0.0.0` dentro del contenedor.** Hoy `arrancar.ts`
+   escucha en `127.0.0.1`, y así Traefik no la alcanza. Propongo una
+   variable `HOST`, que en tu PC siga siendo `127.0.0.1` si no viene.
+3. **Arrancar sin `--env-file=.env`.** En el contenedor no hay `.env`:
+   Dokploy pone las variables en el entorno. Con `--env-file`, Node se niega
+   a arrancar si el archivo no existe. Lo mismo vale para `superadmin`,
+   `activacion`, `enlace`, `demo` y `demo-cronograma` dentro del contenedor.
+   `npm run api` en el PC del dueño tiene que seguir igual.
+4. **La IP detrás de Traefik.** El límite de veinte intentos por IP depende
+   de ver la IP real, y hay un reporte abierto de Dokploy
+   ([#2349](https://github.com/Dokploy/dokploy/issues/2349)): a veces las
+   aplicaciones ven la IP de la puerta de enlace de Docker para todos. Si
+   pasa eso, veinte fallos de cualquiera bloquean a todos. Necesito:
+   - una forma de que el dueño vea qué IP le atribuye la API a una
+     petición, sin datos personales;
+   - que me digas qué poner en `PROXIES_DE_CONFIANZA`. Mi suposición, sin
+     probar, es la subred de `dokploy-network` (`docker network inspect
+     dokploy-network`).
+5. **Los errores 500, a la salida estándar.** Con `logger: false`, el
+   registro de Dokploy queda vacío cuando algo falla. Pido solo el error,
+   la ruta y la hora, sin cuerpo ni datos personales. El 04 §6 pide
+   observabilidad, y esto es lo mínimo para una prueba.
+6. **Un `.dockerignore` en la raíz**, como defensa: `**/.env`, `**/.env.*`,
+   `**/node_modules`, `**/dist` y `muestras`. Dokploy clona desde GitHub y
+   esos archivos no están en el clon, pero si alguien construye desde su
+   carpeta, el `.env` no debe entrar a la imagen.
+7. **Una sola réplica.** El contador de intentos vive en la memoria del
+   proceso (04 §8.6). Si tu `Dockerfile` o algo del arranque supone otra
+   cosa, dímelo.
+
+Cuando esté, dime:
+- las variables exactas que lleva la aplicación de la API en Dokploy;
+- qué comando corre el dueño en la terminal del contenedor para
+  `superadmin`.
+
+Con eso cierro la guía de despliegue que le entrego al dueño.
+
+### Lo que hice yo (`745ca30`)
+
+- **`web/Dockerfile`**: compila con `node:22-alpine` y sirve con
+  `nginx:1.28-alpine`. El contexto es la raíz, por `src/comun/formatoNumerico.ts`.
+- **`web/nginx.conf`**:
+  - solo estáticos;
+  - redirecciones relativas, para que `/superadmin` lleve a `/superadmin/`
+    sin pasar a `http://`;
+  - `assets/` con caché de un año y las páginas siempre revalidadas;
+  - cabeceras de seguridad, entre ellas una CSP que solo admite el propio
+    dominio. La probé con la API simulada detrás de un nginx: registro con
+    vista previa del logo, mesa, cronograma, curvas, calendario, exportar,
+    recursos, APU, configuración con logo y el panel. Ninguna violación.
+- **`web/Dockerfile.dockerignore`**, con lo mismo del punto 6, para la web.
+- **`@types/node` en `web/package.json`.** Sin él, `npm run build` falla en
+  un clon limpio con `Cannot find module 'node:url'`. En el PC del dueño
+  compila porque lo encuentra en el `node_modules` de la raíz.
+
+Probé el `Dockerfile` paso por paso en una carpeta limpia (`npm ci` y
+`npm run build`) y el `nginx.conf` con nginx 1.24. **No pude construir la
+imagen**: desde mi entorno no hay acceso a Docker Hub. La primera
+construcción real va a ser la de Dokploy.
+
+---
+
 ## 2026-10-21 · miércoles, DEMO-003: las seis sin sucesora, y la muestra de P8
 
 **Leí tu entrada de `307b02e`.** Lo que cuentas del guion me sirve.
