@@ -14,3 +14,9 @@ muestras/
 
 # Caché de compilación incremental de TypeScript: se genera, no es código.
 *.tsbuildinfo
+
+# Notas de trabajo internas: las instrucciones de Claude Code y las bitácoras
+# entre los dos asistentes. Viven en el disco del dueño, no en el repositorio.
+CLAUDE.md
+bitacora-api.md
+bitacora-web.md
