@@ -15,6 +15,113 @@ Nada de narrar el proceso.
 
 ---
 
+## 2026-10-21 · miércoles, la API para el despliegue de prueba en Dokploy
+
+**Hecho** (`fdd2ade`, 697 de 697). Son tus siete puntos, en orden:
+
+1. **`Dockerfile` en la raíz**, con contexto la raíz.
+   - Imagen `node:22-bookworm-slim`: Debian y no Alpine, porque el binario
+     de Argon2 del lockfile es el de glibc.
+   - Instala con `npm ci --omit=dev` y copia `legal/` y `src/`. Las pruebas
+     se borran de la imagen.
+   - Corre con `node --import tsx src/http/arrancar.ts`, como usuario
+     `node`, en el puerto 3000.
+   - Sin compilar: las rutas a `legal/` y a `fuentes/` quedan donde las
+     busca la API. **`tsx` pasó a `dependencies`**, porque es lo que corre
+     la API. El lockfile solo cambió esas marcas `dev`.
+2. **`HOST`**: el `Dockerfile` trae `HOST=0.0.0.0`. Sin la variable sigue
+   siendo `127.0.0.1`, y un `PUERTO` inválido no arranca.
+3. **Sin `--env-file` en el contenedor.** El `CMD` es `node` directo, y los
+   `npm run …` del PC no cambian. Los comandos del dueño en la terminal del
+   contenedor van con `node` directo; están más abajo.
+4. **La IP detrás de Traefik.**
+   - **Ruta nueva:** `GET /api/diagnostico/ip`, sin sesión, responde
+     `{ ip }`: la IP que la API le atribuye a quien pregunta, y nada más.
+     **Agrégala al contrato.** La pantalla no la usa.
+   - **`PROXIES_DE_CONFIANZA`:** la subred de `dokploy-network`, que sale
+     de
+     `docker network inspect dokploy-network --format '{{(index .IPAM.Config 0).Subnet}}'`.
+     Tu suposición es correcta.
+   - **La prueba:** abrir `https://<dominio>/api/diagnostico/ip` desde dos
+     redes distintas (wifi y datos del celular). Si salen dos IP públicas,
+     funciona.
+   - **Si las dos dan la misma IP interna** (`10.…` o `172.…`), es el
+     #2349 de Dokploy: Traefik ya recibe la IP de la puerta de enlace. Eso
+     no se arregla en la API. Hay que publicar los puertos de Traefik en
+     modo `host`, no en el `ingress` de Swarm. Hasta resolverlo, veinte
+     fallos de cualquiera bloquean el ingreso por IP de todos. El bloqueo
+     por correo sigue funcionando.
+5. **Los 500, al registro.** Cada uno escribe una línea JSON en la salida de
+   errores con la hora, el método, la ruta declarada (`/api/x/:id`, sin ids
+   ni consulta), el estado, el error, el código de PostgreSQL y la pila.
+   Nunca el cuerpo, la cookie ni la IP. Los 4xx no escriben nada.
+6. **`.dockerignore`** con lo que pediste, más `.git`, `.tmp` y `.atl`.
+   No excluye `web/`, para no romper la construcción de la web si Dokploy
+   no usa `web/Dockerfile.dockerignore`.
+7. **Una réplica**, y lo dice el `Dockerfile`. La purga diaria también corre
+   dentro de ese proceso.
+
+**Probado:** armé una carpeta limpia con lo mismo que copia el `Dockerfile`
+y corrí `npm ci --omit=dev`. Quedó `tsx` y no quedaron `tsc` ni `eslint`. La
+arranqué con `HOST=0.0.0.0`, contra `construsoft_test`, y respondió:
+- los términos provisionales;
+- la IP;
+- el 401 de `/api/sesion`.
+
+**No pude:** construir la imagen, porque aquí no hay Docker; la primera
+construcción será la de Dokploy. Tampoco corrí la batería en Node 22: las
+pruebas corren en el 20 del PC. El 20 ya no tiene soporte, y por eso la
+imagen va en el 22.
+
+**Las variables de la aplicación de la API en Dokploy.** Los valores los
+pone el dueño; nunca pasan por aquí.
+
+| Variable | Valor |
+|---|---|
+| `SESSION_SECRET` | larga y al azar: `openssl rand -hex 32` en su terminal |
+| `VERSION_TERMINOS` | `PROVISIONAL-2026-10-13` |
+| `TERMINOS_PROVISIONALES` | `si` |
+| `CONTACTO_TERMINOS` | el correo del dueño |
+| `PROXIES_DE_CONFIANZA` | la subred de `dokploy-network` (punto 4) |
+| `APP_DB_HOST`, `AUTH_DB_HOST`, `SUPERADMIN_DB_HOST` | el «Internal Host» del servicio PostgreSQL en Dokploy |
+| `APP_DB_PORT`, `AUTH_DB_PORT`, `SUPERADMIN_DB_PORT` | `5432` |
+| `APP_DB_NAME`, `AUTH_DB_NAME`, `SUPERADMIN_DB_NAME` | `construsoft` |
+| `APP_DB_USER` / `_PASSWORD` | `app_login` y su contraseña |
+| `AUTH_DB_USER` / `_PASSWORD` | `auth_login` y su contraseña |
+| `SUPERADMIN_DB_USER` / `_PASSWORD` | `superadmin_login` y su contraseña. Los usan el panel y la purga |
+| `URL_ACTIVACION` | `https://<dominio>/#/activar?token=` |
+| `URL_RECUPERACION` | `https://<dominio>/` más la ruta de la pantalla de recuperación, terminada en `token=`. Esa ruta la conoces tú |
+| `DEMO_CORREO`, `DEMO_CONTRASENA` | solo mientras se corran `demo` y `demo-cronograma`; después se quitan |
+
+`HOST` y `PUERTO` ya vienen en la imagen. En Dokploy, las URL van sin
+comillas: el problema del `#` es solo del `.env`.
+
+**Los comandos del dueño en la terminal del contenedor de la API**, todos
+desde `/app`:
+
+```
+node --import tsx src/dueno/superadmin.ts correo@dominio "Nombre Apellido"
+node --import tsx src/dueno/superadmin.ts correo@dominio --cambiar-clave
+node --import tsx src/dueno/activacion.ts correo@empresa
+node --import tsx src/dueno/enlace.ts correo@empresa
+node --import tsx src/demo/sembrar.ts
+node --import tsx src/demo/sembrarCronograma.ts
+node --import tsx src/dueno/purgar.ts
+```
+
+`superadmin.ts` pide la contraseña dos veces y no la muestra. Necesita una
+terminal interactiva, y la de Dokploy lo es. Las migraciones no corren aquí:
+se cargan desde el PC, como propusiste. La imagen no trae `psql` ni
+`docs/`.
+
+**Qué divergió:** nada. `/api/diagnostico/ip` es una ruta nueva que hay que
+agregar al contrato.
+
+**Qué necesito de ti:** la ruta de la pantalla de recuperación para
+`URL_RECUPERACION`, puesta en tu guía. No me bloquea.
+
+---
+
 ## 2026-10-21 · miércoles, P8 decidido por el dueño: la holgura total baja
 
 **Decisión del dueño, hoy, en la conversación conmigo:** queda la regla que
