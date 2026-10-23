@@ -13,6 +13,7 @@ import { useSesion } from '../../sesion.tsx';
 import { Arbol, type OperacionesDeMesa } from './Arbol.tsx';
 import { armarArbol, nivelesDeLaMesa } from './arbol.ts';
 import { ControlDeNiveles, nivelDe, plegadosHasta } from '../../componentes/Niveles.tsx';
+import { SelloDeSoloLectura } from '../../componentes/SelloDeSoloLectura.tsx';
 import { Duplicar, EditarDatos, FormularioDeNodo, type FormaDeNodo } from './Dialogos.tsx';
 import { Historial } from './Historial.tsx';
 import { BarraDelPie, PanelDeDesglose } from './Pie.tsx';
@@ -267,6 +268,10 @@ export function Mesa({ id }: { id: string }) {
           <span className="codigo-de-mesa">{cabecera.codigo}</span>
           <InsigniaDeEstado estado={cabecera.estado} />
           {archivado ? <span className="insignia insignia-archivado">Archivado</span> : null}
+          {/* El nombre al lado del estado, como en el cronograma (pedido del
+              dueño, 23 de octubre de 2026). */}
+          <h1 className="titulo-de-mesa">{cabecera.nombre}</h1>
+          {motivoDeSoloLectura ? <SelloDeSoloLectura motivo={motivoDeSoloLectura} /> : null}
           {/* El cronograma va 1 a 1 con el proyecto (D-82): se entra de aquí.
               Va fuera de las acciones para que se vea siempre, también con
               ellas ocultas (pedido del dueño, 22 de octubre de 2026). */}
@@ -285,7 +290,6 @@ export function Mesa({ id }: { id: string }) {
             {accionesOcultas ? 'Mostrar acciones' : 'Ocultar acciones'}
           </button>
         </div>
-        <h1 className="titulo-de-mesa">{cabecera.nombre}</h1>
 
         {/* Oculto, el bloque se desliza a alto cero y queda inerte: sus botones
             no reciben el foco ni los lee un lector de pantalla. */}
@@ -365,12 +369,6 @@ export function Mesa({ id }: { id: string }) {
         </div>
       </header>
 
-      {motivoDeSoloLectura ? (
-        <p className="franja-de-estado" role="note">
-          <Icono nombre="candado" />
-          <span>{motivoDeSoloLectura}</span>
-        </p>
-      ) : null}
 
       {aviso ? (
         <div className="aviso-error" role="alert">

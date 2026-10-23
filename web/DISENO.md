@@ -884,6 +884,12 @@ mouse viaje menos:
   Más alto que lo que llega, mostraba la barra de desplazamiento un instante
   al entrar a las curvas (lo vio el dueño; en 1366 × 700 la página pasaba a
   751 px mientras cargaba).
+- **La cabecera de la mesa en un renglón** (mismo día): el nombre del
+  proyecto al lado del estado, como en el cronograma, en `--letra-lg`. La
+  franja de solo lectura pasa a un sello chico, «Solo lectura», en la esquina
+  de ese renglón (`componentes/SelloDeSoloLectura.tsx`), con el motivo en el
+  `title` y para el lector de pantalla. El cronograma Cerrado usa el mismo
+  sello.
 
 ## 12. Lo que todavía no está decidido
 

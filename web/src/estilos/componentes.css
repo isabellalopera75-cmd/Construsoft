@@ -709,7 +709,15 @@ textarea { min-height: 88px; padding: var(--e2) var(--e3); resize: vertical; wid
 .encabezado-de-mesa { padding: var(--e5); display: grid; gap: var(--e3); }
 .encabezado-de-mesa-arriba { display: flex; flex-wrap: wrap; align-items: center; gap: var(--e3); }
 .codigo-de-mesa { font-family: var(--fuente-cifra); font-weight: var(--peso-fuerte); color: var(--terracota); padding: var(--e1) var(--e2); border: 1px solid var(--borde-campo); border-radius: var(--radio-sm); }
-.titulo-de-mesa { font-size: var(--letra-xl); }
+.titulo-de-mesa { font-size: var(--letra-lg); margin: 0; min-width: 0; }
+/* El motivo de solo lectura, chico, en la esquina de la cabecera. */
+.sello-de-solo-lectura {
+  display: inline-flex; align-items: center; gap: var(--e1); padding: 2px var(--e2);
+  font-size: var(--letra-xs); color: var(--texto-segundo); white-space: nowrap; cursor: help;
+  border: 1px solid var(--borde-tenue); border-radius: var(--radio-redondo); background: var(--bg-app);
+}
+.encabezado-de-mesa-arriba .sello-de-solo-lectura { margin-left: auto; }
+.encabezado-de-mesa-arriba .sello-de-solo-lectura + .boton-a-cronograma { margin-left: 0; }
 .datos-de-mesa { display: flex; flex-wrap: wrap; gap: var(--e2) var(--e5); margin: 0; font-size: var(--letra-sm); }
 .datos-de-mesa div { display: flex; gap: var(--e2); }
 .datos-de-mesa dt { color: var(--texto-segundo); }

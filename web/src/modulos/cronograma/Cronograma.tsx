@@ -9,6 +9,7 @@ import { Confirmacion } from '../../componentes/Confirmacion.tsx';
 import { Icono } from '../../componentes/Icono.tsx';
 import { InsigniaDeEstado } from '../../componentes/Insignia.tsx';
 import { ControlDeNiveles, nivelDe, plegadosHasta } from '../../componentes/Niveles.tsx';
+import { SelloDeSoloLectura } from '../../componentes/SelloDeSoloLectura.tsx';
 import { Pestanas } from '../../componentes/Pestanas.tsx';
 import { formatearFechaYHora } from '../../fechas.ts';
 import { formatearNumero } from '../../formato.ts';
@@ -225,6 +226,7 @@ export function Cronograma({ presupuestoId }: { presupuestoId: string }) {
           <span className="codigo-de-mesa">{proyecto.codigo}</span>
           <InsigniaDeEstado estado={proyecto.estado} />
           <h1 className="titulo-de-cronograma">Cronograma <span className="titulo-de-cronograma-proyecto">· {proyecto.nombre}</span></h1>
+          {proyecto.estado === 'CERRADO' ? <SelloDeSoloLectura motivo="El proyecto está Cerrado: el cronograma es de solo lectura." /> : null}
           <span className="recalculando" role="status" aria-live="polite">
             {guardando > 0 || lento ? <><Icono nombre="reloj" tamano={16} />Recalculando…</> : null}
           </span>
@@ -276,7 +278,6 @@ export function Cronograma({ presupuestoId }: { presupuestoId: string }) {
 
       <Franjas
         vista={vista}
-        cerrado={proyecto.estado === 'CERRADO'}
         rechazado={rechazado}
         errorGeneral={errorGeneral}
         puedeCerrarAviso={puedeEscribir('PRESUPUESTOS.EDITAR')}
@@ -403,7 +404,6 @@ export function Cronograma({ presupuestoId }: { presupuestoId: string }) {
 
 interface PropsFranjas {
   vista: VistaCronograma;
-  cerrado: boolean;
   rechazado: Rechazado | null;
   errorGeneral: string | null;
   puedeCerrarAviso: boolean;
@@ -435,7 +435,7 @@ function AvisoDeAdministracion({ vista }: { vista: VistaCronograma }) {
   );
 }
 
-function Franjas({ vista, cerrado, rechazado, errorGeneral, puedeCerrarAviso, alDescartarRechazo, alQuitarError, alCerrarAviso, alCopiarFestivos, alIr }: PropsFranjas) {
+function Franjas({ vista, rechazado, errorGeneral, puedeCerrarAviso, alDescartarRechazo, alQuitarError, alCerrarAviso, alCopiarFestivos, alIr }: PropsFranjas) {
   const { arranque } = useSesion();
   const formato = arranque.formatoNumerico;
   const [rehaciendo, setRehaciendo] = useState(false);
@@ -452,9 +452,6 @@ function Franjas({ vista, cerrado, rechazado, errorGeneral, puedeCerrarAviso, al
 
   return (
     <>
-      {cerrado ? (
-        <p className="franja-de-estado" role="note"><Icono nombre="candado" /><span>El proyecto está Cerrado: el cronograma es de solo lectura.</span></p>
-      ) : null}
       {errorGeneral ? (
         <div className="aviso-error" role="alert">
           <Icono nombre="aviso" />
