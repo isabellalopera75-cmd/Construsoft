@@ -776,6 +776,21 @@ mouse viaje menos:
   2.5.8. El Gantt deja de esconder inicio y fin con el panel abierto. Al
   abrirse, la página sube hasta dejar el Gantt bajo la barra superior, y el
   Gantt mide lo que queda entre esa barra y el panel.
+- **El cronograma, compacto** (pedido del dueño, 22 de octubre de 2026, para
+  que quepan más actividades). Antes, en 1440 × 900 y con 1.500 actividades,
+  se veían 8 filas; ahora se ven 22. Los cambios:
+  - las filas del Gantt bajan a 24 px y la letra a 12, códigos incluidos;
+  - la escala baja a 40 px, y las barras, los rombos y la línea base se
+    midieron otra vez para ese alto;
+  - la cabecera va en dos renglones: arriba volver, código, estado, título y
+    botones; abajo, los datos del cronograma;
+  - el aviso, las pestañas y la barra van con menos relleno, con botones de
+    32 px y letra de 13;
+  - la pantalla deja menos margen arriba y abajo;
+  - la leyenda dice «Crítica (holgura ≤ 0)», para que quepa en un renglón.
+
+  Los botones de 32 px quedan bajo el mínimo de toque de 44 px, como los del
+  panel.
 
 ## 12. Lo que todavía no está decidido
 

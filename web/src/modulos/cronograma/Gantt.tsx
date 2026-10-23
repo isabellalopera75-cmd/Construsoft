@@ -61,7 +61,10 @@ const ALTO_MINIMO = 320;
 const ALTO_MINIMO_CON_PANEL = 200;
 const AIRE = 8;
 
-const ALTO_FILA = 32;
+// 24 px y letra de 12 (pedido del dueño, 22 de octubre de 2026): más
+// actividades a la vista. Las barras del CSS están medidas para este alto.
+const ALTO_FILA = 24;
+const ALTO_CABECERA = 40;
 const MARGEN_FILAS = 12;
 const PX_POR_DIA: Record<Escala, number> = { DIA: 28, SEMANA: 9, MES: 3 };
 const HOLGURA_DIAS: Record<Escala, number> = { DIA: 4, SEMANA: 10, MES: 20 };
@@ -186,7 +189,7 @@ export function Gantt({ vista, anchos, alCambiarAncho, conPanel, filas, escala, 
     const el = marco.current;
     if (i === undefined || !el) return;
     const top = i * ALTO_FILA;
-    const cabecera = 56;
+    const cabecera = ALTO_CABECERA + ALTO_FILA / 2;
     if (top < el.scrollTop || top + ALTO_FILA > el.scrollTop + el.clientHeight - cabecera) el.scrollTop = Math.max(0, top - el.clientHeight / 3);
     if (enfocar.current) {
       enfocar.current = false;

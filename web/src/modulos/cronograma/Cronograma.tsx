@@ -217,48 +217,48 @@ export function Cronograma({ presupuestoId }: { presupuestoId: string }) {
 
   return (
     <div className="cronograma" data-panel={actividad && pestana === 'gantt' ? 'abierto' : 'cerrado'}>
-      <header className="tarjeta encabezado-de-mesa encabezado-de-cronograma">
-        <div className="encabezado-de-mesa-arriba">
+      {/* Compacta, en dos renglones (pedido del dueño, 22 de octubre de 2026):
+          cada renglón que se ahorra aquí es una actividad más en el Gantt. */}
+      <header className="tarjeta encabezado-de-cronograma">
+        <div className="encabezado-de-cronograma-arriba">
           <BotonVolver a={{ pantalla: 'mesa', id: proyecto.id }} nombre="Mesa de trabajo" />
           <span className="codigo-de-mesa">{proyecto.codigo}</span>
           <InsigniaDeEstado estado={proyecto.estado} />
+          <h1 className="titulo-de-cronograma">Cronograma <span className="titulo-de-cronograma-proyecto">· {proyecto.nombre}</span></h1>
           <span className="recalculando" role="status" aria-live="polite">
             {guardando > 0 || lento ? <><Icono nombre="reloj" tamano={16} />Recalculando…</> : null}
           </span>
-        </div>
-        <h1 className="titulo-de-mesa">Cronograma <span className="titulo-de-cronograma-proyecto">· {proyecto.nombre}</span></h1>
-        <div className="barra-de-estructura">
-          <dl className="datos-de-mesa">
-            <div>
-              <dt>Inicio</dt>
-              <dd>
-                {fechaConDia(k.fechaInicio)}
-                {editable ? <button type="button" className="boton-texto" onClick={() => setDialogo({ tipo: 'fecha' })}>Cambiar</button> : null}
-              </dd>
-            </div>
-            <div><dt>Fin</dt><dd>{fechaConDia(k.fin)}</dd></div>
-            <div><dt>Duración</dt><dd className="cifra-en-texto">{dias(k.duracionDias, formato)} días</dd></div>
-            <div>
-              <dt>Calendario de la obra</dt>
-              <dd>
-                <span title={resumenDeCalendario(obra, formato)}>{obra.nombre}</span>
-                <button type="button" className="boton-texto" onClick={() => setDialogo({ tipo: 'calendario' })}>{editable ? 'Ver y editar' : 'Ver'}</button>
-              </dd>
-            </div>
-          </dl>
-          <div className="fila-de-botones">
+          <div className="fila-de-botones encabezado-de-cronograma-botones">
             <button type="button" className="boton boton-secundario" onClick={() => setDialogo({ tipo: 'lineas-base' })}>
-              <Icono nombre="bandera" />
+              <Icono nombre="bandera" tamano={16} />
               Líneas base{vista.lineasBase.length > 0 ? <span className="pestana-conteo">{vista.lineasBase.length}</span> : null}
             </button>
             {puede('PRESUPUESTOS.EXPORTAR') ? (
               <button type="button" className="boton boton-secundario" onClick={() => setDialogo({ tipo: 'exportar' })}>
-                <Icono nombre="descargar" />
+                <Icono nombre="descargar" tamano={16} />
                 Exportar
               </button>
             ) : null}
           </div>
         </div>
+        <dl className="datos-de-mesa">
+          <div>
+            <dt>Inicio</dt>
+            <dd>
+              {fechaConDia(k.fechaInicio)}
+              {editable ? <button type="button" className="boton-texto" onClick={() => setDialogo({ tipo: 'fecha' })}>Cambiar</button> : null}
+            </dd>
+          </div>
+          <div><dt>Fin</dt><dd>{fechaConDia(k.fin)}</dd></div>
+          <div><dt>Duración</dt><dd className="cifra-en-texto">{dias(k.duracionDias, formato)} días</dd></div>
+          <div>
+            <dt>Calendario de la obra</dt>
+            <dd>
+              <span title={resumenDeCalendario(obra, formato)}>{obra.nombre}</span>
+              <button type="button" className="boton-texto" onClick={() => setDialogo({ tipo: 'calendario' })}>{editable ? 'Ver y editar' : 'Ver'}</button>
+            </dd>
+          </div>
+        </dl>
       </header>
 
       <Franjas
@@ -525,7 +525,7 @@ function Leyenda({ conBase }: { conBase: boolean }) {
   return (
     <ul className="leyenda leyenda-gantt" aria-label="Leyenda del Gantt">
       <li><span className="leyenda-barra" data-tipo="normal" />Actividad</li>
-      <li><span className="leyenda-barra" data-tipo="critica" />Crítica (holgura cero o menos)</li>
+      <li><span className="leyenda-barra" data-tipo="critica" />Crítica (holgura ≤ 0)</li>
       <li><span className="leyenda-barra" data-tipo="ADMINISTRACION" />Administración</li>
       <li><span className="leyenda-barra" data-tipo="resumen" />Capítulo o grupo</li>
       <li><span className="leyenda-rombo" data-tipo="HITO_INICIO" />Hito de inicio</li>

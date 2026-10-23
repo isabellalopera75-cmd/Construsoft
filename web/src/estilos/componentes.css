@@ -1624,14 +1624,37 @@ button.paso-del-indicador:hover { color: var(--texto); }
 /* El Gantt usa el ancho entero (Cascaron anchoCompleto): es una línea de
    tiempo, y cada píxel de más es tiempo a la vista. Lo suelto —cargando, sin
    cronograma, un error— vuelve al ancho de siempre, centrado. */
-.cronograma { display: grid; gap: var(--e3); min-width: 0; }
+.cronograma { display: grid; gap: var(--e2); min-width: 0; }
+/* Lo de arriba del Gantt, compacto (pedido del dueño, 22 de octubre de 2026):
+   cada renglón que se ahorra es una actividad más a la vista. */
+.encabezado-de-cronograma { padding: var(--e2) var(--e3); display: grid; gap: var(--e1); }
+.encabezado-de-cronograma-arriba { display: flex; flex-wrap: wrap; align-items: center; gap: var(--e2); }
+.encabezado-de-cronograma :is(.boton, .boton-volver) { min-height: 32px; font-size: var(--letra-sm); }
+.encabezado-de-cronograma .codigo-de-mesa { padding: 2px var(--e2); font-size: var(--letra-sm); }
+.encabezado-de-cronograma .datos-de-mesa { gap: 2px var(--e4); font-size: 0.8125rem; }
+.encabezado-de-cronograma-botones { margin-left: auto; }
+.titulo-de-cronograma { font-size: var(--letra-md); margin: 0; min-width: 0; }
+.cronograma .franja { padding: var(--e2) var(--e3); gap: var(--e2); font-size: 0.8125rem; }
+.cronograma .franja-texto { gap: 0; }
+.cronograma .franja .boton { min-height: 30px; font-size: var(--letra-xs); }
+.cronograma .pestanas { padding: 2px; }
+.cronograma .pestana { min-height: 32px; padding: 0 var(--e3); }
+.cronograma .barra-del-gantt { gap: var(--e1) var(--e3); }
+.cronograma .barra-del-gantt :is(.boton, .conmutador-opcion) { min-height: 32px; padding-inline: var(--e2); font-size: 0.8125rem; }
+.cronograma .barra-del-gantt .boton { gap: var(--e1); }
+.cronograma .barra-del-gantt :is(.etiqueta-en-linea, .control-de-niveles-etiqueta) { font-size: 0.8125rem; }
+.cronograma .leyenda { gap: 2px var(--e3); }
+.cronograma .barra-del-gantt select { min-height: 30px; }
 .cronograma > * { min-width: 0; }
 .cronograma-suelto { max-width: var(--ancho-contenido); margin-inline: auto; width: 100%; }
 .titulo-de-cronograma-proyecto { font-family: var(--fuente-texto); font-weight: var(--peso-medio); color: var(--texto-segundo); font-size: var(--letra-md); }
 .recalculando { display: inline-flex; align-items: center; gap: var(--e1); font-size: var(--letra-sm); color: var(--texto-segundo); }
 .crear-cronograma { padding: var(--e5); display: grid; gap: var(--e3); max-width: 760px; }
 .crear-cronograma p { margin: 0; }
-.panel-de-cronograma { display: grid; gap: var(--e3); }
+.panel-de-cronograma { display: grid; gap: var(--e2); }
+.cronograma .panel-de-cronograma { margin-top: 0; }
+/* Menos margen arriba y abajo de la pantalla del cronograma: es alto para el Gantt. */
+.contenido[data-pantalla='cronograma'] { padding-top: var(--e3); padding-bottom: var(--e3); }
 .panel-de-cronograma > .boton, .curvas > .boton { justify-self: start; }
 
 .franja {
@@ -1683,11 +1706,15 @@ button.paso-del-indicador:hover { color: var(--texto); }
 .gantt {
   position: relative; overflow: auto; border: 1px solid var(--borde-tenue); border-radius: var(--radio-lg);
   background: var(--bg-tarjeta); max-height: clamp(360px, calc(100dvh - var(--alto-barra) - 2 * var(--e5)), 1400px);
-  font-size: var(--letra-sm); overscroll-behavior: contain;
+  font-size: var(--letra-xs); overscroll-behavior: contain;
 }
+/* Letra de 12 en todo el Gantt, también en los códigos y las marcas
+   (pedido del dueño, 22 de octubre de 2026): más filas a la vista. */
+.gantt :is(.cifra-codigo, .insignia, .marca-chica) { font-size: inherit; }
+.gantt .insignia { padding: 0 var(--e1); line-height: 1.4; }
 .gantt-lienzo { position: relative; min-width: 100%; }
 .gantt-cabecera { position: sticky; top: 0; z-index: 6; background: var(--bg-tarjeta); border-bottom: 1px solid var(--borde-campo); }
-.gantt-fila-cabecera { display: flex; height: 48px; }
+.gantt-fila-cabecera { display: flex; height: 40px; }
 .gantt-celdas {
   position: sticky; left: 0; z-index: 4; flex: none; width: var(--ancho-tabla-gantt);
   display: grid; grid-template-columns: var(--columnas-gantt, 76px minmax(0, 1fr) 52px 82px 82px 72px); align-items: center;
@@ -1703,14 +1730,14 @@ button.paso-del-indicador:hover { color: var(--texto); }
   box-shadow: inset -1px 0 0 var(--borde-tenue);
 }
 .gantt-asa:hover, .gantt-asa:focus-visible { box-shadow: inset -2px 0 0 var(--terracota); outline: none; }
-.gantt-celdas-cabecera { z-index: 7; color: var(--texto-segundo); font-weight: var(--peso-fuerte); align-items: end; padding-bottom: var(--e2); }
+.gantt-celdas-cabecera { z-index: 7; color: var(--texto-segundo); font-weight: var(--peso-fuerte); align-items: end; padding-bottom: var(--e1); }
 .gantt-celdas .cifra { text-align: right; }
 .gantt-fecha { font-family: var(--fuente-cifra); font-variant-numeric: tabular-nums; color: var(--texto-segundo); }
 .gantt-escala { position: relative; flex: 1; }
-.gantt-escala-arriba, .gantt-escala-abajo { position: absolute; left: 0; right: 0; height: 24px; }
+.gantt-escala-arriba, .gantt-escala-abajo { position: absolute; left: 0; right: 0; height: 20px; }
 .gantt-escala-arriba { top: 0; }
-.gantt-escala-abajo { top: 24px; }
-.gantt-escala span { position: absolute; top: 0; height: 24px; line-height: 24px; padding-left: 3px; border-left: 1px solid var(--borde-tenue); font-size: var(--letra-xs); color: var(--texto-segundo); white-space: nowrap; overflow: hidden; }
+.gantt-escala-abajo { top: 20px; }
+.gantt-escala span { position: absolute; top: 0; height: 20px; line-height: 20px; padding-left: 3px; border-left: 1px solid var(--borde-tenue); font-size: var(--letra-xs); color: var(--texto-segundo); white-space: nowrap; overflow: hidden; }
 .gantt-escala-arriba span { font-weight: var(--peso-fuerte); color: var(--texto); }
 .gantt[data-escala='DIA'] .gantt-escala-abajo span { padding-left: 0; text-align: center; font-family: var(--fuente-cifra); }
 .gantt-escala-abajo span[data-semana='si'] { border-left-color: var(--borde-campo); }
@@ -1733,9 +1760,9 @@ button.paso-del-indicador:hover { color: var(--texto); }
 .gantt-fila:is([data-clase='capitulo'], [data-clase='titulo'], [data-clase='grupo']) { font-weight: var(--peso-fuerte); }
 .gantt-fila[data-clase='titulo'] .gantt-celdas { background: color-mix(in srgb, var(--texto) 4%, var(--bg-tarjeta)); }
 .gantt-codigo { display: flex; align-items: center; gap: 2px; }
-.gantt-plegar { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: var(--radio-sm); background: none; color: var(--texto-segundo); cursor: pointer; flex: none; }
+.gantt-plegar { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; padding: 0; border: 0; border-radius: var(--radio-sm); background: none; color: var(--texto-segundo); cursor: pointer; flex: none; }
 .gantt-plegar:hover { color: var(--texto); background: var(--bg-tarjeta-hover); }
-.gantt-plegar-vacio { display: inline-block; width: 20px; flex: none; }
+.gantt-plegar-vacio { display: inline-block; width: 18px; flex: none; }
 .gantt-nombre { display: flex; align-items: center; gap: var(--e1); padding-left: calc(var(--e2) + var(--nivel, 0) * var(--e4)) !important; }
 .gantt-nombre-texto { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .gantt-nombre-boton { display: inline-flex; align-items: center; gap: var(--e1); min-width: 0; border: 0; background: none; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
@@ -1747,22 +1774,24 @@ button.paso-del-indicador:hover { color: var(--texto); }
 
 .gantt-barras { position: relative; flex: none; width: 0; z-index: 2; }
 .gantt-barra, .gantt-resumen, .gantt-base, .gantt-rombo, .gantt-base-hito { position: absolute; }
-.gantt-barra { top: 7px; height: 13px; border-radius: 3px; background: var(--gantt-barra); }
+.gantt-barra { top: 5px; height: 10px; border-radius: 3px; background: var(--gantt-barra); }
 .gantt-barra[data-critica='si'] { background: var(--gantt-critica); }
 .gantt-barra[data-tipo='ADMINISTRACION'] { background: repeating-linear-gradient(135deg, var(--gantt-administracion) 0 3px, transparent 3px 6px); border: 1px solid var(--gantt-administracion); }
-.gantt-mitad { position: absolute; right: -2px; top: -3px; bottom: -3px; width: 3px; border-radius: 1px; background: var(--gantt-mitad); }
-.gantt-resumen { top: 11px; height: 5px; background: var(--gantt-resumen); }
-.gantt-resumen::before, .gantt-resumen::after { content: ''; position: absolute; top: 0; width: 0; height: 0; border-top: 6px solid var(--gantt-resumen); }
+.gantt-mitad { position: absolute; right: -2px; top: -2px; bottom: -2px; width: 3px; border-radius: 1px; background: var(--gantt-mitad); }
+.gantt-resumen { top: 8px; height: 4px; background: var(--gantt-resumen); }
+.gantt-resumen::before, .gantt-resumen::after { content: ''; position: absolute; top: 0; width: 0; height: 0; border-top: 5px solid var(--gantt-resumen); }
 .gantt-resumen::before { left: 0; border-right: 5px solid transparent; }
 .gantt-resumen::after { right: 0; border-left: 5px solid transparent; }
-.gantt-base { top: 22px; height: 4px; border-radius: 1px; background: var(--gantt-linea-base); }
-.gantt-base-hito { top: 21px; width: 6px; height: 6px; margin-left: -3px; transform: rotate(45deg); background: var(--gantt-linea-base); }
-.gantt-rombo { top: 8px; width: 12px; height: 12px; margin-left: -6px; transform: rotate(45deg); background: var(--gantt-hito-inicio); border: 1px solid var(--bg-tarjeta); }
+.gantt-base { top: 17px; height: 3px; border-radius: 1px; background: var(--gantt-linea-base); }
+.gantt-base-hito { top: 16px; width: 5px; height: 5px; margin-left: -2.5px; transform: rotate(45deg); background: var(--gantt-linea-base); }
+.gantt-rombo { top: 6px; width: 10px; height: 10px; margin-left: -5px; transform: rotate(45deg); background: var(--gantt-hito-inicio); border: 1px solid var(--bg-tarjeta); }
 .gantt-rombo[data-tipo='HITO_FIN'] { background: var(--gantt-hito-fin); }
 .gantt-esqueleto, .curvas-esqueleto { height: 420px; border-radius: var(--radio-lg); background: linear-gradient(90deg, var(--bg-tarjeta) 0%, var(--bg-tarjeta-hover) 50%, var(--bg-tarjeta) 100%); border: 1px solid var(--borde-tenue); }
 @media (pointer: coarse) {
-  .gantt-plegar { width: 32px; height: 32px; }
+  /* Con dedo, el botón de plegar ocupa el alto entero de la fila. */
+  .gantt-plegar { width: 28px; height: 24px; }
 }
+.gantt .boton-mini { width: 20px; height: 20px; min-height: 20px; }
 
 /* --- El panel de una actividad ------------------------------------------------ */
 .panel-de-actividad { display: grid; gap: var(--e4); }
