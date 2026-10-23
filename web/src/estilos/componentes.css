@@ -1707,7 +1707,7 @@ button.paso-del-indicador:hover { color: var(--texto); }
 .selector-de-nivel:has(select:focus-visible) { outline: 2px solid var(--terracota); outline-offset: 2px; }
 .selector-de-nivel-etiqueta { color: var(--texto-segundo); }
 .selector-de-nivel select {
-  appearance: none; border: 0; background: transparent; min-height: 0; height: auto; padding: 0 18px 0 0; margin: 0;
+  appearance: none; border: 0; background: var(--bg-campo); min-height: 0; height: auto; padding: 0 18px 0 0; margin: 0;
   font: inherit; font-family: var(--fuente-cifra); font-weight: var(--peso-fuerte); color: var(--texto); cursor: pointer;
 }
 .selector-de-nivel select:focus, .selector-de-nivel select:focus-visible { outline: none; }

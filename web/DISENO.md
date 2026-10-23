@@ -859,6 +859,10 @@ mouse viaje menos:
   o un clic afuera lo cierran. Con filas plegadas a mano, el select muestra
   un guion. Reemplaza el conmutador 1-2-3 y los dos botones del 22 de
   octubre.
+- **Las opciones de un `select` llevan sus colores siempre** (`option` en
+  base.css). La lista abierta la pinta el sistema operativo con el fondo del
+  select: con el select del nivel transparente, Windows la mostraba blanca
+  con letra clara, y los números no se veían (lo encontró el dueño).
 
 ## 12. Lo que todavía no está decidido
 

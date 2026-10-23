@@ -81,6 +81,10 @@ input, select, textarea {
   border-radius: var(--radio-md);
 }
 input:focus, select:focus, textarea:focus { border-color: var(--borde-activo); }
+/* La lista que abre un select la pinta el sistema operativo con el fondo del
+   select: si el select es transparente, Windows la deja blanca con letra
+   clara y no se lee nada. Las opciones llevan sus colores siempre. */
+option { background-color: var(--bg-campo); color: var(--texto); }
 
 /* Para quien pide menos movimiento, nada de transiciones. */
 @media (prefers-reduced-motion: reduce) {
