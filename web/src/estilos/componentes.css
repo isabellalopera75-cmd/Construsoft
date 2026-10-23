@@ -1841,7 +1841,11 @@ button.paso-del-indicador:hover { color: var(--texto); }
 .gantt-base-hito { top: calc(var(--alto-fila-gantt) / 2 + 4px); width: 5px; height: 5px; margin-left: -2.5px; transform: rotate(45deg); background: var(--gantt-linea-base); }
 .gantt-rombo { top: calc(var(--alto-fila-gantt) / 2 - 6px); width: 10px; height: 10px; margin-left: -5px; transform: rotate(45deg); background: var(--gantt-hito-inicio); border: 1px solid var(--bg-tarjeta); }
 .gantt-rombo[data-tipo='HITO_FIN'] { background: var(--gantt-hito-fin); }
-.gantt-esqueleto, .curvas-esqueleto { height: 420px; border-radius: var(--radio-lg); background: linear-gradient(90deg, var(--bg-tarjeta) 0%, var(--bg-tarjeta-hover) 50%, var(--bg-tarjeta) 100%); border: 1px solid var(--borde-tenue); }
+/* Mientras carga, el esqueleto no puede ser más alto que lo que va a
+   llegar: si lo es, la página muestra la barra de desplazamiento un instante
+   y la quita (lo vio el dueño en las curvas, 23 de octubre de 2026). 200 px
+   es el mínimo del gráfico y cabe en cualquier ventana. */
+.gantt-esqueleto, .curvas-esqueleto { height: 200px; border-radius: var(--radio-lg); background: linear-gradient(90deg, var(--bg-tarjeta) 0%, var(--bg-tarjeta-hover) 50%, var(--bg-tarjeta) 100%); border: 1px solid var(--borde-tenue); }
 @media (pointer: coarse) {
   /* Con dedo, el botón de plegar ocupa el alto entero de la fila. */
   .gantt-plegar { width: 28px; height: 24px; }

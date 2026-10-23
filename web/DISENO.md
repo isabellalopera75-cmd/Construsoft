@@ -880,6 +880,10 @@ mouse viaje menos:
   que la página no se desplaza. Solo la tabla abierta la hace bajar. La tabla
   va en letra de 12 y con menos relleno: en 1366 px, por semana, se
   desbordaba 27 px de lado.
+- **El esqueleto de carga** de las curvas y del Gantt baja de 420 a 200 px.
+  Más alto que lo que llega, mostraba la barra de desplazamiento un instante
+  al entrar a las curvas (lo vio el dueño; en 1366 × 700 la página pasaba a
+  751 px mientras cargaba).
 
 ## 12. Lo que todavía no está decidido
 
