@@ -1982,6 +1982,10 @@ button.paso-del-indicador:hover { color: var(--texto); }
 .curvas-cabecera { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--e3); align-items: flex-start; }
 .curvas-cabecera > div:first-child { display: grid; gap: var(--e1); flex: 1 1 24rem; }
 .curvas-totales dd { font-size: var(--letra-md); }
+/* La tabla de las cifras, compacta para que quepa sin desplazarse de lado. */
+.curvas .tabla { font-size: var(--letra-xs); }
+.curvas .tabla :is(th, td) { padding: var(--e1) var(--e2); }
+.curvas .tabla td.cifra { font-size: var(--letra-xs); }
 .grafico-de-curvas { display: grid; gap: var(--e2); }
 .grafico-de-curvas-plano { position: relative; }
 .grafico-de-curvas-plano:focus-visible { outline: 2px solid var(--terracota); outline-offset: 2px; border-radius: var(--radio-sm); }

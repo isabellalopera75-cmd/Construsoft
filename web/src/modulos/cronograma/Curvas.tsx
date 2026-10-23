@@ -31,7 +31,10 @@ function aproximar(texto: string): number {
   return parseFloat(texto);
 }
 
-const ALTO = 320;
+// El alto del gráfico se ajusta a la ventana para que la pantalla no se
+// desplace (pedido del dueño, 23 de octubre de 2026): entre estos dos.
+const ALTO_MINIMO = 200;
+const ALTO_MAXIMO = 440;
 const MARGEN = { arriba: 16, derecha: 112, abajo: 36, izquierda: 64 };
 
 interface Serie {
@@ -130,16 +133,33 @@ function Grafico({ datos, nombrePeriodo }: { datos: DatosDeCurvas; nombrePeriodo
   const formato = arranque.formatoNumerico;
   const marco = useRef<HTMLDivElement>(null);
   const [ancho, setAncho] = useState(720);
+  const [ALTO, setAlto] = useState(320);
   const [activo, setActivo] = useState<number | null>(null);
 
   useLayoutEffect(() => {
     const el = marco.current;
     if (!el) return;
-    const medir = () => setAncho(Math.max(320, el.clientWidth));
+    const contenido = document.getElementById('contenido');
+    const medir = () => {
+      setAncho(Math.max(320, el.clientWidth));
+      // Lo que queda desde el gráfico hasta el fondo de la ventana, menos lo
+      // que la página deja debajo de él (el botón de la tabla y los
+      // márgenes). La tabla abierta no cuenta: abrirla sí desplaza.
+      const caja = el.getBoundingClientRect();
+      const tabla = el.closest('.curvas')?.querySelector('.tabla-con-desplazamiento')?.getBoundingClientRect().height ?? 0;
+      const debajo = contenido ? Math.max(0, contenido.getBoundingClientRect().bottom - caja.bottom - tabla - (tabla > 0 ? 12 : 0)) : 0;
+      const libre = Math.floor(window.innerHeight - (caja.top + window.scrollY) - debajo);
+      setAlto(Math.min(ALTO_MAXIMO, Math.max(ALTO_MINIMO, libre)));
+    };
     medir();
+    window.addEventListener('resize', medir);
     const o = new ResizeObserver(medir);
     o.observe(el);
-    return () => o.disconnect();
+    if (contenido) o.observe(contenido);
+    return () => {
+      window.removeEventListener('resize', medir);
+      o.disconnect();
+    };
   }, []);
 
   const todas = series(datos);

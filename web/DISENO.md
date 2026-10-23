@@ -875,6 +875,11 @@ mouse viaje menos:
     y el `aria-label`.
 
   En 1440 × 900, el Gantt empieza en 266 px, antes en 302.
+- **Las curvas S sin desplazamiento** (mismo día). El gráfico mide lo que
+  queda hasta el fondo de la ventana, entre 200 y 440 px, como el Gantt, así
+  que la página no se desplaza. Solo la tabla abierta la hace bajar. La tabla
+  va en letra de 12 y con menos relleno: en 1366 px, por semana, se
+  desbordaba 27 px de lado.
 
 ## 12. Lo que todavía no está decidido
 
