@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { Icono } from './Icono.tsx';
 
 /*
@@ -46,31 +46,100 @@ export function ControlDeNiveles({ niveles, actual, alElegir }: Props) {
   const id = useId();
   if (niveles < 2) return null;
   const lista = Array.from({ length: niveles }, (_, i) => i + 1);
+  // Un select nativo (pedido del dueño, 23 de octubre de 2026): «Nivel 1 ⌄».
+  // Con filas plegadas a mano no hay nivel: el select muestra un guion.
   return (
     <div className="control-de-niveles">
-      <span className="control-de-niveles-etiqueta" id={id}>Nivel</span>
-      <div className="conmutador" role="group" aria-labelledby={id}>
-        {lista.map((n) => (
-          <button
-            key={n}
-            type="button"
-            className="conmutador-opcion conmutador-cifra"
-            aria-pressed={actual === n}
-            title={n === niveles ? `Nivel ${n}: todo, con las actividades` : `Nivel ${n}`}
-            onClick={() => alElegir(n)}
-          >
-            {n}
+      <label className="selector-de-nivel" htmlFor={id}>
+        <span className="selector-de-nivel-etiqueta">Nivel</span>
+        <select
+          id={id}
+          value={actual === null ? '' : String(actual)}
+          onChange={(e) => {
+            const n = lista.find((x) => String(x) === e.target.value);
+            if (n !== undefined) alElegir(n);
+          }}
+        >
+          {actual === null ? <option value="" disabled>—</option> : null}
+          {lista.map((n) => <option key={n} value={String(n)} title={n === niveles ? "Todo, con las actividades" : undefined}>{n}</option>)}
+        </select>
+        <Icono nombre="bajar" tamano={14} />
+      </label>
+      <MenuDeEstructura alExpandir={() => alElegir(niveles)} alContraer={() => alElegir(1)} />
+    </div>
+  );
+}
+
+/*
+ * El menú de los tres puntos: «Expandir todo» y «Contraer todo». Es un menú
+ * de verdad para el teclado y el lector de pantalla: las flechas recorren las
+ * opciones, Escape lo cierra y devuelve el foco al botón, y un clic afuera lo
+ * cierra.
+ */
+function MenuDeEstructura({ alExpandir, alContraer }: { alExpandir: () => void; alContraer: () => void }) {
+  const [abierto, setAbierto] = useState(false);
+  const raiz = useRef<HTMLDivElement>(null);
+  const boton = useRef<HTMLButtonElement>(null);
+  const id = useId();
+
+  useEffect(() => {
+    if (!abierto) return;
+    raiz.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+    const afuera = (e: PointerEvent) => {
+      if (!(e.target instanceof Node) || !raiz.current?.contains(e.target)) setAbierto(false);
+    };
+    document.addEventListener('pointerdown', afuera);
+    return () => document.removeEventListener('pointerdown', afuera);
+  }, [abierto]);
+
+  const cerrar = () => {
+    setAbierto(false);
+    boton.current?.focus();
+  };
+  const elegir = (accion: () => void) => {
+    accion();
+    cerrar();
+  };
+
+  function alTeclear(e: KeyboardEvent<HTMLDivElement>) {
+    const items = [...(raiz.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];
+    const i = items.findIndex((x) => x === document.activeElement);
+    const ir = (j: number) => items[(j + items.length) % items.length]?.focus();
+    if (e.key === 'ArrowDown') { e.preventDefault(); ir(i + 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); ir(i - 1); }
+    else if (e.key === 'Home') { e.preventDefault(); ir(0); }
+    else if (e.key === 'End') { e.preventDefault(); ir(items.length - 1); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cerrar(); }
+    else if (e.key === 'Tab') setAbierto(false);
+  }
+
+  return (
+    <div className="menu-de-estructura" ref={raiz}>
+      <button
+        ref={boton}
+        type="button"
+        className="boton-icono boton-de-menu"
+        aria-haspopup="menu"
+        aria-expanded={abierto}
+        aria-controls={abierto ? id : undefined}
+        aria-label="Más opciones de la estructura"
+        title="Expandir o contraer todo"
+        onClick={() => setAbierto((a) => !a)}
+      >
+        <Icono nombre="masOpciones" tamano={16} />
+      </button>
+      {abierto ? (
+        <div id={id} role="menu" aria-label="Más opciones de la estructura" className="menu-desplegable" onKeyDown={alTeclear}>
+          <button type="button" role="menuitem" tabIndex={-1} onClick={() => elegir(alExpandir)}>
+            <Icono nombre="expandir" tamano={14} />
+            Expandir todo
           </button>
-        ))}
-      </div>
-      <button type="button" className="boton boton-secundario boton-chico-texto" onClick={() => alElegir(niveles)}>
-        <Icono nombre="expandir" tamano={16} />
-        Expandir todo
-      </button>
-      <button type="button" className="boton boton-secundario boton-chico-texto" onClick={() => alElegir(1)}>
-        <Icono nombre="contraer" tamano={16} />
-        Contraer todo
-      </button>
+          <button type="button" role="menuitem" tabIndex={-1} onClick={() => elegir(alContraer)}>
+            <Icono nombre="contraer" tamano={14} />
+            Contraer todo
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

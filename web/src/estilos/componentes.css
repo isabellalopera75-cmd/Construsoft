@@ -1657,7 +1657,7 @@ button.paso-del-indicador:hover { color: var(--texto); }
 .cronograma .barra-del-gantt { gap: var(--e1) var(--e3); }
 .cronograma .barra-del-gantt :is(.boton, .conmutador-opcion) { min-height: 32px; padding-inline: var(--e2); font-size: 0.8125rem; }
 .cronograma .barra-del-gantt .boton { gap: var(--e1); }
-.cronograma .barra-del-gantt :is(.etiqueta-en-linea, .control-de-niveles-etiqueta) { font-size: 0.8125rem; }
+.cronograma .barra-del-gantt :is(.etiqueta-en-linea, .selector-de-nivel) { font-size: 0.8125rem; }
 .cronograma .leyenda { gap: 2px var(--e3); }
 .cronograma .barra-del-gantt select { min-height: 30px; }
 .cronograma > * { min-width: 0; }
@@ -1696,8 +1696,37 @@ button.paso-del-indicador:hover { color: var(--texto); }
 .franja-cambios dt { display: flex; gap: var(--e2); align-items: center; }
 
 /* Ver hasta un nivel, expandir y contraer todo (componentes/Niveles.tsx). */
-.control-de-niveles { display: flex; flex-wrap: wrap; align-items: center; gap: var(--e2); }
-.control-de-niveles-etiqueta { font-size: var(--letra-sm); color: var(--texto-segundo); }
+.control-de-niveles { display: flex; align-items: center; gap: var(--e1); }
+/* «Nivel 1 ⌄»: un select nativo dentro de una caja con la etiqueta. */
+.selector-de-nivel {
+  position: relative; display: inline-flex; align-items: center; gap: var(--e1);
+  min-height: 32px; padding: 0 var(--e2) 0 var(--e3); border: 1px solid var(--borde-campo); border-radius: var(--radio-md);
+  background: var(--bg-campo); font-size: var(--letra-sm); cursor: pointer;
+}
+.selector-de-nivel:hover { border-color: var(--borde-activo); }
+.selector-de-nivel:has(select:focus-visible) { outline: 2px solid var(--terracota); outline-offset: 2px; }
+.selector-de-nivel-etiqueta { color: var(--texto-segundo); }
+.selector-de-nivel select {
+  appearance: none; border: 0; background: transparent; min-height: 0; height: auto; padding: 0 18px 0 0; margin: 0;
+  font: inherit; font-family: var(--fuente-cifra); font-weight: var(--peso-fuerte); color: var(--texto); cursor: pointer;
+}
+.selector-de-nivel select:focus, .selector-de-nivel select:focus-visible { outline: none; }
+.selector-de-nivel .icono { position: absolute; right: var(--e2); pointer-events: none; color: var(--texto-segundo); }
+/* Los tres puntos y su menú. */
+.menu-de-estructura { position: relative; }
+.boton-de-menu { width: 32px; height: 32px; min-height: 32px; border: 1px solid var(--borde-campo); border-radius: var(--radio-md); }
+.boton-de-menu[aria-expanded='true'] { border-color: var(--borde-activo); background: var(--bg-tarjeta-hover); }
+.menu-desplegable {
+  position: absolute; top: calc(100% + 4px); right: 0; z-index: 30; min-width: 11rem;
+  display: grid; padding: var(--e1); background: var(--bg-tarjeta); border: 1px solid var(--borde-campo);
+  border-radius: var(--radio-md); box-shadow: var(--sombra-flotante);
+}
+.menu-desplegable [role='menuitem'] {
+  display: flex; align-items: center; gap: var(--e2); width: 100%; padding: var(--e1) var(--e2); border: 0; border-radius: var(--radio-sm);
+  background: none; color: var(--texto); font: inherit; font-size: var(--letra-sm); text-align: left; cursor: pointer; white-space: nowrap;
+}
+.menu-desplegable [role='menuitem']:is(:hover, :focus-visible) { background: var(--bg-tarjeta-hover); outline: none; }
+.menu-desplegable [role='menuitem'] .icono { color: var(--texto-segundo); }
 .conmutador-cifra { font-family: var(--fuente-cifra); font-variant-numeric: tabular-nums; min-width: 36px; }
 
 .barra-del-gantt { display: flex; flex-wrap: wrap; align-items: center; gap: var(--e2) var(--e4); }

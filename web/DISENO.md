@@ -852,6 +852,13 @@ mouse viaje menos:
 - **Agregar una relación** es un botón solo con el icono de enlace, a la
   derecha de «Predecesoras» y «Sucesoras», en la columna de los controles.
   El nombre va en el `title` y en el `aria-label`.
+- **Los niveles, más chicos:** «Nivel 1 ⌄» es un `select` nativo dentro de
+  una caja con su etiqueta, y «Expandir todo» y «Contraer todo» pasan a un
+  menú de tres puntos (`componentes/Niveles.tsx`). Es un menú de verdad:
+  `aria-haspopup`, `role="menu"`, las flechas recorren las opciones y Escape
+  o un clic afuera lo cierran. Con filas plegadas a mano, el select muestra
+  un guion. Reemplaza el conmutador 1-2-3 y los dos botones del 22 de
+  octubre.
 
 ## 12. Lo que todavía no está decidido
 
