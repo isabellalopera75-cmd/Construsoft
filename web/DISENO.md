@@ -863,6 +863,18 @@ mouse viaje menos:
   base.css). La lista abierta la pinta el sistema operativo con el fondo del
   select: con el select del nivel transparente, Windows la mostraba blanca
   con letra clara, y los números no se veían (lo encontró el dueño).
+- **El cronograma, otro renglón menos** (mismo día):
+  - las pestañas Gantt, Curvas S y Revisión van en la cabecera, a la
+    izquierda de «Líneas base»;
+  - las herramientas del Gantt (escala, línea base, nivel, ⋮ y agregar)
+    suben al renglón que tenían las pestañas, con el aviso de la
+    administración a la derecha. Desde 1100 px va en un solo renglón, y el
+    aviso se corta antes que bajar;
+  - «Agregar subgrupo» y «Agregar hito o trámite» quedan solo con su icono,
+    de 32 px; el de hito, relleno en terracota. El nombre va en el `title`
+    y el `aria-label`.
+
+  En 1440 × 900, el Gantt empieza en 266 px, antes en 302.
 
 ## 12. Lo que todavía no está decidido
 

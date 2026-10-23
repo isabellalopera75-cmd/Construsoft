@@ -1637,15 +1637,27 @@ button.paso-del-indicador:hover { color: var(--texto); }
 .encabezado-de-cronograma :is(.boton, .boton-volver) { min-height: 32px; font-size: var(--letra-sm); }
 .encabezado-de-cronograma .codigo-de-mesa { padding: 2px var(--e2); font-size: var(--letra-sm); }
 .encabezado-de-cronograma .datos-de-mesa { gap: 2px var(--e4); font-size: 0.8125rem; }
-.encabezado-de-cronograma-botones { margin-left: auto; }
+.encabezado-de-cronograma-pestanas { margin-left: auto; }
+.encabezado-de-cronograma-pestanas .pestanas { background: transparent; }
 .titulo-de-cronograma { font-size: var(--letra-md); margin: 0; min-width: 0; }
 .cronograma .franja { padding: var(--e2) var(--e3); gap: var(--e2); font-size: 0.8125rem; }
 .cronograma .franja-texto { gap: 0; }
 .cronograma .franja .boton { min-height: 30px; font-size: var(--letra-xs); }
 .cronograma .pestanas { padding: 2px; }
-/* Las pestañas y, a su lado, el aviso de la administración en un renglón. */
-.fila-de-pestanas { display: flex; flex-wrap: wrap; align-items: center; gap: var(--e2) var(--e3); }
-.fila-de-pestanas .pestanas { flex: none; }
+/* Las herramientas del Gantt y, a la derecha, el aviso de la administración,
+   en un renglón. */
+.fila-de-herramientas { display: flex; flex-wrap: wrap; align-items: center; gap: var(--e2) var(--e3); }
+.fila-de-herramientas > .aviso-de-administracion { margin-left: auto; }
+/* En pantalla ancha, un solo renglón: el aviso se encoge y se corta con
+   puntos suspensivos antes que bajar. */
+@media (min-width: 1100px) {
+  .fila-de-herramientas { flex-wrap: nowrap; }
+  .fila-de-herramientas > .barra-del-gantt { flex: none; flex-wrap: nowrap; }
+}
+.boton-de-herramienta { width: 32px; height: 32px; min-height: 32px; border: 1px solid var(--borde-campo); border-radius: var(--radio-md); }
+.boton-de-herramienta:hover { border-color: var(--borde-activo); color: var(--terracota); }
+.boton-de-herramienta-principal { background: var(--terracota-boton); border-color: var(--terracota-boton); color: var(--texto-sobre-boton); }
+.boton-de-herramienta-principal:hover { background: var(--terracota-oscuro); border-color: var(--terracota-oscuro); color: var(--texto-sobre-boton); }
 .aviso-de-administracion {
   flex: 0 1 auto; min-width: 0; margin: 0; display: flex; align-items: center; gap: var(--e2);
   padding: var(--e1) var(--e3); font-size: 0.8125rem; color: var(--texto);
@@ -1730,7 +1742,6 @@ button.paso-del-indicador:hover { color: var(--texto); }
 .conmutador-cifra { font-family: var(--fuente-cifra); font-variant-numeric: tabular-nums; min-width: 36px; }
 
 .barra-del-gantt { display: flex; flex-wrap: wrap; align-items: center; gap: var(--e2) var(--e4); }
-.barra-del-gantt-acciones { margin-left: auto; }
 .barra-del-gantt select { min-height: 32px; }
 
 .leyenda { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--e1) var(--e4); font-size: var(--letra-xs); color: var(--texto-segundo); }

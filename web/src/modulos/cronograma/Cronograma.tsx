@@ -228,6 +228,19 @@ export function Cronograma({ presupuestoId }: { presupuestoId: string }) {
           <span className="recalculando" role="status" aria-live="polite">
             {guardando > 0 || lento ? <><Icono nombre="reloj" tamano={16} />Recalculando…</> : null}
           </span>
+          <div className="encabezado-de-cronograma-pestanas">
+            <Pestanas<Pestana>
+              etiqueta="Vistas del cronograma"
+              idBase="pestana-crono"
+              actual={pestana}
+              alCambiar={setPestana}
+              pestanas={[
+                { id: 'gantt', nombre: 'Gantt' },
+                { id: 'curvas', nombre: 'Curvas S' },
+                { id: 'revision', nombre: 'Revisión', conteo: pendientes > 0 ? pendientes : undefined },
+              ]}
+            />
+          </div>
           <div className="fila-de-botones encabezado-de-cronograma-botones">
             <button type="button" className="boton boton-secundario" onClick={() => setDialogo({ tipo: 'lineas-base' })}>
               <Icono nombre="bandera" tamano={16} />
@@ -277,50 +290,43 @@ export function Cronograma({ presupuestoId }: { presupuestoId: string }) {
         alIr={irA}
       />
 
-      <div className="fila-de-pestanas">
-        <Pestanas<Pestana>
-          etiqueta="Vistas del cronograma"
-          idBase="pestana-crono"
-          actual={pestana}
-          alCambiar={setPestana}
-          pestanas={[
-            { id: 'gantt', nombre: 'Gantt' },
-            { id: 'curvas', nombre: 'Curvas S' },
-            { id: 'revision', nombre: 'Revisión', conteo: pendientes > 0 ? pendientes : undefined },
-          ]}
-        />
+      {/* Las herramientas del Gantt suben al renglón que tenían las pestañas, y
+          las pestañas a la cabecera, al lado de «Líneas base» (pedido del
+          dueño, 23 de octubre de 2026): un renglón más para las actividades. */}
+      <div className="fila-de-herramientas">
+        {pestana === 'gantt' ? (
+          <div className="barra-del-gantt">
+            <div className="conmutador" role="group" aria-label="Escala de tiempo">
+              {(['DIA', 'SEMANA', 'MES'] as const).map((e) => (
+                <button key={e} type="button" className="conmutador-opcion" aria-pressed={escala === e} onClick={() => setEscala(e)}>{e === 'DIA' ? 'Día' : e === 'SEMANA' ? 'Semana' : 'Mes'}</button>
+              ))}
+            </div>
+            <label className="etiqueta-en-linea">
+              Línea base
+              <select value={lineaBase ?? ''} onChange={(e) => setLineaBase(e.target.value === '' ? null : e.target.value)}>
+                <option value="">Ninguna</option>
+                {vista.lineasBase.map((l) => <option key={l.id} value={l.id}>{l.nombre}</option>)}
+              </select>
+            </label>
+            <ControlDeNiveles niveles={niveles.niveles} actual={nivelDe(niveles.nodos, plegados, niveles.niveles)} alElegir={(n) => setPlegados(plegadosHasta(niveles.nodos, n))} />
+            {editable ? (
+              <>
+                {/* Solo el icono; el nombre al pasar el mouse (pedido del dueño, 23 de octubre de 2026). */}
+                <button type="button" className="boton-icono boton-de-herramienta" aria-label="Agregar subgrupo" title="Agregar subgrupo" onClick={() => setDialogo({ tipo: 'grupo-nuevo' })}>
+                  <Icono nombre="carpeta" tamano={16} />
+                </button>
+                <button type="button" className="boton-icono boton-de-herramienta boton-de-herramienta-principal" aria-label="Agregar hito o trámite" title="Agregar hito o trámite" onClick={() => setDialogo({ tipo: 'agregar' })}>
+                  <Icono nombre="rombo" tamano={16} />
+                </button>
+              </>
+            ) : null}
+          </div>
+        ) : null}
         <AvisoDeAdministracion vista={vista} />
       </div>
       <div id="pestana-crono-panel" role="tabpanel" aria-labelledby={`pestana-crono-${pestana}`} className="panel-de-pestana panel-de-cronograma">
         {pestana === 'gantt' ? (
           <>
-            <div className="barra-del-gantt">
-              <div className="conmutador" role="group" aria-label="Escala de tiempo">
-                {(['DIA', 'SEMANA', 'MES'] as const).map((e) => (
-                  <button key={e} type="button" className="conmutador-opcion" aria-pressed={escala === e} onClick={() => setEscala(e)}>{e === 'DIA' ? 'Día' : e === 'SEMANA' ? 'Semana' : 'Mes'}</button>
-                ))}
-              </div>
-              <label className="etiqueta-en-linea">
-                Línea base
-                <select value={lineaBase ?? ''} onChange={(e) => setLineaBase(e.target.value === '' ? null : e.target.value)}>
-                  <option value="">Ninguna</option>
-                  {vista.lineasBase.map((l) => <option key={l.id} value={l.id}>{l.nombre}</option>)}
-                </select>
-              </label>
-              <ControlDeNiveles niveles={niveles.niveles} actual={nivelDe(niveles.nodos, plegados, niveles.niveles)} alElegir={(n) => setPlegados(plegadosHasta(niveles.nodos, n))} />
-              {editable ? (
-                <span className="fila-de-botones barra-del-gantt-acciones">
-                  <button type="button" className="boton boton-secundario boton-chico-texto" onClick={() => setDialogo({ tipo: 'grupo-nuevo' })}>
-                    <Icono nombre="carpeta" tamano={16} />
-                    Agregar subgrupo
-                  </button>
-                  <button type="button" className="boton boton-principal boton-chico-texto" onClick={() => setDialogo({ tipo: 'agregar' })}>
-                    <Icono nombre="rombo" tamano={16} />
-                    Agregar hito o trámite
-                  </button>
-                </span>
-              ) : null}
-            </div>
             <Leyenda conBase={vista.lineaBase !== null} />
             <Gantt
               vista={vista}
