@@ -1626,9 +1626,6 @@ button.paso-del-indicador:hover { color: var(--texto); }
    cronograma, un error— vuelve al ancho de siempre, centrado. */
 .cronograma { display: grid; gap: var(--e3); min-width: 0; }
 .cronograma > * { min-width: 0; }
-@media (min-width: 1025px) {
-  .cronograma[data-panel='abierto'] { margin-right: calc(var(--ancho-panel) - var(--e5)); }
-}
 .cronograma-suelto { max-width: var(--ancho-contenido); margin-inline: auto; width: 100%; }
 .titulo-de-cronograma-proyecto { font-family: var(--fuente-texto); font-weight: var(--peso-medio); color: var(--texto-segundo); font-size: var(--letra-md); }
 .recalculando { display: inline-flex; align-items: center; gap: var(--e1); font-size: var(--letra-sm); color: var(--texto-segundo); }
@@ -1636,11 +1633,6 @@ button.paso-del-indicador:hover { color: var(--texto); }
 .crear-cronograma p { margin: 0; }
 .panel-de-cronograma { display: grid; gap: var(--e3); }
 .panel-de-cronograma > .boton, .curvas > .boton { justify-self: start; }
-/* Con el panel de una actividad abierto, la tabla suelta inicio y fin para
-   que quede tiempo a la vista: las dos fechas están en el panel. El Gantt
-   pone esas dos columnas en cero (Gantt.tsx). */
-.cronograma[data-panel='abierto'] .gantt-celdas > :nth-child(4),
-.cronograma[data-panel='abierto'] .gantt-celdas > :nth-child(5) { padding: 0; visibility: hidden; }
 
 .franja {
   display: flex; flex-wrap: wrap; gap: var(--e3); align-items: flex-start; padding: var(--e3) var(--e4);
@@ -1798,6 +1790,56 @@ button.paso-del-indicador:hover { color: var(--texto); }
 .nueva-relacion-elegida { display: flex; align-items: center; gap: var(--e2); margin: 0; font-size: var(--letra-sm); }
 .fila-de-relacion { grid-template-columns: minmax(0, 1fr) 7rem; }
 .panel-de-actividad-pie { display: flex; justify-content: space-between; gap: var(--e3); padding-top: var(--e3); border-top: 1px solid var(--borde-tenue); }
+
+/* El panel al pie (PanelLateral con `abajo`; pedido del dueño, 22 de octubre de
+   2026): una franja fija al borde de abajo de la ventana, a todo el ancho del
+   contenido, de 200 px como máximo. Es compacta: letra de 13 y 12, poco
+   relleno y campos de 30 px. En pantalla ancha va en tres columnas que se
+   desplazan cada una por su lado; en angosta, una sola que se desplaza
+   entera. */
+.panel-inferior {
+  position: sticky; top: auto; bottom: 0; left: auto; right: auto; z-index: 9;
+  width: auto; max-height: 200px; margin-bottom: calc(-1 * var(--e7));
+  border: 1px solid var(--borde-campo); border-bottom: 0; border-radius: var(--radio-lg) var(--radio-lg) 0 0;
+  font-size: 0.8125rem;
+}
+.panel-inferior .panel-lateral-cabecera { padding: var(--e1) var(--e2) var(--e1) var(--e3); min-height: 0; }
+.panel-inferior .panel-lateral-cabecera h2 { font-size: var(--letra-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.panel-inferior .panel-lateral-cabecera .boton-icono { width: 28px; height: 28px; min-height: 0; }
+.panel-inferior .panel-lateral-cuerpo { display: block; flex: 1; min-height: 0; padding: var(--e2) var(--e3); overflow: hidden; }
+.panel-inferior .panel-de-actividad {
+  height: 100%; gap: var(--e4);
+  grid-template-columns: minmax(16rem, 1fr) minmax(18rem, 1.15fr) minmax(19rem, 1.25fr); grid-template-rows: minmax(0, 1fr);
+}
+.panel-inferior .panel-de-actividad-columna { min-height: 0; overflow-y: auto; display: grid; gap: var(--e2); align-content: start; padding-right: var(--e1); }
+.panel-inferior .panel-de-actividad-columna + .panel-de-actividad-columna { border-left: 1px solid var(--borde-tenue); padding-left: var(--e4); }
+.panel-inferior .datos-de-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--e4); font-size: inherit; }
+.panel-inferior .datos-de-panel > div { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 2px 0; }
+.panel-inferior .datos-de-panel dt { font-size: var(--letra-xs); line-height: 1.3; }
+.panel-inferior .datos-de-panel dd { line-height: 1.35; }
+.panel-inferior .datos-de-panel .dato-de-apoyo { font-size: var(--letra-xs); }
+.panel-inferior .insignia { font-size: var(--letra-xs); padding: 0 var(--e2); }
+.panel-inferior .nota-de-capa { font-size: var(--letra-xs); padding: var(--e1) var(--e2); margin: 0; }
+.panel-inferior .titulo-de-bloque, .panel-inferior .lista-de-relaciones h4 { font-size: 0.8125rem; }
+.panel-inferior .formulario, .panel-inferior .panel-de-actividad-datos { gap: var(--e2); padding-top: 0; }
+.panel-inferior .fila-de-campos { gap: var(--e2); grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); }
+.panel-inferior .campo { gap: 2px; }
+.panel-inferior .campo label, .panel-inferior .campo .etiqueta { font-size: var(--letra-xs); }
+.panel-inferior :is(.campo-ayuda, .dato-de-apoyo, .campo-error) { font-size: var(--letra-xs); }
+.panel-inferior :is(input, select) { min-height: 30px; padding-block: 0; padding-inline: var(--e2); font-size: 0.8125rem; }
+.panel-inferior .campo-cifra-corto { max-width: 7rem; }
+.panel-inferior .boton { min-height: 30px; padding: 0 var(--e3); font-size: var(--letra-xs); }
+.panel-inferior .grupo-de-restricciones, .panel-inferior .relaciones { gap: var(--e2); padding-top: var(--e2); }
+.panel-inferior .relaciones { border-top: 0; padding-top: 0; }
+.panel-inferior .relacion { padding: 2px 0; }
+.panel-inferior .panel-de-actividad-pie { padding-top: var(--e2); }
+.panel-inferior .nueva-relacion { padding: var(--e2); gap: var(--e2); }
+@media (max-width: 1024px) {
+  .panel-inferior .panel-lateral-cuerpo { overflow-y: auto; }
+  .panel-inferior .panel-de-actividad { height: auto; grid-template-columns: minmax(0, 1fr); }
+  .panel-inferior .panel-de-actividad-columna { overflow: visible; }
+  .panel-inferior .panel-de-actividad-columna + .panel-de-actividad-columna { border-left: 0; padding-left: 0; border-top: 1px solid var(--borde-tenue); padding-top: var(--e2); }
+}
 
 /* --- Líneas base, curvas y revisión ------------------------------------------- */
 .lista-de-lineas-base li { display: grid; gap: var(--e1); padding: var(--e3); border: 1px solid var(--borde-tenue); border-radius: var(--radio-md); }

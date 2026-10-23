@@ -14,8 +14,11 @@ import { esHito, esHitoOTramite, NOMBRE_DE_RELACION, NOMBRE_DE_RESTRICCION, NOMB
 import { dias, diasParaEditar, entero, esNegativo, fechaConDia, fechaYHora, leerDias } from './tiempo.ts';
 
 /*
- * El panel de una actividad (RF-PRG-02, RF-PRG-04): no modal, al lado del
- * Gantt, para que la barra que se está editando siga a la vista. Lo que se
+ * El panel de una actividad (RF-PRG-02, RF-PRG-04): no modal, debajo del
+ * Gantt, para que la barra que se está editando siga a la vista. Va como una
+ * franja fija al pie, de 200 px como máximo, en tres columnas que se
+ * desplazan cada una por su lado: las fechas, los datos y las relaciones
+ * (pedido del dueño, 22 de octubre de 2026). Lo que se
  * puede cambiar depende del tipo (CONTRATO §19.6): de una actividad del
  * presupuesto, las cuadrillas, la duración manual y las restricciones; su
  * nombre y su número son los del ítem.
@@ -55,49 +58,55 @@ export function PanelDeActividad({ actividad: a, vista, escribir, alSeleccionar,
   }
 
   return (
-    <PanelLateral titulo={`${a.codigo} · ${a.nombre}`} alCerrar={alCerrar}>
+    <PanelLateral titulo={`${a.codigo} · ${a.nombre}`} alCerrar={alCerrar} abajo>
       <div className="panel-de-actividad">
-        <p className="panel-de-actividad-tipo">
-          <span className="insignia">{NOMBRE_DE_TIPO[a.tipo]}</span>
-          {a.critica ? <span className="insignia insignia-critica">Crítica</span> : null}
-          {a.tipo === 'ITEM' && !a.enPresupuesto ? <span className="insignia insignia-aviso">Ya no está en el presupuesto</span> : null}
-        </p>
-        {a.tipo === 'ITEM' && !a.enPresupuesto ? (
-          <p className="nota-de-capa"><Icono nombre="aviso" tamano={18} /><span>Su ítem salió del presupuesto. Se deja aquí para que vea qué cadena se rompe: revise sus relaciones y elimínela cuando termine.</span></p>
-        ) : null}
-        {a.tipo === 'ADMINISTRACION' ? (
-          <p className="dato-de-apoyo">Va del inicio de la primera actividad del presupuesto al fin de la última, sin contar hitos ni trámites. No lleva relaciones ni restricciones, y su costo es la administración del AIU.</p>
-        ) : null}
+        <div className="panel-de-actividad-columna">
+          <p className="panel-de-actividad-tipo">
+            <span className="insignia">{NOMBRE_DE_TIPO[a.tipo]}</span>
+            {a.critica ? <span className="insignia insignia-critica">Crítica</span> : null}
+            {a.tipo === 'ITEM' && !a.enPresupuesto ? <span className="insignia insignia-aviso">Ya no está en el presupuesto</span> : null}
+          </p>
+          {a.tipo === 'ITEM' && !a.enPresupuesto ? (
+            <p className="nota-de-capa"><Icono nombre="aviso" tamano={18} /><span>Su ítem salió del presupuesto. Se deja aquí para que vea qué cadena se rompe: revise sus relaciones y elimínela cuando termine.</span></p>
+          ) : null}
+          {a.tipo === 'ADMINISTRACION' ? (
+            <p className="dato-de-apoyo">Va del inicio de la primera actividad del presupuesto al fin de la última, sin contar hitos ni trámites. No lleva relaciones ni restricciones, y su costo es la administración del AIU.</p>
+          ) : null}
 
-        <Fechas a={a} formato={formato} />
-        {base ? (
-          <dl className="datos-de-panel">
-            <div><dt>Línea base «{vista.lineaBase?.nombre}»</dt><dd>{fechaConDia(base.inicio)} a {fechaConDia(base.fin)}</dd></div>
-            <div><dt>Variación del fin</dt><dd className="cifra-en-texto" data-negativa={base.variacionFinDias !== null && !esNegativo(base.variacionFinDias) && /[1-9]/.test(base.variacionFinDias) ? 'si' : 'no'} title="Positiva: termina más tarde que en la línea base">{variacion(base.variacionFinDias, formato)}</dd></div>
-          </dl>
-        ) : null}
+          <Fechas a={a} formato={formato} />
+          {base ? (
+            <dl className="datos-de-panel">
+              <div><dt>Línea base «{vista.lineaBase?.nombre}»</dt><dd>{fechaConDia(base.inicio)} a {fechaConDia(base.fin)}</dd></div>
+              <div><dt>Variación del fin</dt><dd className="cifra-en-texto" data-negativa={base.variacionFinDias !== null && !esNegativo(base.variacionFinDias) && /[1-9]/.test(base.variacionFinDias) ? 'si' : 'no'} title="Positiva: termina más tarde que en la línea base">{variacion(base.variacionFinDias, formato)}</dd></div>
+            </dl>
+          ) : null}
+        </div>
 
-        <Datos key={a.id} a={a} vista={vista} editable={editable} escribir={escribir} />
+        <div className="panel-de-actividad-columna">
+          <Datos key={a.id} a={a} vista={vista} editable={editable} escribir={escribir} />
+        </div>
 
-        {a.tipo !== 'ADMINISTRACION' ? <Relaciones a={a} vista={vista} editable={editable} escribir={escribir} alSeleccionar={alSeleccionar} /> : null}
+        <div className="panel-de-actividad-columna">
+          {a.tipo !== 'ADMINISTRACION' ? <Relaciones a={a} vista={vista} editable={editable} escribir={escribir} alSeleccionar={alSeleccionar} /> : null}
 
-        {editable && (hermanos.length > 1 || borrable) ? (
-          <div className="panel-de-actividad-pie">
-            {hermanos.length > 1 ? (
-              <span className="fila-de-botones fila-izquierda">
-                <button type="button" className="boton boton-secundario boton-chico-texto" disabled={posicion <= 1} onClick={() => void mover(-1)}><Icono nombre="subir" tamano={16} />Subir</button>
-                <button type="button" className="boton boton-secundario boton-chico-texto" disabled={posicion >= hermanos.length} onClick={() => void mover(1)}><Icono nombre="bajar" tamano={16} />Bajar</button>
-              </span>
-            ) : <span />}
-            {borrable ? (
-              <button type="button" className="boton boton-peligroso boton-chico-texto" onClick={() => setBorrando(true)}>
-                <Icono nombre="basura" tamano={16} />
-                Eliminar
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-        {errorDeOrden ? <p className="aviso-error" role="alert"><Icono nombre="aviso" /><span>{errorDeOrden}</span></p> : null}
+          {editable && (hermanos.length > 1 || borrable) ? (
+            <div className="panel-de-actividad-pie">
+              {hermanos.length > 1 ? (
+                <span className="fila-de-botones fila-izquierda">
+                  <button type="button" className="boton boton-secundario boton-chico-texto" disabled={posicion <= 1} onClick={() => void mover(-1)}><Icono nombre="subir" tamano={16} />Subir</button>
+                  <button type="button" className="boton boton-secundario boton-chico-texto" disabled={posicion >= hermanos.length} onClick={() => void mover(1)}><Icono nombre="bajar" tamano={16} />Bajar</button>
+                </span>
+              ) : <span />}
+              {borrable ? (
+                <button type="button" className="boton boton-peligroso boton-chico-texto" onClick={() => setBorrando(true)}>
+                  <Icono nombre="basura" tamano={16} />
+                  Eliminar
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+          {errorDeOrden ? <p className="aviso-error" role="alert"><Icono nombre="aviso" /><span>{errorDeOrden}</span></p> : null}
+        </div>
       </div>
 
       {borrando ? (

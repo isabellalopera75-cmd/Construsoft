@@ -9,15 +9,21 @@ import { Icono } from './Icono.tsx';
  *
  * Escape lo cierra solo si el foco está adentro: con el foco en la mesa,
  * Escape es de la mesa. Al cerrarse, el foco vuelve a quien lo abrió.
+ *
+ * Con `abajo`, el mismo panel va como una franja fija al pie de la pantalla, a
+ * todo el ancho del contenido (el de una actividad del cronograma, pedido del
+ * dueño, 22 de octubre de 2026): así lo de arriba usa el ancho entero. Va al
+ * final de la pantalla que lo abre, pegado al borde de abajo de la ventana.
  */
 
 interface Props {
   titulo: string;
   alCerrar: () => void;
   children: ReactNode;
+  abajo?: boolean;
 }
 
-export function PanelLateral({ titulo, alCerrar, children }: Props) {
+export function PanelLateral({ titulo, alCerrar, children, abajo = false }: Props) {
   const idTitulo = useId();
   const panel = useRef<HTMLElement>(null);
   const cerrar = useRef(alCerrar);
@@ -25,7 +31,8 @@ export function PanelLateral({ titulo, alCerrar, children }: Props) {
 
   useEffect(() => {
     const abridor = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    panel.current?.focus();
+    // Abajo, sin desplazar la página: el panel ya está a la vista.
+    panel.current?.focus({ preventScroll: abajo });
     return () => {
       if (abridor?.isConnected) abridor.focus();
     };
@@ -34,7 +41,7 @@ export function PanelLateral({ titulo, alCerrar, children }: Props) {
   return (
     <aside
       ref={panel}
-      className="panel-lateral"
+      className={abajo ? 'panel-lateral panel-inferior' : 'panel-lateral'}
       aria-labelledby={idTitulo}
       tabIndex={-1}
       onKeyDown={(e) => {

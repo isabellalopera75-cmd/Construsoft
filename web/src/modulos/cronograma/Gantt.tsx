@@ -51,8 +51,15 @@ const limitar = (c: Columna, ancho: number) => Math.round(Math.min(ANCHO_MAXIMO,
  * El alto del Gantt llega hasta el fondo de la ventana (pedido del dueño, 22 de
  * octubre de 2026): así su barra de desplazamiento de lado se ve siempre, sin
  * bajar la página. Con poco espacio arriba, no baja de este mínimo.
+ *
+ * Con el panel de una actividad abierto (una franja fija al pie), la página
+ * sube hasta que el Gantt queda bajo la barra superior, y el Gantt ocupa lo
+ * que queda entre la barra y el panel. Si no, con la cabecera y las pestañas
+ * arriba, entre ellas y el panel no quedaría casi nada.
  */
 const ALTO_MINIMO = 320;
+const ALTO_MINIMO_CON_PANEL = 200;
+const AIRE = 8;
 
 const ALTO_FILA = 32;
 const MARGEN_FILAS = 12;
@@ -63,8 +70,8 @@ interface Props {
   vista: VistaCronograma;
   anchos: Anchos;
   alCambiarAncho: (columna: Columna, ancho: number) => void;
-  /** Con el panel de una actividad abierto, sin inicio ni fin: están en el panel. */
-  sinFechas: boolean;
+  /** Con el panel de una actividad abierto al pie de la pantalla. */
+  conPanel: boolean;
   filas: Fila[];
   escala: Escala;
   seleccion: string | null;
@@ -75,7 +82,7 @@ interface Props {
   accionesDeGrupo?: ((g: Grupo, primero: boolean, ultimo: boolean) => ReactNode) | undefined;
 }
 
-export function Gantt({ vista, anchos, alCambiarAncho, sinFechas, filas, escala, seleccion, ciclo, plegados, alPlegar, alSeleccionar, accionesDeGrupo }: Props) {
+export function Gantt({ vista, anchos, alCambiarAncho, conPanel, filas, escala, seleccion, ciclo, plegados, alPlegar, alSeleccionar, accionesDeGrupo }: Props) {
   const { arranque } = useSesion();
   const formato = arranque.formatoNumerico;
   const marco = useRef<HTMLDivElement>(null);
@@ -127,8 +134,14 @@ export function Gantt({ vista, anchos, alCambiarAncho, sinFechas, filas, escala,
     const el = marco.current;
     const contenido = document.getElementById('contenido');
     if (!el) return;
+    const altoDe = (selector: string) => document.querySelector(selector)?.getBoundingClientRect().height ?? 0;
     const medir = () => {
       const caja = el.getBoundingClientRect();
+      if (conPanel) {
+        const libre = Math.floor(window.innerHeight - altoDe('.barra-superior') - altoDe('.panel-inferior') - 2 * AIRE);
+        setAltoMaximo(Math.max(ALTO_MINIMO_CON_PANEL, libre));
+        return;
+      }
       const debajo = contenido ? Math.max(0, contenido.getBoundingClientRect().bottom - caja.bottom) : 0;
       const libre = Math.floor(window.innerHeight - (caja.top + window.scrollY) - debajo);
       setAltoMaximo(Math.max(ALTO_MINIMO, libre));
@@ -141,9 +154,20 @@ export function Gantt({ vista, anchos, alCambiarAncho, sinFechas, filas, escala,
       window.removeEventListener('resize', medir);
       observador.disconnect();
     };
-  }, []);
+  }, [conPanel]);
 
-  const columnas = COLUMNAS.map((c) => (sinFechas && (c.clave === 'inicio' || c.clave === 'fin') ? 0 : anchos[c.clave]));
+  // Al abrir el panel, la página sube hasta dejar el Gantt bajo la barra
+  // superior. Solo al abrirlo: cambiar de actividad con el panel abierto no
+  // mueve la página.
+  useEffect(() => {
+    const el = marco.current;
+    if (!conPanel || !el) return;
+    const barra = document.querySelector('.barra-superior')?.getBoundingClientRect().height ?? 0;
+    const destino = el.getBoundingClientRect().top + window.scrollY - barra - AIRE;
+    window.requestAnimationFrame(() => window.scrollTo({ top: Math.max(0, destino), behavior: 'smooth' }));
+  }, [conPanel]);
+
+  const columnas = COLUMNAS.map((c) => anchos[c.clave]);
   const anchoTabla = columnas.reduce((s, w) => s + w, 0);
 
   const indice = useMemo(() => {
@@ -247,15 +271,13 @@ export function Gantt({ vista, anchos, alCambiarAncho, sinFechas, filas, escala,
                   title={c.clave === 'holgura' ? 'Holgura total, en días' : undefined}
                 >
                   {c.nombre}
-                  {sinFechas && (c.clave === 'inicio' || c.clave === 'fin') ? null : (
-                    <AsaDeColumna
-                      nombre={c.nombre}
-                      ancho={anchos[c.clave]}
-                      minimo={ANCHOS_MINIMOS[c.clave]}
-                      alCambiar={(w) => alCambiarAncho(c.clave, limitar(c.clave, w))}
-                      alReiniciar={() => alCambiarAncho(c.clave, ANCHOS_INICIALES[c.clave])}
-                    />
-                  )}
+                  <AsaDeColumna
+                    nombre={c.nombre}
+                    ancho={anchos[c.clave]}
+                    minimo={ANCHOS_MINIMOS[c.clave]}
+                    alCambiar={(w) => alCambiarAncho(c.clave, limitar(c.clave, w))}
+                    alReiniciar={() => alCambiarAncho(c.clave, ANCHOS_INICIALES[c.clave])}
+                  />
                 </span>
               ))}
             </div>

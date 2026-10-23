@@ -323,7 +323,7 @@ export function Cronograma({ presupuestoId }: { presupuestoId: string }) {
               vista={vista}
               anchos={anchos}
               alCambiarAncho={(c, w) => setAnchos((a) => (a[c] === w ? a : { ...a, [c]: w }))}
-              sinFechas={actividad !== null}
+              conPanel={actividad !== null}
               filas={filas}
               escala={escala}
               seleccion={seleccion}

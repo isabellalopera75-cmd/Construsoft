@@ -765,6 +765,17 @@ mouse viaje menos:
   el aviso, las pestañas, la barra y la leyenda.
 - **Cantidad y rendimiento de una línea de APU** nacen vacíos, sin el 1 de
   antes. El 02 §6.2 lo pedía precargado; el dueño lo cambió.
+- **El panel de una actividad va al pie** (`PanelLateral` con `abajo`), ya no
+  a la derecha. Es una franja `sticky` al borde de abajo de la ventana, a
+  todo el ancho del contenido, de 200 px como máximo. Va en tres columnas que
+  se desplazan cada una por su lado: fechas, datos y relaciones. La letra
+  baja a 13 px, y a 12 en etiquetas y ayudas. Las ayudas son texto corrido,
+  y `--letra-xs` dice que no va en texto corrido: es una excepción de este
+  panel, por el pedido de compacidad. Los campos y botones quedan de 30 px: bajo el mínimo de
+  toque de 44 px, por pedido de compacidad, pero sobre los 24 px de WCAG
+  2.5.8. El Gantt deja de esconder inicio y fin con el panel abierto. Al
+  abrirse, la página sube hasta dejar el Gantt bajo la barra superior, y el
+  Gantt mide lo que queda entre esa barra y el panel.
 
 ## 12. Lo que todavía no está decidido
 
