@@ -804,8 +804,16 @@ mouse viaje menos:
   Mi pantalla: chica, mediana o grande.
   - Cambia el `font-size` del `<html>` (`data-letra`): 90 %, 95 % y 100 %.
     Las letras y los espacios de los tokens van en rem, así que todo cambia
-    junto. Lo que va en px no cambia: las filas del Gantt, el panel de
-    200 px y los mínimos de toque.
+    junto.
+  - **Aplica a todo el sistema** (lo recordó el dueño el 23 de octubre): la
+    aplicación de las empresas, el panel del superadministrador y el Gantt.
+    El Gantt sigue la elección también en el alto de la fila: 22, 24 y 26 px
+    (`ALTO_FILA_POR_LETRA` en Gantt.tsx), con las barras ubicadas desde la
+    mitad de la fila. Lo que sigue en px y no cambia: el alto máximo del
+    panel de una actividad (200 px) y los mínimos de toque.
+  - **Regla para lo que se construya después:** toda letra y todo espacio va
+    con los tokens (rem). Una letra en px no seguiría la elección de la
+    persona.
   - **Grande** es el tamaño de antes. **Mediana**, la de partida, porque el
     dueño pidió la letra más chica en general.
   - Con mouse, en mediana el cuerpo queda en 14,25 px, el secundario en

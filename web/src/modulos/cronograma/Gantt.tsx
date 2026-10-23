@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import type { Actividad, ActividadDeLineaBase, Calendario, Grupo, VistaCronograma } from '../../api/tiposCronograma.ts';
 import { Icono } from '../../componentes/Icono.tsx';
 import { useSesion } from '../../sesion.tsx';
+import { useTamanoDeLetra, type TamanoDeLetra } from '../../tamanoDeLetra.ts';
 import type { Fila } from './filas.ts';
 import { diaDe, diaDeLaSemana, diaDelMes, dias, esNegativo, fechaDe, fechaTabla, fechaYHora, mesCorto, mesSiguiente, minutos, minutosDelDia, primeroDelMes } from './tiempo.ts';
 
@@ -61,9 +62,11 @@ const ALTO_MINIMO = 320;
 const ALTO_MINIMO_CON_PANEL = 200;
 const AIRE = 8;
 
-// 24 px y letra de 12 (pedido del dueño, 22 de octubre de 2026): más
-// actividades a la vista. Las barras del CSS están medidas para este alto.
-const ALTO_FILA = 24;
+// El alto de la fila sigue al tamaño de letra que eligió la persona
+// (tamanoDeLetra.ts): 24 px con la mediana (pedido del dueño, 22 y 23 de
+// octubre de 2026). Las barras del CSS se ubican desde la mitad de la fila,
+// así que sirven para los tres altos.
+const ALTO_FILA_POR_LETRA: Record<TamanoDeLetra, number> = { chica: 22, mediana: 24, grande: 26 };
 const ALTO_CABECERA = 40;
 const MARGEN_FILAS = 12;
 const PX_POR_DIA: Record<Escala, number> = { DIA: 28, SEMANA: 9, MES: 3 };
@@ -89,6 +92,7 @@ export function Gantt({ vista, anchos, alCambiarAncho, conPanel, filas, escala, 
   const { arranque } = useSesion();
   const formato = arranque.formatoNumerico;
   const marco = useRef<HTMLDivElement>(null);
+  const ALTO_FILA = ALTO_FILA_POR_LETRA[useTamanoDeLetra()];
   const [ventana, setVentana] = useState({ arriba: 0, alto: 600 });
   const [altoMaximo, setAltoMaximo] = useState<number | null>(null);
   const enfocar = useRef(false);
@@ -195,7 +199,7 @@ export function Gantt({ vista, anchos, alCambiarAncho, conPanel, filas, escala, 
       enfocar.current = false;
       window.requestAnimationFrame(() => el.querySelector<HTMLElement>(`[data-fila="${seleccion}"] .gantt-nombre-boton`)?.focus());
     }
-  }, [seleccion, indice]);
+  }, [seleccion, indice, ALTO_FILA]);
 
   const moverSeleccion = useCallback((desdeId: string, paso: 1 | -1) => {
     const i = indice.get(desdeId);
@@ -232,10 +236,10 @@ export function Gantt({ vista, anchos, alCambiarAncho, conPanel, filas, escala, 
       const x2 = alFin ? x(s.fin) : x(s.inicio);
       const y1 = i * ALTO_FILA + ALTO_FILA / 2;
       const y2 = j * ALTO_FILA + ALTO_FILA / 2;
-      salida.push({ id: d.id, d: trazo(x1, y1, x2, y2, desdeFin, alFin), critica: p.critica && s.critica });
+      salida.push({ id: d.id, d: trazo(x1, y1, x2, y2, desdeFin, alFin, ALTO_FILA), critica: p.critica && s.critica });
     }
     return salida;
-  }, [vista.dependencias, indice, porId, primera, ultima, x]);
+  }, [vista.dependencias, indice, porId, primera, ultima, x, ALTO_FILA]);
 
   const visibles: { f: Fila; i: number }[] = [];
   for (let i = primera; i <= ultima; i += 1) {
@@ -311,6 +315,7 @@ export function Gantt({ vista, anchos, alCambiarAncho, conPanel, filas, escala, 
               key={f.clave}
               f={f}
               i={i}
+              alto={ALTO_FILA}
               x={x}
               formato={formato}
               seleccionada={f.clase === 'actividad' && f.actividad.id === seleccion}
@@ -377,6 +382,7 @@ function AsaDeColumna({ nombre, ancho, minimo, alCambiar, alReiniciar }: { nombr
 interface PropsFila {
   f: Fila;
   i: number;
+  alto: number;
   x: (fh: string) => number;
   formato: { separadorDecimal: string; separadorMiles: string; decimalesVista: number };
   seleccionada: boolean;
@@ -389,7 +395,7 @@ interface PropsFila {
   accionesDeGrupo?: ((g: Grupo, primero: boolean, ultimo: boolean) => ReactNode) | undefined;
 }
 
-const FilaDelGantt = memo(function FilaDelGantt({ f, i, x, formato, seleccionada, enCiclo, plegada, base, alPlegar, alSeleccionar, alMover, accionesDeGrupo }: PropsFila) {
+const FilaDelGantt = memo(function FilaDelGantt({ f, i, alto, x, formato, seleccionada, enCiclo, plegada, base, alPlegar, alSeleccionar, alMover, accionesDeGrupo }: PropsFila) {
   const sangria = { ['--nivel' as string]: f.nivel };
   const plegar = (clave: string, nombre: string, plegable: boolean) =>
     plegable ? (
@@ -401,7 +407,7 @@ const FilaDelGantt = memo(function FilaDelGantt({ f, i, x, formato, seleccionada
   if (f.clase === 'capitulo') {
     const c = f.capitulo;
     return (
-      <div className="gantt-fila" role="row" aria-rowindex={i + 2} data-clase="capitulo" style={{ top: i * ALTO_FILA }}>
+      <div className="gantt-fila" role="row" aria-rowindex={i + 2} data-clase="capitulo" style={{ top: i * alto }}>
         <div className="gantt-celdas">
           <span role="cell" className="gantt-codigo">{plegar(c.id, `el capítulo ${c.codigo}`, f.plegable)}<span className="cifra-codigo">{c.codigo}</span></span>
           <span role="cell" className="gantt-nombre" style={sangria}><span className="gantt-nombre-texto" title={c.nombre}>{c.nombre}</span></span>
@@ -420,7 +426,7 @@ const FilaDelGantt = memo(function FilaDelGantt({ f, i, x, formato, seleccionada
   if (f.clase === 'titulo' || f.clase === 'grupo') {
     const nombre = f.clase === 'titulo' ? f.texto : f.grupo.nombre;
     return (
-      <div className="gantt-fila" role="row" aria-rowindex={i + 2} data-clase={f.clase} style={{ top: i * ALTO_FILA }}>
+      <div className="gantt-fila" role="row" aria-rowindex={i + 2} data-clase={f.clase} style={{ top: i * alto }}>
         <div className="gantt-celdas">
           <span role="cell" className="gantt-codigo">{plegar(f.clave, nombre, f.plegable)}</span>
           <span role="cell" className="gantt-nombre" style={sangria}>
@@ -452,7 +458,7 @@ const FilaDelGantt = memo(function FilaDelGantt({ f, i, x, formato, seleccionada
       data-fila={a.id}
       data-seleccionada={seleccionada ? 'si' : 'no'}
       data-ciclo={enCiclo ? 'si' : 'no'}
-      style={{ top: i * ALTO_FILA }}
+      style={{ top: i * alto }}
       onClick={() => alSeleccionar(a.id)}
     >
       <div className="gantt-celdas">
@@ -525,7 +531,7 @@ function BarraDeBase({ x1, x2, cero }: { x1: number; x2: number; cero: boolean }
  * predecesora y entra por el inicio o el fin de la sucesora, según el tipo.
  * Si no hay lugar para bajar derecho, da la vuelta por entre las dos filas.
  */
-function trazo(x1: number, y1: number, x2: number, y2: number, desdeFin: boolean, alFin: boolean): string {
+function trazo(x1: number, y1: number, x2: number, y2: number, desdeFin: boolean, alFin: boolean, ALTO_FILA: number): string {
   const sx = desdeFin ? x1 + 6 : x1 - 6;
   const lx = alFin ? x2 + 6 : x2 - 6;
   if (desdeFin === alFin) {
