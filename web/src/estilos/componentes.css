@@ -1867,7 +1867,12 @@ button.paso-del-indicador:hover { color: var(--texto); }
 .panel-inferior .titulo-de-bloque, .panel-inferior .lista-de-relaciones h4 { font-size: 0.8125rem; }
 .panel-inferior .formulario, .panel-inferior .panel-de-actividad-datos { gap: var(--e2); padding-top: 0; }
 .panel-inferior .fila-de-campos { gap: var(--e2); grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); }
-.panel-inferior .campo { gap: 2px; }
+.panel-inferior .campo { gap: 2px var(--e2); grid-template-columns: max-content minmax(0, 1fr); align-items: center; }
+/* Como en el panel de abajo de P6: la etiqueta a la izquierda del campo, en
+   el mismo renglón. El error ocupa el renglón entero. */
+.panel-inferior .campo > :is(.campo-error, .campo-ayuda) { grid-column: 1 / -1; }
+.panel-inferior .campo > :is(input, select) { justify-self: start; max-width: 100%; }
+.panel-inferior .campo > select { min-width: 10rem; }
 .panel-inferior .campo label, .panel-inferior .campo .etiqueta { font-size: var(--letra-xs); }
 .panel-inferior :is(.campo-ayuda, .dato-de-apoyo, .campo-error) { font-size: var(--letra-xs); }
 .panel-inferior :is(input, select) { min-height: 30px; padding-block: 0; padding-inline: var(--e2); font-size: 0.8125rem; }
@@ -1900,8 +1905,8 @@ button.paso-del-indicador:hover { color: var(--texto); }
 .grafico-de-curvas-plano:focus-visible { outline: 2px solid var(--terracota); outline-offset: 2px; border-radius: var(--radio-sm); }
 .grafico-de-curvas svg { display: block; }
 .curvas-rejilla { stroke: var(--borde-tenue); stroke-width: 1; }
-.curvas-eje { fill: var(--texto-segundo); font-size: 12px; font-family: var(--fuente-cifra); }
-.curvas-etiqueta { fill: var(--texto); font-size: 12px; font-weight: var(--peso-fuerte); }
+.curvas-eje { fill: var(--texto-segundo); font-size: var(--letra-xs); font-family: var(--fuente-cifra); }
+.curvas-etiqueta { fill: var(--texto); font-size: var(--letra-xs); font-weight: var(--peso-fuerte); }
 .curva { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .curva[data-serie='facturacion'] { stroke: var(--serie-facturacion); }
 .curva[data-serie='costo'] { stroke: var(--serie-costo); }

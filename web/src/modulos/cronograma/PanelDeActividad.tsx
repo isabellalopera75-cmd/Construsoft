@@ -62,16 +62,10 @@ export function PanelDeActividad({ actividad: a, vista, escribir, alSeleccionar,
       <div className="panel-de-actividad">
         <div className="panel-de-actividad-columna">
           <p className="panel-de-actividad-tipo">
-            <span className="insignia">{NOMBRE_DE_TIPO[a.tipo]}</span>
+            <span className="insignia" title={a.tipo === 'ADMINISTRACION' ? 'Va del inicio de la primera actividad del presupuesto al fin de la última, sin contar hitos ni trámites. No lleva relaciones ni restricciones, y su costo es la administración del AIU.' : undefined}>{NOMBRE_DE_TIPO[a.tipo]}</span>
             {a.critica ? <span className="insignia insignia-critica">Crítica</span> : null}
-            {a.tipo === 'ITEM' && !a.enPresupuesto ? <span className="insignia insignia-aviso">Ya no está en el presupuesto</span> : null}
+            {a.tipo === 'ITEM' && !a.enPresupuesto ? <span className="insignia insignia-aviso" title="Su ítem salió del presupuesto. Se deja aquí para que vea qué cadena se rompe: revise sus relaciones y elimínela cuando termine.">Ya no está en el presupuesto</span> : null}
           </p>
-          {a.tipo === 'ITEM' && !a.enPresupuesto ? (
-            <p className="nota-de-capa"><Icono nombre="aviso" tamano={18} /><span>Su ítem salió del presupuesto. Se deja aquí para que vea qué cadena se rompe: revise sus relaciones y elimínela cuando termine.</span></p>
-          ) : null}
-          {a.tipo === 'ADMINISTRACION' ? (
-            <p className="dato-de-apoyo">Va del inicio de la primera actividad del presupuesto al fin de la última, sin contar hitos ni trámites. No lleva relaciones ni restricciones, y su costo es la administración del AIU.</p>
-          ) : null}
 
           <Fechas a={a} formato={formato} />
           {base ? (
@@ -155,7 +149,7 @@ function Fechas({ a, formato }: { a: Actividad; formato: { separadorDecimal: str
   return (
     <dl className="datos-de-panel">
       <div><dt>{hito ? 'Fecha' : 'Inicio'}</dt><dd>{cuando(a.inicio)}</dd></div>
-      {hito ? null : <div><dt>Fin</dt><dd>{cuando(a.fin)}{a.finAMitadDeJornada ? <span className="dato-de-apoyo"> · termina a mitad de jornada</span> : null}</dd></div>}
+      {hito ? null : <div><dt>Fin</dt><dd>{cuando(a.fin)}{a.finAMitadDeJornada ? <span className="dato-de-apoyo"> · mitad de jornada</span> : null}</dd></div>}
       {a.tipo === 'ADMINISTRACION' ? null : (
         <>
           <div><dt>{hito ? 'Fecha tardía' : 'Inicio tardío'}</dt><dd>{cuando(a.inicioTardio)}</dd></div>
@@ -164,7 +158,6 @@ function Fechas({ a, formato }: { a: Actividad; formato: { separadorDecimal: str
             <dt>Holgura total</dt>
             <dd className="cifra-en-texto" data-negativa={esNegativo(a.holguraTotalDias) ? 'si' : 'no'}>
               {dias(a.holguraTotalDias, formato)} días
-              {esNegativo(a.holguraTotalDias) ? <span className="dato-de-apoyo"> · una restricción que la lógica no cumple</span> : null}
             </dd>
           </div>
           <div><dt>Holgura libre</dt><dd className="cifra-en-texto">{dias(a.holguraLibreDias, formato)} días</dd></div>
@@ -317,24 +310,24 @@ function Datos({ a, vista, editable, escribir }: { a: Actividad; vista: VistaCro
       {a.tipo === 'ITEM' ? (
         <>
           <p className="dato-de-apoyo">{calculada}</p>
-          <Campo etiqueta="Cuadrillas" ayuda="Es la palanca para acortar: con dos cuadrillas, la mitad del tiempo." error={errores['cuadrillas']}>
-            {(x) => <input {...x} className="campo-cifra-corto" inputMode="numeric" autoComplete="off" value={f.cuadrillas} onChange={(e) => poner({ cuadrillas: e.target.value.replace(/\D/g, '') })} />}
-          </Campo>
         </>
       ) : null}
-      {conManual ? (
-        <Campo
-          etiqueta={`Duración ${a.tipo === 'ITEM' ? 'manual ' : ''}(días${f.usaCorrido ? ' corridos' : ''})`}
-          ayuda={a.tipo === 'ITEM' ? 'Si la escribe, manda sobre la calculada. Vacía, vale la calculada.' : 'Con un decimal como máximo.'}
-          error={errores['duracionManualDias']}
-        >
-          {(x) => <input {...x} className="campo-cifra-corto" inputMode="decimal" autoComplete="off" value={f.manual} onChange={(e) => poner({ manual: soloCifra(e.target.value, formato.separadorDecimal) })} />}
-        </Campo>
-      ) : null}
+      <div className="fila-de-campos">
+        {a.tipo === 'ITEM' ? (
+          <Campo etiqueta="Cuadrillas" error={errores['cuadrillas']}>
+            {(x) => <input {...x} className="campo-cifra-corto" title="Con dos cuadrillas, la mitad del tiempo." inputMode="numeric" autoComplete="off" value={f.cuadrillas} onChange={(e) => poner({ cuadrillas: e.target.value.replace(/\D/g, '') })} />}
+          </Campo>
+        ) : null}
+        {conManual ? (
+          <Campo etiqueta={`Duración ${a.tipo === 'ITEM' ? 'manual ' : ''}(días${f.usaCorrido ? ' corridos' : ''})`} error={errores['duracionManualDias']}>
+            {(x) => <input {...x} className="campo-cifra-corto" title={a.tipo === 'ITEM' ? 'Si la escribe, manda sobre la calculada. Vacía, vale la calculada.' : 'Con un decimal como máximo.'} inputMode="decimal" autoComplete="off" value={f.manual} onChange={(e) => poner({ manual: soloCifra(e.target.value, formato.separadorDecimal) })} />}
+          </Campo>
+        ) : null}
+      </div>
       {a.tipo === 'SIN_COSTO' ? (
         <label className="casilla">
           <input type="checkbox" checked={f.usaCorrido} onChange={(e) => poner({ usaCorrido: e.target.checked })} />
-          <span>Corre todos los días, 24 horas (curados, fabricación, trámites)</span>
+          <span>Corre todos los días, 24 horas</span>
         </label>
       ) : null}
       {esHitoOTramite(a) && vista.grupos.length > 0 ? (
@@ -382,8 +375,7 @@ function Datos({ a, vista, editable, escribir }: { a: Actividad; vista: VistaCro
                 </Campo>
               ) : null}
             </div>
-          ) : f.rTipo !== '' ? <p className="dato-de-apoyo">«{NOMBRE_DE_RESTRICCION[f.rTipo]}» no admite restricción secundaria.</p> : null}
-          <p className="campo-ayuda">Las de inicio toman el comienzo de la jornada y las de fin, el cierre. Las obligatorias pasan por encima de la lógica.</p>
+          ) : null}
         </fieldset>
       ) : null}
 
@@ -397,9 +389,9 @@ function Datos({ a, vista, editable, escribir }: { a: Actividad; vista: VistaCro
 }
 
 function explicarCalculada(a: Actividad, formato: { separadorDecimal: string; separadorMiles: string; decimalesVista: number }): string {
-  if (a.rendimiento === null) return 'El APU de esta actividad no tiene rendimiento: escriba la duración a mano, o póngale rendimiento al APU.';
+  if (a.rendimiento === null) return 'Sin rendimiento en el APU: duración a mano.';
   const cuadrillas = a.cuadrillas === 1 ? '1 cuadrilla' : `${a.cuadrillas} cuadrillas`;
-  return `Calculada: ${dias(a.duracionCalculadaDias, formato)} días. Son ${formatearNumero(a.cantidad, formato)} ${a.unidad ?? ''} a ${paraEditar(a.rendimiento, formato)} por jornal, con ${cuadrillas}.`;
+  return `Calculada: ${dias(a.duracionCalculadaDias, formato)} días · ${formatearNumero(a.cantidad, formato)} ${a.unidad ?? ''} a ${paraEditar(a.rendimiento, formato)}/jornal, ${cuadrillas}`;
 }
 
 function Restricciones({ a }: { a: Actividad }) {
@@ -423,8 +415,8 @@ function Relaciones({ a, vista, editable, escribir, alSeleccionar }: { a: Activi
   return (
     <section className="relaciones" aria-labelledby={`rel-${a.id}`}>
       <h3 className="titulo-de-bloque" id={`rel-${a.id}`}>Relaciones</h3>
-      <ListaDeRelaciones titulo="Predecesoras" vacio="Sin predecesoras: arranca en la fecha de inicio del cronograma." lado="pred" deps={predecesoras} porId={porId} a={a} vista={vista} editable={editable} escribir={escribir} alSeleccionar={alSeleccionar} />
-      <ListaDeRelaciones titulo="Sucesoras" vacio="Sin sucesoras: se mide contra el fin del proyecto." lado="suc" deps={sucesoras} porId={porId} a={a} vista={vista} editable={editable} escribir={escribir} alSeleccionar={alSeleccionar} />
+      <ListaDeRelaciones titulo="Predecesoras" vacio="Sin predecesoras." lado="pred" deps={predecesoras} porId={porId} a={a} vista={vista} editable={editable} escribir={escribir} alSeleccionar={alSeleccionar} />
+      <ListaDeRelaciones titulo="Sucesoras" vacio="Sin sucesoras." lado="suc" deps={sucesoras} porId={porId} a={a} vista={vista} editable={editable} escribir={escribir} alSeleccionar={alSeleccionar} />
     </section>
   );
 }
@@ -605,7 +597,6 @@ function NuevaRelacion({ lado, a, vista, escribir, alCerrar }: { lado: 'pred' | 
           {(x) => <input {...x} className="campo-desfase" inputMode="decimal" autoComplete="off" value={desfase} onChange={(e) => setDesfase(e.target.value.replace(/[^\d,.-]/g, ''))} />}
         </Campo>
       </div>
-      <p className="campo-ayuda">El desfase va negativo para traslapar, y se cuenta en el calendario de la sucesora.</p>
       {error ? <p className="aviso-error" role="alert"><Icono nombre="aviso" /><span>{error}</span></p> : null}
       <div className="fila-de-botones fila-izquierda">
         <button type="button" className="boton boton-secundario" disabled={enviando} onClick={alCerrar}>Cancelar</button>

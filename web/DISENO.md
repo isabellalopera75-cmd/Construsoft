@@ -827,6 +827,24 @@ mouse viaje menos:
   las relaciones del cronograma también. El campo de búsqueda, con letra de
   13. Solo con mouse; en pantalla táctil siguen como antes, para el dedo.
 
+### 23 de octubre de 2026 · El panel de una actividad, sin textos de ayuda (pedido del dueño)
+
+- **Como el panel de abajo de P6:** sin textos de ayuda ni de ejemplo. Las
+  explicaciones pasan al `title` de su campo o de su insignia, y aparecen al
+  pasar el mouse: qué hacen las cuadrillas, cuándo manda la duración manual,
+  la administración y «ya no está en el presupuesto».
+- **Se fueron del todo:**
+  - la ayuda de las restricciones;
+  - la del desfase al agregar una relación;
+  - el aviso de que una principal no admite secundaria: el campo
+    simplemente no aparece;
+  - la nota de holgura negativa: el rojo de la cifra lo dice.
+- **Quedaron cortos:** «Sin predecesoras.», «Sin sucesoras.», la duración
+  calculada en un renglón («Calculada: 7,4 días · 18,50 m³ a 2,5/jornal,
+  1 cuadrilla») y «Corre todos los días, 24 horas».
+- **Las etiquetas van a la izquierda de su campo**, en el mismo renglón;
+  cuadrillas y duración manual, lado a lado.
+
 ## 12. Lo que todavía no está decidido
 
 Para que nadie lo lea creyendo que está completo:
