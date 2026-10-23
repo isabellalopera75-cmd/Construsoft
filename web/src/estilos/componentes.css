@@ -1638,6 +1638,16 @@ button.paso-del-indicador:hover { color: var(--texto); }
 .cronograma .franja-texto { gap: 0; }
 .cronograma .franja .boton { min-height: 30px; font-size: var(--letra-xs); }
 .cronograma .pestanas { padding: 2px; }
+/* Las pestañas y, a su lado, el aviso de la administración en un renglón. */
+.fila-de-pestanas { display: flex; flex-wrap: wrap; align-items: center; gap: var(--e2) var(--e3); }
+.fila-de-pestanas .pestanas { flex: none; }
+.aviso-de-administracion {
+  flex: 0 1 auto; min-width: 0; margin: 0; display: flex; align-items: center; gap: var(--e2);
+  padding: var(--e1) var(--e3); font-size: 0.8125rem; color: var(--texto);
+  background: color-mix(in srgb, var(--aviso) 8%, var(--bg-tarjeta)); border: 1px solid var(--borde-tenue); border-left: 3px solid var(--aviso); border-radius: var(--radio-md);
+}
+.aviso-de-administracion .icono { flex: none; color: var(--aviso); }
+.aviso-de-administracion span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cronograma .pestana { min-height: 32px; padding: 0 var(--e3); }
 .cronograma .barra-del-gantt { gap: var(--e1) var(--e3); }
 .cronograma .barra-del-gantt :is(.boton, .conmutador-opcion) { min-height: 32px; padding-inline: var(--e2); font-size: 0.8125rem; }

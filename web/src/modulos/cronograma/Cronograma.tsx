@@ -21,7 +21,7 @@ import { armarFilas, nivelesDelCronograma } from './filas.ts';
 import { ANCHOS_INICIALES, Gantt, type Anchos, type Escala } from './Gantt.tsx';
 import { PanelDeActividad } from './PanelDeActividad.tsx';
 import { contarRevision, Revision } from './Revision.tsx';
-import { dias, fechaConDia, hoy } from './tiempo.ts';
+import { dias, fechaConDia, fechaCorta, hoy } from './tiempo.ts';
 
 /*
  * La pantalla del cronograma (07 §6, CONTRATO §19). Uno por proyecto (D-82):
@@ -277,17 +277,20 @@ export function Cronograma({ presupuestoId }: { presupuestoId: string }) {
         alIr={irA}
       />
 
-      <Pestanas<Pestana>
-        etiqueta="Vistas del cronograma"
-        idBase="pestana-crono"
-        actual={pestana}
-        alCambiar={setPestana}
-        pestanas={[
-          { id: 'gantt', nombre: 'Gantt' },
-          { id: 'curvas', nombre: 'Curvas S' },
-          { id: 'revision', nombre: 'Revisión', conteo: pendientes > 0 ? pendientes : undefined },
-        ]}
-      />
+      <div className="fila-de-pestanas">
+        <Pestanas<Pestana>
+          etiqueta="Vistas del cronograma"
+          idBase="pestana-crono"
+          actual={pestana}
+          alCambiar={setPestana}
+          pestanas={[
+            { id: 'gantt', nombre: 'Gantt' },
+            { id: 'curvas', nombre: 'Curvas S' },
+            { id: 'revision', nombre: 'Revisión', conteo: pendientes > 0 ? pendientes : undefined },
+          ]}
+        />
+        <AvisoDeAdministracion vista={vista} />
+      </div>
       <div id="pestana-crono-panel" role="tabpanel" aria-labelledby={`pestana-crono-${pestana}`} className="panel-de-pestana panel-de-cronograma">
         {pestana === 'gantt' ? (
           <>
@@ -405,6 +408,27 @@ interface PropsFranjas {
   alIr: (id: string) => void;
 }
 
+/**
+ * El aviso de la administración (D-93) en un solo renglón, al lado de las
+ * pestañas (pedido del dueño, 22 de octubre de 2026): la obra termina más
+ * tarde que la línea base y la administración del presupuesto no cambió.
+ * Si no cabe, se corta con puntos suspensivos y el texto entero queda en el
+ * título; en pantalla angosta baja debajo de las pestañas.
+ */
+function AvisoDeAdministracion({ vista }: { vista: VistaCronograma }) {
+  const formato = useSesion().arranque.formatoNumerico;
+  const adm = vista.avisos.administracion;
+  if (!adm) return null;
+  const nombreBase = vista.lineasBase.find((l) => l.id === adm.lineaBaseId)?.nombre ?? vista.lineaBase?.nombre ?? '';
+  const texto = `Termina ${dias(adm.diasDeMas, formato)} días después que «${nombreBase}» (${fechaCorta(adm.finLineaBase)} → ${fechaCorta(adm.finActual)}): la administración del presupuesto sigue igual.`;
+  return (
+    <p className="aviso-de-administracion" role="note" title={texto}>
+      <Icono nombre="reloj" tamano={16} />
+      <span>{texto}</span>
+    </p>
+  );
+}
+
 function Franjas({ vista, cerrado, rechazado, errorGeneral, puedeCerrarAviso, alDescartarRechazo, alQuitarError, alCerrarAviso, alCopiarFestivos, alIr }: PropsFranjas) {
   const { arranque } = useSesion();
   const formato = arranque.formatoNumerico;
@@ -413,9 +437,7 @@ function Franjas({ vista, cerrado, rechazado, errorGeneral, puedeCerrarAviso, al
   const [errorAviso, setErrorAviso] = useState<string | null>(null);
   const p = vista.avisos.presupuesto;
   const f = vista.avisos.festivos;
-  const adm = vista.avisos.administracion;
   const d = (t: string) => dias(t, formato);
-  const nombreBase = vista.lineasBase.find((l) => l.id === adm?.lineaBaseId)?.nombre ?? vista.lineaBase?.nombre ?? '';
   const lista = (xs: { id: string; codigo: string; nombre: string }[]) => (
     <ul className="lista-en-franja">
       {xs.map((x) => <li key={x.id}><button type="button" className="enlace-de-actividad" onClick={() => alIr(x.id)}><span className="cifra-codigo">{x.codigo}</span> {x.nombre}</button></li>)}
@@ -508,15 +530,8 @@ function Franjas({ vista, cerrado, rechazado, errorGeneral, puedeCerrarAviso, al
           {vista.cronograma.editable ? <button type="button" className="boton boton-secundario" onClick={alCopiarFestivos}>Copiar festivos</button> : null}
         </div>
       ) : null}
-      {adm ? (
-        <div className="franja franja-aviso" role="note">
-          <Icono nombre="reloj" />
-          <p className="franja-texto">
-            La obra termina {d(adm.diasDeMas)} días después que la línea base «{nombreBase}»; la administración del presupuesto sigue igual.
-            <span className="dato-de-apoyo"> Fin de la línea base: {fechaConDia(adm.finLineaBase)}. Fin de hoy: {fechaConDia(adm.finActual)}.</span>
-          </p>
-        </div>
-      ) : null}
+      {/* El aviso de la administración no va aquí: va en el renglón de las
+          pestañas (AvisoDeAdministracion), y el Gantt gana un renglón. */}
     </>
   );
 }

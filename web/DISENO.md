@@ -791,6 +791,12 @@ mouse viaje menos:
 
   Los botones de 32 px quedan bajo el mínimo de toque de 44 px, como los del
   panel.
+- **El aviso de la administración** (D-93) va en un solo renglón, al lado de
+  las pestañas, del ancho de su texto (pedido del dueño, 23 de octubre de
+  2026). El texto se acortó: «Termina 19,0 días después que «Contrato» (02
+  jul 2027 → 29 jul 2027): la administración del presupuesto sigue igual.».
+  Si no cabe, se corta con puntos suspensivos y el texto entero queda en el
+  título. Las otras franjas siguen arriba, porque piden una acción.
 
 ## 12. Lo que todavía no está decidido
 
