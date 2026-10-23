@@ -1368,15 +1368,20 @@ button.paso-del-indicador:hover { color: var(--texto); }
   .tabla-mesa .agregar-elegido .etiqueta-en-linea { flex: none; white-space: nowrap; font-size: var(--letra-xs); }
   .tabla-mesa .agregar-elegido .boton { flex: none; font-size: var(--letra-xs); padding: 0 var(--e3); }
 
-  .tabla-mesa .agregar-actividad .buscador-lista { margin-top: 2px; padding: 2px; }
-  .tabla-mesa .agregar-actividad .buscador-opcion,
-  .tabla-mesa .agregar-actividad .buscador-nota { padding: 2px var(--e2); line-height: var(--linea-apretada); }
-  .tabla-mesa .agregar-actividad .buscador-extra { margin-top: 2px; }
-  .tabla-mesa .agregar-actividad .buscador-extra .icono { width: 14px; height: 14px; }
-  .tabla-mesa .agregar-actividad .opcion-de-busqueda { grid-template-columns: auto minmax(0, 1fr) auto auto; }
-  .tabla-mesa .agregar-actividad .opcion-de-busqueda-nombre { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .tabla-mesa .agregar-actividad .opcion-de-busqueda .dato-de-apoyo { grid-column: 3; grid-row: 1; font-size: var(--letra-xs); }
-  .tabla-mesa .agregar-actividad .opcion-de-busqueda .cifra { grid-column: 4; }
+  .tabla-mesa .agregar-actividad .buscador-lista { margin-top: 2px; }
+  /* Las listas de todos los buscadores, compactas y en un renglón, como la
+     de agregar actividades en la mesa: también la de vincular un recurso en
+     el APU y la de las relaciones del cronograma (pedido del dueño, 23 de
+     octubre de 2026). */
+  .buscador .control-con-icono input { font-size: var(--letra-sm); }
+  .buscador-lista { padding: 2px; }
+  .buscador-opcion, .buscador-nota { padding: 2px var(--e2); line-height: var(--linea-apretada); }
+  .buscador-extra { margin-top: 2px; }
+  .buscador-extra .icono { width: 14px; height: 14px; }
+  .opcion-de-busqueda { grid-template-columns: auto minmax(0, 1fr) auto auto; }
+  .opcion-de-busqueda-nombre { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .opcion-de-busqueda .dato-de-apoyo { grid-column: 3; grid-row: 1; font-size: var(--letra-xs); }
+  .opcion-de-busqueda .cifra { grid-column: 4; }
 }
 
 /* 2 · Los datos del proyecto, en la franja de arriba de la tabla. */

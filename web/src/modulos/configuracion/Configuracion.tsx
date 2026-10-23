@@ -21,6 +21,7 @@ import { formatearNumero } from '../../formato.ts';
 import { ir, type PestanaDeConfiguracion } from '../../navegacion.ts';
 import { useSesion } from '../../sesion.tsx';
 import { cambiarPosicionDelMenu, usePosicionDelMenu } from '../../cascaron/posicionDelMenu.ts';
+import { cambiarTamanoDeLetra, useTamanoDeLetra, type TamanoDeLetra } from '../../tamanoDeLetra.ts';
 
 /*
  * 02 §11 · Configuración, en pestañas. Para el 18 de octubre entran cuatro: mi
@@ -112,10 +113,17 @@ function MiCuentaPestana() {
  * Va en Mi cuenta porque es de la persona, no de la empresa, y Mi cuenta la ve
  * todo rol. Se aplica al elegir, sin «Guardar», como el botón del tema.
  */
+const TAMANOS: { valor: TamanoDeLetra; titulo: string; detalle: string }[] = [
+  { valor: 'chica', titulo: 'Chica', detalle: 'Cabe más en cada pantalla: más filas en la mesa y en el cronograma.' },
+  { valor: 'mediana', titulo: 'Mediana', detalle: 'La de partida.' },
+  { valor: 'grande', titulo: 'Grande', detalle: 'Más fácil de leer, sobre todo en pantallas chicas o lejanas.' },
+];
+
 function MiPantalla() {
   const posicion = usePosicionDelMenu();
+  const letra = useTamanoDeLetra();
   return (
-    <Seccion titulo="Mi pantalla" ayuda="Se recuerda en este navegador. En el teléfono el menú sigue en el botón de menú, arriba a la izquierda.">
+    <Seccion titulo="Mi pantalla" ayuda="Se recuerda en este navegador y se ve al elegir. En el teléfono el menú sigue en el botón de menú, arriba a la izquierda.">
       <fieldset className="campo grupo-de-opciones">
         <legend className="etiqueta">Posición del menú</legend>
         <label className="opcion">
@@ -132,6 +140,18 @@ function MiPantalla() {
             <span className="opcion-detalle">Los módulos van en la barra superior y las pantallas ganan el ancho de la barra lateral.</span>
           </span>
         </label>
+      </fieldset>
+      <fieldset className="campo grupo-de-opciones">
+        <legend className="etiqueta">Tamaño de la letra</legend>
+        {TAMANOS.map((t) => (
+          <label key={t.valor} className="opcion">
+            <input type="radio" name="tamano-de-letra" checked={letra === t.valor} onChange={() => cambiarTamanoDeLetra(t.valor)} />
+            <span>
+              <span className="opcion-titulo">{t.titulo}</span>
+              <span className="opcion-detalle">{t.detalle}</span>
+            </span>
+          </label>
+        ))}
       </fieldset>
     </Seccion>
   );

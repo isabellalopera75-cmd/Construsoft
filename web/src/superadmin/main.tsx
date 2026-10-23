@@ -11,10 +11,12 @@ import '../estilos/componentes.css';
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { restaurarTamanoDeLetra } from '../tamanoDeLetra.ts';
 import { restaurarTema } from '../tema.ts';
 import { AppDePlataforma } from './App.tsx';
 
 restaurarTema();
+restaurarTamanoDeLetra();
 
 const raiz = document.getElementById('raiz');
 if (!raiz) throw new Error('Falta el nodo #raiz en superadmin/index.html.');

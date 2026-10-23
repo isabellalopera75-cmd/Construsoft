@@ -798,6 +798,27 @@ mouse viaje menos:
   Si no cabe, se corta con puntos suspensivos y el texto entero queda en el
   título. Las otras franjas siguen arriba, porque piden una acción.
 
+### 23 de octubre de 2026 · El tamaño de la letra y los buscadores (pedido del dueño)
+
+- **Tamaño de la letra** (`tamanoDeLetra.ts`), en Configuración › Mi cuenta ›
+  Mi pantalla: chica, mediana o grande.
+  - Cambia el `font-size` del `<html>` (`data-letra`): 90 %, 95 % y 100 %.
+    Las letras y los espacios de los tokens van en rem, así que todo cambia
+    junto. Lo que va en px no cambia: las filas del Gantt, el panel de
+    200 px y los mínimos de toque.
+  - **Grande** es el tamaño de antes. **Mediana**, la de partida, porque el
+    dueño pidió la letra más chica en general.
+  - Con mouse, en mediana el cuerpo queda en 14,25 px, el secundario en
+    12,35 y las etiquetas en 11,4. En chica, 13,5, 11,7 y 10,8: bajo los 12 px
+    que DISENO tenía de piso para etiquetas. Es elección de cada quien.
+  - Se recuerda en el navegador, como el tema y la posición del menú. Si se
+    quiere que siga a la persona entre equipos, hace falta guardarlo en la
+    cuenta, y eso es un cambio de la API.
+- **Las listas de los buscadores** van compactas y en un renglón, como la de
+  agregar actividades en la mesa: la de vincular un recurso en el APU y la de
+  las relaciones del cronograma también. El campo de búsqueda, con letra de
+  13. Solo con mouse; en pantalla táctil siguen como antes, para el dedo.
+
 ## 12. Lo que todavía no está decidido
 
 Para que nadie lo lea creyendo que está completo:

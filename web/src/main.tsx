@@ -21,9 +21,11 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App.tsx';
 import { restaurarTema } from './tema.ts';
+import { restaurarTamanoDeLetra } from './tamanoDeLetra.ts';
 
 // Antes de pintar: si la persona eligió un tema, que no destelle el otro.
 restaurarTema();
+restaurarTamanoDeLetra();
 
 const raiz = document.getElementById('raiz');
 if (!raiz) throw new Error('Falta el nodo #raiz en index.html.');

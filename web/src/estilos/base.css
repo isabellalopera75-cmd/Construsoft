@@ -5,6 +5,12 @@
 *, *::before, *::after { box-sizing: border-box; }
 
 html { color-scheme: dark light; }
+/* El tamaño de la letra que elige cada quien (tamanoDeLetra.ts). Las letras y
+   los espacios van en rem, así que todo cambia junto. Grande es el de antes
+   del 23 de octubre de 2026; mediana, la de partida. */
+html, html[data-letra='mediana'] { font-size: 95%; }
+html[data-letra='chica'] { font-size: 90%; }
+html[data-letra='grande'] { font-size: 100%; }
 :root[data-tema='claro'] { color-scheme: light; }
 :root[data-tema='oscuro'] { color-scheme: dark; }
 
