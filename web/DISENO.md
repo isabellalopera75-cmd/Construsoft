@@ -844,6 +844,11 @@ mouse viaje menos:
   1 cuadrilla») y «Corre todos los días, 24 horas».
 - **Las etiquetas van a la izquierda de su campo**, en el mismo renglón;
   cuadrillas y duración manual, lado a lado.
+- **Más denso, como P6** (mismo día): todo el panel en letra de 12, títulos
+  incluidos, con campos y botones de 24 px y casi sin aire entre renglones.
+  24 px es el mínimo de WCAG 2.5.8; P6 usa unos 18, pero más chico ya no se
+  atina con el mouse sin riesgo. Esto reemplaza los 30 px y la letra de 13
+  del 22 de octubre.
 
 ## 12. Lo que todavía no está decidido
 

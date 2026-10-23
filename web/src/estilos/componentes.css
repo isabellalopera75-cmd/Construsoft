@@ -1883,6 +1883,46 @@ button.paso-del-indicador:hover { color: var(--texto); }
 .panel-inferior .relacion { padding: 2px 0; }
 .panel-inferior .panel-de-actividad-pie { padding-top: var(--e2); }
 .panel-inferior .nueva-relacion { padding: var(--e2); gap: var(--e2); }
+/* Más denso, como el panel de abajo de P6 (pedido del dueño, 23 de octubre de
+   2026): todo en letra de 12, campos y botones de 24 px (el mínimo de WCAG
+   2.5.8), títulos de 12 y casi sin aire entre renglones. Va después de lo de
+   arriba y lo reemplaza. */
+.panel-inferior { font-size: var(--letra-xs); line-height: 1.3; }
+.panel-inferior .panel-lateral-cabecera { padding: 2px var(--e1) 2px var(--e3); }
+.panel-inferior .panel-lateral-cabecera h2 { font-size: var(--letra-xs); font-family: var(--fuente-texto); font-weight: var(--peso-fuerte); }
+.panel-inferior .panel-lateral-cabecera .boton-icono { width: 24px; height: 24px; }
+.panel-inferior .panel-lateral-cabecera .boton-icono .icono { width: 14px; height: 14px; }
+.panel-inferior .panel-lateral-cuerpo { padding: var(--e1) var(--e3); }
+.panel-inferior .panel-de-actividad { gap: var(--e3); }
+.panel-inferior .panel-de-actividad-columna { gap: var(--e1); }
+.panel-inferior .panel-de-actividad-columna + .panel-de-actividad-columna { padding-left: var(--e3); }
+.panel-inferior :is(.titulo-de-bloque, .lista-de-relaciones h4) { font-size: var(--letra-xs); font-family: var(--fuente-texto); font-weight: var(--peso-fuerte); line-height: 1.3; }
+.panel-inferior .datos-de-panel { column-gap: var(--e3); }
+.panel-inferior .datos-de-panel > div { padding: 1px 0; }
+.panel-inferior .datos-de-panel :is(dt, dd) { font-size: var(--letra-xs); line-height: 1.3; }
+.panel-inferior .insignia { padding: 0 var(--e1); line-height: 1.4; }
+.panel-inferior .panel-de-actividad-tipo { gap: var(--e1); }
+.panel-inferior :is(.formulario, .panel-de-actividad-datos, .grupo-de-restricciones, .relaciones, .lista-de-relaciones, .nueva-relacion) { gap: var(--e1); }
+.panel-inferior .grupo-de-restricciones { padding-top: var(--e1); }
+.panel-inferior .fila-de-campos { gap: var(--e1) var(--e3); }
+.panel-inferior .campo { gap: 1px var(--e2); }
+.panel-inferior .campo label, .panel-inferior .campo .etiqueta, .panel-inferior legend { font-size: var(--letra-xs); font-weight: var(--peso-medio); }
+.panel-inferior :is(input, select) { min-height: 24px; height: 24px; padding-inline: var(--e1); font-size: var(--letra-xs); border-radius: var(--radio-sm); }
+.panel-inferior .campo > select { min-width: 9rem; }
+.panel-inferior .campo-cifra-corto { max-width: 5.5rem; }
+.panel-inferior .boton { min-height: 24px; height: 24px; padding: 0 var(--e2); gap: var(--e1); font-size: var(--letra-xs); border-radius: var(--radio-sm); }
+.panel-inferior .boton .icono { width: 14px; height: 14px; }
+.panel-inferior .boton-icono { width: 24px; height: 24px; min-height: 24px; }
+.panel-inferior .relacion { padding: 1px 0; gap: 0 var(--e2); align-items: center; }
+.panel-inferior .enlace-de-actividad { min-height: 0; padding-block: 0; font-size: var(--letra-xs); }
+.panel-inferior .lista-de-relaciones ul { gap: 0; }
+.panel-inferior .relacion-controles { gap: 2px; }
+.panel-inferior .relacion-controles :is(select, input) { min-height: 24px; height: 24px; font-size: var(--letra-xs); }
+.panel-inferior .campo-desfase { width: 3.5rem; }
+.panel-inferior .cifra-codigo { font-size: var(--letra-xs); }
+.panel-inferior .casilla { font-size: var(--letra-xs); gap: var(--e1); }
+.panel-inferior .panel-de-actividad-pie { padding-top: var(--e1); }
+.panel-inferior .nueva-relacion { padding: var(--e1) var(--e2); }
 @media (max-width: 1024px) {
   .panel-inferior .panel-lateral-cuerpo { overflow-y: auto; }
   .panel-inferior .panel-de-actividad { height: auto; grid-template-columns: minmax(0, 1fr); }
