@@ -849,6 +849,9 @@ mouse viaje menos:
   24 px es el mínimo de WCAG 2.5.8; P6 usa unos 18, pero más chico ya no se
   atina con el mouse sin riesgo. Esto reemplaza los 30 px y la letra de 13
   del 22 de octubre.
+- **Agregar una relación** es un botón solo con el icono de enlace, a la
+  derecha de «Predecesoras» y «Sucesoras», en la columna de los controles.
+  El nombre va en el `title` y en el `aria-label`.
 
 ## 12. Lo que todavía no está decidido
 

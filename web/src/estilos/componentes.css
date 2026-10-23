@@ -1916,6 +1916,8 @@ button.paso-del-indicador:hover { color: var(--texto); }
 .panel-inferior .relacion { padding: 1px 0; gap: 0 var(--e2); align-items: center; }
 .panel-inferior .enlace-de-actividad { min-height: 0; padding-block: 0; font-size: var(--letra-xs); }
 .panel-inferior .lista-de-relaciones ul { gap: 0; }
+.boton-agregar-relacion { border: 1px solid var(--borde-campo); }
+.boton-agregar-relacion:hover { border-color: var(--borde-activo); color: var(--terracota); }
 .panel-inferior .relacion-controles { gap: 2px; }
 .panel-inferior .relacion-controles :is(select, input) { min-height: 24px; height: 24px; font-size: var(--letra-xs); }
 .panel-inferior .campo-desfase { width: 3.5rem; }

@@ -443,9 +443,11 @@ function ListaDeRelaciones({ titulo, vacio, lado, deps, porId, a, vista, editabl
       <div className="lista-de-relaciones-cabecera">
         <h4>{titulo} {deps.length > 0 ? <span className="pestana-conteo">{deps.length}</span> : null}</h4>
         {editable && !agregando ? (
-          <button type="button" className="boton boton-secundario boton-chico-texto" onClick={() => setAgregando(true)}>
-            <Icono nombre="enlace" tamano={16} />
-            Agregar
+          // Solo el icono, al lado de los controles de las relaciones; el nombre
+          // va en el título y para el lector de pantalla (pedido del dueño, 23 de
+          // octubre de 2026).
+          <button type="button" className="boton-icono boton-agregar-relacion" aria-label={lado === 'pred' ? 'Agregar predecesora' : 'Agregar sucesora'} title={lado === 'pred' ? 'Agregar predecesora' : 'Agregar sucesora'} onClick={() => setAgregando(true)}>
+            <Icono nombre="enlace" tamano={14} />
           </button>
         ) : null}
       </div>
